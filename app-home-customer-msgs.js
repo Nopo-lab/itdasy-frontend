@@ -125,6 +125,11 @@
       <span style="min-width:0;">
         <span style="display:block;font-size:13.5px;font-weight:700;color:var(--text-subtle);">새 메시지 없어요</span>
         <span style="display:block;font-size:11px;color:var(--text-subtle);margin-top:2px;">메시지가 오면 여기에 미리보기가 떠요</span>
+        <!-- [2026-07-22 보스] "DM 왔는데 홈엔 하나도 안 뜬다"는 신고 대응.
+             이 줄은 인스타가 DM 을 앱으로 보내주기 시작해야 카드가 뜬다는 걸 알려주고,
+             막혔을 때 원장이 스스로 풀 수 있는 유일한 길(재연결)로 보낸다.
+             '없다'와 '못 받고 있다'를 구분 못 하면 앱이 고장난 걸로 읽힌다. -->
+        <button type="button" id="hv5CmsgWhy" style="display:block;margin-top:5px;padding:0;background:none;border:none;font-family:inherit;font-size:11px;font-weight:700;color:var(--brand-strong);cursor:pointer;text-align:left;">DM이 왔는데 안 보이면? →</button>
       </span>
     </div>`;
   }
@@ -220,6 +225,22 @@
       if (reconnect) {
         e.preventDefault();
         if (typeof window.connectInstagram === 'function') window.connectInstagram();
+        return;
+      }
+      // [2026-07-22 보스] "DM 왔는데 안 보이면?" — 원인을 있는 그대로 말하고 재연결로 보낸다.
+      //   손님 DM 은 인스타가 우리 앱으로 밀어줘야(webhook) 여기 뜬다. 연결이 헐거우면 조용히 0건이 된다.
+      const why = e.target.closest('#hv5CmsgWhy');
+      if (why) {
+        e.preventDefault();
+        const msg = '손님 DM은 인스타가 앱으로 보내줘야 여기 떠요. 안 보이면 인스타를 다시 연결해 주세요.';
+        if (typeof window.nativeConfirm === 'function') {
+          window.nativeConfirm('DM이 안 보여요', msg + '\n\n지금 다시 연결할까요?').then((ok) => {
+            if (ok && typeof window.connectInstagram === 'function') window.connectInstagram();
+          }).catch(() => {});
+        } else {
+          if (typeof window.showToast === 'function') window.showToast(msg);
+          if (typeof window.connectInstagram === 'function') window.connectInstagram();
+        }
         return;
       }
       // 전체 보기

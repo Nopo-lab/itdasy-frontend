@@ -204,6 +204,9 @@
     _hydrate();
     requestAnimationFrame(() => el.classList.add('is-open'));
     el.setAttribute('aria-hidden', 'false');
+    // [2026-07-22 보스] 뒤로가기 등록 — 안 하면 안드로이드 back/스와이프에서 이 화면 대신 앱이 그대로 꺼진다.
+    if (typeof window._registerSheet === 'function') window._registerSheet('naverTalkLink', closeNaverTalkLink);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('naverTalkLink');
     _haptic();
   }
   function closeNaverTalkLink() {
@@ -211,6 +214,7 @@
     if (!el) return;
     el.classList.remove('is-open');
     el.setAttribute('aria-hidden', 'true');
+    if (typeof window._markSheetClosed === 'function') window._markSheetClosed('naverTalkLink');
     _haptic();
   }
 

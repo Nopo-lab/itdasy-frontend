@@ -1835,17 +1835,25 @@
         '@keyframes wclLegA{0%,100%{transform:rotate(20deg)}50%{transform:rotate(-20deg)}}' +
         '@keyframes wclLegB{0%,100%{transform:rotate(-20deg)}50%{transform:rotate(20deg)}}' +
         '@keyframes wclTail{0%,100%{transform:rotate(-14deg)}50%{transform:rotate(18deg)}}' +
-        '.wcl-legA{transform-origin:21px 20px;animation:wclLegA .34s ease-in-out infinite}' +
-        '.wcl-legB{transform-origin:21px 20px;animation:wclLegB .34s ease-in-out infinite}' +
-        '.wcl-tail{transform-origin:7px 15px;animation:wclTail .34s ease-in-out infinite}' +
+        // [2026-07-22 보스] !important 필수 — style-fun.css / style-polish.css 의 전역
+        //   `@media (prefers-reduced-motion: reduce){ *{animation-duration:.01ms!important;
+        //   animation-iteration-count:1!important} }` 가 강아지를 출발선에 얼려버린다.
+        //   아이폰 '동작 줄이기'를 켠 원장님 화면에선 다리·꼬리·진행바가 전부 정지했다.
+        //   로딩 표시는 장식이 아니라 '지금 일하는 중'이라는 피드백이라, 멈추면 앱이 죽은 걸로 보인다.
+        '.wcl-legA{transform-origin:21px 20px;animation:wclLegA .34s ease-in-out infinite!important}' +
+        '.wcl-legB{transform-origin:21px 20px;animation:wclLegB .34s ease-in-out infinite!important}' +
+        '.wcl-tail{transform-origin:7px 15px;animation:wclTail .34s ease-in-out infinite!important}' +
+        '.wcl-run{animation:wclRun 2.6s cubic-bezier(.45,.05,.55,.95) infinite!important}' +
+        '.wcl-bob{animation:wclBob .34s ease-in-out infinite!important}' +
+        '.wcl-fill{animation:wclFill 2.6s cubic-bezier(.45,.05,.55,.95) infinite!important}' +
       '</style>' +
       '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:60px 24px;min-height:340px;text-align:center">' +
         '<div style="font-size:15.5px;font-weight:800;letter-spacing:-.02em;color:#2c2528">AI가 ' + (on ? '우리샵 말투로 ' : '') + '쓰는 중…</div>' +
         '<div style="position:relative;width:100%;max-width:290px;height:42px">' +
-          '<div style="position:absolute;bottom:13px;left:0;animation:wclRun 2.6s cubic-bezier(.45,.05,.55,.95) infinite">' +
-            '<div style="animation:wclBob .34s ease-in-out infinite">' + DOG + '</div></div>' +
+          '<div class="wcl-run" style="position:absolute;bottom:13px;left:0">' +
+            '<div class="wcl-bob">' + DOG + '</div></div>' +
           '<div style="position:absolute;left:0;bottom:0;width:100%;height:11px;border-radius:6px;background:rgba(22,181,94,.13);overflow:hidden">' +
-            '<div style="height:100%;border-radius:6px;background:linear-gradient(90deg,#16B55E,#4ad683);animation:wclFill 2.6s cubic-bezier(.45,.05,.55,.95) infinite"></div></div>' +
+            '<div class="wcl-fill" style="height:100%;border-radius:6px;background:linear-gradient(90deg,#16B55E,#4ad683)"></div></div>' +
         '</div>' +
         (on
           ? '<div style="display:flex;gap:7px;width:100%;max-width:290px">' + chip('말투', pw.tone) + chip('길이', pw.len) + chip('이모지', pw.emoji) + '</div>'
@@ -2193,14 +2201,32 @@
     if (!d._schedOpen) {
       return '<button type="button" data-fl="schedopen" style="width:100%;margin-top:8px;background:none;border:1px solid rgba(213,138,149,.4);border-radius:12px;padding:11px;color:#8a7a80;font-size:13.5px;font-weight:700;cursor:pointer"><i class="ph-duotone ph-clock" style="vertical-align:-2px;margin-right:5px"></i>지금 말고 예약해서 올리기</button>';
     }
+    // [2026-07-22 보스] 여러 장이면 몇 장이 예약되는지 미리 말한다 — 예약은 나중에 올라가서
+    //   잘못 나가도 그 자리에서 못 알아챈다. 장수는 발행과 같은 규칙(_scheduleImages)으로 센다.
+    var _sn = _scheduleImages().length;
+    var _snNote = _sn >= 2
+      ? '<div style="font-size:11.5px;font-weight:600;color:#a89aa0;margin:-4px 0 8px">사진 ' + _sn + '장이 여러 장 게시물로 올라가요</div>'
+      : '';
     return '<div style="margin-top:8px;padding:12px;border:1px solid rgba(213,138,149,.28);border-radius:14px;background:rgba(213,138,149,.05)">' +
         '<div style="font-size:12.5px;font-weight:700;color:#8a7a80;margin-bottom:8px">언제 올릴까요?</div>' +
+        _snNote +
         '<input type="datetime-local" data-fl-schedat value="' + esc(d._schedVal || _schedDefault()) + '" style="width:100%;height:42px;border:1px solid #E9EBEE;border-radius:10px;padding:0 10px;font-size:14px;box-sizing:border-box;margin-bottom:8px">' +
         '<button type="button" data-fl="schedule"' + (d._scheduling ? ' disabled' : '') + ' style="width:100%;height:46px;border:none;border-radius:12px;background:#d58a95;color:#fff;font-size:14.5px;font-weight:800;cursor:pointer">' + (d._scheduling ? '예약 중…' : '이 시간에 예약') + '</button>' +
       '</div>';
   }
   function _fmtSchedTime(dt) {
     try { var p = function (n) { return String(n).length < 2 ? '0' + n : '' + n; }; return (dt.getMonth() + 1) + '월 ' + dt.getDate() + '일 ' + p(dt.getHours()) + ':' + p(dt.getMinutes()); } catch (_e) { return '예약 시간'; }
+  }
+  /* [2026-07-22 보스] 예약에 실을 사진 목록 — '지금 올리기'(publish 의 _imgs)와 똑같은 규칙.
+     ① 레이아웃 합성본이 2장 이상이면 그 합성본들(원본이 아니라!)
+     ② 합성본이 딱 1장이면 그 1장(여러 장을 한 장으로 합친 콜라주 — 더 쪼개면 안 된다)
+     ③ 합성본이 없으면 편집 반영된 사진들
+     규칙이 어긋나면 "화면엔 콜라주인데 예약은 원본 5장" 같은 조용한 사고가 난다. */
+  function _scheduleImages() {
+    var outs = (d.templateOutputs || []).map(function (o) { return o && o.outputUrl; }).filter(Boolean);
+    if (outs.length >= 2) return outs;
+    if (d.templateOutput || outs.length === 1) return [d.templateOutput || outs[0]].filter(Boolean);
+    return (editablePhotos() || []).map(function (p) { return dispUrl(p); }).filter(Boolean);
   }
   function _doSchedule() {
     if (d._scheduling) return;
@@ -2212,21 +2238,24 @@
     if (!(editablePhotos() || []).length && !d.templateOutput && !(d.templateOutputs || []).length) { toast('사진을 먼저 추가해 주세요'); return; }
     flushCaptionInputs();
     if (!String(d.caption || '').trim()) { toast('게시글을 먼저 만들어 주세요'); return; }
-    // [v779] 예약 백엔드는 이미지 1장만 받는다 — 여러 장 게시물은 첫 장만 올라가므로 막는다(무음 소실 방지).
-    if ((d.templateOutputs || []).length >= 2 || (!d.templateOutput && !((d.templateOutputs || [])[0]) && (editablePhotos() || []).length >= 2)) {
-      toast('여러 장 게시물은 예약이 아직 안 돼요 — 지금 올리기로 해주세요'); return;
-    }
+    // [2026-07-22 보스] 여러 장 예약 허용. 예전엔 백엔드가 이미지 1장만 받아서 여기서 통째로 막았는데
+    //   (`여러 장 게시물은 예약이 아직 안 돼요`), 이제 scheduled_posts.image_urls + 캐러셀 발행 워커가 생겼다.
+    //   보내는 사진 목록은 '지금 올리기'(publish carousel)와 같은 규칙 — 합성본 2장 이상이면 합성본,
+    //   아니면 편집 반영된 사진들. 그래야 눈에 보이는 것과 예약된 것이 어긋나지 않는다.
+    var _schedImgs = _scheduleImages();
+    if (!_schedImgs.length) { toast('사진을 먼저 추가해 주세요'); return; }
+    if (_schedImgs.length > 10) { toast('사진은 10장까지 예약할 수 있어요'); return; }
     if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.scheduleInstagramV2)) { toast('예약 기능을 불러오지 못했어요'); return; }
     d._scheduling = true; setScreen('caption', { push: false });
     var myD = d;
-    window.WorkspaceAdapter.scheduleInstagramV2({ imageUrl: outputUrl(), caption: d.caption, hashtags: (d.hashtags || []).slice(0, 30), scheduledAt: when.toISOString() })
+    window.WorkspaceAdapter.scheduleInstagramV2({ imageUrls: _schedImgs, caption: d.caption, hashtags: (d.hashtags || []).slice(0, 30), scheduledAt: when.toISOString() })
       .then(function (r) {
         if (myD !== d || myD._dead) return;   // 세션 교체/닫힘 — 새 글 안 건드림
         d._scheduling = false;
         if (r && r.ok) {
           d.publish = d.publish || {}; d.publish.status = 'scheduled'; d.publish.scheduledAt = when.getTime();
           try { if (window.WorkspaceAdapter.saveItem) window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_e) { void _e; }
-          toast(_fmtSchedTime(when) + '에 올라가도록 예약했어요');
+          toast(_fmtSchedTime(when) + '에 ' + ((r.count || 1) >= 2 ? '사진 ' + r.count + '장이 ' : '') + '올라가도록 예약했어요');
           if (window.WorkspaceV2 && window.WorkspaceV2.refresh) window.WorkspaceV2.refresh();
           close();
         } else { toast((r && r.toast) || '예약에 실패했어요'); setScreen('caption', { push: false }); }
@@ -2470,7 +2499,9 @@
 	    _genPending++;   // [카오스 P2] in-flight 생성 카운트 — 응답(.then/.catch)에서 감소
 	    d.capLoading = true; setScreen('caption');
 	    // [v779] 생성 타임아웃 — 약전파/프록시 stall 로 응답이 매달리면(끊김 아님) 프로미스가 영영 settle 안 돼
-	    //   스피너가 무한 고착 + 이후 생성이 `if(d.capLoading)return` 으로 영구 차단되던 것. 45초 뒤 자가 복구.
+	    //   스피너가 무한 고착 + 이후 생성이 `if(d.capLoading)return` 으로 영구 차단되던 것. 자가 복구.
+	    // [2026-07-22 보스] 45초 → 130초. 캡션 생성은 15~60초가 정상인데 45초 워치독이 먼저 터져서
+	    //   아직 오고 있는 응답을 두고 "오래 걸려요"를 띄웠다. app-core 의 LLM 타임아웃(120초) 바로 뒤로 둔다.
 	    (function (tok) {
 	      setTimeout(function () {
 	        if (tok === _genToken && d && d.capLoading) {
@@ -2478,7 +2509,7 @@
 	          try { toast('생성이 오래 걸려요 — 잠시 뒤 다시 시도해 주세요'); } catch (_te) { void _te; }
 	          if (cur === 'caption') setScreen('caption', { push: false });
 	        }
-	      }, 45000);
+	      }, 130000);
 	    })(_myToken);
 	    // [캡션재설계 v2] 3축 전부(직접 입력 텍스트 포함, 드롭 규칙 정제 후) → photo_context.
 	    var photoCtx = _wizAxisContext() || _roleSummary();

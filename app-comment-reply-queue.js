@@ -67,10 +67,14 @@
   function _loadSettings() {
     // [v789] mode(검토/바로 발송) 제거 — 저장만 되고 아무 데서도 안 읽던 죽은 값
     // [2026-07-21] 신규 인텐트(시술종류·소요시간·이벤트·회원권) + 응답 시간대(active_hours·quiet_outside)
+    // [2026-07-22 보스] DM 자동응답 설정창처럼 세부 설정 추가 — 단, 프론트가 진짜로 지키는 것만 넣는다.
+    //   default_dm: 새 문의의 'DM 같이 보내기' 기본값(카드에서 건별로 계속 끄고 켤 수 있음)
+    //   exclude_words: 이 말이 들어간 댓글은 큐에 안 올린다(협찬·광고 DM 유도 댓글 걸러내기)
     var def = { enabled: true,
       intents: { price: true, booking: true, location: true, hours: false, service: true, duration: true, event: true, membership: true },
       link: '', emoji: '😊',
-      active_hours: { start: '09:00', end: '21:00' }, quiet_outside: true };
+      active_hours: { start: '09:00', end: '21:00' }, quiet_outside: true,
+      default_dm: true, exclude_words: '' };
     try {
       var s = JSON.parse(localStorage.getItem('itdasy:crq_settings') || 'null');
       if (!s) return def;
@@ -78,8 +82,21 @@
       return { enabled: s.enabled !== false, link: s.link || '', emoji: (s.emoji != null ? s.emoji : '😊'),
         intents: Object.assign({}, def.intents, s.intents || {}),
         active_hours: { start: ah.start || '09:00', end: ah.end || '21:00' },
-        quiet_outside: s.quiet_outside !== false };
+        quiet_outside: s.quiet_outside !== false,
+        default_dm: s.default_dm !== false,
+        exclude_words: String(s.exclude_words || '') };
     } catch (_e) { return def; }
+  }
+  /* 제외 단어 — 쉼표/줄바꿈으로 나눈 목록. 빈 항목은 버린다(빈 문자열이 남으면 전부 매칭돼 큐가 통째로 빈다). */
+  function _excludeList() {
+    return String(_settings.exclude_words || '').split(/[,\n]/)
+      .map(function (w) { return w.trim().toLowerCase(); }).filter(Boolean);
+  }
+  function _isExcluded(it) {
+    var words = _excludeList();
+    if (!words.length) return false;
+    var hay = String((it && it.text) || '').toLowerCase();
+    return words.some(function (w) { return hay.indexOf(w) >= 0; });
   }
   // [2026-07-21] 응답 시간대 판정 — 지금이 운영시간 밖인가(자정 넘김 지원). 방해금지 로직 공용.
   function _minutesOf(hhmm) { try { var p = String(hhmm).split(':'); return (+p[0]) * 60 + (+p[1]); } catch (_e) { return 0; } }
@@ -92,6 +109,51 @@
   // 방해금지 활성 + 지금 운영시간 밖 → true (홈 넛지 뮤트·큐 배너). 발송 자체는 언제든 가능.
   function _isQuietNow() { return !!(_settings.enabled && _settings.quiet_outside && !_withinActiveHours()); }
   function _saveSettings() { try { localStorage.setItem('itdasy:crq_settings', JSON.stringify(_settings)); } catch (_e) { void _e; } }
+
+  /* [2026-07-22 보스] 설정을 서버에도 저장한다 — 예전엔 localStorage 뿐이라 폰을 바꾸거나
+     캐시를 지우면 통째로 날아갔다(원장은 저장된 줄 알고 있었다).
+     로컬 저장은 그대로 유지(즉시 반영·오프라인). 서버는 '기기 간 보관용 정본'.
+     PUT /instagram/comment-reply-settings — 실패해도 로컬엔 남으므로 조용히 넘어간다. */
+  var _srvSaving = false;
+  function _pushSettingsToServer() {
+    if (!window.apiFetch || !window.authHeader || !window.apiUrl) return Promise.resolve(false);
+    if (_srvSaving) return Promise.resolve(false);
+    _srvSaving = true;
+    var h = window.authHeader() || {};
+    if (!h.Authorization) { _srvSaving = false; return Promise.resolve(false); }
+    h['Content-Type'] = 'application/json';
+    return window.apiFetch(window.apiUrl('/instagram/comment-reply-settings'), {
+      method: 'PUT', headers: h, body: JSON.stringify({ settings: _settings }),
+    }).then(function (r) { return !!(r && r.ok); })
+      .catch(function () { return false; })
+      .then(function (ok) { _srvSaving = false; return ok; });
+  }
+  /* 서버에 저장된 설정을 가져와 로컬에 덮어쓴다. 새 기기·캐시 삭제 후 첫 진입용.
+     서버가 빈 값({})이면 아무것도 안 한다 — 한 번도 저장 안 한 원장의 로컬 설정을 지우면 안 된다. */
+  function _pullSettingsFromServer() {
+    if (!window.apiFetch || !window.authHeader || !window.apiUrl) return Promise.resolve(false);
+    var h = window.authHeader() || {};
+    if (!h.Authorization) return Promise.resolve(false);
+    return window.apiFetch(window.apiUrl('/instagram/comment-reply-settings'), { headers: h })
+      .then(function (r) { return r && r.ok ? r.json() : null; })
+      .then(function (j) {
+        var s = j && j.settings;
+        if (!s || typeof s !== 'object' || !Object.keys(s).length) return false;
+        try { localStorage.setItem('itdasy:crq_settings', JSON.stringify(s)); } catch (_e) { void _e; }
+        _settings = _loadSettings();
+        return true;
+      })
+      .catch(function () { return false; });
+  }
+  /* [2026-07-22 보스] 재렌더/뒤로가기/저장 전에 '입력 중인 값'을 전부 _settings 로 걷어온다.
+     예전엔 링크·시간을 각각 따로 챙기다가 새 입력(제외 단어)을 추가할 때마다 한 곳을 빠뜨려
+     조용히 날아갔다. 걷어오는 지점을 하나로 모은다. */
+  function _captureSettingInputs(el) {
+    if (!el) return;
+    var lk = el.querySelector('.crq-link'); if (lk) _settings.link = (lk.value || '').trim();
+    var ex = el.querySelector('.crq-exclude'); if (ex) _settings.exclude_words = (ex.value || '').trim();
+    _captureTimes(el);
+  }
   // 재렌더/뒤로가기 전에 시간 입력값을 _settings 로 보존 (input 은 재렌더 시 날아감)
   function _captureTimes(el) {
     if (!el) return;
@@ -148,7 +210,9 @@
       mediaDate: it.media_timestamp || '',                          // 팝업용 발행일 (BE 필드 추가 대기)
       permalink: it.permalink || '', likes: it.like_count || 0, ts: it.timestamp || '',
       waiting: 0, thumb: it.media_thumb || '', text: it.text || '', manual: !!it.manual, returning: !!it.returning, confidence: it.confidence || '',
-      publicDraft: it.public_draft || d.publicDraft, dmDraft: it.dm_draft || d.dmDraft, _real: true };
+      publicDraft: it.public_draft || d.publicDraft, dmDraft: it.dm_draft || d.dmDraft, _real: true,
+      // [2026-07-22 보스] 설정의 'DM 같이 보내기' 기본값을 새 문의에 적용(카드에서 건별로 계속 바꿀 수 있음).
+      _sendDm: _settings.default_dm !== false };
   }
 
   // ── 인라인 아이콘 (스프라이트 밖은 svg, 봇은 #ic-bot) ──
@@ -306,6 +370,7 @@
   }
   function _queueBody() {
     var items = ITEMS.filter(function (it) { return _settings.intents[it.intent] !== false; })   // 설정에서 끈 의도 제외
+      .filter(function (it) { return !_isExcluded(it); })   // [2026-07-22] 제외 단어(협찬·광고 등) 걸러내기
       .slice().sort(function (a, b) {
         var ca = a.intent === 'complaint' ? 1 : 0, cb = b.intent === 'complaint' ? 1 : 0;
         if (ca !== cb) return cb - ca;                                    // 불만 항상 최상단
@@ -367,10 +432,22 @@
         '<div style="' + SUB + 'margin-bottom:12px;">DM 답장 끝에 자동으로 붙어요</div>' +
         '<input class="crq-link" type="text" value="' + _esc(S.link) + '" placeholder="예) naver.me/xxxx" ' +
           'style="width:100%;padding:13px 14px;border:none;border-radius:14px;font-size:15px;background:#F7F8FA;color:#191F28;box-sizing:border-box;font-family:inherit;" /></div>' +
+      // [2026-07-22 보스] DM 같이 보내기 기본값 — DM 자동응답 설정창의 토글 카드와 같은 생김새.
+      //   건별 토글은 그대로 남는다(여긴 '새로 온 문의의 시작값'만 정함).
+      '<div style="' + CARD + 'display:flex;align-items:center;gap:10px;">' +
+        '<div style="flex:1;"><div style="' + TITLE + '">DM도 같이 보내기</div>' +
+        '<div style="' + SUB + 'margin-top:3px;">' + (S.default_dm ? '공개답글 + DM 이 기본이에요' : '공개답글만 기본 · DM 은 건별로 켜요') + '</div></div>' +
+        '<span class="crq-defdm" role="switch" aria-checked="' + (S.default_dm ? 'true' : 'false') + '" style="cursor:pointer;flex-shrink:0;display:inline-block;width:32px;height:19px;border-radius:10px;position:relative;transition:background .15s;background:' + (S.default_dm ? '#16B55E' : '#D1D6DB') + ';">' +
+          '<span style="position:absolute;top:2px;left:' + (S.default_dm ? '15px' : '2px') + ';width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.15);transition:left .15s;"></span></span></div>' +
       // 공개답글 끝 이모지 (AI 응답 텍스트용 — 이모지 허용 예외)
-      '<div style="' + CARD + 'margin-bottom:0;"><div style="' + TITLE + 'margin-bottom:12px;">공개답글 끝 이모지</div>' +
+      '<div style="' + CARD + '"><div style="' + TITLE + 'margin-bottom:12px;">공개답글 끝 이모지</div>' +
         '<div style="display:flex;flex-wrap:wrap;gap:7px;">' + _EMOJI_OPTS.map(_emojiOpt).join('') + '</div></div>' +
-      '<div style="font-size:12px;color:#C9CDD4;text-align:center;margin-top:14px;">바꾸면 바로 저장돼요</div>';
+      // [2026-07-22 보스] 제외 단어 — 협찬·광고성 댓글이 문의로 올라와 원장 시간을 뺏던 것 차단.
+      '<div style="' + CARD + 'margin-bottom:0;"><div style="' + TITLE + 'margin-bottom:4px;">이런 댓글은 빼기</div>' +
+        '<div style="' + SUB + 'margin-bottom:12px;">이 말이 들어간 댓글은 목록에 안 올라와요 · 쉼표로 여러 개</div>' +
+        '<input class="crq-exclude" type="text" value="' + _esc(S.exclude_words) + '" placeholder="예) 협찬, 공구, 팔로우" ' +
+          'style="width:100%;padding:13px 14px;border:none;border-radius:14px;font-size:15px;background:#F7F8FA;color:#191F28;box-sizing:border-box;font-family:inherit;" /></div>' +
+      '<div style="font-size:12px;color:#C9CDD4;text-align:center;margin-top:14px;">바꾸면 바로 저장돼요 · <b>저장</b>을 누르면 다른 기기에서도 그대로예요</div>';
   }
 
   function _render() {
@@ -380,7 +457,9 @@
     var title = el.querySelector('.crq-title');
     if (title) title.textContent = _view === 'settings' ? '댓글 문의 응대 설정' : '댓글 문의 응대';
     var gear = el.querySelector('.crq-gear');
-    if (gear) gear.style.visibility = _view === 'settings' ? 'hidden' : 'visible';
+    if (gear) gear.style.display = _view === 'settings' ? 'none' : 'inline-flex';
+    var saveBtn = el.querySelector('.crq-save');
+    if (saveBtn) saveBtn.style.display = _view === 'settings' ? 'inline-block' : 'none';
     if (body) body.innerHTML = _view === 'settings' ? _settingsBody() : _queueBody();
   }
 
@@ -396,6 +475,10 @@
         '<button type="button" class="ss-back" data-crq-back aria-label="뒤로"><svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg></button>' +
         '<div class="ss-title crq-title">댓글 문의 응대</div>' +
         '<button type="button" class="crq-gear" aria-label="설정" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#4E5968;display:inline-flex;align-items:center;padding:4px;">' + IC.gear + '</button>' +
+        // [2026-07-22 보스] 저장 버튼 — DM 자동응답 설정창(dm-header__action)과 같은 자리·같은 역할.
+        //   값은 바꾸는 즉시 로컬에 저장되지만, 원장님은 "저장을 눌러야 저장된 것"으로 느낀다.
+        //   이 버튼이 서버 저장(기기 간 동기화)까지 확실히 마무리한다.
+        '<button type="button" class="crq-save" style="margin-left:auto;display:none;background:none;border:none;cursor:pointer;color:#BC6675;font-size:15px;font-weight:700;font-family:inherit;padding:4px 6px;">저장</button>' +
       '</header>' +
       '<div class="ss-body" style="padding:14px;"></div>';
     document.body.appendChild(el);
@@ -417,28 +500,40 @@
         }
         return;
       }
-      // 설정 컨트롤(span — 버튼 아님) — [v789] 누르는 즉시 저장 (저장 버튼 없음)
-      var sc = e.target.closest ? e.target.closest('.crq-intent,.crq-master,.crq-emoji,.crq-quiet') : null;
+      // 설정 컨트롤(span — 버튼 아님) — [v789] 누르는 즉시 저장 (+ v790 저장 버튼으로 서버 동기화)
+      var sc = e.target.closest ? e.target.closest('.crq-intent,.crq-master,.crq-emoji,.crq-quiet,.crq-defdm') : null;
       if (sc) {
         _haptic();
-        var linkEl0 = el.querySelector('.crq-link'); if (linkEl0) _settings.link = (linkEl0.value || '').trim();   // 재렌더 전 링크 보존
-        _captureTimes(el);                                                                     // 재렌더 전 시간 입력 보존
+        _captureSettingInputs(el);   // 재렌더 전 입력값(링크·시간·제외단어) 보존
         if (sc.classList.contains('crq-master')) { _settings.enabled = !_settings.enabled; }
         else if (sc.classList.contains('crq-intent')) { var k = sc.getAttribute('data-intent'); _settings.intents[k] = (_settings.intents[k] === false); }
         else if (sc.classList.contains('crq-emoji')) { _settings.emoji = sc.getAttribute('data-emoji'); }
         else if (sc.classList.contains('crq-quiet')) { _settings.quiet_outside = !_settings.quiet_outside; }
+        else if (sc.classList.contains('crq-defdm')) { _settings.default_dm = !_settings.default_dm; }
         _saveSettings();
         _render();
         return;
       }
       var t = e.target.closest ? e.target.closest('button') : null;
       if (!t) return;
+      // [2026-07-22 보스] 저장 — 화면의 입력값을 확정하고 서버까지 올린 뒤 목록으로 돌아간다.
+      if (t.classList.contains('crq-save')) {
+        _haptic();
+        _captureSettingInputs(el);
+        _saveSettings();
+        _toast('저장 중…');
+        _pushSettingsToServer().then(function (ok) {
+          _toast(ok ? '저장했어요 · 다른 기기에서도 그대로예요' : '이 기기에 저장했어요 (서버 저장은 나중에 다시 시도돼요)');
+        });
+        _view = 'queue'; _render();
+        return;
+      }
       if (t.hasAttribute('data-crq-back')) {
         _haptic();
         if (_view === 'settings') {
-          var lk = el.querySelector('.crq-link'); if (lk) _settings.link = (lk.value || '').trim();   // 링크 입력 중 뒤로가기 안전망
-          _captureTimes(el);                                                                          // 시간 입력 중 뒤로가기 안전망
+          _captureSettingInputs(el);   // 입력 중 뒤로가기 안전망(링크·시간·제외단어)
           _saveSettings();
+          _pushSettingsToServer();     // 저장 버튼 안 눌러도 서버엔 조용히 올려둔다
           _view = 'queue'; _render();
         } else { closeCommentReplyQueue(); }
         return;
@@ -462,12 +557,11 @@
     // [v789] 예약 링크 즉시 저장 — 입력 마치고 포커스 빠질 때(change 는 버블됨)
     el.addEventListener('change', function (e) {
       if (!e.target || !e.target.classList) return;
-      if (e.target.classList.contains('crq-link')) {
-        _settings.link = (e.target.value || '').trim();
-        _saveSettings();
-      } else if (e.target.classList.contains('crq-time')) {   // [2026-07-21] 응답 시간대 즉시 저장
-        _captureTimes(el);
-        _saveSettings();
+      if (e.target.classList.contains('crq-link')
+          || e.target.classList.contains('crq-time')          // [2026-07-21] 응답 시간대
+          || e.target.classList.contains('crq-exclude')) {    // [2026-07-22] 제외 단어
+        _captureSettingInputs(el);
+        _saveSettings();   // 목록 반영은 설정에서 나갈 때 _render() 가 한다(입력 중 재렌더 = 포커스 튐)
       }
     });
     return el;
@@ -538,6 +632,9 @@
     _view = 'queue'; _sort = 'new';
     ITEMS = SEED.slice(); _realMode = false; _loading = false;
     _render();
+    // [2026-07-22 보스] 서버에 보관된 설정 내려받기 — 폰을 바꾸거나 캐시를 지운 뒤 첫 진입에서
+    //   설정이 초기화된 것처럼 보이던 걸 막는다. 실패/빈 값이면 로컬 설정 그대로(덮어쓰지 않음).
+    _pullSettingsFromServer().then(function (changed) { if (changed) _render(); });
     _loadReal();   // 연동됐으면 실댓글로 교체(비동기)
     el.classList.add('is-open');
     el.setAttribute('aria-hidden', 'false');

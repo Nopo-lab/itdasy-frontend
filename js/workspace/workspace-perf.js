@@ -583,11 +583,15 @@
         '</span><i class="ph-duotone ph-caret-right"></i></div>';
     }
 
-    // [디자인 방향3] 작업실에서 만든 글만 '이 스타일로 또' — 슬롯 없는 글은 재현할 세팅이 없다.
+    // [디자인 방향3] 작업실에서 만든 글은 꾸밈(글씨·스티커·레이아웃)까지 그대로 재사용한다.
+    // [2026-07-22 보스] 슬롯 없는 글(인스타 앱에서 직접 올린 글 등)에도 버튼을 띄운다.
+    //   예전엔 통째로 숨겨서, 반응 좋은 글을 보고도 "또 만들기" 버튼이 없어 이어갈 방법이 없었다.
+    //   재현할 꾸밈이 없다는 건 라벨로 정직하게 말한다 — 없는 걸 있는 척하지 않는다.
     var again = r.slot
       ? '<button type="button" class="wsp-again" data-wsp-newpost="' + esc(r.id) + '">' +
           '<i class="ph-duotone ph-copy"></i>이 스타일로 또 만들기</button>'
-      : '';
+      : '<button type="button" class="wsp-again" data-wsp-newpost="' + esc(r.id) + '">' +
+          '<i class="ph-duotone ph-plus-circle"></i>이런 글 또 만들기</button>';
 
     return '<div class="wsp-card wsp-card--' + st.c + '">' +
       '<div class="wsp-card__top">' + thumb +
@@ -605,9 +609,11 @@
   /** 이 게시물에 댓글 단 사람 중 DM 도 보낸 수 — '이 글 보고 연락 왔다'의 실제 신호(IGSID 동일인). */
   function _dmLinkHtml(r) {
     if (!r.dmFromCommenters) return '';
-    return '<div class="wsp-dmlink">' +
+    // [2026-07-22 보스] 눌러서 DM 으로 간다. 예전엔 글자만 있어서 "DM 왔다는데 갈 방법이 없다" 였다.
+    return '<div class="wsp-dmlink" data-wsp-dm role="button" tabindex="0" style="cursor:pointer">' +
       '<i class="ph-duotone ph-paper-plane-tilt"></i>' +
-      '<span>이 글 보고 <b>' + r.dmFromCommenters + '명</b>이 DM까지 보냈어요</span></div>';
+      '<span>이 글 보고 <b>' + r.dmFromCommenters + '명</b>이 DM까지 보냈어요</span>' +
+      '<i class="ph-duotone ph-caret-right" style="margin-left:auto"></i></div>';
   }
 
   /**
@@ -639,9 +645,16 @@
    */
   function _statsNoteHtml(rows) {
     if (!rows.length) return '';
+    // [2026-07-22 보스] 원장님이 직접 댓글·저장·공유·DM 을 하나씩 해보고 "좋아요만 뜬다"고 하셨다.
+    //   버그가 아니라 인스타가 주는 값이 원래 그렇다 — 모르면 "우리 앱이 고장났다"로 읽힌다. 먼저 말해준다.
+    var selfNote = '<div class="wsp-legend">숫자가 바로 안 늘어도 정상이에요. ' +
+      '<b>원장님 계정으로 직접 누른 좋아요·저장·공유는 인스타가 성과에 안 넣어요.</b> ' +
+      '원장님이 직접 단 댓글도 <b>손님 댓글에서 빼고</b> 세요(자동응답 답글이 반응처럼 부풀지 않게). ' +
+      '저장·공유·도달은 인스타가 몇 시간 뒤에 주기도 해요 — 위 <b>새로고침</b>으로 다시 받아볼 수 있어요.</div>';
     var anyInsight = rows.some(function (r) { return (r.saved || 0) + (r.shares || 0) + (r.reach || 0) > 0; });
-    if (anyInsight) return '';
-    return '<div class="wsp-legend">저장·공유·도달이 계속 0으로 나오면 인스타가 <b>프로 계정</b>(비즈니스·크리에이터)에만 ' +
+    if (anyInsight) return selfNote;
+    return selfNote +
+      '<div class="wsp-legend">저장·공유·도달이 계속 0으로 나오면 인스타가 <b>프로 계정</b>(비즈니스·크리에이터)에만 ' +
       '주는 지표라서 그럴 수 있어요. 인스타 설정에서 프로 계정으로 바꾸면 보여요.</div>';
   }
 
@@ -662,7 +675,10 @@
       '<div class="wsp-lock__h"><i class="ph-duotone ph-paper-plane-tilt"></i>댓글 달고 DM까지 온 손님' +
         '<span class="wsp-lock__b wsp-lock__b--on">' + n + '명</span></div>' +
       '<div class="wsp-lock__d">이 사람들은 게시물에 댓글을 남기고 DM까지 보냈어요 — 어느 글 보고 ' +
-        '연락했는지 위 게시물 카드에 표시했어요. (댓글 없이 DM만 온 유입은 인스타가 출처를 안 줘서 못 이어요.)</div></div>';
+        '연락했는지 위 게시물 카드에 표시했어요. (댓글 없이 DM만 온 유입은 인스타가 출처를 안 줘서 못 이어요.)</div>' +
+      // [2026-07-22 보스] 여기서 바로 DM 으로 넘어간다 — 성과가 '보고서'로 안 끝나게.
+      '<button type="button" class="wsp-again" data-wsp-dm>' +
+        '<i class="ph-duotone ph-paper-plane-tilt"></i>DM 보러 가기</button></div>';
   }
 
   /**
@@ -773,11 +789,27 @@
       '<header class="ss-topbar">' +
         '<button type="button" class="ss-back" data-wsp-back aria-label="뒤로">' +
           '<svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg></button>' +
-        '<div class="ss-title">성과</div></header>' +
+        '<div class="ss-title">성과</div>' +
+        // [2026-07-22 보스] 새로고침 — 예전엔 열 때 딱 1번만 불러오고 그 뒤엔 영영 그대로였다.
+        //   좋아요·댓글이 방금 달렸는데 화면이 안 바뀌니 "성과가 실시간이 아니다"로 보였다.
+        '<button type="button" class="ss-topbar__act" data-wsp-refresh aria-label="새로고침" ' +
+          'style="margin-left:auto;background:none;border:none;padding:6px 8px;cursor:pointer;color:var(--text-subtle,#8B95A1)">' +
+          '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" ' +
+          'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+          '<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>' +
+      '</header>' +
       '<div class="ss-body" data-wsp-body></div>';
     document.body.appendChild(el);
     el.addEventListener('click', function (e) {
       if (e.target.closest('[data-wsp-back]')) { close(); return; }
+      if (e.target.closest('[data-wsp-refresh]')) { _reload(true); return; }
+      // [2026-07-22] 'DM까지 보낸 손님' → 실제로 그 대화로 간다. 예전엔 글자만 있고 눌러도 아무 일이 없었다.
+      if (e.target.closest('[data-wsp-dm]')) {
+        if (typeof window.openDMConfirmQueue === 'function') { close(); window.openDMConfirmQueue(); }
+        else if (typeof window.openDMConversations === 'function') { close(); window.openDMConversations(); }
+        else toast('DM 화면을 불러오지 못했어요');
+        return;
+      }
       // 답 안 한 문의 → 댓글 응대 화면. 여기서 바로 답을 달게 해야 성과 화면이 '보고서'로 안 끝난다.
       if (e.target.closest('[data-wsp-comments]')) {
         if (typeof window.openCommentReplyQueue === 'function') { close(); window.openCommentReplyQueue(); }
@@ -802,6 +834,52 @@
     return el;
   }
 
+  /* [2026-07-22 보스] 데이터 로드를 open() 에서 떼어냈다 — 새로고침 버튼·화면 복귀에서 같이 쓴다.
+     manual=true 면 "불러오는 중" 스켈레톤 대신 기존 화면을 유지한 채 조용히 바꿔치기한다
+     (스크롤 위치와 읽던 자리를 안 날리려고). */
+  var _loading = false;
+  var _lastLoadAt = 0;
+  function _reload(manual) {
+    var el = document.getElementById(ID);
+    if (!el || _loading) return;
+    _loading = true;
+    var body = el.querySelector('[data-wsp-body]');
+    if (body && !manual && !body.querySelector('.wsp-card')) body.innerHTML = '<div class="wsp-empty">성과를 불러오는 중…</div>';
+    if (manual) toast('최신 성과를 가져오는 중…');
+    Promise.all([_loadInsights(), _loadSlots(), _loadBookings(), _loadCommentQueue(), _loadDmLinks()]).then(function (res) {
+      var insights = res[0], slots = res[1], bookings = res[2], cq = res[3], dmLinks = res[4];
+      var rows = _buildRows(insights, slots);
+      _attribute(rows, bookings);
+      _attachInquiries(rows, cq);
+      _attachDmLinks(rows, dmLinks);
+      var cur = document.getElementById(ID);
+      if (!cur) return;   // 로딩 중 닫힘
+      _render(cur, insights, rows, cq, dmLinks);
+      _lastLoadAt = Date.now();
+    }).catch(function (err) {
+      console.warn('[wsperf] load fail', err);
+      var cur = document.getElementById(ID); if (!cur) return;
+      var b = cur.querySelector('[data-wsp-body]');
+      if (manual) toast('성과를 가져오지 못했어요 — 잠시 뒤 다시');
+      else if (b) b.innerHTML = '<div class="wsp-empty">성과를 불러오지 못했어요. 잠시 뒤 다시 열어봐 주세요.</div>';
+    }).then(function () { _loading = false; });
+  }
+
+  /* 앱으로 돌아왔을 때 자동 갱신. 인스타 지표는 자기 속도로 늦게 오므로 초 단위 폴링은 의미가 없고
+     배터리·rate limit 만 먹는다 — '화면을 다시 볼 때 최신'이면 원장 체감으론 충분하다. 30초 쿨다운. */
+  var _visBound = false;
+  function _bindVisibility() {
+    if (_visBound) return;
+    _visBound = true;
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) return;
+      var el = document.getElementById(ID);
+      if (!el || !el.classList.contains('is-open')) return;
+      if (Date.now() - _lastLoadAt < 30000) return;
+      _reload(false);
+    });
+  }
+
   function open() {
     var el = _ensureMounted();
     var body = el.querySelector('[data-wsp-body]');
@@ -811,20 +889,8 @@
     // 안드로이드 하드웨어 뒤로가기 등록 — 안 하면 back 시 앱이 그대로 종료된다(다른 오버레이와 동일 처리).
     if (typeof window._registerSheet === 'function') window._registerSheet('wsperf', close);
     if (typeof window._markSheetOpen === 'function') window._markSheetOpen('wsperf');
-
-    Promise.all([_loadInsights(), _loadSlots(), _loadBookings(), _loadCommentQueue(), _loadDmLinks()]).then(function (res) {
-      var insights = res[0], slots = res[1], bookings = res[2], cq = res[3], dmLinks = res[4];
-      var rows = _buildRows(insights, slots);
-      _attribute(rows, bookings);
-      _attachInquiries(rows, cq);
-      _attachDmLinks(rows, dmLinks);
-      if (!document.getElementById(ID)) return;   // 로딩 중 닫힘
-      _render(el, insights, rows, cq, dmLinks);
-    }).catch(function (err) {
-      console.warn('[wsperf] load fail', err);
-      var b = el.querySelector('[data-wsp-body]');
-      if (b) b.innerHTML = '<div class="wsp-empty">성과를 불러오지 못했어요. 잠시 뒤 다시 열어봐 주세요.</div>';
-    });
+    _bindVisibility();
+    _reload(false);
   }
 
   function close() {

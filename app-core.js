@@ -874,6 +874,22 @@ function authHeader() {
   const FETCH_TIMEOUT_FIRST_MS = 20000;
   const FETCH_TIMEOUT_RETRY_MS = 12000;
 
+  // [2026-07-22 보스] AI(LLM) 호출은 20초로 끊으면 안 된다 — 잇비 답변·캡션 생성은 15~60초가 정상이다.
+  //   기존 동작: 20초에 abort → 12초짜리 재시도 3회(재시도마다 서버에서 '진짜 LLM 호출'이 새로 돌아 돈이 나감)
+  //   → 60초쯤 뒤 "실패했어요". 원장 눈엔 '잇비도 캡션도 아무것도 안 됨'. 백엔드는 멀쩡했다.
+  //   고침: ① LLM 경로는 120초까지 기다린다(Cloud Run 요청 상한 300초 안쪽)
+  //         ② 타임아웃/네트워크 끊김으로는 재시도하지 않는다(서버는 아직 생성 중 → 재시도는 중복 과금).
+  //         ③ 단, 5xx(콜드스타트 등 서버가 실제로 실패한 경우)는 기존대로 재시도한다.
+  const LLM_TIMEOUT_MS = 120000;
+  // 느린 게 정상인 생성형 엔드포인트. 경로 조각으로 판정(절대 URL·상대 경로 둘 다 매칭).
+  const LLM_PATH_RE = /\/(assistant|caption|persona)\/|\/image\/(enhance|remove-bg|remove-object|generate-bg|detect-face|blur-face)/;
+  function _isLlmCall(input) {
+    try {
+      const u = typeof input === 'string' ? input : (input && input.url) || '';
+      return LLM_PATH_RE.test(u);
+    } catch (_) { return false; }
+  }
+
   // 호출자 signal 보존하면서 timeout 까지 보호하는 fetch 헬퍼.
   // timeout 으로 abort 된 경우는 wrapper 의 retry 분기가 받아서 재시도하도록
   // 호출자의 init.signal 은 건드리지 않는다 (catch 에서 caller-abort 판단 그대로 유지).
@@ -972,12 +988,14 @@ function authHeader() {
 
   window.fetch = async function(input, init) {
     const retryable = _isRetryableMethod(init) && _bodyReusable(init);
+    const isLlm = _isLlmCall(input);   // [2026-07-22] 생성형 호출 — 오래 기다리되 타임아웃 재시도는 안 함
     let attempt = 0;
     // eslint-disable-next-line no-constant-condition
     while (true) {
       // [fix] 캐러셀(여러장) 인스타 발행은 컨테이너 순차 폴링으로 25~50초+ → 호출부가 itdasyTimeoutMs 로 타임아웃 상향 가능(기본 20초는 abort됨)
       const _customTmo = init && init.itdasyTimeoutMs;
-      const _tmo = _customTmo || (attempt === 0 ? FETCH_TIMEOUT_FIRST_MS : FETCH_TIMEOUT_RETRY_MS);
+      const _tmo = _customTmo
+        || (isLlm ? LLM_TIMEOUT_MS : (attempt === 0 ? FETCH_TIMEOUT_FIRST_MS : FETCH_TIMEOUT_RETRY_MS));
       try {
         const res = await _fetchWithTimeout(input, init, _tmo);
         if (res.status === 401 && getToken()) {
@@ -1016,7 +1034,9 @@ function authHeader() {
           throw err;
         }
         // 네트워크 에러 (DNS·오프라인·CORS·abort) — retryable 한정으로 재시도.
-        if (retryable && attempt < MAX_RETRIES) {
+        // [2026-07-22] LLM 호출은 여기서 재시도하지 않는다. 타임아웃 시점에 서버는 아직 답을 만들고 있어서,
+        //   재시도 = 같은 질문을 한 번 더 생성시키는 중복 과금이고 사용자 체감 시간만 3배로 늘었다.
+        if (retryable && !isLlm && attempt < MAX_RETRIES) {
           await _sleep(BACKOFF_MS[attempt] || 1500);
           attempt++;
           continue;
@@ -2868,12 +2888,20 @@ window.refreshLastSyncBadges = function () {
 (function _initSheetBackRegistry() {
   if (window._sheetBackRegistry) return;
   const registry = new Map();   // hash -> { close, open }
-  const stack = [];              // 현재 열려있는 시트 hash 스택
+  const stack = [];              // 현재 열려있는 시트 hash 스택 (문자열 배열 — 외부 소비처가 lastIndexOf/length 를 씀)
   window._sheetBackRegistry = registry;
   window._sheetBackStack = stack;
 
+  // [2026-07-22 보스] stack 과 1:1 로 따라다니는 '내가 history 엔트리를 실제로 push 했는가' 플래그.
+  //   push 안 한 시트를 닫으면서 history.back() 을 하면 남의 엔트리를 훔쳐서 화면이 두 칸 뒤로 간다.
+  const pushed = [];
+  // 프로그램적 history.back() 이 만들어낼 popstate 를 무시할 횟수(닫기 버튼으로 닫을 때).
+  let _progBack = 0;
+
   // 단일 popstate 리스너 — 모든 시트 통합
   window.addEventListener('popstate', () => {
+    // 내가 부른 back → 이미 close 처리까지 끝난 상태라 다시 닫으면 안 된다.
+    if (_progBack > 0) { _progBack--; return; }
     if (!stack.length) return;
     const top = stack[stack.length - 1];
     const meta = registry.get(top);
@@ -2884,7 +2912,7 @@ window.refreshLastSyncBadges = function () {
       try { meta.close && meta.close(); } catch (_e) { void _e; }
       // 스택에서 pop (close 함수가 이미 _markSheetClosed 호출했으면 중복 pop 안됨)
       const idx = stack.lastIndexOf(top);
-      if (idx >= 0) stack.splice(idx, 1);
+      if (idx >= 0) { stack.splice(idx, 1); pushed.splice(idx, 1); }
     }
   });
 
@@ -2893,21 +2921,34 @@ window.refreshLastSyncBadges = function () {
     try {
       const hash = '#' + name;
       // 이미 같은 hash 면 push 안 함 (중복 방지)
+      let didPush = false;
       if (window.location.hash !== hash) {
         history.pushState({ sheet: name }, '', hash);
+        didPush = true;
       }
       stack.push(name);
+      pushed.push(didPush);
     } catch (_e) { void _e; }
   };
 
-  // 시트 close 시 호출 — history.back (현재 hash 가 자기 hash 인 경우만)
+  // 시트 close 시 호출 — 열 때 쌓은 history 엔트리를 되돌린다.
+  // [2026-07-22 보스] 예전엔 replaceState 로 hash 만 지웠다. 그러면 엔트리는 그대로 남아서,
+  //   시트를 열었다 닫을 때마다 "눌러도 아무 일 없는 뒤로가기"가 한 칸씩 쌓였다(닫고 나서 back 을
+  //   눌러도 화면이 안 바뀌다가, 몇 번 더 누르면 앱이 꺼지던 증상의 절반). 실제로 back() 으로 뺀다.
   window._markSheetClosed = function (name) {
     try {
       const hash = (window.location.hash || '').replace(/^#/, '');
       const idx = stack.lastIndexOf(name);
-      if (idx >= 0) stack.splice(idx, 1);
-      if (hash === name) {
-        // popstate 가 다시 _markSheetClosed 호출 안 하도록 그냥 replaceState 로 hash 제거
+      let didPush = false;
+      if (idx >= 0) { stack.splice(idx, 1); didPush = !!pushed.splice(idx, 1)[0]; }
+      if (hash !== name) return;   // 사용자 back 으로 닫히는 중 — 엔트리는 브라우저가 이미 뺐다
+      if (didPush) {
+        _progBack++;
+        try { history.back(); } catch (_e) {
+          _progBack--;
+          history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+      } else {
         history.replaceState(null, '', window.location.pathname + window.location.search);
       }
     } catch (_e) { void _e; }

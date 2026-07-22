@@ -410,28 +410,45 @@
 
     // [v779] 예약 발행 — 백엔드 /scheduled-posts. 서버가 예약시각에 content_publish 로 발행(새 Meta 권한 불필요).
     //   즉시발행(multipart)과 달리 예약 업로드는 JSON {image_data: dataURL} → 서버가 절대 URL 반환 → 예약 생성.
+    // [2026-07-22 보스] 여러 장(캐러셀) 예약 지원. o.imageUrls(배열) 를 받아 한 장씩 업로드한 뒤
+    //   image_urls 로 예약을 만든다. 예약 시각에 워커가 캐러셀로 올린다.
+    //   o.imageUrl(단일) 도 계속 받는다 — 예전 호출부 호환.
     scheduleInstagramV2: function (o) {
       o = o || {};
       var H = function () { var h = window.authHeader ? window.authHeader() : {}; h['Content-Type'] = 'application/json'; return h; };
       var U = function (p) { return (typeof window.apiUrl === 'function') ? window.apiUrl(p) : ((window.API || '') + p); };
-      return _toJpegBlob(o.imageUrl, 1440, 0.86).then(function (blob) {
-        if (!blob) return { ok: false, toast: '이미지를 준비하지 못했어요' };
-        return new Promise(function (res) {
-          var fr = new FileReader();
-          fr.onload = function () { res(fr.result); };
-          fr.onerror = function () { res(null); };
-          fr.readAsDataURL(blob);
-        });
-      }).then(function (dataUrl) {
-        if (!dataUrl || typeof dataUrl !== 'string') return { ok: false, toast: '이미지 변환에 실패했어요' };
-        return fetch(U('/scheduled-posts/upload'), { method: 'POST', headers: H(), body: JSON.stringify({ image_data: dataUrl }) })
-          .then(function (r) { return r.ok ? r.json() : r.json().catch(function () { return {}; }).then(function (j) { throw { toast: j.detail || ('이미지 업로드 실패 (' + r.status + ')') }; }); })
-          .then(function (up) {
-            return fetch(U('/scheduled-posts'), { method: 'POST', headers: H(), body: JSON.stringify({
-              image_url: up.url, caption: String(o.caption || ''),
-              hashtags: (o.hashtags || []).join(','), scheduled_at: o.scheduledAt,
-            }) }).then(function (r2) { return r2.ok ? { ok: true } : r2.json().catch(function () { return {}; }).then(function (j) { return { ok: false, toast: j.detail || ('예약 저장 실패 (' + r2.status + ')') }; }); });
+      var srcs = (o.imageUrls && o.imageUrls.length) ? o.imageUrls.slice(0, 10) : [o.imageUrl].filter(Boolean);
+      if (!srcs.length) return Promise.resolve({ ok: false, toast: '이미지를 준비하지 못했어요' });
+
+      // 한 장 → JPEG dataURL → 서버 업로드 → 절대 URL
+      function _uploadOne(src, idx) {
+        return _toJpegBlob(src, 1440, 0.86).then(function (blob) {
+          if (!blob) throw { toast: (srcs.length > 1 ? (idx + 1) + '번째 ' : '') + '이미지를 준비하지 못했어요' };
+          return new Promise(function (res) {
+            var fr = new FileReader();
+            fr.onload = function () { res(fr.result); };
+            fr.onerror = function () { res(null); };
+            fr.readAsDataURL(blob);
           });
+        }).then(function (dataUrl) {
+          if (!dataUrl || typeof dataUrl !== 'string') throw { toast: (srcs.length > 1 ? (idx + 1) + '번째 ' : '') + '이미지 변환에 실패했어요' };
+          return fetch(U('/scheduled-posts/upload'), { method: 'POST', headers: H(), body: JSON.stringify({ image_data: dataUrl }) })
+            .then(function (r) { return r.ok ? r.json() : r.json().catch(function () { return {}; }).then(function (j) { throw { toast: j.detail || ('이미지 업로드 실패 (' + r.status + ')') }; }); })
+            .then(function (up) { return up.url; });
+        });
+      }
+
+      // 순차 업로드 — 여러 장을 동시에 올리면 모바일 회선에서 서로 잡아먹어 더 잘 실패한다.
+      var urls = [];
+      var chain = srcs.reduce(function (p, src, idx) {
+        return p.then(function () { return _uploadOne(src, idx); }).then(function (u) { urls.push(u); });
+      }, Promise.resolve());
+
+      return chain.then(function () {
+        return fetch(U('/scheduled-posts'), { method: 'POST', headers: H(), body: JSON.stringify({
+          image_url: urls[0], image_urls: urls, caption: String(o.caption || ''),
+          hashtags: (o.hashtags || []).join(','), scheduled_at: o.scheduledAt,
+        }) }).then(function (r2) { return r2.ok ? { ok: true, count: urls.length } : r2.json().catch(function () { return {}; }).then(function (j) { return { ok: false, toast: j.detail || ('예약 저장 실패 (' + r2.status + ')') }; }); });
       }).catch(function (e) { return { ok: false, toast: (e && e.toast) || '예약에 실패했어요 — 잠시 후 다시' }; });
     },
 

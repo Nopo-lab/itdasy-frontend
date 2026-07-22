@@ -118,7 +118,11 @@
     el = document.createElement('div');
     el.id = ID; el.className = 'subscreen-overlay'; el.setAttribute('aria-hidden', 'true');
     el.innerHTML =
-      '<header class="ss-topbar"><button type="button" class="ss-back" data-wss-back aria-label="뒤로"><svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg></button><div class="ss-title">작업실 설정</div></header>' +
+      // [2026-07-22 보스] 저장 버튼 — DM 자동응답 설정창과 같은 자리·같은 역할.
+      //   값은 원래도 입력이 끝나면 바로 저장되지만, 버튼이 없으면 원장님은 저장됐는지 알 수가 없다.
+      '<header class="ss-topbar"><button type="button" class="ss-back" data-wss-back aria-label="뒤로"><svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg></button>' +
+        '<div class="ss-title">작업실 설정</div>' +
+        '<button type="button" data-wss-save style="margin-left:auto;background:none;border:none;cursor:pointer;color:#BC6675;font-size:15px;font-weight:700;font-family:inherit;padding:4px 6px;">저장</button></header>' +
       '<div class="ss-body">' +
         '<div class="ss-card">' + _hd('layers', '원장 작업 기억') + '<div data-wss-mem>' + _memHtml() + '</div></div>' +
         '<div class="ss-card">' + _hd('store', '매장 정보') +
@@ -144,6 +148,9 @@
 
   function _onClick(e) {
     if (e.target.closest('[data-wss-back]')) { close(); return; }
+    // [2026-07-22 보스] 저장 — close() 가 이미 고정멘트(서버)+입력값을 확정 저장하므로
+    //   여기선 그걸 부르고 "저장됐다"고 말해준다. 저장 경로가 둘로 갈라지지 않게 일부러 재사용.
+    if (e.target.closest('[data-wss-save]')) { close(); toast('저장했어요'); return; }
     // ── 작업 기억 ★기본 지정(다시 누르면 해제)
     var st = e.target.closest('[data-wm-star]');
     if (st) {
@@ -215,6 +222,9 @@
     _selMem = null; _refreshMem();
     el.setAttribute('aria-hidden', 'false');
     requestAnimationFrame(function () { el.classList.add('is-open'); });
+    // [2026-07-22 보스] 뒤로가기 등록 — 안 하면 안드로이드 back/스와이프에서 이 화면 대신 앱이 그대로 꺼진다.
+    if (typeof window._registerSheet === 'function') window._registerSheet('wsSettings', close);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('wsSettings');
   }
   function close() {
     var el = document.getElementById(ID); if (!el) return;
@@ -222,6 +232,7 @@
     // 입력값도 확정 저장(change 못 받은 것 대비)
     Array.prototype.forEach.call(el.querySelectorAll('[data-wss-key]'), function (inp) { set(inp.getAttribute('data-wss-key'), inp.value); });
     el.classList.remove('is-open'); el.setAttribute('aria-hidden', 'true');
+    if (typeof window._markSheetClosed === 'function') window._markSheetClosed('wsSettings');
   }
 
   window.WorkspaceSettings = { open: open, close: close, syncFromShopInfo: syncFromShopInfo };
