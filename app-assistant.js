@@ -4205,17 +4205,19 @@
   }
 
   function _tryPhotoEditorShortcut(input, q) {
-    const editor = window.PhotoEditor && typeof window.PhotoEditor.open === 'function';
-    if (!editor) return false;
     if (window.ItdasyAssistantPhotoCommands?.tryRun?.(input, q, { clearInput: _clearAssistantInput })) return true;
-    if (/(사진|이미지|포토)\\s*(편집|보정|수정|꾸미|예쁘게|만들|업로드)/.test(q)
-        || /(편집기|편집\\s*화면|보정\\s*화면|에디터)\\s*(열|보여|시작|이동|가)?/.test(q)
+    // [2026-07-22] 옛 PhotoEditor(A 슬라이더) 호출 완전 제거 → 현재 작업실(WorkspaceFlow) 로만 연결.
+    //   정규식은 원래 `\\s`(리터럴 백슬래시) 오타로 공백 발화가 안 잡히던 死코드 → `\s`(공백)로 교정.
+    const _hasWs = window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function';
+    if (!_hasWs) return false;
+    if (/(사진|이미지|포토)\s*(편집|보정|수정|꾸미|예쁘게|만들|업로드)/.test(q)
+        || /(편집기|편집\s*화면|보정\s*화면|에디터)\s*(열|보여|시작|이동|가)?/.test(q)
         || /^편집기?$/.test(q.trim())) {
-      _runSheetShortcut(input, () => window.PhotoEditor.open({}));
+      _runSheetShortcut(input, () => window.WorkspaceFlow.command({ type: 'storyedit', photoUrls: _lastUserPhotos() }));
       return true;
     }
-    if (/(전후|before\\s*after|b&a|비포\\s*애프터|시술\\s*전후).*?(카드|만들|보여|업로드)/.test(q)) {
-      _runSheetShortcut(input, () => window.PhotoEditor.open({ initial_tab: 'template' }));
+    if (/(전후|before\s*after|b&a|비포\s*애프터|시술\s*전후).*?(카드|만들|보여|업로드)/.test(q)) {
+      _runSheetShortcut(input, () => window.WorkspaceFlow.command({ type: 'open', cat: 'ba', photoUrls: _lastUserPhotos() }));
       return true;
     }
     return false;
@@ -4223,13 +4225,13 @@
 
   function _trySimpleOpenShortcut(input, q) {
     const pairs = [
-      [/(브랜드\\s*키트|brand\\s*kit|샵\\s*브랜드|워터마크\\s*(설정|관리))/, () => window.BrandKit?.open?.()],
+      [/(브랜드\s*키트|brand\s*kit|샵\s*브랜드|워터마크\s*(설정|관리))/, () => window.BrandKit?.open?.()],
       [/회원권.*(만료|임박)|만료.*회원권/, () => window.MembershipUI?.openExpiringList?.(30)],
-      [/(dm|디엠|자동\\s*응답|자동\\s*답장).*(설정|관리|편집|룰)|자동\\s*응답\\s*(켜|꺼|on|off)/, window.openDMAutoreplySettings],
-      [/(통계|분석|인사이트|insight|매출\\s*(요약|리포트|추이|분석))/, window.openInsights],
+      [/(dm|디엠|자동\s*응답|자동\s*답장).*(설정|관리|편집|룰)|자동\s*응답\s*(켜|꺼|on|off)/, window.openDMAutoreplySettings],
+      [/(통계|분석|인사이트|insight|매출\s*(요약|리포트|추이|분석))/, window.openInsights],
       [/(백업|backup|데이터.*(복구|내보내|받|export))/, window.openBackupScreen],
-      [/(리뷰|후기)\\s*(요청|보내|부탁|발송)/, window.openReviewRequests],
-      [/(이탈|위험|복귀|재방문)\\s*(고객|손님|관리)?|retention/i, window.openRetentionAI],
+      [/(리뷰|후기)\s*(요청|보내|부탁|발송)/, window.openReviewRequests],
+      [/(이탈|위험|복귀|재방문)\s*(고객|손님|관리)?|retention/i, window.openRetentionAI],
     ];
     return _runFirstShortcutPair(input, q, pairs);
   }
@@ -4245,20 +4247,20 @@
   }
 
   function _tryTabShortcut(input, q) {
-    if (/(갤러리|포트폴리오|작품)\\s*(열|보여|이동|가)/.test(q) || /^(갤러리|포트폴리오)$/.test(q.trim())) {
+    if (/(갤러리|포트폴리오|작품)\s*(열|보여|이동|가)/.test(q) || /^(갤러리|포트폴리오)$/.test(q.trim())) {
       if (typeof window.showTab === 'function') {
         _runSheetShortcut(input, () => window.showTab('gallery', document.querySelector('.tab-bar__btn[data-tab="gallery"]')));
         return true;
       }
     }
-    if (/(영업\\s*시간|매장\\s*정보|가게\\s*정보|샵\\s*정보|설정).*(변경|수정|확인|보기|열|관리)?/.test(q)) {
+    if (/(영업\s*시간|매장\s*정보|가게\s*정보|샵\s*정보|설정).*(변경|수정|확인|보기|열|관리)?/.test(q)) {
       return _trySettingsShortcut(input, q);
     }
     return false;
   }
 
   function _trySettingsShortcut(input, q) {
-    if (!/^설정\\s*$|영업\\s*시간|매장\\s*정보|가게\\s*정보|샵\\s*정보/.test(q)) return false;
+    if (!/^설정\s*$|영업\s*시간|매장\s*정보|가게\s*정보|샵\s*정보/.test(q)) return false;
     if (typeof window.openSettingsHub !== 'function') return false;
     _runSheetShortcut(input, () => window.openSettingsHub());
     return true;
@@ -4269,7 +4271,7 @@
     if (/(음성|녹음|받아쓰|마이크|보이스|voice).*(캡션|글|입력|문구)?/.test(q)) {
       if (typeof window.openVoiceCaption === 'function') { _runSheetShortcut(input, () => window.openVoiceCaption()); return true; }
     }
-    if (/(결제|플랜|구독|업그레이드|pro|premium)\\s*(변경|선택|보|관리|업)?/.test(q)) return _tryPlanShortcut(input);
+    if (/(결제|플랜|구독|업그레이드|pro|premium)\s*(변경|선택|보|관리|업)?/.test(q)) return _tryPlanShortcut(input);
     return false;
   }
 

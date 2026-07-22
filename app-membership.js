@@ -69,7 +69,7 @@
     container.innerHTML = '<div style="font-size:12px;color:#888;text-align:center;padding:8px;">최근 내역 불러오는 중…</div>';
     try {
       const r = await _fetch('GET', `/memberships/${customerId}/history?limit=8`);
-      const items = r.items || [];
+      const items = r.history || r.items || [];   // [2026-07-22 fix] BE는 {history:[]} 반환 — 키 불일치로 항상 빈칸이던 버그
       if (!items.length) {
         container.innerHTML = '<div style="font-size:12px;color:#888;text-align:center;padding:10px;">아직 내역이 없어요.</div>';
         return;
@@ -212,6 +212,7 @@
         try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'membership_use' } })); } catch (_) { void 0; }
       } catch (e) {
         _toast('차감 실패: ' + e.message, { error: true });
+        btn.disabled = false;   // [2026-07-22 fix] 실패 시 재활성화 — 안 하면 버튼 영구 잠김(충전 시트엔 있던 로직)
       }
     });
   }
