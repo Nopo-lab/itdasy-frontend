@@ -2965,20 +2965,30 @@ window.refreshLastSyncBadges = function () {
   // [2026-07-22 보스] 예전엔 replaceState 로 hash 만 지웠다. 그러면 엔트리는 그대로 남아서,
   //   시트를 열었다 닫을 때마다 "눌러도 아무 일 없는 뒤로가기"가 한 칸씩 쌓였다(닫고 나서 back 을
   //   눌러도 화면이 안 바뀌다가, 몇 번 더 누르면 앱이 꺼지던 증상의 절반). 실제로 back() 으로 뺀다.
+  // [2026-07-23] 중첩 시트 처리. 부모를 닫으면 그 위에 쌓인 자식들의 엔트리까지 한 번에 뺀다.
+  //   예전엔 자기 것 한 칸만 봐서, 자식이 열린 채 부모를 닫으면 hash 가 남았다
+  //   (댓글 큐에서 사진 확대를 열어둔 채 큐를 닫으면 주소에 #crq 가 그대로 붙어 있었다).
+  //   부모의 close 는 자식 DOM 만 치우고 _markSheetClosed 는 부르지 않아야 한다 — 여기서 같이 뺀다.
   window._markSheetClosed = function (name) {
     try {
       const hash = (window.location.hash || '').replace(/^#/, '');
       const idx = stack.lastIndexOf(name);
-      let didPush = false;
-      if (idx >= 0) { stack.splice(idx, 1); didPush = !!pushed.splice(idx, 1)[0]; }
-      if (hash !== name) return;   // 사용자 back 으로 닫히는 중 — 엔트리는 브라우저가 이미 뺐다
-      if (didPush) {
-        _progBack++;
-        try { history.back(); } catch (_e) {
+      if (idx < 0) return;                       // 이미 정리됨
+      const names = stack.splice(idx);           // [name, ...그 위에 쌓인 자식들]
+      const flags = pushed.splice(idx);
+      let n = flags.filter(Boolean).length;      // 실제로 push 한 엔트리 수
+      // 현재 hash 가 지금 빼는 것들 중 하나가 아니면 = 사용자 back 으로 닫히는 중 →
+      // 그 한 칸은 브라우저가 이미 뺐다.
+      if (names.indexOf(hash) === -1) n -= 1;
+      if (n > 0) {
+        _progBack++;                             // go(-n) 은 popstate 를 1번만 낸다
+        try { history.go(-n); } catch (_e) {
           _progBack--;
           history.replaceState(null, '', window.location.pathname + window.location.search);
         }
-      } else {
+      } else if (names.indexOf(hash) !== -1) {
+        // push 는 안 했는데 hash 가 내 것 → 흔적만 지운다.
+        // (사용자 back 으로 닫히는 중이면 여기 안 온다 — 부모 hash 를 지워버리면 안 되므로)
         history.replaceState(null, '', window.location.pathname + window.location.search);
       }
     } catch (_e) { void _e; }

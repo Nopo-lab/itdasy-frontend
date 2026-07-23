@@ -325,7 +325,15 @@
   function _peekDate(ts) {
     try { var d = new Date(ts); if (!isFinite(d.getTime())) return ''; return (d.getMonth() + 1) + '월 ' + d.getDate() + '일'; } catch (_e) { return ''; }
   }
-  function _closePeek() { var p = document.getElementById('crqPeek'); if (p && p.parentNode) p.parentNode.removeChild(p); }
+  // [2026-07-23] 사진 확대는 자체 뒤로가기를 갖는다. 예전엔 미등록이라 뒤로가기를 누르면
+  //   큐(crq)가 통째로 닫혔다 — 사진 하나 보고 나왔더니 목록까지 사라지는 셈.
+  //   fromParent=true 면 history 는 건드리지 않는다 — 큐(부모)를 닫을 때 자식 엔트리까지
+  //   _markSheetClosed('crq') 가 한 번에 뺀다. 여기서 먼저 빼면 back 이 비동기라 한 칸이 남는다.
+  function _closePeek(fromParent) {
+    var p = document.getElementById('crqPeek');
+    if (!fromParent && window._markSheetClosed) window._markSheetClosed('crqPeek');
+    if (p && p.parentNode) p.parentNode.removeChild(p);
+  }
   function _openPeek(id) {
     var it = ITEMS.find(function (x) { return x.id === id; });
     if (!it) return;
@@ -350,6 +358,9 @@
       if ((e.target.closest && e.target.closest('.crq-peek-close')) || !(e.target.closest && e.target.closest('.crq-peek-card'))) _closePeek();
     });
     document.body.appendChild(w);
+    // 큐(crq) 위에 쌓는다 — 뒤로가기 한 번은 사진만, 한 번 더 눌러야 큐가 닫힌다.
+    if (window._registerSheet) window._registerSheet('crqPeek', _closePeek);
+    if (window._markSheetOpen) window._markSheetOpen('crqPeek');
   }
 
   // [v787] 한 줄 상태 + 정렬 토글 — 배너·통계박스·필터탭 대체
@@ -662,7 +673,7 @@
     if (window._markSheetOpen) window._markSheetOpen('crq');
   }
   function closeCommentReplyQueue() {
-    _closePeek();
+    _closePeek(true);   // history 는 아래 _markSheetClosed('crq') 가 자식 것까지 한 번에 정리
     var el = document.getElementById(ID);
     if (!el) return;
     el.classList.remove('is-open');
