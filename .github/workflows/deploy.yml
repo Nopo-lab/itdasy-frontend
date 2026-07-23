@@ -36,6 +36,8 @@ jobs:
           SHA=${GITHUB_SHA::7}
           NEW_VERSION="${TS}-${SHA}"
           echo "🔄 Bumping app build → ${NEW_VERSION}"
+          # 다음 스텝(?v= 자동 갱신)이 같은 값을 쓰도록 넘긴다 — 셸 변수는 스텝을 넘어가지 않는다.
+          echo "NEW_VERSION=${NEW_VERSION}" >> "$GITHUB_ENV"
           if [ -f sw.js ]; then
             sed -i.bak -E "s|const CACHE_VERSION = '[^']*';|const CACHE_VERSION = '${NEW_VERSION}';|" sw.js
             rm -f sw.js.bak
@@ -48,7 +50,17 @@ jobs:
           rm -f app-core.js.bak
           sed -i.bak -E "s|window.__LATEST_BUILD__ = '[^']*';|window.__LATEST_BUILD__ = '${NEW_VERSION}';|" index.html
           rm -f index.html.bak
+      # [2026-07-23 보스] ?v= 캐시 버스터 **자동 갱신** — 사람이 올리는 걸 그만둔다.
+      #   왜: 손으로 올리면 반드시 빠뜨린다. 특히 index.html 의 js/load-groups.js?v= 를 빼먹으면
+      #   그 안의 ?v= 를 아무리 올려도 브라우저가 옛 load-groups 를 써서 **버전 올리기가 통째로 무효**가 된다
+      #   (2026-07-23 실측: caption-text.js 가 9일 전 버전으로 로드되고 있었다).
+      #   → 매 배포마다 모든 ?v= 를 빌드 버전으로 통일한다. 배포 산출물만 바뀌고 레포는 그대로.
+      - name: Auto-bump all ?v= cache busters
+        env:
+          BUILD_V: ${{ env.NEW_VERSION }}
+        run: python3 scripts/bump_cache_busters.py "$BUILD_V"
       - name: Smoke check
+
         run: npm run smoke
       # [기능별 연결 그래프] 코드 변경이 공유용 graph.html 에 자동 반영되게 매 배포마다 재생성.
       #   AST 만 쓰므로 API 키 불필요. 비치명적(continue-on-error) — 실패해도 커밋된 graph.html 이 서빙됨.
