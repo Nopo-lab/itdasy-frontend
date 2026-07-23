@@ -2308,7 +2308,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
 <script src="app-core.js?v=20260723-nestback"></script>
 <!-- 2026-06-16 통합 인박스 채널 마크 공유 모듈 — 실시간 DM·홈 카드 공용(app-core 직후, 소비자 전에 로드) -->
 <script src="js/channel-mark.js?v=local-151154"></script>
-<script src="js/load-groups.js?v=20260723-nestback" defer></script>
+<script src="js/load-groups.js?v=20260723-cat7" defer></script>
 <script src="js/loader.js?v=local-151154" defer></script>
 <script src="js/navigation/entrypoints.js?v=local-151154" defer></script>
 <script src="format-money.js?v=local-151154"></script>
@@ -2322,13 +2322,15 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
 <script src="app-instagram.js?v=local-151154" defer></script>
 <script src="components/scenario-selector.js?v=local-151154" defer></script>
 <!-- [B-분할] 캡션 기능 모듈 — app-caption.js(코어 엔진) 보다 먼저 로드(전역 함수 정의) -->
+<!-- [2026-07-23] 시술 분류 사전(백엔드 config/services.py 복제본). app-caption 이 참조하므로 먼저. -->
+<script src="js/service-categories.js?v=20260723-cat7" defer></script>
 <script src="js/caption/caption-loader-ui.js?v=local-151154" defer></script>
 <script src="js/caption/caption-onboarding.js?v=local-151154" defer></script>
 <script src="js/data/service-vocab.js?v=local-151154" defer></script>
 <script src="js/caption/caption-keyword-tags.js?v=local-151154" defer></script>
 <script src="js/caption/caption-photo-row.js?v=local-151154" defer></script>
 <script src="js/caption/caption-publish.js?v=local-151154" defer></script>
-<script src="app-caption.js?v=local-151154" defer></script>
+<script src="app-caption.js?v=20260723-cat7" defer></script>
 <script src="app-portfolio.js?v=local-151154" defer></script>
 <script src="app-portfolio-tags.js?v=local-151154" defer></script>
 <script src="app-ai.js?v=local-151154" defer></script>

@@ -120,21 +120,21 @@ async function _capPatchLog(text) {
 // ===== 캡션 생성 — POST /persona/generate =====
 // TD-020: POST /persona/generate 해시태그 반환 필드 추가 필요
 
-// shopType → schemas.json category enum 매핑
-const _CAP_CAT_MAP = {'붙임머리':'extension','네일아트':'nail','네일':'nail'};
 // [v561] 업종 미매핑 시 'extension'(붙임머리)으로 폴백하던 버그 — 타업종(헤어/네일/속눈썹) 입력에도
-//   붙임머리 few-shot/고정문구가 누출(백엔드는 category 로 과거글 버킷을 고름). 시술 입력 텍스트 +
-//   업종으로 카테고리를 추론하고, 모르면 'hair'(중립)로 폴백한다. 'extension' 자동 폴백 금지.
+//   붙임머리 few-shot/고정문구가 누출(백엔드는 category 로 과거글 버킷을 고름).
+// [2026-07-23] 자체 키워드 표를 버리고 js/service-categories.js(백엔드 config/services.py 복제본)를
+//   쓴다. 예전엔 분류가 앱 안에 5벌 따로 있어서 속눈썹·왁싱·반영구가 전부 'makeup' 한 통에 들어갔다.
+//   그리고 폴백을 'hair' → null 로 바꿨다 — 시술어를 못 알아봤는데 헤어라고 우기면
+//   네일샵 원장님이 헤어 few-shot 을 받는다. 미지정이면 백엔드가 전체 풀에서 뽑는다.
 function _inferCaptionCategory(shopType, userText) {
-  const t = (String(userText || '') + ' ' + String(shopType || '')).toLowerCase();
-  const has = (arr) => arr.some(w => t.indexOf(w) >= 0);
-  if (has(['네일', '젤네일', '페디', '큐티클', '손톱', '발톱', '매니큐어', '패디'])) return 'nail';
-  if (has(['붙임머리', '익스텐션', '헤어피스', '가발', '붙임 머리'])) return 'extension';
-  if (has(['속눈썹', '래쉬', '눈썹문신', '반영구', '메이크업', '왁싱', '입술문신'])) return 'makeup';
-  if (has(['피부', '스킨', '각질', '필링', '여드름', '모공', '클렌징'])) return 'skincare';
-  if (has(['컷', '펌', '염색', '컬러', '레이어', '단발', '머릿결', '드라이', '클리닉', '매직', '두피', '헤어'])) return 'hair';
-  if (_CAP_CAT_MAP[shopType]) return _CAP_CAT_MAP[shopType];
-  return 'hair';   // 중립 폴백 (붙임머리 폴백 금지)
+  const SC = window.ServiceCategories;
+  const text = String(userText || '') + ' ' + String(shopType || '');
+  if (!SC) {
+    // 로더 순서 사고 대비 — 사전이 없으면 억지 추론 대신 미지정(백엔드가 전체 풀 사용).
+    console.warn('[caption] ServiceCategories 미로드 — 카테고리 미지정으로 진행');
+    return null;
+  }
+  return SC.infer(text);
 }
 
 function generateCaption() {
