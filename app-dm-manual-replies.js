@@ -250,10 +250,14 @@
     const card = sheet.querySelector('#dmrCard');
     if (window.SheetAnim) window.SheetAnim.open(sheet, card);
     else sheet.style.display = 'flex';
+    // [2026-07-23] 뒤로가기 등록 — 없으면 안드로이드 back 에 앱이 그냥 꺼진다.
+    if (typeof window._registerSheet === 'function') window._registerSheet('dmManual', close);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('dmManual');
     // 두 영역 동시 채움 (사용자가 탭 전환해도 미리 준비됨)
     await Promise.all([_renderBasicMents(), _refresh()]);
   }
   function close() {
+    if (typeof window._markSheetClosed === 'function') window._markSheetClosed('dmManual');
     const sheet = document.getElementById('dmManualSheet');
     if (!sheet) return;
     const card = sheet.querySelector('#dmrCard');

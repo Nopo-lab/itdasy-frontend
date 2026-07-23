@@ -115,11 +115,15 @@
     }
     if (window.SheetAnim) window.SheetAnim.open(sheet, card);
     else sheet.style.display = 'flex';
+    // [2026-07-23] 뒤로가기 등록 — 없으면 안드로이드 back 에 앱이 그냥 꺼진다.
+    if (typeof window._registerSheet === 'function') window._registerSheet('dmConfirmQueue', close);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('dmConfirmQueue');
     await _refresh();
     _startQueuePoll();
   }
   function close() {
     _stopQueuePoll();
+    if (typeof window._markSheetClosed === 'function') window._markSheetClosed('dmConfirmQueue');
     const sheet = document.getElementById('dmConfirmQueueSheet');
     if (!sheet) return;
     const card = sheet.querySelector('#dcqCard');

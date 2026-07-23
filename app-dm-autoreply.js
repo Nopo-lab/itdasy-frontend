@@ -1424,6 +1424,9 @@
     _overlay = null;
     _sheet = null;
     _opening = false;
+    // 스택 정리는 overlay 유무와 무관하게 — DOM 이 이미 사라진 stuck 케이스에서도
+    // history 엔트리가 남으면 "눌러도 아무 일 없는 뒤로가기"가 쌓인다.
+    if (typeof window._markSheetClosed === 'function') window._markSheetClosed('dmAutoreply');
     if (!overlay) return;
     let closed = false;
     const _hardRemove = () => {
@@ -1497,6 +1500,10 @@
     _sheet = sheet;
 
     _bindEvents(sheet);
+    // [2026-07-23] 안드로이드 하드웨어 뒤로가기 등록 — 없으면 뒤로가기에 앱이 그냥 꺼진다.
+    //   드로어·대화목록·검토큐 3곳에서 열리는 주요 화면인데 등록이 빠져 있었음.
+    if (typeof window._registerSheet === 'function') window._registerSheet('dmAutoreply', closeDMAutoreplySettings);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('dmAutoreply');
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeDMAutoreplySettings(); });
 
     if (window.SheetAnim?.open) window.SheetAnim.open(overlay, sheet);
