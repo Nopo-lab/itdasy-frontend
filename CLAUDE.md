@@ -13,6 +13,11 @@
   "코드가 틀렸나" 를 한참 뒤졌고, SW 캐시를 지우고서야 나왔다. **로컬 검증도 똑같이 속는다.**
 - "고쳤는데 화면이 그대로" 면 → 코드보다 **캐시부터** 의심.
 - `sw.js` 의 `CACHE_VERSION` 은 deploy.yml 이 자동 주입한다. **`?v=` 는 자동이 아니다 — 사람이 올려야 한다.**
+- 🚨 **`js/load-groups.js` 자신의 `?v=` 도 같이 올려라** (index.html:2311).
+  이걸 빼면 **안의 버전을 아무리 올려도 소용없다** — 브라우저가 옛 load-groups.js 를 그대로 쓰고,
+  그 안에 적힌 옛 `?v=` 로 파일을 불러온다. 2026-07-23 실측으로 잡았다:
+  파일엔 수정이 있고 load-groups 도 갱신했는데 화면은 그대로 → 로드된 script 태그가
+  `caption-text.js?v=20260714-fix-batch1`(옛 버전)이었다. **버전 올리기가 통째로 무력화되는 지점.**
 - 빠뜨리기 쉬운 것: `?v=` 가 아직 **안 붙은 항목**(`'app-backup.js',` 처럼) — 새로 붙여야 영영 캐시되지 않는다.
   그리고 CSS(`index.html` 의 `<link>`), `js/workspace/**` 같은 긴 경로.
 
@@ -26,6 +31,10 @@ for t in ('js/load-groups.js', 'index.html'):
     for f in FILES:
         s = re.sub(re.escape(f) + r'\?v=[^\'"?&]*', f + '?v=' + V, s)
     io.open(t, 'w', encoding='utf-8').write(s)
+# 🚨 load-groups.js 자신의 버전도 반드시 — 안 올리면 위 갱신이 전부 무효
+s = io.open('index.html', encoding='utf-8').read()
+io.open('index.html', 'w', encoding='utf-8').write(
+    re.sub(r'js/load-groups\.js\?v=[^\'"?&]*', 'js/load-groups.js?v=' + V, s))
 ```
 
 ## 🚨 디자인 정책 (2026-05-28 ~ )

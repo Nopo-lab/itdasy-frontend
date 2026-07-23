@@ -76,7 +76,13 @@
     s = _cleanService(s).service;   // [v590·#A][#1] 오버레이에 고객명·샵이름 안 박힘
     s = s.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}]/gu, ' ');   // 이모지 제거
     s = s.replace(/\d+\s*자(?:\s*(?:이내|로|정도))?/g, ' ');   // '300자' 같은 글자수 지시 제거
-    return s.split(/[\n,·、.\s]+/).map(function (x) { return x.trim(); })
+    /* [2026-07-23 보스] 숫자 사이 마침표는 자르지 않는다.
+       예전엔 '.' 를 무조건 구분자로 써서 속눈썹 굵기 **0.15mm 가 '0' + '15mm' 로 쪼개졌고**,
+       '0' 은 필터에 걸려 사라져 사진에 "15mm" 만 박혔다(실측). 뷰티에서 0.15/0.10 은 흔한 스펙이라
+       그대로 살려야 한다. 소수점을 임시 치환했다가 자른 뒤 되돌린다(정규식 lookbehind 미지원 기기 대비). */
+    return s.replace(/(\d)\.(\d)/g, '$1\u0001$2')
+      .split(/[\n,·、.\s]+/)
+      .map(function (x) { return x.replace(/\u0001/g, '.').trim(); })
       // [버그수정 2026-07-06] 시술어 포함 토큰(커플네일·모녀펌·자매룩 등)은 사담 필터에서 보호 — 부분일치 오삭제 방지.
       .filter(function (w) { return w && (_SERVICE_ROOT.test(w) || (!_WORD_DROP.test(w) && !_OVL_DROP.test(w))); });
   }

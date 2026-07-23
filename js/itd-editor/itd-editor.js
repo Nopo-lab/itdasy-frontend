@@ -349,7 +349,7 @@
     var L = makeLayer('text');
     L.font = fontByKey(fontKey) || FONTS[0]; L.color = COLORS[0]; L.align = 'center'; L.fontSize = 40; L.text = text; L.shadow = true;
     var t = el('div', 'itl-text'); t.textContent = text;
-    t.style.cssText = 'font-family:' + L.font.family + ';font-weight:' + L.font.weight + ';color:' + L.color + ';text-align:center;font-size:' + L.fontSize + 'px;white-space:pre-wrap;text-shadow:0 2px 8px rgba(0,0,0,.35)';
+    t.style.cssText = 'font-family:' + L.font.family + ';font-weight:' + L.font.weight + ';color:' + L.color + ';text-align:center;font-size:' + L.fontSize + 'px;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;text-shadow:0 2px 8px rgba(0,0,0,.35)';
     L.el.appendChild(t); L.tx = t;
     placeCenter(L, 200, 60); selectLayer(L);
     _pushOp({ op: 'add', L: L });
@@ -759,7 +759,11 @@
     L.stroke = !!(spec.outline && spec.outline.on) || !!spec.stroke;
     L.shadow = isBadge || !!(spec.shadow && spec.shadow.on) || !!spec.shadow;
     var t = el('div', 'itl-text'); t.textContent = L.text;
-    var css = 'font-family:' + L.font.family + ';font-weight:' + (spec.weight || L.font.weight) + ';color:' + L.color + ';text-align:' + L.align + ';font-size:' + L.fontSize + 'px;white-space:pre-wrap';
+    /* [2026-07-23 보스] 한글 줄바꿈 — word-break:keep-all 로 **어절(띄어쓰기) 단위**로 끊는다.
+       기본값(normal)은 한글을 글자 단위로 끊어서 '속눈썹 연/장', '뿌리염/색' 처럼 어색하게 잘렸다.
+       overflow-wrap:anywhere 는 안전망 — 띄어쓰기 없이 아주 긴 한 덩어리(URL·영문)가 오면
+       keep-all 만으론 박스를 뚫고 나가므로 그때만 강제로 끊는다. */
+    var css = 'font-family:' + L.font.family + ';font-weight:' + (spec.weight || L.font.weight) + ';color:' + L.color + ';text-align:' + L.align + ';font-size:' + L.fontSize + 'px;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere';
     if (spec.w != null) css += ';max-width:' + Math.round(spec.w * R.width) + 'px';
     if (L.stroke) css += ';-webkit-text-stroke:1px rgba(0,0,0,.5)';
     if (L.shadow) css += ';text-shadow:0 2px 8px rgba(0,0,0,.35)';

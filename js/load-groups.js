@@ -14,7 +14,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   // [2026-07-23] 아이콘 스티커 세트 — itd-editor.js 보다 **먼저** 실려야 STK_TABS 가 탭을 만든다.
   'js/itd-editor/data/itd-icon-stickers.js?v=20260723-v794-iconstk',
   'js/itd-editor/safe-zone.js?v=20260630-v621-safezone',
-  'js/itd-editor/itd-editor.js?v=20260723-v794-iconstk',
+  'js/itd-editor/itd-editor.js?v=20260723-v797-keepall',
   'js/workspace/workspace-adapter.js?v=20260722-v791-dmunify',
   'js/workspace/workspace-sync.js?v=20260717-v768-merge',
   'js/workspace/workspace-crop.js?v=20260706-v711-crossorigin',
@@ -23,7 +23,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/workspace/workspace-perf.js?v=20260722-v791b-whygood',
   // [P0-2] service-vocab.js 중복 제거 — index.html(콜드스타트, caption-keyword-tags 가 소비)에 이미 있어
   //   window.ItdasyServiceVocab 이 lazy photo 그룹 로드 전에 항상 정의됨. 여기서 또 로드하면 재실행 낭비.
-  'js/workspace/flow/caption-text.js?v=20260714-fix-batch1',
+  'js/workspace/flow/caption-text.js?v=20260723-v796-decimal',
   'js/workspace/layout/layout-model.js?v=20260718-v776-morelayouts',
   'js/workspace/layout/slot-stage.js?v=20260705-v703-drag',
   'js/workspace/flow/util.js?v=20260710-v724-splitP5',
