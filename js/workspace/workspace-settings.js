@@ -100,6 +100,39 @@
     var footer = get(K_FOOTER);
     return '<textarea class="ss-input" data-wss-footer rows="2" style="width:100%;resize:vertical;min-height:56px" placeholder="게시글 끝에 항상 붙일 문구 (예약 DM·영업시간 등). 비우면 안 붙어요.">' + esc(footer) + '</textarea>';
   }
+
+  /* [2026-07-24] AI가 자동감지한 서명 — 원장님이 보고/고치고/끄게.
+     예전엔 이게 안 보여서, 자동감지된 문구가 캡션에 조용히 붙는데 원장님은 알 수도 끌 수도 없었다.
+     GET /persona/signature 로 불러와 각각 인라인 편집(→ manual, 재분석에 안 덮임) + 끄기(soft delete). */
+  var _sigs = null;   // null=아직 안 불러옴, []=없음
+  function _sigHtml() {
+    if (_sigs === null) return '<div class="ss-card-sub" style="margin-top:12px">AI가 찾은 문구를 불러오는 중…</div>';
+    if (!_sigs.length) return '';   // 없으면 소섹션 자체를 안 보여준다(고정멘트 입력만 깔끔히)
+    return '<div class="ss-card-sub" style="margin-top:14px"><b>AI가 찾은 마무리 문구</b><br>원장님이 자주 쓰는 문구를 자동으로 찾았어요. 고치거나 끌 수 있어요.</div>' +
+      _sigs.map(function (s) {
+        var pos = (s.position === 'top') ? '맨 앞' : '맨 뒤';
+        return '<div class="ss-row" style="align-items:flex-start;gap:10px;margin-top:8px">' +
+          '<span class="lbl" style="flex:1;min-width:0">' +
+            '<span style="display:block;font-size:11px;color:#B0B8C1;margin-bottom:3px">' + pos + '</span>' +
+            '<textarea class="ss-input" data-wss-sigedit="' + esc(s.id) + '" rows="2" style="width:100%;resize:vertical;min-height:44px;font-size:13px">' + esc(s.content) + '</textarea>' +
+          '</span>' +
+          '<button type="button" data-wss-sigoff="' + esc(s.id) + '" aria-label="이 문구 끄기" title="이 문구 끄기" style="flex-shrink:0;background:none;border:1px solid #F0DADF;border-radius:9px;color:#BC6675;font-size:12.5px;font-weight:700;font-family:inherit;padding:6px 10px;cursor:pointer">끄기</button>' +
+        '</div>';
+      }).join('');
+  }
+  function _refreshSigs(el) {
+    var host = (el || document.getElementById(ID));
+    host = host && host.querySelector('[data-wss-sigwrap]');
+    if (host) host.innerHTML = _sigHtml();
+  }
+  function _loadSigs(el) {
+    var A = window.WorkspaceAdapter;
+    if (!(A && A.listSignatures)) { _sigs = []; _refreshSigs(el); return; }
+    A.listSignatures().then(function (list) {
+      _sigs = (list || []).filter(function (s) { return s && s.content && String(s.content).trim(); });
+      _refreshSigs(el);
+    });
+  }
   /* [#15 2026-07-17] '샵 정보 반영하기' 토글 — 매장 정보 섹션으로 옮김.
      원장 지적: "매장 정보에 게시물에 자동으로 쓰게 하지 말고 토글 있게 해."
      토글 자체는 원래 있었는데(같은 키 itdasy:caption_shopinfo) '캡션 고정 멘트' 섹션에 숨어 있어서
@@ -252,7 +285,8 @@
           '<div data-wss-autowrap>' + _autoTextHtml() + '</div></div>' +
         '<div class="ss-card">' + _hd('message-square', '캡션 고정 멘트') +
           '<div class="ss-card-sub">게시글 끝에 항상 붙는 문구예요.</div>' +
-          '<div data-wss-footwrap>' + _footerHtml() + '</div></div>' +
+          '<div data-wss-footwrap>' + _footerHtml() + '</div>' +
+          '<div data-wss-sigwrap>' + _sigHtml() + '</div></div>' +
         '<div class="ss-card">' + _hd('book-open', '아이콘 출처') +
           '<div data-wss-credits>' + _creditsHtml() + '</div></div>' +
       '</div>';
@@ -262,6 +296,18 @@
     el.addEventListener('change', function (e) {
       var inp = e.target.closest('[data-wss-key]');
       if (inp) { set(inp.getAttribute('data-wss-key'), inp.value); return; }
+      // [2026-07-24] 자동감지 서명 인라인 편집 — blur/change 시 서버 저장(→ manual, 재분석 보호).
+      var se = e.target.closest('[data-wss-sigedit]');
+      if (se) {
+        var seId = se.getAttribute('data-wss-sigedit');
+        var val = String(se.value == null ? '' : se.value).trim();
+        var A = window.WorkspaceAdapter;
+        if (!val) { toast('내용을 비우려면 옆의 끄기를 눌러주세요'); return; }
+        if (A && A.updateSignature) {
+          A.updateSignature(seId, val).then(function (r) { if (r && r.ok) toast('문구를 저장했어요'); else toast('저장하지 못했어요'); });
+        }
+        return;
+      }
     });
     el.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
     return el;
@@ -338,6 +384,25 @@
       } else go();
       return;
     }
+    // [2026-07-24] 자동감지 서명 끄기 — 캡션에 안 붙게 하고, 다음 재분석에도 안 살아난다.
+    var so = e.target.closest('[data-wss-sigoff]');
+    if (so) {
+      var sigId = so.getAttribute('data-wss-sigoff');
+      var offGo = function () {
+        var A = window.WorkspaceAdapter;
+        if (!(A && A.deleteSignature)) { toast('불러오지 못했어요'); return; }
+        so.disabled = true; so.textContent = '끄는 중…';
+        A.deleteSignature(sigId).then(function (r) {
+          if (r && r.ok) { toast('이 문구는 이제 안 붙어요'); _loadSigs(document.getElementById(ID)); }
+          else { toast('끄지 못했어요 — 잠시 뒤 다시'); so.disabled = false; so.textContent = '끄기'; }
+        });
+      };
+      if (typeof window.nativeConfirm === 'function') {
+        window.nativeConfirm('문구 끄기', '이 문구를 앞으로 캡션에 안 붙일까요?', '끄기')
+          .then(function (ok) { if (ok) offGo(); }).catch(function () {});
+      } else offGo();
+      return;
+    }
     // [2026-07-23] 사진 자동삽입(시술내용·해시태그) — ShopStyle 레이어 enabled 토글
     var at = e.target.closest('[data-wss-auto]');
     if (at) {
@@ -369,6 +434,7 @@
     // 열 때마다 최신값으로 새로 그림
     var fh = el.querySelector('[data-wss-fields]'); if (fh) fh.innerHTML = _fieldsHtml();
     var fw = el.querySelector('[data-wss-footwrap]'); if (fw) fw.innerHTML = _footerHtml();
+    _sigs = null; _refreshSigs(el); _loadSigs(el);   // 자동감지 서명은 서버에서 매번 새로
     var sw = el.querySelector('[data-wss-shopinfowrap]'); if (sw) sw.innerHTML = _shopInfoToggleHtml();
     // 편집기에서 해시태그를 지우면 _learnShopStyle 이 enabled:false 를 남긴다 → 열 때마다 최신 상태로.
     var aw = el.querySelector('[data-wss-autowrap]'); if (aw) aw.innerHTML = _autoTextHtml();

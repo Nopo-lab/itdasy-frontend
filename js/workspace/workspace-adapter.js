@@ -414,6 +414,40 @@
         .catch(function () { return { ok: false, toast: '네트워크 오류로 저장하지 못했어요' }; });
     },
 
+    /* [2026-07-24] AI 가 자동감지한 서명(고정 문구) — 원장님이 보고/고치고/끄게.
+       백엔드엔 /persona/signature 가 있었는데 프론트가 한 번도 안 불러서, 원장님이
+       자동감지 서명을 볼 수도 끌 수도 없었다(조용히 생성돼 조용히 캡션에 붙었다). */
+    listSignatures: function () {
+      var h = window.authHeader ? window.authHeader() : {};
+      if (!h.Authorization) return Promise.resolve([]);
+      var u = (typeof window.apiUrl === 'function') ? window.apiUrl('/persona/signature') : ((window.API || '') + '/persona/signature');
+      return fetch(u, { headers: h })
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (arr) { return Array.isArray(arr) ? arr : []; })
+        .catch(function () { return []; });
+    },
+    // 편집하면 백엔드가 source=manual 로 바꿔 재분석이 안 덮는다(update_signature_block).
+    updateSignature: function (id, content) {
+      var h = window.authHeader ? window.authHeader() : {};
+      if (!h.Authorization || id == null) return Promise.resolve({ ok: false });
+      h['Content-Type'] = 'application/json';
+      var p = '/persona/signature/' + encodeURIComponent(id);
+      var u = (typeof window.apiUrl === 'function') ? window.apiUrl(p) : ((window.API || '') + p);
+      return fetch(u, { method: 'PUT', headers: h, body: JSON.stringify({ content: String(content == null ? '' : content) }) })
+        .then(function (r) { return { ok: !!(r && r.ok) }; })
+        .catch(function () { return { ok: false }; });
+    },
+    // 끄기 — soft delete(active=false). 다음 재분석에 다시 안 살아난다.
+    deleteSignature: function (id) {
+      var h = window.authHeader ? window.authHeader() : {};
+      if (!h.Authorization || id == null) return Promise.resolve({ ok: false });
+      var p = '/persona/signature/' + encodeURIComponent(id);
+      var u = (typeof window.apiUrl === 'function') ? window.apiUrl(p) : ((window.API || '') + p);
+      return fetch(u, { method: 'DELETE', headers: h })
+        .then(function (r) { return { ok: !!(r && r.ok) }; })
+        .catch(function () { return { ok: false }; });
+    },
+
     // [v779] 예약 발행 — 백엔드 /scheduled-posts. 서버가 예약시각에 content_publish 로 발행(새 Meta 권한 불필요).
     //   즉시발행(multipart)과 달리 예약 업로드는 JSON {image_data: dataURL} → 서버가 절대 URL 반환 → 예약 생성.
     // [2026-07-22 보스] 여러 장(캐러셀) 예약 지원. o.imageUrls(배열) 를 받아 한 장씩 업로드한 뒤
