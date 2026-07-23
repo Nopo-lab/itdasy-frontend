@@ -287,8 +287,14 @@
     var autoArranged = false;
     if (ss) {
       // [v587·B-3] 해시태그도 오버레이 레이어로 — 생성된 해시태그 상위 4개만(사진 위 과밀 방지).
+      /* [2026-07-23 보스] 시술명이 없으면 해시태그도 안 올린다.
+         원장 신고: "사진 편집 들어가도 해시태그만 있어." 시술 칩을 재탭하면 선택이 **해제**되는데
+         (_pickServiceTag 토글), 해시태그는 캡션 생성 응답으로 이미 채워져 있어 그 조합이 되면
+         사진에 해시태그만 덩그러니 박혔다. 시술명 없는 해시태그 오버레이는 게시물로 쓸 데가 없다.
+         → 둘 다 없거나 둘 다 있게. 원장이 해시태그만 원하면 편집기에서 직접 올리면 된다. */
       var hs = (d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : (d.hashtags || []));
-      var hashText = hs.slice(0, 4).join(' ');
+      var _svcOk = !!String(roleText.title || '').trim();
+      var hashText = _svcOk ? hs.slice(0, 4).join(' ') : '';
       ss.layers.forEach(function (L) {
         // [v590] 사용자가 이전에 편집기에서 제거한 레이어(예: 해시태그)는 enabled:false → 다음부터 자동배치 제외.
         if (L.enabled === false) return;
