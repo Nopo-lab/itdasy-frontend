@@ -911,6 +911,28 @@ function authHeader() {
     });
   }
 
+  // [2026-07-23] 재시도하면 '손님에게 두 번 나가는' 경로. body 가 재사용 가능해도 절대 재시도 금지.
+  //   사고 경로: 서버가 인스타 Graph 에 공개 답글을 이미 성공적으로 게시했는데 응답이 돌아오는 길에
+  //   끊기거나 20초 타임아웃(Cloud Run 콜드스타트 + Graph 왕복이면 충분히 난다) → 래퍼가 같은 POST 를
+  //   다시 쏨 → 같은 댓글에 답글 2개. 원장 피드에 그대로 남고 앱에서 지울 방법도 없다.
+  //   서버에도 멱등성 방어를 넣었지만(CommentReplyLog 선조회) 클라도 안 쏘는 게 맞다.
+  //   경로는 실제 라우트를 보고 적었다. 헷갈리기 쉬운 두 곳:
+  //     · comment-reply-settings 는 설정 저장이라 재시도해도 안전 → 제외(negative lookahead).
+  //     · send_edit 은 '_' 가 단어문자라 /send\b/ 로는 안 걸린다. 명시적으로 나열한다.
+  const NO_RETRY_PATH_RE = new RegExp(
+    '/(' + [
+      'instagram/comment-reply(?!-settings)',                          // 공개 답글
+      'instagram/publish',                                             // 인스타 발행(+ -file/-carousel-file/-story-file)
+      'scheduled-posts',                                               // 예약 발행 등록
+      'dm-confirm-queue/[^/]+/(send|send_edit|send-form|confirm-deposit|decline-with-alternatives)',
+    ].join('|') + ')'
+  );
+  function _isNoRetryPath(input) {
+    try {
+      const u = typeof input === 'string' ? input : (input && input.url) || '';
+      return NO_RETRY_PATH_RE.test(String(u));
+    } catch (_) { return false; }
+  }
   function _isRetryableMethod(init) {
     const m = (init && init.method ? String(init.method).toUpperCase() : 'GET');
     if (m === 'GET' || m === 'HEAD') return true;
@@ -987,7 +1009,7 @@ function authHeader() {
   }
 
   window.fetch = async function(input, init) {
-    const retryable = _isRetryableMethod(init) && _bodyReusable(init);
+    const retryable = _isRetryableMethod(init) && _bodyReusable(init) && !_isNoRetryPath(input);
     const isLlm = _isLlmCall(input);   // [2026-07-22] 생성형 호출 — 오래 기다리되 타임아웃 재시도는 안 함
     let attempt = 0;
     // eslint-disable-next-line no-constant-condition
