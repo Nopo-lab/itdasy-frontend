@@ -182,21 +182,27 @@
   // 샵 설정값(작업실 설정과 공유하는 itdasy:shop_* 키) — DM 상세에 사용
   function _shop(k, fb) { try { return localStorage.getItem('itdasy:shop_' + k) || fb || ''; } catch (_e) { return fb || ''; } }
 
-  // 의도별 답장 초안 (공개=짧게 DM유도 / DM=상세, 샵설정 반영)
+  // 의도별 답장 초안 (공개 답글만, 샵설정 반영)
+  // [2026-07-23] 공개 초안에서 DM 언급을 전부 뺐다. 이 화면은 DM 을 안 보내는데(발송 주체는
+  //   DM 엔진 하나 — 2026-07-22 정책) 초안은 "DM으로 보내드렸어요" 라고 적혀 있었다. 그러면
+  //   백엔드 nodm_public 방어가 발송 직전에 문구를 갈아끼워서, 원장이 화면에서 보고 승인한
+  //   문장과 실제로 피드에 달리는 문장이 달랐다. 화면 = 실제여야 한다.
+  //   dmDraft 는 발송에 안 쓰이지만(항상 dm_text:''), 서버 초안이 없을 때 카드 미리보기가
+  //   참조하므로 남겨둔다.
   function _drafts(intent) {
     var book = _shop('book', ''), addr = _shop('addr', _shop('location', '')), hours = _shop('hours', ''), phone = _shop('phone', '');
     var link = book ? ('\n예약은 여기서 → ' + book) : (phone ? ('\n예약 문의 → ' + phone) : '');
-    if (intent === 'price') return { publicDraft: '문의 감사해요! 자세한 가격 DM으로 보내드렸어요, 편하게 봐주세요', dmDraft: '가격 안내드릴게요' + link };
-    if (intent === 'booking') return { publicDraft: '예약 도와드릴게요, DM 확인해 주세요', dmDraft: '예약 도와드릴게요!' + link };
-    if (intent === 'location') return { publicDraft: '위치·오시는 길 DM으로 보냈어요', dmDraft: (addr || '위치 안내드릴게요') + (book ? ('\n예약 → ' + book) : '') };
-    if (intent === 'hours') return { publicDraft: '영업시간 DM으로 보내드렸어요', dmDraft: (hours ? ('영업시간: ' + hours) : '영업시간 안내드릴게요') + (book ? ('\n예약 → ' + book) : '') };
+    if (intent === 'price') return { publicDraft: '문의 감사해요! 원하시는 시술 알려주시면 가격 안내드릴게요', dmDraft: '가격 안내드릴게요' + link };
+    if (intent === 'booking') return { publicDraft: '예약 문의 감사해요! 원하시는 날짜·시술 남겨주시면 확인하고 도와드릴게요', dmDraft: '예약 도와드릴게요!' + link };
+    if (intent === 'location') return { publicDraft: '찾아와 주셔서 감사해요! 위치·오시는 길 안내드릴게요', dmDraft: (addr || '위치 안내드릴게요') + (book ? ('\n예약 → ' + book) : '') };
+    if (intent === 'hours') return { publicDraft: '문의 감사해요! 영업시간 안내드릴게요', dmDraft: (hours ? ('영업시간: ' + hours) : '영업시간 안내드릴게요') + (book ? ('\n예약 → ' + book) : '') };
     // [2026-07-21] 신규 인텐트 폴백 초안 (서버 페르소나 초안 없을 때만)
-    if (intent === 'duration') return { publicDraft: '소요시간 DM으로 안내드렸어요', dmDraft: '시술 소요시간·지속력 안내드릴게요' + link };
-    if (intent === 'event') return { publicDraft: '이벤트 자세히 DM으로 보내드렸어요', dmDraft: '진행 중인 이벤트 안내드릴게요' + link };
-    if (intent === 'membership') return { publicDraft: '회원권 안내 DM으로 보내드렸어요', dmDraft: '회원권·정기권 안내드릴게요' + link };
+    if (intent === 'duration') return { publicDraft: '문의 감사해요! 시술 소요시간·지속력 안내드릴게요', dmDraft: '시술 소요시간·지속력 안내드릴게요' + link };
+    if (intent === 'event') return { publicDraft: '관심 감사해요! 진행 중인 이벤트 안내드릴게요', dmDraft: '진행 중인 이벤트 안내드릴게요' + link };
+    if (intent === 'membership') return { publicDraft: '문의 감사해요! 회원권·정기권 안내드릴게요', dmDraft: '회원권·정기권 안내드릴게요' + link };
     // 건강여부(eligibility): 절대 '가능하다' 단정 금지 — 상태 확인 후 상담 유도 (사람이 검토·발송)
-    if (intent === 'eligibility') return { publicDraft: '문의 감사해요! 상태 확인이 필요해서 DM 드렸어요', dmDraft: '상태에 따라 시술 가능 여부가 달라서요, 편하게 자세히 알려주시면 상담 도와드릴게요' + (phone ? ('\n상담 문의 → ' + phone) : '') };
-    return { publicDraft: '문의 감사해요! DM으로 안내드렸어요', dmDraft: '문의 주셔서 감사해요' + (book ? ('\n예약 → ' + book) : '') };
+    if (intent === 'eligibility') return { publicDraft: '문의 감사해요! 상태에 따라 달라서 확인이 필요해요, 편하게 알려주시면 상담 도와드릴게요', dmDraft: '상태에 따라 시술 가능 여부가 달라서요, 편하게 자세히 알려주시면 상담 도와드릴게요' + (phone ? ('\n상담 문의 → ' + phone) : '') };
+    return { publicDraft: '문의 감사해요! 어떤 점이 궁금하신지 알려주시면 안내드릴게요', dmDraft: '문의 주셔서 감사해요' + (book ? ('\n예약 → ' + book) : '') };
   }
 
   // 실 API 아이템 → 렌더 형식. 서버 페르소나 초안(public_draft/dm_draft) 우선, 없으면 템플릿 폴백.
