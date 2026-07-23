@@ -174,6 +174,59 @@
       }).join('');
   }
 
+
+  /* [2026-07-23 보스] 예약한 게시물 — 목록 + 취소.
+     이게 없어서 원장이 예약을 걸면 **막을 방법이 없었다.** 발행은 되돌릴 수 없는데
+     취소 수단이 없는 건 그 자체로 사고다. 실패한 예약도 볼 데가 없어 조용히 묻혔다.
+     백엔드 GET/DELETE /scheduled-posts 는 원래 있었는데 프론트가 안 쓰고 있었을 뿐이다. */
+  var _sched = null;   // null=아직 안 불러옴, []=없음
+  function _schedHtml() {
+    if (_sched === null) return '<div class="ss-card-sub">예약한 게시물을 불러오는 중…</div>';
+    if (!_sched.length) return '<div class="ss-card-sub">예약해 둔 게시물이 없어요. 작업실에서 게시글을 만들 때 <b>‘지금 말고 예약해서 올리기’</b>로 걸 수 있어요.</div>';
+    var LABEL = { pending: '기다리는 중', sending: '올리는 중', sent: '올라감', failed: '실패' };
+    var COLOR = { pending: '#BC6675', sending: '#C9A227', sent: '#0F766E', failed: '#DC2626' };
+    return '<div class="ss-card-sub">예약 시각이 되면 자동으로 올라가요. 올라가기 전엔 취소할 수 있어요.</div>' +
+      _sched.map(function (x) {
+        var st = x.status || 'pending';
+        var when = _fmtWhen(x.scheduled_at);
+        var n = (x.image_urls || []).length || 1;
+        var cancelable = (st === 'pending');
+        return '<div class="ss-row" style="align-items:flex-start;gap:10px">' +
+          '<span class="lbl" style="flex:1;min-width:0">' +
+            '<span style="display:block;font-weight:700;color:#191F28">' + esc(when) + '</span>' +
+            '<span style="display:block;font-size:11.5px;color:#8B95A1;margin-top:2px">' +
+              '사진 ' + n + '장 · <span style="color:' + COLOR[st] + ';font-weight:700">' + (LABEL[st] || st) + '</span>' +
+              (x.error_msg ? ' · ' + esc(String(x.error_msg).slice(0, 40)) : '') + '</span>' +
+            (x.caption ? '<span style="display:block;font-size:11.5px;color:#B0B8C1;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(String(x.caption).slice(0, 50)) + '</span>' : '') +
+          '</span>' +
+          (cancelable
+            ? '<button type="button" data-wss-schedcancel="' + esc(x.id) + '" style="flex-shrink:0;background:none;border:1px solid #F0DADF;border-radius:9px;color:#BC6675;font-size:12.5px;font-weight:700;font-family:inherit;padding:6px 10px;cursor:pointer">취소</button>'
+            : '') +
+        '</div>';
+      }).join('');
+  }
+  function _fmtWhen(iso) {
+    try {
+      var d = new Date(iso), p = function (n) { return String(n).length < 2 ? '0' + n : '' + n; };
+      return (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    } catch (_e) { return '예약 시각'; }
+  }
+  function _refreshSched(el) {
+    var host = (el || document.getElementById(ID));
+    host = host && host.querySelector('[data-wss-schedwrap]');
+    if (!host) return;
+    host.innerHTML = _schedHtml();
+  }
+  function _loadSched(el) {
+    var A = window.WorkspaceAdapter;
+    if (!(A && A.listScheduled)) { _sched = []; _refreshSched(el); return; }
+    A.listScheduled().then(function (list) {
+      // 올라간 것/실패한 것도 보여주되 최근 것만 — 목록이 무한정 길어지면 취소할 걸 못 찾는다.
+      _sched = (list || []).slice(0, 20);
+      _refreshSched(el);
+    });
+  }
+
   function _ensureMounted() {
     var el = document.getElementById(ID);
     if (el) return el;
@@ -193,6 +246,8 @@
           '<div class="ss-card-sub" style="margin:14px 0 10px">아래는 작업실 전용 항목이에요.</div>' +
           '<div data-wss-fields>' + _fieldsHtml() + '</div>' +
           '<div data-wss-shopinfowrap>' + _shopInfoToggleHtml() + '</div></div>' +
+        '<div class="ss-card">' + _hd('clock', '예약한 게시물') +
+          '<div data-wss-schedwrap>' + _schedHtml() + '</div></div>' +
         '<div class="ss-card">' + _hd('type', '사진에 자동으로 넣기') +
           '<div data-wss-autowrap>' + _autoTextHtml() + '</div></div>' +
         '<div class="ss-card">' + _hd('message-square', '캡션 고정 멘트') +
@@ -264,6 +319,25 @@
       sw.classList.toggle('is-on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
       set(K_SHOPINFO, on ? '1' : '0'); return;
     }
+    // [2026-07-23] 예약 취소 — 되돌릴 수 없는 발행을 막는 유일한 수단이라 확인을 한 번 묻는다.
+    var sc = e.target.closest('[data-wss-schedcancel]');
+    if (sc) {
+      var sid = sc.getAttribute('data-wss-schedcancel');
+      var go = function () {
+        var A = window.WorkspaceAdapter;
+        if (!(A && A.cancelScheduled)) { toast('취소 기능을 불러오지 못했어요'); return; }
+        sc.disabled = true; sc.textContent = '취소 중…';
+        A.cancelScheduled(sid).then(function (r) {
+          if (r && r.ok) { toast('예약을 취소했어요'); _loadSched(document.getElementById(ID)); }
+          else { toast('취소하지 못했어요 — 잠시 뒤 다시'); sc.disabled = false; sc.textContent = '취소'; }
+        });
+      };
+      if (typeof window.nativeConfirm === 'function') {
+        window.nativeConfirm('예약 취소', '이 예약을 취소할까요?\n취소하면 인스타에 안 올라가요.', '취소하기')
+          .then(function (ok) { if (ok) go(); }).catch(function () {});
+      } else go();
+      return;
+    }
     // [2026-07-23] 사진 자동삽입(시술내용·해시태그) — ShopStyle 레이어 enabled 토글
     var at = e.target.closest('[data-wss-auto]');
     if (at) {
@@ -298,6 +372,7 @@
     var sw = el.querySelector('[data-wss-shopinfowrap]'); if (sw) sw.innerHTML = _shopInfoToggleHtml();
     // 편집기에서 해시태그를 지우면 _learnShopStyle 이 enabled:false 를 남긴다 → 열 때마다 최신 상태로.
     var aw = el.querySelector('[data-wss-autowrap]'); if (aw) aw.innerHTML = _autoTextHtml();
+    _sched = null; _refreshSched(el); _loadSched(el);   // 예약 목록은 서버에서 매번 새로(취소 반영)
     _selMem = null; _refreshMem();
     el.setAttribute('aria-hidden', 'false');
     requestAnimationFrame(function () { el.classList.add('is-open'); });

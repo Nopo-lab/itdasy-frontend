@@ -419,6 +419,27 @@
     // [2026-07-22 보스] 여러 장(캐러셀) 예약 지원. o.imageUrls(배열) 를 받아 한 장씩 업로드한 뒤
     //   image_urls 로 예약을 만든다. 예약 시각에 워커가 캐러셀로 올린다.
     //   o.imageUrl(단일) 도 계속 받는다 — 예전 호출부 호환.
+    /* [2026-07-23 보스] 예약 목록 / 취소 — 백엔드엔 있는데 프론트가 안 쓰고 있었다.
+       그래서 원장이 예약을 걸면 **막을 방법이 없었다.** 발행은 되돌릴 수 없는데 취소가 없는 건
+       그 자체로 사고다. 목록도 없어서 실패한 예약을 볼 수도 없었다. */
+    listScheduled: function () {
+      var h = window.authHeader ? window.authHeader() : {};
+      if (!h.Authorization) return Promise.resolve([]);
+      var u = (typeof window.apiUrl === 'function') ? window.apiUrl('/scheduled-posts') : ((window.API || '') + '/scheduled-posts');
+      return fetch(u, { headers: h })
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .catch(function () { return []; });
+    },
+    cancelScheduled: function (id) {
+      var h = window.authHeader ? window.authHeader() : {};
+      if (!h.Authorization || id == null) return Promise.resolve({ ok: false });
+      var p = '/scheduled-posts/' + encodeURIComponent(id);
+      var u = (typeof window.apiUrl === 'function') ? window.apiUrl(p) : ((window.API || '') + p);
+      return fetch(u, { method: 'DELETE', headers: h })
+        .then(function (r) { return { ok: !!(r && r.ok) }; })
+        .catch(function () { return { ok: false }; });
+    },
+
     scheduleInstagramV2: function (o) {
       o = o || {};
       var H = function () { var h = window.authHeader ? window.authHeader() : {}; h['Content-Type'] = 'application/json'; return h; };
