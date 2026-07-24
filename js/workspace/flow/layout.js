@@ -147,7 +147,10 @@
         var _meta = {};
         return Promise.resolve(WL.composeLayout(_fillLayoutText(c.layout), ps, map, _meta)).then(function (url) {
           return url ? { pairId: c.id, templateId: c.layout.id, beforePhotoId: bId, afterPhotoId: aId,
-            outputUrl: url, pairLabel: (i + 1) + '번째', photoIds: c.photoIds.slice(), missing: _meta.missing || 0 } : null;
+            // [2026-07-24] 이 출력이 실제로 구워진 비율(콜라주 STARTER 는 대개 '1:1').
+            //   캡션 자동합성(_autoComposeTemplate)이 작업기억 꾸밈을 얹을 때 이 비율로 굽지 않으면,
+            //   1:1 콜라주가 4:5 스테이지에 contain 레터박스돼 꾸밈이 콜라주 실제 영역과 어긋났다(원장 지적).
+            outputUrl: url, ratio: (c.layout.ratio || null), pairLabel: (i + 1) + '번째', photoIds: c.photoIds.slice(), missing: _meta.missing || 0 } : null;
         }).catch(function () { return null; });
       })).then(function (list) {
         // [v779 카오스QA·P1] 굽는 도중 세션 교체/구성 변경(다른 옵션 탭)됐으면 이 낡은 결과로 덮어쓰지 않는다.

@@ -388,7 +388,11 @@
       if (!o || !o.outputUrl || o.autoSig === sig || _cardWasEdited(o)) return null;
       if (o.autoSig && !o._autoBase) return null;   // ③ 원판 없음 → 겹쳐 굽지 않는다
       var base = o._autoBase || o.outputUrl;
-      return window.ItdEditor.compose({ photoUrl: base, ratio: built.ratio, layers: layers })
+      // [2026-07-24] 이 출력이 구워진 실제 비율로 얹는다 — 콜라주(3장→1장)는 '1:1'로 구워졌는데
+      //   built.ratio(샵 프레임 4:5)로 다시 구우면 콜라주가 contain 레터박스돼 작업기억 꾸밈이
+      //   콜라주 실제 크기에 안 맞고 더 작은/어긋난 영역에 얹혔다(원장 지적). o.ratio 없으면(사진별 flat) 프레임 비율.
+      var _oRatio = o.ratio || built.ratio;
+      return window.ItdEditor.compose({ photoUrl: base, ratio: _oRatio, layers: layers })
         .then(function (url) {
           if (!url || myD !== d || d._dead) return false;
           o._autoBase = base; o.outputUrl = url; o.autoSig = sig;
