@@ -2139,6 +2139,11 @@ function showTab(id, btn) {
       if (window.TodayBrief && typeof window.TodayBrief.render === 'function') {
         try { window.TodayBrief.render('home-today-brief'); } catch (_e) { /* ignore */ }
       }
+      // [2026-07-24] 홈 탭 복귀 시 강제 새로고침 — 예전엔 최초 마운트 1회 후 재렌더가 없어
+      //   DM/댓글 카운트가 얼어붙었다(옛 값 표시). refresh()=force 라 60초 SWR 도 우회.
+      if (window.HomeV41 && typeof window.HomeV41.refresh === 'function') {
+        try { window.HomeV41.refresh(); } catch (_e) { /* ignore */ }
+      }
     }
     // 내샵관리 탭 활성화 시 대시보드 렌더 (Task 6: 이번달 브리핑 흡수)
     if (id === 'dashboard') {

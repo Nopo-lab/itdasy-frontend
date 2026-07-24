@@ -361,7 +361,8 @@
     container.querySelector('[data-home-reload]')?.addEventListener('click', () => location.reload());
   }
 
-  async function _doRender(containerId) {
+  async function _doRender(containerId, opts) {
+    const force = !!(opts && opts.force);
     const container = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
     if (!container) return;
     _lastContainerId = container.id || _lastContainerId;
@@ -372,7 +373,10 @@
       try {
         _hydrateHome(container, swr.d, swr.d._dmQueueCount || 0);
         _watchHeaderAvatar();
-        if (swr.fresh) return;
+        // [2026-07-24] force(=홈 복귀·앱 포그라운드·수동 새로고침)면 fresh 여도 네트워크 재요청.
+        //   안 그러면 DM/댓글이 60초 SWR 창에 갇혀 "최신 아님"으로 보였다(실측). refresh() 는
+        //   항상 force → 원장이 DM 보내고 홈 오면 즉시 반영.
+        if (swr.fresh && !force) return;
       } catch (_e) { /* fall through */ }
     }
 
@@ -442,9 +446,31 @@
   window.HomeV41 = {
     async render(containerId) { return _doRender(containerId || 'homeV41Root'); },
     async refresh() {
-      if (_lastContainerId) return _doRender(_lastContainerId);
+      if (_lastContainerId) return _doRender(_lastContainerId, { force: true });
     },
   };
+
+  // [2026-07-24] 홈 복귀 시 최신화 — 앱을 다른 앱에 갔다 돌아오거나(visibilitychange),
+  //   창 포커스가 돌아오면 홈이 활성일 때 강제 새로고침. 없으면 초기 로드 카운트가
+  //   60초 SWR 창 밖에서도 얼어붙어 DM/댓글이 "최신 아님"으로 보였다.
+  function _isHomeActive() {
+    const root = document.getElementById('homeV41Root');
+    if (!root) return false;
+    // 홈 탭이 화면에 보이는 상태인지(부모가 display:none 이 아닌지)
+    return root.offsetParent !== null || root.getClientRects().length > 0;
+  }
+  let _lastVisRefresh = 0;
+  function _refreshOnReturn() {
+    if (document.hidden) return;
+    if (!_isHomeActive()) return;
+    // 과도한 재요청 방지 — 2초 디바운스
+    const now = (window.performance && performance.now) ? performance.now() : 0;
+    if (now && _lastVisRefresh && now - _lastVisRefresh < 2000) return;
+    _lastVisRefresh = now;
+    try { if (window.HomeV41 && window.HomeV41.refresh) window.HomeV41.refresh(); } catch (_e) { /* ignore */ }
+  }
+  document.addEventListener('visibilitychange', _refreshOnReturn);
+  window.addEventListener('focus', _refreshOnReturn);
 
   // ─────────── 자동 부트스트랩 ───────────
   function _autoMount() {
