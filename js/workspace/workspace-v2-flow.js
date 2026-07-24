@@ -1634,7 +1634,7 @@
       (manage ? '<i class="ph-bold ph-check"></i> 완료' : '<i class="ph-bold ph-pencil-simple"></i> 관리') + '</button>') : '';
     return '<div class="cap-svctags__hint">우리샵 · ' +
         '<button type="button" class="cap-svctype__btn" data-fl-svctypetoggle>' + esc(_typeLabel) + ' <i class="ph-bold ph-caret-down"></i></button>' +
-        (manage ? '<span class="cap-svctags__chg">드래그로 순서 · ×로 삭제</span>'
+        (manage ? '<span class="cap-svctags__chg">탭·×로 삭제 · 드래그로 순서</span>'
                 : (!typeOpen ? '<span class="cap-svctags__chg">' + (valid ? '탭해서 골라요' : '업종을 고르면 시술이 나와요') + '</span>' : '')) +
         manageBtn + '</div>' +
       typeChips +
@@ -2873,7 +2873,21 @@
       // [소스확장] 최근 시술 소스 토글(캡션/예약) — 관리 모드에서 어느 소스를 반영할지.
       var rsrc = t.closest('[data-fl-recentsrc]'); if (rsrc) { syncServiceFromDom(); var _k = rsrc.getAttribute('data-fl-recentsrc'); var _p = _recentSrcPref(); _p[_k] = !_p[_k]; _saveRecentSrcPref(_p); setScreen('caption', { push: false }); return; }
       // [캡션재설계 v2] 시술 칩·최근 시술 = 같은 단일선택 토글(data-fl-svctag 하나로 통합).
-      var svtag = t.closest('[data-fl-svctag]'); if (svtag) { _pickServiceTag(svtag.getAttribute('data-fl-svctag')); return; }
+      var svtag = t.closest('[data-fl-svctag]'); if (svtag) {
+        var _stag = svtag.getAttribute('data-fl-svctag');
+        // [2026-07-24] 관리 모드 + 우리샵 시술칩(data-fl-svcsort)은 칩 몸통 탭 = 삭제.
+        //   예전엔 이때도 _pickServiceTag(캡션 선택)로 빠져서, 작은 × 를 못 누르면 삭제도 안 되고
+        //   엉뚱하게 '캡션에 쓸 칩'으로 선택됐다(원장 지적). 관리모드 이 칩의 힌트는 '×로 삭제'라
+        //   탭 선택 의도가 없다. 드래그 정렬은 _bindSvcSort 가 6px↑ 이동일 때 click 을 억제하므로
+        //   진짜 탭만 삭제된다. 최근시술 칩(data-fl-recentdel, '탭해서 선택' 의도)은 그대로 선택.
+        if (d.svcManageOpen && svtag.hasAttribute('data-fl-svcsort')) {
+          syncServiceFromDom();
+          try { if (typeof deleteCaptionKeyword === 'function') deleteCaptionKeyword(_stag, e); } catch (_ed2) { void _ed2; }
+          _svcSet(_svcList().filter(function (s) { return s !== _stag; }));   // 지운 칩만 선택 해제
+          setScreen('caption'); return;
+        }
+        _pickServiceTag(_stag); return;
+      }
       var svtadd = t.closest('[data-fl-svctagadd]'); if (svtadd) { _addSvcKeyword(); return; }
       var cg = t.closest('[data-fl-cgen]'); if (cg) { return _triggerCaptionGenerate(null); }
       // [아코디언] 잠긴 생성 버튼 탭 = 안내 + 첫 미답변 질문 펼치기
