@@ -384,18 +384,32 @@
       return (L.role || L.type || '') + ':' + (L.text || '') + ':' + (L.x || 0) + ',' + (L.y || 0) + ':' + (L.size || 0);
     }).join('|') + '#' + built.ratio;
     var myD = d;
-    var jobs = outs.map(function (o) {
-      if (!o || !o.outputUrl || o.autoSig === sig || _cardWasEdited(o)) return null;
+    // [2026-07-24 보스] 기본 시술내용 텍스트(시술명·부제·해시태그)는 **첫 장에만** 굽는다.
+    //   원장 요청: 여러 장 게시할 때 모든 사진에 시술내용이 박히지 않게 — 첫 장만 자동 텍스트,
+    //   나머지 장은 원장이 직접(위치/크기는 편집기서). 로고·워터마크·라인·스티커·작업기억 꾸밈은
+    //   역할이 시술내용이 아니므로 전 장 그대로 유지된다.
+    var SERVICE_TEXT_ROLES = { title: 1, sub: 1, hashtag: 1 };
+    function _stripServiceText(ls) {
+      return ls.filter(function (L) {
+        return !(L && SERVICE_TEXT_ROLES[L.role] && (L.type === 'text' || L.type === 'badge' || L.type == null));
+      });
+    }
+    var jobs = outs.map(function (o, idx) {
+      var _layersForO = (idx === 0) ? layers : _stripServiceText(layers);
+      // 첫 장 외에는 시술 텍스트가 빠져 지문이 달라진다 → 출력별 지문에 idx 반영(재굽기 판정 정확).
+      var _sigO = sig + '#i' + idx + (idx === 0 ? '' : '-nosvc');
+      if (!o || !o.outputUrl || o.autoSig === _sigO || _cardWasEdited(o)) return null;
       if (o.autoSig && !o._autoBase) return null;   // ③ 원판 없음 → 겹쳐 굽지 않는다
+      if (!_layersForO.length) return null;          // 뺐더니 얹을 게 없으면(나머지 장, 로고 등도 없음) 원본 그대로 둔다
       var base = o._autoBase || o.outputUrl;
       // [2026-07-24] 이 출력이 구워진 실제 비율로 얹는다 — 콜라주(3장→1장)는 '1:1'로 구워졌는데
       //   built.ratio(샵 프레임 4:5)로 다시 구우면 콜라주가 contain 레터박스돼 작업기억 꾸밈이
       //   콜라주 실제 크기에 안 맞고 더 작은/어긋난 영역에 얹혔다(원장 지적). o.ratio 없으면(사진별 flat) 프레임 비율.
       var _oRatio = o.ratio || built.ratio;
-      return window.ItdEditor.compose({ photoUrl: base, ratio: _oRatio, layers: layers })
+      return window.ItdEditor.compose({ photoUrl: base, ratio: _oRatio, layers: _layersForO })
         .then(function (url) {
           if (!url || myD !== d || d._dead) return false;
-          o._autoBase = base; o.outputUrl = url; o.autoSig = sig;
+          o._autoBase = base; o.outputUrl = url; o.autoSig = _sigO;
           return true;
         })
         .catch(function () { return false; });
@@ -471,6 +485,19 @@
         : ((o.fresh && p0 && p0.editedDataUrl) ? p0.editedDataUrl : (_cleanBase(p0) || outputUrl())));
     var built = _buildShopStyleLayers();
     var layers = built.layers, autoArranged = built.autoArranged;
+    // [2026-07-24 보스] 기본 시술내용 텍스트(시술명·부제·해시태그)는 **첫 장에만**. 둘째 장부터 편집기를 열면
+    //   시술텍스트를 얹지 않는다(발행 미리보기 bake 와 동일 규칙 — _autoComposeTemplate 참고). 나머지 장은
+    //   원장이 직접 텍스트를 넣게. 로고·워터마크·스티커·라인·작업기억 꾸밈(시술내용 역할 아님)은 그대로 둔다.
+    try {
+      var _eps0 = editablePhotos() || [];
+      var _actP = _activeEditPhoto();
+      var _pIdx = _actP ? _eps0.map(function (p) { return p && p.id; }).indexOf(_actP.id) : 0;
+      if (_pIdx > 0) {
+        layers = layers.filter(function (L) {
+          return !(L && { title: 1, sub: 1, hashtag: 1 }[L.role] && (L.type === 'text' || L.type === 'badge' || L.type == null));
+        });
+      }
+    } catch (_svcE) { void _svcE; }
     // [2026-07-22 오케스트레이션] 잇비 브리핑(파싱)에서 온 텍스트·스티커 레이어. layers(신규편집) + editState.layers(콜라주 복원) 양쪽에 얹어야 함.
     var _orchLayers = [];
     if (d._orch && window.ItdasyPhotoBrief && window.ItdasyPhotoBrief.buildLayers) {
