@@ -86,9 +86,13 @@
   // [2026-07-20 v785] 답 안 한 댓글 문의 N건 — "AI 잇비가 챙겼어요" 카드용.
   //   비용 방어: 인스타 미연동이면 API 호출 자체를 안 함 (0 반환).
   async function _fetchCommentQueueCount() {
+    // [2026-07-24] 인스타 연동 게이트 — 부팅 때 있는 신호로 판정한다.
+    //   예전엔 window.WorkspaceAdapter.instagram() 를 봤는데, WorkspaceAdapter 는 lazy 'photo'
+    //   그룹(맨 마지막 로드)이라 홈 최초 렌더 시점엔 없다 → 항상 0 → 미답 댓글이 있어도
+    //   부팅 홈에 안 떴다(재렌더도 안 돼서 수동 이동 전엔 영영 안 보임). 원장님이 지적한
+    //   '홈 실시간 반영 안 됨' 부류. ig_connected_cache 는 app-instagram.js(eager)가 부팅 때 쓴다.
     try {
-      const ig = window.WorkspaceAdapter && window.WorkspaceAdapter.instagram ? window.WorkspaceAdapter.instagram() : null;
-      if (!ig || !ig.connected) return 0;
+      if (localStorage.getItem('itdasy:ig_connected_cache') !== '1') return 0;
     } catch (_e) { return 0; }
     const headers = _authHeaders();
     if (!window.API || !headers) return 0;
