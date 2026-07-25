@@ -241,6 +241,9 @@
 /* [#4] 누끼 배경 색/사진 — 누끼 버튼 바로 아래. 탭하면 0초 재합성(매트 캐시) */
 .itadj__cutbg{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:-4px 0 12px}
 .itadj__cutbg .itlaybg{width:26px;height:26px}
+/* [2026-07-26 원영] 누끼 직후 배경 고르기 줄 하이라이트 — "배경 고르려고 누끼하는 것" 시선 유도 */
+.itadj__cutbg.is-hint{animation:itCutbgHint 1.2s ease 2}
+@keyframes itCutbgHint{0%,100%{background:transparent}50%{background:rgba(213,138,149,.22);border-radius:10px}}
 .itlaybg--up{display:inline-grid;place-items:center;background:rgba(255,255,255,.12);border-style:dashed}
 .itlaybg--up svg{width:15px;height:15px;stroke:#fff;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 /* [#2] 최근 업로드 배경 재사용 스와치 */

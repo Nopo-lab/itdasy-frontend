@@ -1811,8 +1811,10 @@
   function _capLoadingHtml() {
     var on = _personaOn();
     return '<style>' +
-        '@keyframes wclFill{0%{width:8%}92%{width:97%}100%{width:8%}}' +
-        '@keyframes wclRun{0%{left:0%}92%{left:calc(100% - 40px)}100%{left:0%}}' +
+        // [2026-07-26 원영] 게이지는 1회만 — 2.6s infinite 루프가 "두 번 차오르는" 것으로 보였다.
+        //   4.8s(최소 로딩시간과 동일) 동안 97%까지 차고 forwards 로 멈춰 대기. 100%는 완료 시 화면 전환이 대신한다.
+        '@keyframes wclFill{0%{width:8%}100%{width:97%}}' +
+        '@keyframes wclRun{0%{left:0%}100%{left:calc(100% - 40px)}}' +
         '@keyframes wclBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}' +
         '@keyframes wclMsg{0%,4%{opacity:0;transform:translateY(6px)}9%,28%{opacity:1;transform:translateY(0)}33%,100%{opacity:0;transform:translateY(-6px)}}' +
         // [2026-07-22 보스] !important 필수 — style-fun.css / style-polish.css 의 전역
@@ -1820,9 +1822,9 @@
         //   animation-iteration-count:1!important} }` 가 로딩을 출발선에 얼려버린다.
         //   아이폰 '동작 줄이기'를 켠 원장님 화면에선 진행바·멘트가 전부 정지했다.
         //   로딩 표시는 장식이 아니라 '지금 일하는 중'이라는 피드백이라, 멈추면 앱이 죽은 걸로 보인다.
-        '.wcl-run{animation:wclRun 2.6s cubic-bezier(.45,.05,.55,.95) infinite!important}' +
+        '.wcl-run{animation:wclRun 4.8s cubic-bezier(.45,.05,.55,.95) 1 forwards!important}' +
         '.wcl-bob{animation:wclBob .5s ease-in-out infinite!important}' +
-        '.wcl-fill{animation:wclFill 2.6s cubic-bezier(.45,.05,.55,.95) infinite!important}' +
+        '.wcl-fill{animation:wclFill 4.8s cubic-bezier(.45,.05,.55,.95) 1 forwards!important}' +
         '.wcl-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;animation:wclMsg 7.2s ease-in-out infinite!important}' +
         '.wcl-msg:nth-child(2){animation-delay:2.4s!important}' +
         '.wcl-msg:nth-child(3){animation-delay:4.8s!important}' +

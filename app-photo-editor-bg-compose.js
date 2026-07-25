@@ -116,31 +116,15 @@
     return null;
   }
 
-  function _alphaBBox(img) {
-    const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
-    const cv = document.createElement('canvas');
-    cv.width = w; cv.height = h;
-    const ctx = cv.getContext('2d', { willReadFrequently: true });
-    ctx.drawImage(img, 0, 0);
-    const d = ctx.getImageData(0, 0, w, h).data;
-    let minX = w, minY = h, maxX = -1, maxY = -1;
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      if (d[(y * w + x) * 4 + 3] < 12) continue;
-      if (x < minX) minX = x; if (x > maxX) maxX = x;
-      if (y < minY) minY = y; if (y > maxY) maxY = y;
-    }
-    return maxX < 0 ? null : { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
-  }
-
-  // [v540] breathing room 0.92→0.97 — 누끼 후 피사체가 원본보다 ~8% 작아 보이던 미세 축소 완화.
-  //   (원본 프리뷰는 cover 로 꽉 차고, 합성본은 0.92 margin 으로 작아 보였음) 그림자 클리핑 방지로 3% 여백만 유지.
-  const PERSON_FILL = 0.97;
+  /* [2026-07-26 원영] 인물 재배치(_alphaBBox+_personPlacement, 인물만 오려 97% 확대·중앙정렬) 폐기 —
+     "누끼만 땄는데 확대되고 위치가 달라진다"의 원인. 누끼는 배경만 바뀌고 인물은 원본 구도
+     그대로여야 한다. 누끼 PNG는 원본과 같은 크기라, 원본을 캔버스에 그리던 것과 같은
+     cover 배치로 그리면 위치·크기가 화면에서 1px도 안 달라진다. */
   function _personPlacement(personImg, CW, CH) {
-    const bbox = _alphaBBox(personImg);
-    const pw0 = bbox ? bbox.w : (personImg.naturalWidth || personImg.width);
-    const ph0 = bbox ? bbox.h : (personImg.naturalHeight || personImg.height);
-    const scale = Math.min((CW * PERSON_FILL) / pw0, (CH * PERSON_FILL) / ph0);
-    return { bbox, dx: (CW - pw0 * scale) / 2, dy: (CH - ph0 * scale) / 2, dw: pw0 * scale, dh: ph0 * scale };
+    const iw = personImg.naturalWidth || personImg.width;
+    const ih = personImg.naturalHeight || personImg.height;
+    const scale = Math.max(CW / iw, CH / ih);   // cover — targetRatio='original'이면 사실상 1:1(무변형)
+    return { bbox: null, dx: (CW - iw * scale) / 2, dy: (CH - ih * scale) / 2, dw: iw * scale, dh: ih * scale };
   }
 
   function _silhouette(personImg, place) {
@@ -148,9 +132,7 @@
     cv.width = Math.max(1, Math.round(place.dw));
     cv.height = Math.max(1, Math.round(place.dh));
     const ctx = cv.getContext('2d');
-    const b = place.bbox;
-    if (b) ctx.drawImage(personImg, b.x, b.y, b.w, b.h, 0, 0, cv.width, cv.height);
-    else ctx.drawImage(personImg, 0, 0, cv.width, cv.height);
+    ctx.drawImage(personImg, 0, 0, cv.width, cv.height);
     ctx.globalCompositeOperation = 'source-in';
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, cv.width, cv.height);
@@ -202,11 +184,9 @@
     finalCanvas.width = size.w; finalCanvas.height = size.h;
     const ctx = finalCanvas.getContext('2d');
     ctx.drawImage(bgCanvas, 0, 0);
-    const place = _personPlacement(personImg, size.w, size.h);
+    const place = _personPlacement(personImg, size.w, size.h);   // [2026-07-26 원영] 원본 구도 그대로(cover) — 확대·재배치 없음
     _drawShadow(ctx, personImg, place, opts.shadow);
-    const b = place.bbox;
-    if (b) ctx.drawImage(personImg, b.x, b.y, b.w, b.h, place.dx, place.dy, place.dw, place.dh);
-    else ctx.drawImage(personImg, place.dx, place.dy, place.dw, place.dh);
+    ctx.drawImage(personImg, place.dx, place.dy, place.dw, place.dh);
     /* [#11 2026-07-17] 합성본과 '같은 좌표계'의 사람 마스크도 같이 낸다.
        removedBgDataUrl(누끼 PNG)은 personImg 자기 좌표계라 여기서 place.dx/dy/dw/dh 로 배치·크롭된
        합성본과 안 맞는다 → 그걸로 마스킹하면 엉뚱한 데가 오려진다. 그래서 배치를 똑같이 재현한
@@ -215,8 +195,7 @@
     const maskCanvas = document.createElement('canvas');
     maskCanvas.width = size.w; maskCanvas.height = size.h;
     const mctx = maskCanvas.getContext('2d');
-    if (b) mctx.drawImage(personImg, b.x, b.y, b.w, b.h, place.dx, place.dy, place.dw, place.dh);
-    else mctx.drawImage(personImg, place.dx, place.dy, place.dw, place.dh);
+    mctx.drawImage(personImg, place.dx, place.dy, place.dw, place.dh);
     return {
       composedDataUrl: finalCanvas.toDataURL('image/jpeg', 0.9),
       removedBgDataUrl: removedUrl,

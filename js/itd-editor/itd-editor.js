@@ -349,7 +349,7 @@
     var L = makeLayer('text');
     L.font = fontByKey(fontKey) || FONTS[0]; L.color = COLORS[0]; L.align = 'center'; L.fontSize = 40; L.text = text; L.shadow = true;
     var t = el('div', 'itl-text'); t.textContent = text;
-    t.style.cssText = 'font-family:' + L.font.family + ';font-weight:' + L.font.weight + ';color:' + L.color + ';text-align:center;font-size:' + L.fontSize + 'px;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;text-shadow:0 2px 8px rgba(0,0,0,.35)';
+    t.style.cssText = 'font-family:' + L.font.family + ';font-weight:' + L.font.weight + ';color:' + L.color + ';text-align:center;font-size:' + L.fontSize + 'px;white-space:pre;text-shadow:0 2px 8px rgba(0,0,0,.35)';
     L.el.appendChild(t); L.tx = t;
     placeCenter(L, 200, 60); selectLayer(L);
     _pushOp({ op: 'add', L: L });
@@ -711,7 +711,9 @@
   function addText() {
     var L = makeLayer('text');
     L.font = FONTS[0]; L.color = COLORS[0]; L.align = 'center'; L.fontSize = 30; L.text = '내용을 입력하세요';
-    var t = el('div', 'itl-text'); t.textContent = L.text; t.style.cssText = 'font-family:' + L.font.family + ';font-weight:' + L.font.weight + ';color:' + L.color + ';text-align:center;font-size:' + L.fontSize + 'px';
+    // [2026-07-26 원영] white-space:pre — 편집 중 자동 줄바꿈 금지(엔터 친 곳만 줄바꿈).
+    //   export 캔버스는 split('\n')으로 엔터만 줄바꿈이라, 편집 화면도 동일해야 WYSIWYG.
+    var t = el('div', 'itl-text'); t.textContent = L.text; t.style.cssText = 'font-family:' + L.font.family + ';font-weight:' + L.font.weight + ';color:' + L.color + ';text-align:center;font-size:' + L.fontSize + 'px;white-space:pre';
     L.el.appendChild(t); L.tx = t;
     placeCenter(L, 180, 50); selectLayer(L);
     _pushOp({ op: 'add', L: L });   // [P1-3] 추가 되돌리기
@@ -1362,7 +1364,9 @@
     var _pb = S.photoBg[i];
     var bg = _pb ? (_pb.img ? { imageData: _pb.img } : { color: _pb.color || '#FFFFFF' }) : { color: '#FFFFFF' };
     var _sess = S;   // [audit] 세션 스냅샷 — 누끼 대기 중 back으로 닫고 재진입하면 옛 결과가 새 세션 사진을 덮던 버그 방지.
-    window.PhotoEditorBgCompose.compose({ srcUrl: src, bg: bg, targetRatio: '4:5', preRemovedBgUrl: cached }).then(function (r) {
+    // [2026-07-26 원영] targetRatio '4:5' → 'original' — 누끼는 배경만 바꾸고 구도(위치·크기)는 원본 그대로.
+    //   '4:5' 강제 크롭 + 인물 재배치가 "누끼 땄더니 확대·이동" 버그의 원인이었음.
+    window.PhotoEditorBgCompose.compose({ srcUrl: src, bg: bg, targetRatio: 'original', preRemovedBgUrl: cached }).then(function (r) {
       if (S !== _sess || !root.classList.contains('is-open')) return;   // 편집기 닫혔거나 다른 세션 → 무시(유령 반영 방지)
       if (!silent && refs.adjCut) { refs.adjCut.disabled = false; refs.adjCut.classList.remove('is-busy'); }
       if (!r || !r.composedDataUrl) { if (!silent) toastIt('배경 제거에 실패했어요'); return; }
@@ -1381,7 +1385,15 @@
       renderAdjust(); renderLayoutStrip(); renderCollage(); applyAdjToDisplay(); applyPhotoTransform();   // [#7] 누끼 후에도 수평(회전) 유지·반영
       // [#9] 사용자가 직접 누른 누끼만 되돌리기 스택에 기록(배경변경 재합성=silent은 제외).
       if (!silent && _preUrl !== r.composedDataUrl) _pushOp({ op: 'photo', idx: i, before: { url: _preUrl, cut: _preCut }, after: { url: r.composedDataUrl, cut: true } });
-      if (!silent) toastIt('배경을 정리했어요');
+      // [2026-07-26 원영] ③ 누끼 = 배경 고르려고 하는 것 — 완료 즉시 배경 고르기 줄로 시선 유도(하이라이트 + 안내).
+      if (!silent) {
+        toastIt('배경을 지웠어요 — 아래에서 배경 색이나 사진을 고르세요');
+        if (refs.adjCutBg) {
+          try { refs.adjCutBg.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (_e) { void _e; }
+          refs.adjCutBg.classList.add('is-hint');
+          setTimeout(function () { if (refs.adjCutBg) refs.adjCutBg.classList.remove('is-hint'); }, 2400);
+        }
+      }
     }).catch(function (e) {
       if (S !== _sess || !root.classList.contains('is-open')) return;   // 닫힌/다른 세션 → 무시
       if (!silent && refs.adjCut) { refs.adjCut.disabled = false; refs.adjCut.classList.remove('is-busy'); }
