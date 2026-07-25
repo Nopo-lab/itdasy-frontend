@@ -2331,6 +2331,51 @@ if ('serviceWorker' in navigator && !_isCapacitor) {
   console.warn('[SW] Capacitor 네이티브 — SW 미사용 (WebView 자체 캐시)');
 }
 
+// [2026-07-25] 부팅 정합성 자가복구 워치독.
+//   배포 직후 SW 파일캐시가 반쪽만 갱신되면 '옛 코드 + 새 lazy 모듈' 이 섞여 홈 렌더가 터지고
+//   '빈 화면 + 네비게이션만' 이 뜬다(controllerchange 가 안 걸리는, 이미-불일치로 로드된 케이스 —
+//    위 controllerchange 리스너는 '로드 중 SW 교체' 만 잡는다). 원장은 이걸 '앱 고장' 으로 느끼고
+//   직접 설정→데이터 새로고침을 해야만 풀렸다. → 부팅 창(상호작용 전) 안에서 스크립트/CSS 로드 실패나
+//   버전 미스매치 예외가 나면, **세션당 한 번만** SW 파일캐시를 비우고 리로드해 정합 버전으로 자가복구.
+//   가드: 세션 1회(무한루프 차단) · 부팅 25초 창 · 입력 중이면 스킵(유실 방지) · OAuth 복귀 중 스킵.
+if (!_isCapacitor && 'caches' in window) {
+  (function _bootCacheWatchdog() {
+    var KEY = 'itdasy_cache_recovered';
+    try { if (sessionStorage.getItem(KEY)) return; } catch (_e) { return; }  // 이 세션에 이미 복구함 → 루프 차단
+    var armed = true;
+    setTimeout(function () { armed = false; }, 25000);   // 부팅 창만 감시 — 이후 에러는 정상 운영 에러
+    function _shouldRecover() {
+      if (!armed) return false;
+      var ae = document.activeElement;   // 입력 중이면 유실 방지 — 복구 안 함
+      if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return false;
+      try { if (sessionStorage.getItem('itdasy_oauth_inflight')) return false; } catch (_e) { void _e; }
+      return true;
+    }
+    function _recover(reason) {
+      armed = false;
+      try { sessionStorage.setItem(KEY, '1'); } catch (_e) { void _e; }
+      console.warn('[cache-recover] 부팅 에러 → SW 파일캐시 비우고 1회 리로드:', reason);
+      (async function () {
+        try { var ks = await caches.keys(); await Promise.all(ks.map(function (k) { return caches.delete(k); })); } catch (_e) { void _e; }
+        try { location.reload(); } catch (_e) { void _e; }
+      })();
+    }
+    window.addEventListener('error', function (e) {
+      var t = e && e.target;
+      // (a) JS/CSS 파일 로드 실패 — 배포 후 옛 ?v= 파일이 새 캐시에 없어 404 나는 전형적 캐시 미스매치 신호(강함)
+      if (t && (t.tagName === 'SCRIPT' || t.tagName === 'LINK')) {
+        if (_shouldRecover()) _recover('asset-load-fail: ' + (t.src || t.href || ''));
+        return;
+      }
+      // (b) 런타임 미처리 예외 — 버전 미스매치로 옛 코드가 새 모듈 심볼을 못 찾는 부류만(일반 버그로 리로드 남발 방지)
+      var msg = String((e && e.message) || (e && e.error && e.error.message) || '');
+      if (e && e.error && /is not defined|is not a function|Unexpected token|dynamically imported|Importing a module|Failed to fetch/i.test(msg)) {
+        if (_shouldRecover()) _recover('version-mismatch: ' + msg);
+      }
+    }, true);
+  })();
+}
+
 // ───── Pull-to-Refresh (iOS PWA 전용) ─────
 (function initPTR() {
   if (!window.navigator.standalone) return;
