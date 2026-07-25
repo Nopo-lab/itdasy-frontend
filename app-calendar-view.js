@@ -449,14 +449,14 @@
         + dot(8)
         + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;color:' + nameColor + ';letter-spacing:-0.2px;' + strike + '">' + _esc(it.cust) + '</span>'
         + '<span style="flex-shrink:0;font-size:11px;color:#8B95A1;' + strike + '">' + tm + '</span>'
-        + (done ? '<span style="flex-shrink:0;color:#16B55E;font-weight:700;font-size:12px;">✓</span>' : '')
+        + (done ? '<span style="flex-shrink:0;color:#16B55E;display:inline-flex;align-items:center;"><svg width="13" height="13" aria-hidden="true"><use href="#ic-check"/></svg></span>' : '')
         + '</div>';
     }
     // 모바일: 좁은 컬럼(≈49px) — 점·시간을 윗줄에, 이름은 아랫줄(잘려도 점·시간은 보존)
     return '<div style="display:flex;align-items:center;gap:3px;line-height:1.1;">'
       + dot(7)
       + '<span style="font-size:10px;color:#8B95A1;font-weight:600;flex-shrink:0;' + strike + '">' + tm + '</span>'
-      + (done ? '<span style="margin-left:auto;color:#16B55E;font-weight:700;font-size:10px;flex-shrink:0;">✓</span>' : '')
+      + (done ? '<span style="margin-left:auto;color:#16B55E;flex-shrink:0;display:inline-flex;align-items:center;"><svg width="11" height="11" aria-hidden="true"><use href="#ic-check"/></svg></span>' : '')
       + '</div>'
       + '<div style="font-size:12px;font-weight:600;color:' + nameColor + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.2;margin-top:1px;' + strike + '">' + _esc(it.cust) + '</div>';
   }
@@ -704,8 +704,8 @@
     h += '<div class="bk-mini__head">';
     h += '<div class="bk-mini__month">' + y + '년 ' + m + '월</div>';
     h += '<div class="bk-mini__nav">';
-    h += '<button data-mini-nav="prev" aria-label="이전">‹</button>';
-    h += '<button data-mini-nav="next" aria-label="다음">›</button>';
+    h += '<button data-mini-nav="prev" aria-label="이전"><svg width="16" height="16" aria-hidden="true"><use href="#ic-chevron-left"/></svg></button>';
+    h += '<button data-mini-nav="next" aria-label="다음"><svg width="16" height="16" aria-hidden="true"><use href="#ic-chevron-right"/></svg></button>';
     h += '</div></div>';
     h += '<div class="bk-mini__grid">';
     ['일','월','화','수','목','금','토'].forEach(d => { h += '<div class="bk-mini__dow">' + d + '</div>'; });
@@ -765,7 +765,7 @@
     if (isMobile && !open) {
       h += '<div class="bk-stat-card__compact">';
       h +=   '<span>완료 ' + done + ' · 예정 ' + upcoming + '</span>';
-      h +=   '<span class="bk-stat-card__caret">›</span>';
+      h +=   '<span class="bk-stat-card__caret" style="display:inline-flex;align-items:center;"><svg width="13" height="13" aria-hidden="true"><use href="#ic-chevron-right"/></svg></span>';
       h += '</div>';
     } else {
       h += '<div class="bk-stat-card__row">';
@@ -1508,7 +1508,7 @@
     const _today = new Date();
     const _todayLabel = `${_today.getMonth()+1}/${_today.getDate()}(${['일','월','화','수','목','금','토'][_today.getDay()]})`;
 
-    let html = `<button class="cv-form-back" id="cv-form-back">← 뒤로</button>`;
+    let html = `<button class="cv-form-back" id="cv-form-back"><svg width="15" height="15" aria-hidden="true" style="vertical-align:-3px"><use href="#ic-arrow-left"/></svg> 뒤로</button>`;
     html += `<div class="bf-root">`;
     // 좌측 사이드 (PC ≥1100px 만) — 오늘 / 이번주 정보 카드
     html += `<aside class="bf-side-left">
@@ -1532,7 +1532,7 @@
           <div class="bf-date-text" id="bfDateLabel">${dateLabel}</div>
           <div class="bf-date-meta" id="bfDateMeta">${metaText}</div>
         </div>
-        <span class="bf-date-chev" aria-hidden="true">›</span>
+        <span class="bf-date-chev" aria-hidden="true" style="display:inline-flex;align-items:center;"><svg width="17" height="17"><use href="#ic-chevron-right"/></svg></span>
       </button>
       <input type="date" id="bfDate" class="bf-date-native" value="${dateStr}" />
     </div>`;
@@ -1569,7 +1569,7 @@
              <button type="button" class="bf-cust-clear" id="bfCustClear" aria-label="고객 해제">×</button>`
           : `<div class="bf-cust-bar empty"></div>
              <div class="bf-cust-info"><div class="bf-cust-empty-text">고객 골라주세요</div></div>
-             <span class="bf-cust-chev" aria-hidden="true">›</span>`}
+             <span class="bf-cust-chev" aria-hidden="true" style="display:inline-flex;align-items:center;"><svg width="17" height="17"><use href="#ic-chevron-right"/></svg></span>`}
       </button>
       <input type="hidden" id="bfCustName" value="${_esc(existing?.customer_name || '')}" />
       <div id="bfAiBriefMount" style="margin-top:10px;"></div>
@@ -1579,12 +1579,12 @@
     const _initDep0 = Number(existing?.deposit) || 0;
     const _depCellMobile = _initDep0 > 0
       ? `<span class="bf-money-val" data-money-edit="deposit"><span class="bf-num" data-hv-count="${_initDep0}">${_initDep0.toLocaleString('ko-KR')}</span><span class="bf-money-unit">원</span></span>`
-      : `<span class="bf-money-val empty" data-money-edit="deposit"><button type="button" class="bf-amount-link">탭해서 입력 ›</button></span>`;
+      : `<span class="bf-money-val empty" data-money-edit="deposit"><button type="button" class="bf-amount-link">탭해서 입력 <svg width="13" height="13" aria-hidden="true" style="vertical-align:-1px"><use href="#ic-chevron-right"/></svg></button></span>`;
     html += `<div class="bf-card bf-service-card">
       <div class="bf-svc-pad">
         <div class="bf-svc-head">
           <span class="bf-svc-sub">시술 종류, 자주 받은 순으로 자동 정렬</span>
-          <button type="button" class="bf-svc-more" id="bfSvcMore">전체 ›</button>
+          <button type="button" class="bf-svc-more" id="bfSvcMore">전체 <svg width="13" height="13" aria-hidden="true" style="vertical-align:-1px"><use href="#ic-chevron-right"/></svg></button>
         </div>
         <div class="bf-svc-chips" id="bfSvcChips"></div>
         <input type="hidden" id="bfSvc" value="${_esc(existing?.service_name || '')}" />
@@ -1617,7 +1617,7 @@
           <span class="bf-num" data-hv-count="${_initDep}">${_initDep.toLocaleString('ko-KR')}</span>
           <span class="bf-money-unit">원</span>
         </span>`
-      : `<span class="bf-money-val empty" data-money-edit="deposit"><button type="button" class="bf-amount-link">탭해서 입력 ›</button></span>`;
+      : `<span class="bf-money-val empty" data-money-edit="deposit"><button type="button" class="bf-amount-link">탭해서 입력 <svg width="13" height="13" aria-hidden="true" style="vertical-align:-1px"><use href="#ic-chevron-right"/></svg></button></span>`;
     html += `<aside class="bf-side-right">`;
     html += `<div class="bf-itby-box bf-itby-pc" style="display:none">
       <div class="bf-itby">
@@ -1634,7 +1634,7 @@
                 <span class="bf-num" data-hv-count="${_initAmt}">${_initAmt.toLocaleString('ko-KR')}</span>
                 <span class="bf-money-unit">원</span>
               </span>`
-            : `<span class="bf-money-val empty" data-money-edit="amount"><button type="button" class="bf-amount-link">탭해서 입력 ›</button></span>`}
+            : `<span class="bf-money-val empty" data-money-edit="amount"><button type="button" class="bf-amount-link">탭해서 입력 <svg width="13" height="13" aria-hidden="true" style="vertical-align:-1px"><use href="#ic-chevron-right"/></svg></button></span>`}
         </div>
         <div class="bf-money-row deposit">
           <span class="bf-money-key">예상 예약금</span>
@@ -1850,7 +1850,7 @@
         card.className = 'bf-cust-card empty';
         card.innerHTML = `<div class="bf-cust-bar empty"></div>
           <div class="bf-cust-info"><div class="bf-cust-empty-text">고객 골라주세요</div></div>
-          <span class="bf-cust-chev" aria-hidden="true">›</span>`;
+          <span class="bf-cust-chev" aria-hidden="true" style="display:inline-flex;align-items:center;"><svg width="17" height="17"><use href="#ic-chevron-right"/></svg></span>`;
       }
     }
     const _doPick = async () => {
@@ -1892,7 +1892,7 @@
         if (!valEl) return;
         if (isDep && to <= 0) {
           valEl.classList.add('empty');
-          valEl.innerHTML = '<button type="button" class="bf-amount-link">탭해서 입력 ›</button>';
+          valEl.innerHTML = '<button type="button" class="bf-amount-link">탭해서 입력 <svg width="13" height="13" aria-hidden="true" style="vertical-align:-1px"><use href="#ic-chevron-right"/></svg></button>';
           return;
         }
         let numEl = valEl.querySelector('.bf-num');
