@@ -35,17 +35,21 @@
       // [2026-07-22] 순차 await → 병렬. 이름이 서로 다른(Set) 독립 생성이라 경합 없음.
       //   기존엔 이름 N개면 왕복 N번을 줄줄이 기다려 동기화가 눈에 띄게 느렸다.
       //   하나 실패해도 나머지는 진행(allSettled).
-      await Promise.allSettled(names.map(name =>
-        fetch(`${API()}/customers?force=true`, {
+      // [2026-07-25 예약QA INT-F7] ?force=true 제거 — 예전엔 백엔드 중복검사를 우회해서, 세션 캐시에
+      //   없던 기존 고객(같은 이름)을 새로 만들어 중복 레코드가 생겼다(캐시 미로딩/refresh 레이스 시).
+      //   force 없이 보내면 백엔드가 이름 중복이면 409 로 막는다(신규만 201). 실제 생성(res.ok) 수로만 안내.
+      const _res = await Promise.allSettled(names.map(name =>
+        fetch(`${API()}/customers`, {
           method: 'POST',
           headers: { ...AUTH(), 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, tags: [] }),
-        }).catch((_e) => { console.warn('[customer-sync] auto-create fail', _e); })
+        }).then(r => r.ok).catch((_e) => { console.warn('[customer-sync] auto-create fail', _e); return false; })
       ));
+      const _created = _res.filter(r => r.status === 'fulfilled' && r.value).length;
       if (names.length > 0) {
         sessionStorage.removeItem('ch_cache');
         if (window.CustomerHub?.refresh) window.CustomerHub.refresh();
-        if (window.showToast) window.showToast(`신규 고객 ${names.length}명 자동 등록됨`);
+        if (_created > 0 && window.showToast) window.showToast(`신규 고객 ${_created}명 자동 등록됨`);
       }
     }, 500);
   });
