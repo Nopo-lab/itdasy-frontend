@@ -260,11 +260,14 @@
       '<div class="itadj__bgrow"><button class="itadj__bg" data-r="adjCut">' + IC.cut + ' 배경 지우기(누끼)</button>' +
         '<button class="itadj__bg itadj__bg--undo" data-r="adjUncut">원본</button></div>' +
       // [#4] 누끼 배경을 바로 옆에서 — 색 탭/사진 업로드. 한 번 누끼하면 색 변경은 0초(매트 캐시 재사용).
+      // [2026-07-26 원영] 팔레트 A안 — 기본 한 줄(주요 6색+검정+업로드+최근)만, 나머지는 '+'(data-cutmore)로 펼치기.
+      //   색이 두 줄로 줄바꿈되는 게 별로라는 피드백. 주요색 = BG_MAIN_IDX, 숨김색 = .itlaybg--x (open 시 표시).
       '<div class="itadj__cutbg" data-r="adjCutBg">' +
-        BG_COLORS.map(function (c, i) { return '<button class="itlaybg' + (i === 0 ? ' on' : '') + '" data-cutbg="' + c + '" style="background:' + c + '"></button>'; }).join('') +
+        BG_COLORS.map(function (c, i) { return '<button class="itlaybg' + (i === 0 ? ' on' : '') + (BG_MAIN_IDX.indexOf(i) < 0 ? ' itlaybg--x' : '') + '" data-cutbg="' + c + '" style="background:' + c + '"></button>'; }).join('') +
         '<label class="itlaybg itlaybg--up" aria-label="배경 사진"><input type="file" accept="image/*" data-r="adjBgImg" hidden>' + IC.addphoto + '</label>' +
         // [#2] 최근 업로드 배경 재사용 스와치(있을 때만 보임)
         (function () { try { var rb = localStorage.getItem('itdasy:itd_bgimg'); return rb ? '<button class="itlaybg itlaybg--recent" data-cutbgimg="1" aria-label="최근 배경 재사용" style="background-image:url(\'' + rb + '\')"></button>' : ''; } catch (_e) { return ''; } })() +
+        '<button class="itlaybg itlaybg--more" data-cutmore aria-label="색 더 보기">+</button>' +
       '</div>' +
       '<div class="itadj__row itadj__rotrow"><span>수평</span>' +
         '<input type="range" min="-15" max="15" step="0.5" value="0" data-r="adjRot"><b data-r="adjRotOut">0°</b></div>' +
@@ -376,6 +379,8 @@
   }
   // [레이아웃 재설계] 도형 미니썸네일 피커(LAYOUTS 그대로) + 렌더된 사진을 순서대로 탭해 자리에 채움.
   var BG_COLORS = ['#FFFFFF', '#FBF7F5', '#F4E9E4', '#E8D3C2', '#F2D7DE', '#E6C9D2', '#D9B8C4', '#BC6675', '#E08A6E', '#E6B45A', '#BFD0C4', '#A7C4B5', '#9DB7C9', '#C9C2E0', '#7A6E78', '#2C2226', '#15181D'];
+  // [2026-07-26 원영] 팔레트 A안 — 기본 노출 주요색 인덱스(흰색·크림 2·로즈핑크 2·브랜드 로즈·검정). 나머지는 '+' 펼치기.
+  var BG_MAIN_IDX = [0, 1, 2, 4, 5, 7, 16];
   function buildLayout() {
     var chips = LAYOUTS.map(function (L, idx) {
       return '<button class="itlaytype' + (idx === 0 ? ' on' : '') + '" data-lay="' + idx + '" aria-label="' + L.label + '">' +
@@ -474,6 +479,15 @@
     var _rsB = box.querySelector('.itl__rs'); _rsB.addEventListener('pointerdown', function (e) { onRsDown(e, L); });
     // [#8] 핸들(× 복사 회전 크기)은 레이어가 커져도 아이콘 크기가 커지면 안 됨 → applyXf에서 역스케일.
     L._handles = [_delB, _dupB, _rotB, _rsB];
+    // [2026-07-26 원영] 텍스트 전용 '가로 늘리기' 핸들(우측 중앙, ⟷) — 폭(L.wrapW)을 정하면
+    //   white-space:pre-wrap 고정폭으로 전환돼 그 폭에서 자동 줄바꿈. 다른 핸들 위치는 그대로(모서리 고정).
+    if (type === 'text') {
+      var _wB = el('button', 'itl__w');
+      _wB.innerHTML = svg('<path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/>', 2.2);
+      _wB.setAttribute('aria-label', '가로 늘리기');
+      _wB.addEventListener('pointerdown', function (e) { onWDown(e, L); });
+      box.appendChild(_wB); L._handles.push(_wB);
+    }
     refs.layers.appendChild(box);
     S.layers.push(L);
     return L;
@@ -521,6 +535,23 @@
       shape: isShape, sx: e.clientX, sy: e.clientY, w0: L.w, h0: L.h, x0: L.x, y0: L.y, before: isShape ? { w: L.w, h: L.h, x: L.x, y: L.y } : null };
     try { e.target.setPointerCapture(e.pointerId); } catch (_) { void _; }
   }
+  // [2026-07-26 원영] 텍스트 가로 늘리기 — 폭을 정하면 pre-wrap 고정폭(그 폭에서 자동 줄바꿈),
+  //   해제(wrapW=null)면 원래 pre(엔터만 줄바꿈)로 복귀. 복제·undo 도 이 함수 하나로 상태 적용.
+  function _applyWrap(L) {
+    if (!L || !L.tx) return;
+    if (L.wrapW) {
+      L.tx.style.whiteSpace = 'pre-wrap'; L.tx.style.wordBreak = 'keep-all';
+      L.tx.style.overflowWrap = 'anywhere'; L.tx.style.width = L.wrapW + 'px';
+    } else {
+      L.tx.style.whiteSpace = 'pre'; L.tx.style.wordBreak = ''; L.tx.style.overflowWrap = ''; L.tx.style.width = '';
+    }
+  }
+  var wd = null;
+  function onWDown(e, L) {
+    e.preventDefault(); e.stopPropagation(); selectLayer(L);
+    wd = { L: L, sx: e.clientX, sy: e.clientY, w0: L.wrapW || (L.tx ? L.tx.offsetWidth : 100), before: { wrapW: L.wrapW || null } };
+    try { e.target.setPointerCapture(e.pointerId); } catch (_) { void _; }
+  }
   function selectLayer(L) {
     var wasActive = S.active === L;
     S.active = L;
@@ -558,6 +589,12 @@
       if (op.L) { op.L.w = rz.w; op.L.h = rz.h; if (rz.x != null) op.L.x = rz.x; if (rz.y != null) op.L.y = rz.y; applyXf(op.L); selectLayer(op.L); }
       return;
     }
+    // [2026-07-26 원영] 텍스트 가로 늘리기(wrapW) 되돌리기.
+    if (op.op === 'wrap') {
+      var wz = undo ? op.before : op.after;
+      if (op.L) { op.L.wrapW = wz.wrapW || null; _applyWrap(op.L); applyXf(op.L); selectLayer(op.L); }
+      return;
+    }
     // [#9] 셀 크롭(콜라주 칸 안 사진 위치) 되돌리기.
     if (op.op === 'cellcrop') {
       var cc = undo ? op.before : op.after;
@@ -581,7 +618,7 @@
     if (!L) L = S.active; if (!L) return;
     var c = makeLayer(L.type);
     // [#3] 도형 굵기(strokeW)는 예전에 빠져 있어(엉뚱한 'thick' 키만 복사) 복제본이 '얇게 하기 전' 굵기로 나왔다.
-    ['font', 'color', 'align', 'fontSize', 'text', 'role', 'stroke', 'shadow', 'badge', 'emoji', 'src', 'shape', 'fill', 'strokeW', 'thick', 'fontSizePx', 'w', 'h', 'radius'].forEach(function (k) { if (L[k] !== undefined) c[k] = L[k]; });
+    ['font', 'color', 'align', 'fontSize', 'text', 'role', 'stroke', 'shadow', 'badge', 'emoji', 'src', 'shape', 'fill', 'strokeW', 'thick', 'fontSizePx', 'w', 'h', 'radius', 'wrapW'].forEach(function (k) { if (L[k] !== undefined) c[k] = L[k]; });
     if (L.tx) { var node = L.tx.cloneNode(true); node.removeAttribute('contenteditable'); c.el.appendChild(node); c.tx = node; }
     // [#3] 도형은 복제한 DOM을 현재 strokeW/색/채움으로 다시 칠해 원본과 100% 일치시킨다.
     if (c.type === 'shape' && c.tx) { try { styleShape(c.tx, c); } catch (_e) { void _e; } }
@@ -633,6 +670,14 @@
       rsd.L.scale = Math.max(0.2, Math.min(6, rsd.s0 * d / rsd.d0)); applyXf(rsd.L);
       if (rsd.L.type === 'text' && refs.size) refs.size.value = rsd.L.scale; return;
     }
+    if (wd) {
+      // [2026-07-26 원영] 가로 늘리기 — 이동량을 레이어 로컬 가로축으로 환산(회전 고려), scale 나눠 실제 폭 px 로.
+      var wdx = e.clientX - wd.sx, wdy = e.clientY - wd.sy;
+      var wrad = -(wd.L.rot || 0) * Math.PI / 180;
+      var wldx = (wdx * Math.cos(wrad) - wdy * Math.sin(wrad)) / (wd.L.scale || 1);
+      wd.L.wrapW = Math.max(40, Math.round(wd.w0 + wldx));
+      _applyWrap(wd.L); applyXf(wd.L); return;
+    }
     if (rotd) {
       var a = Math.atan2(e.clientY - rotd.cy, e.clientX - rotd.cx);
       rotd.L.rot = snapAngle(rotd.start + (a - rotd.a0) * 180 / Math.PI); applyXf(rotd.L); return;
@@ -661,7 +706,11 @@
     if (rsd && rsd.shape && rsd.before && (rsd.L.w !== rsd.before.w || rsd.L.h !== rsd.before.h)) {
       _pushOp({ op: 'resize', L: rsd.L, before: rsd.before, after: { w: rsd.L.w, h: rsd.L.h, x: rsd.L.x, y: rsd.L.y } });
     }
-    rotd = null; rsd = null;
+    // [2026-07-26 원영] 텍스트 가로 늘리기도 되돌리기(↩) 스택에.
+    if (wd && wd.L.wrapW !== wd.before.wrapW) {
+      _pushOp({ op: 'wrap', L: wd.L, before: wd.before, after: { wrapW: wd.L.wrapW } });
+    }
+    rotd = null; rsd = null; wd = null;
   }
 
   /* ── 사진 핀치 확대/이동 (두 손가락, 빈 배경에서) ── */
@@ -1593,7 +1642,39 @@
         });
       });
     }
-    baseDone.then(function () {
+    // [2026-07-26 원영] WYSIWYG 줄 추출 — split('\n')은 엔터만 알아서, 가로 늘리기(pre-wrap 자동 줄바꿈)
+  //   줄이 export 에 반영 안 된다. 편집 DOM 의 '실제 렌더된 줄'을 글자 단위 Range 로 읽어 그대로 쓴다.
+  //   측정 중 transform 임시 해제(회전·확대 상태면 top 비교가 깨짐) 후 복원. 실패 시 split('\n') 폴백.
+  function _textLines(L) {
+    var fallback = (L.text || '').split('\n');
+    try {
+      if (!L.tx || !L.tx.isConnected) return fallback;
+      var prevT = L.el.style.transform;
+      L.el.style.transform = 'none';
+      var lines = [], cur = '', lastTop = null;
+      var walker = document.createTreeWalker(L.tx, NodeFilter.SHOW_TEXT, null);
+      var rng = document.createRange(), tn;
+      while ((tn = walker.nextNode())) {
+        var s = tn.nodeValue || '';
+        for (var i = 0; i < s.length; i++) {
+          var ch = s.charAt(i);
+          if (ch === '\n') { lines.push(cur); cur = ''; lastTop = null; continue; }
+          rng.setStart(tn, i); rng.setEnd(tn, i + 1);
+          var rr = rng.getClientRects()[0];
+          if (rr && rr.height) {
+            if (lastTop != null && rr.top - lastTop > rr.height * 0.5) { lines.push(cur.replace(/\s+$/, '')); cur = ''; }
+            lastTop = rr.top;
+          }
+          cur += ch;
+        }
+        // contenteditable 이 <div>/<br> 로 줄을 나눈 경우도 top 비교가 잡는다(구조 줄바꿈 = top 점프).
+      }
+      if (cur !== '' || !lines.length) lines.push(cur.replace(/\s+$/, ''));
+      L.el.style.transform = prevT; applyXf(L);
+      return lines.length ? lines : fallback;
+    } catch (_e) { void _e; try { applyXf(L); } catch (_e2) { void _e2; } return fallback; }
+  }
+  baseDone.then(function () {
       c.drawImage(refs.draw, 0, 0, r.width, r.height);   // 드로잉
       S.layers.forEach(function (L) {
         var b = L.el.getBoundingClientRect();
@@ -1609,7 +1690,7 @@
           c.font = (L.fontSize * L.scale) + 'px serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
           c.fillText(L.emoji, 0, 0);
         } else {
-          var lines = (L.text || '').split('\n'); var fs = L.fontSize * L.scale;
+          var lines = _textLines(L); var fs = L.fontSize * L.scale;   // [2026-07-26] DOM 실제 줄 = 화면과 동일
           c.font = L.font.weight + ' ' + fs + 'px ' + L.font.family; c.fillStyle = L.color;
           // [fix] 편집기 정렬(L.align)을 export에도 반영 — 왼/오 정렬 텍스트(가격표·시술명)가 결과물서 중앙으로 어긋나던 버그.
           var _al = L.align || 'center';
@@ -1717,6 +1798,9 @@
     if (refs.adjUncut) refs.adjUncut.addEventListener('click', undoCutout);
     // [#4] 누끼 배경 색 — 탭하면 즉시 재합성(매트 캐시 있으면 0초). 누끼 전이면 배경만 기억.
     if (refs.adjCutBg) refs.adjCutBg.addEventListener('click', function (e) {
+      // [2026-07-26 원영] 팔레트 A안 — '+' 누르면 숨김색(.itlaybg--x) 펼침/접힘 토글
+      var mbtn = e.target.closest('[data-cutmore]');
+      if (mbtn) { var op = refs.adjCutBg.classList.toggle('open'); mbtn.textContent = op ? '−' : '+'; return; }
       var rbtn = e.target.closest('[data-cutbgimg]');   // [#2] 최근 배경 사진 재사용(원탭)
       if (rbtn) {
         var rb = ''; try { rb = localStorage.getItem('itdasy:itd_bgimg') || ''; } catch (_e) { rb = ''; }

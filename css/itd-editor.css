@@ -240,7 +240,11 @@
 .itadj__bg.is-busy{opacity:.6}
 /* [#4] 누끼 배경 색/사진 — 누끼 버튼 바로 아래. 탭하면 0초 재합성(매트 캐시) */
 .itadj__cutbg{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:-4px 0 12px}
-.itadj__cutbg .itlaybg{width:26px;height:26px}
+/* [2026-07-26 원영] 팔레트 A안 — 스와치 24px 통일(26px 불일치 제거), 기본은 주요색 한 줄만.
+   숨김색(.itlaybg--x)은 '+'(data-cutmore)로 .open 토글 시에만 표시. */
+.itadj__cutbg .itlaybg--x{display:none}
+.itadj__cutbg.open .itlaybg--x{display:inline-block}
+.itlaybg--more{display:inline-grid;place-items:center;background:rgba(255,255,255,.12);color:#fff;font-size:16px;font-weight:600;line-height:1;border-style:dashed}
 /* [2026-07-26 원영] 누끼 직후 배경 고르기 줄 하이라이트 — "배경 고르려고 누끼하는 것" 시선 유도 */
 .itadj__cutbg.is-hint{animation:itCutbgHint 1.2s ease 2}
 @keyframes itCutbgHint{0%,100%{background:transparent}50%{background:rgba(213,138,149,.22);border-radius:10px}}
@@ -285,6 +289,10 @@
 .itl__rs{position:absolute;left:-20px;bottom:-20px;width:24px;height:24px;border-radius:50%;background:rgba(20,12,16,.7);color:#fff;display:none;place-items:center;z-index:5;cursor:nwse-resize;touch-action:none;transform-origin:top right}
 .itl.is-active .itl__rs{display:grid}
 .itl__rs svg{width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2.2}
+/* [2026-07-26 원영] 텍스트 '가로 늘리기' 핸들(⟷) — 우측 중앙. 폭을 정하면 그 폭에서 자동 줄바꿈 */
+.itl__w{position:absolute;right:-20px;top:calc(50% - 12px);width:24px;height:24px;border-radius:50%;background:rgba(20,12,16,.7);color:#fff;display:none;place-items:center;z-index:5;cursor:ew-resize;touch-action:none;transform-origin:left center}
+.itl.is-active .itl__w{display:grid}
+.itl__w svg{width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2.2}
 .itl-shape{display:block}
 
 /* ── 내 스티커(#7) · 데코(#6) ── */
