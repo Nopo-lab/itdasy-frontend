@@ -1040,6 +1040,9 @@
   function _renderViewBody() {
     const o = _overlay(); if (!o) return;
     const body = o.querySelector('#bk-body'); if (!body) return;
+    // [2026-07-25 #5] 목록으로 돌아온다 = 예약 폼은 닫힌 상태. 폼 시트-백 정리(멱등 — 폼 안 열렸으면 no-op).
+    //   저장/삭제/취소/back 등 모든 폼 나가기 경로가 여길 지나므로 history 엔트리 누적을 한 곳에서 막는다.
+    try { if (typeof window._markSheetClosed === 'function') window._markSheetClosed('cvBookingForm'); } catch (_e) { void _e; }
     _updateOfflineBadge();
     _updateHeaderLabel();
     _saveState();
@@ -2109,7 +2112,9 @@
       if (!crossesMidnight && sTime >= eTime) { if (window.showToast) window.showToast('종료 시간이 시작보다 늦어야 해요'); return; }
       // [A3] 과거 날짜 예약 방지
       if (!existing) {
-        const today = new Date().toISOString().slice(0, 10);
+        // [2026-07-25 #6] 로컬(KST) 날짜로. 예전엔 toISOString(UTC)이라 KST 00~09시엔 today 가
+        //   하루 뒤처져 그 시간대에 과거 날짜가 통과했다. 폼의 다른 날짜 계산은 전부 _ds()(로컬).
+        const today = _ds(new Date());
         if (d < today) {
           if (window.showToast) window.showToast('과거 날짜에는 예약을 추가할 수 없어요');
           return;
@@ -2275,6 +2280,11 @@
     const defE = existing ? _fmt(new Date(existing.ends_at))   : (pendE ? _fmt(pendE) : (slots[2] || slots[slots.length - 1]));
     body.innerHTML = '<div class="cv-form-wrap bf-wrap" style="flex:1;overflow-y:auto;">' + _buildFormHTML(existing, slots, dateStr, defS, defE, !!pendS) + '</div>';
     body.querySelector('#cv-form-back').addEventListener('click', () => _renderViewBody());
+    // [2026-07-25 #5] 폼을 시트-백 레지스트리에 등록 — 안드로이드/브라우저 back 이 폼→목록으로만
+    //   돌아가고 예약관리 전체가 닫히지 않게(작성 중이던 고객/금액/메모 소실 방지). 상세시트와 동일 패턴.
+    //   close=_renderViewBody(목록 복귀), 목록 복귀 시 _markSheetClosed 는 _renderViewBody 안에서 일괄.
+    if (typeof window._registerSheet === 'function') window._registerSheet('cvBookingForm', _renderViewBody);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('cvBookingForm');
     _bindFormExtras(body, existing);
     _bindFormSave(body, existing, date);
     if (existing) _bindFormActions(body, existing, date);
@@ -2350,7 +2360,8 @@
   function _prefetch(year, month) {
     const from = new Date(year, month - 1, 1).toISOString();
     const to   = new Date(year, month, 0, 23, 59, 59).toISOString();
-    window.Booking.list(from, to).catch(() => {});
+    // [2026-07-25 #1] prefetch 플래그 — 이웃 달 캐시만 채우고 화면용 _items(충돌검사 대상)는 안 건드림.
+    window.Booking.list(from, to, { prefetch: true }).catch(() => {});
   }
   function _prefetchNeighbors() {
     let py = _curYear, pm = _curMonth - 1;

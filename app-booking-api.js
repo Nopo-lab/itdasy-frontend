@@ -60,8 +60,13 @@
 
   // [P2] 백그라운드 fresh fetch — stale-while-revalidate 의 fresh 단계
   // 절대 dispatch('itdasy:data-changed') 하지 말 것 — listener 가 cache invalidate + 재호출 → 무한 루프 (사용량 폭발).
-  async function _fetchFreshBookings(fromISO, toISO, key) {
-    const fetchId = ++_lastFetchId;  // [BUG-1] 이 요청의 고유 ID
+  async function _fetchFreshBookings(fromISO, toISO, key, opts) {
+    // [2026-07-25 예약QA #1] prefetch(이웃 달 미리불러오기)는 화면용 _items 소유권 경쟁에서 뺀다.
+    //   예전엔 prefetch 도 _lastFetchId 를 올리고 마지막 완료가 _items 를 덮어써서, 앱 진입/월이동
+    //   직후 _items = '다음 달' 예약이 됐다. findConflict 가 그 _items 를 봐서 표시월의 겹침을
+    //   못 잡고 이중예약이 무경고로 생성됐다(충돌검사 상시 무력화). prefetch 는 캐시만 채운다.
+    const prefetch = !!(opts && opts.prefetch);
+    const fetchId = prefetch ? -1 : (++_lastFetchId);  // prefetch 는 _items 를 세팅하지 않음
     const qs = new URLSearchParams();
     if (fromISO) qs.set('from', fromISO);
     if (toISO)   qs.set('to',   toISO);
@@ -70,8 +75,8 @@
       _isOffline = false;
       const items = d.items || [];
       _cache[key] = { t: Date.now(), items };
-      // [BUG-1] 백그라운드 fetch 완료 시, 더 새로운 요청이 이미 _items를 갱신했으면 덮어쓰지 않음
-      if (fetchId === _lastFetchId) {
+      // 실(prefetch 아님) fetch 중 더 새로운 요청이 없을 때만 _items 갱신(월 연타 이동 stale 방지).
+      if (!prefetch && fetchId === _lastFetchId) {
         _items = items;
       }
       return items;
@@ -85,27 +90,28 @@
         if (toISO   && t > new Date(toISO).getTime())   return false;
         return !b.deleted_at;
       });
-      if (fetchId === _lastFetchId) {
+      if (!prefetch && fetchId === _lastFetchId) {
         _items = filtered;
       }
       return filtered;
     }
   }
 
-  async function list(fromISO, toISO) {
+  async function list(fromISO, toISO, opts) {
+    const prefetch = !!(opts && opts.prefetch);
     const key = (fromISO || '') + '|' + (toISO || '');
     const hit = _cache[key];
     // [P2 SWR] 캐시 있으면 즉시 반환 — TTL 만료면 백그라운드에서 fresh fetch
     if (hit) {
-      _items = hit.items;
+      if (!prefetch) _items = hit.items;   // [#1] prefetch 는 화면용 _items(충돌검사 대상)를 건드리지 않는다
       if (Date.now() - hit.t >= CACHE_TTL) {
         // stale — 백그라운드 갱신 (await X)
-        _fetchFreshBookings(fromISO, toISO, key).catch(() => {});
+        _fetchFreshBookings(fromISO, toISO, key, opts).catch(() => {});
       }
-      return _items;
+      return prefetch ? hit.items : _items;
     }
     // 캐시 없으면 await
-    return _fetchFreshBookings(fromISO, toISO, key);
+    return _fetchFreshBookings(fromISO, toISO, key, opts);
   }
 
   // [2026-06-14 QA] 충돌 예약 객체를 반환 → 안내문에 고객명 노출 가능. 없으면 null.
