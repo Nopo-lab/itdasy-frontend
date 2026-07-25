@@ -950,7 +950,17 @@ function authHeader() {
   function _sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
   let _reconnectToastTimer = null;
+  // [버그2 2026-07-25] 단발 실패로는 안 띄움 — 20초 안에 최종 실패 2건 이상일 때만 토스트.
+  //   로그인 직후 병렬 호출 여러 개 중 1건이 일시 삐끗(콜드스타트 등)해도 "연결 불안정"이
+  //   너무 자주 뜨던 것 방지. 성공 응답이 오면 카운터 리셋(아래 fetch 래퍼).
+  let _connFailCount = 0;
+  let _connFailFirstAt = 0;
+  function _resetConnFail() { _connFailCount = 0; _connFailFirstAt = 0; }
   function _showReconnectToast() {
+    const _now = Date.now();
+    if (!_connFailFirstAt || _now - _connFailFirstAt > 20000) { _connFailFirstAt = _now; _connFailCount = 0; }
+    _connFailCount++;
+    if (_connFailCount < 2) return;
     if (window.__itdasyReconnectShown) return;
     window.__itdasyReconnectShown = true;
     try {
@@ -1020,6 +1030,7 @@ function authHeader() {
         || (isLlm ? LLM_TIMEOUT_MS : (attempt === 0 ? FETCH_TIMEOUT_FIRST_MS : FETCH_TIMEOUT_RETRY_MS));
       try {
         const res = await _fetchWithTimeout(input, init, _tmo);
+        if (res.ok) _resetConnFail();   // [버그2] 성공 응답 = 연결 정상 — 실패 카운터 리셋
         if (res.status === 401 && getToken()) {
           // /auth/refresh 자체가 401이면 무한루프 방지
           const url = typeof input === 'string' ? input : (input.url || '');
@@ -1388,7 +1399,12 @@ async function login() {
       body: JSON.stringify({ email, password })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || '로그인 실패');
+    if (!res.ok) {
+      // [버그1 2026-07-25] 401(비번 틀림)뿐 아니라 422(이메일 형식 검증 실패 — pydantic EmailStr)도
+      //   "요청 형식이 올바르지 않습니다" 같은 기술 문구 대신 사용자 언어로. detail 이 배열(422)이면 노출 금지.
+      if (res.status === 401 || res.status === 422) throw new Error('아이디 또는 비밀번호가 달라요. 다시 확인해 주세요.');
+      throw new Error((typeof data.detail === 'string' && data.detail) || '로그인 실패');
+    }
     setToken(data.access_token);
     // 계정이 다를 때 이전 사용자 데이터 정리 + /me 로 가입방법 동기화
     try {

@@ -78,11 +78,18 @@
   // [인스타 피드 홈] 좌상단 + = 바로 업로드, 나머지 칸 = 우리가 만든 콘텐츠(정사각 타일).
   var _PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>';
   var _PHIC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+  // [버그6 2026-07-25] 사진+캡션 다 만들어 저장까지 끝낸 슬롯 — 발행만 안 한 상태.
+  //   전부 '작성 중'으로 떠서 "완료했는데 왜 작성 중?" 혼란 → '작성 완료' 칩으로 구분.
+  function _isReady(slot) {
+    return !!(slot && (slot.photos || []).length && slot.caption && String(slot.caption).trim());
+  }
   function _feedTile(slot) {
     var img = _thumb(slot), sel = !!_selected[slot.id];
-    // [개편 2026-07-15] 타일 뱃지 소음 제거 — 발행된 타일은 사진만. 진행 중만 좌하단 흰 칩 하나('작성 중', 예약 발행은 '예약').
+    // [개편 2026-07-15] 타일 뱃지 소음 제거 — 발행된 타일은 사진만. 진행 중만 좌하단 흰 칩 하나.
+    // [버그6] 칩 3단계: 예약 발행 = '예약' / 사진·캡션 완료 = '작성 완료' / 그 외 = '작성 중'.
     var chip = _isPub(slot) ? ''
-      : '<span class="wf-chip">' + ((slot.publish && slot.publish.status === 'scheduled') ? '예약' : '작성 중') + '</span>';
+      : '<span class="wf-chip">' + ((slot.publish && slot.publish.status === 'scheduled') ? '예약'
+        : (_isReady(slot) ? '작성 완료' : '작성 중')) + '</span>';
     return '<button type="button" class="wf-tile' + (_selectMode ? ' wf-tile--sel' : '') + (sel ? ' is-sel' : '') +
       '" data-wsv2-slot="' + _esc(slot.id) + '" data-haptic="light"' + (img ? ' style="background-image:url(' + _esc(_disp(img)) + ')"' : '') + '>' +
       (_selectMode ? '<span class="wf-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>' : '') +
