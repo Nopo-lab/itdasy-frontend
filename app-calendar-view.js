@@ -166,9 +166,17 @@
     });
   }
 
+  // [2026-07-25 #2] 로드 범위를 현재 달 ±7일로 넓힌다 — 주간 뷰가 월 경계를 넘는 경우
+  //   (경계 주가 반쪽만 보이고 충돌검사 _items 에서도 빠지던 것)를 커버. 월 그리드는
+  //   _buildMonthGrid 에서 현재 달만 버킷팅하므로 여유분(인접 달)이 엉뚱한 날짜 칸에 안 샌다.
+  //   통계(_calcStats)·일/주 뷰는 전부 전체날짜로 필터하므로 여유분은 무해.
+  function _monthRange(year, month) {
+    const from = new Date(year, month - 1, 1); from.setDate(from.getDate() - 7);
+    const to   = new Date(year, month, 0, 23, 59, 59); to.setDate(to.getDate() + 7);
+    return { from: from.toISOString(), to: to.toISOString() };
+  }
   async function _loadMonth(year, month) {
-    const from = new Date(year, month - 1, 1).toISOString();
-    const to   = new Date(year, month, 0, 23, 59, 59).toISOString();
+    const { from, to } = _monthRange(year, month);
     const items = await window.Booking.list(from, to);
     return _mapItems(items);
   }
@@ -277,7 +285,14 @@
   function _buildMonthGrid(year, month, mapped, p, isPC, opts) {
     const filtered = _filterByStaff(mapped);
     const byDay = {};
-    filtered.forEach(m => { (byDay[m.d] = byDay[m.d] || []).push(m); });
+    // [2026-07-25 #2] byDay 는 일자번호(m.d=getDate)로 그룹핑하므로, ±7 여유분(인접 달)이 섞이면
+    //   예: 8월 보는데 7/30 예약이 8/30 칸에 뜬다. 현재 달 항목만 버킷팅해 오염 차단.
+    //   (월 그리드의 인접 달 셀은 원래 예약 없는 정적 셀 — 여기서 인접 달 예약을 그릴 자리도 없다.)
+    filtered.forEach(m => {
+      const sd = new Date(m._raw.starts_at);
+      if (sd.getFullYear() !== year || sd.getMonth() + 1 !== month) return;
+      (byDay[m.d] = byDay[m.d] || []).push(m);
+    });
     const firstDow = new Date(year, month - 1, 1).getDay();
     const lastDate = new Date(year, month, 0).getDate();
     const prevLast = new Date(year, month - 1, 0).getDate();
@@ -2030,9 +2045,15 @@
       const d = body.querySelector('#bfDate')?.value;
       if (!d) return;
       const endMin = _startH * 60 + _startM + _durMin;
-      const eh = Math.floor(endMin / 60) % 24, em = endMin % 60;
+      // [2026-07-25 #4] 자정 넘김 처리 — 저장 경로(_bindFormSave)와 동일하게. 예전엔 ends 를 같은 날 d 로
+      //   만들어 25:00→01:00 이 되며 ends<starts 로 역전, findConflict overlap 판정이 어긋나 실시간 경고가
+      //   저장 차단과 불일치했다(밤 예약 편집 시 경고 오작동).
+      const crossesMidnight = endMin >= 1440;
+      const adjEnd = crossesMidnight ? endMin - 1440 : endMin;
+      const eh = Math.floor(adjEnd / 60), em = adjEnd % 60;
+      const endDate = crossesMidnight ? _nextDay(d) : d;
       const starts = `${d}T${_pad(_startH)}:${_pad(_startM)}:00+09:00`;
-      const ends = `${d}T${_pad(eh)}:${_pad(em)}:00+09:00`;
+      const ends = `${endDate}T${_pad(eh)}:${_pad(em)}:00+09:00`;
       const conflict = window.Booking.findConflict(starts, ends, existing?.id);
       const el = body.querySelector('#bfConflict');
       if (el) {
@@ -2358,8 +2379,8 @@
     }
   }
   function _prefetch(year, month) {
-    const from = new Date(year, month - 1, 1).toISOString();
-    const to   = new Date(year, month, 0, 23, 59, 59).toISOString();
+    // [#2] _loadMonth 와 같은 ±7일 범위 → 캐시 키 정합(이웃 달로 이동 시 프리페치 캐시 적중).
+    const { from, to } = _monthRange(year, month);
     // [2026-07-25 #1] prefetch 플래그 — 이웃 달 캐시만 채우고 화면용 _items(충돌검사 대상)는 안 건드림.
     window.Booking.list(from, to, { prefetch: true }).catch(() => {});
   }
