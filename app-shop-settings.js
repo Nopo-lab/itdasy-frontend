@@ -78,6 +78,13 @@
             </div>
             <div class="ss-switch is-on" id="ssAutoConfirmSwitch" role="switch" aria-checked="true" tabindex="0"></div>
           </div>
+          <div class="ss-toggle" style="margin-top:12px;">
+            <div>
+              <div class="ss-toggle-lbl">예약 알림톡 자동발송</div>
+              <div class="ss-toggle-sub">예약 확인·전날 리마인드를 고객에게 카카오 알림톡으로 자동 발송해요. 켜면 발송돼요.</div>
+            </div>
+            <div class="ss-switch" id="ssAlimtalkSwitch" role="switch" aria-checked="false" tabindex="0"></div>
+          </div>
         </div>
 
         <div class="ss-card">
@@ -317,6 +324,13 @@
         if (bh && typeof bh === 'object' && !Array.isArray(bh)) {
           _DAY_KEYS.forEach(k => { if (bh[k]) hours[k] = { ...hours[k], ...bh[k] }; });
         }
+        // [2026-07-25 예약QA F5] 알림톡 자동발송 스위치 서버값 반영.
+        const _alSw = document.getElementById('ssAlimtalkSwitch');
+        if (_alSw) {
+          const _on = !!data.alimtalk_auto_enabled;
+          _alSw.classList.toggle('is-on', _on);
+          _alSw.setAttribute('aria-checked', _on ? 'true' : 'false');
+        }
       }
     } catch (_e) { /* ignore — fallback to default */ }
     try {
@@ -345,6 +359,8 @@
       hours: _hrText,
       business_hours_json: hoursObj ? JSON.stringify(hoursObj) : null,
       auto_confirm: document.getElementById('ssAutoConfirmSwitch')?.classList.contains('is-on') ? 1 : 0,
+      // [2026-07-25 예약QA F5] 예약 알림톡 자동발송 opt-in — 백엔드 ShopSettings.alimtalk_auto_enabled.
+      alimtalk_auto_enabled: !!document.getElementById('ssAlimtalkSwitch')?.classList.contains('is-on'),
     };
     if (!payload.shop_name) { _toast('샵 이름을 입력해주세요'); return; }
 
