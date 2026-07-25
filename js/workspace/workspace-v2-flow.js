@@ -10,7 +10,7 @@
   var WSU = window.WSFlowUtil || {};
   var uid = WSU.uid, toast = WSU.toast, esc = WSU.esc, fileToDataUrl = WSU.fileToDataUrl,
     _isRealShopName = WSU._isRealShopName, _thEsc = WSU._thEsc, barClass = WSU.barClass, _caret = WSU._caret,
-    _purposeCat = WSU._purposeCat, _containBlit = WSU._containBlit, clone = WSU.clone, _parseHashes = WSU._parseHashes,
+    _purposeCat = WSU._purposeCat, _containBlit = WSU._containBlit, clone = WSU.clone,   // [2026-07-26 원영] _parseHashes 사용처 소멸(해시태그=칩 UI) — import 제거
     filterCss = WSU.filterCss, _extractPalette = WSU._extractPalette;
   // [T-104 P1] 템플릿 썸네일 클러스터 → flow/thumbs.js
   var _tplThumb = (window.WSFlowThumbs || {})._tplThumb;
@@ -1599,36 +1599,7 @@
   // [요청3 2026-07-13] 재선택 목록을 시술 사전(service-vocab) 전 업종으로 확장 — 반영구/메이크업/태닝/두피/에스테틱
   //   샵으로 가입한 원장님도 자기 업종이 목록에 뜨고 라벨이 '업종 고르기'로 안 떨어지게. (네일아트는 '네일'로 통합)
   var _SVC_TYPES = ['미용실', '헤어', '네일', '붙임머리', '속눈썹', '왁싱', '피부', '반영구', '메이크업', '태닝', '두피', '에스테틱'];
-  /* [#6 2026-07-17] 특이사항 예시를 업종별로 — 원장 요청.
-     예전엔 "예: 22인치로 길게 · 손님이 직접 고른 색" 하나를 모든 샵에 보여줬는데, 22인치는 붙임머리 전용이라
-     네일·속눈썹 원장 눈엔 남 얘기였다(뭘 적으라는 건지 안 와닿음).
-     키는 _SVC_TYPES 라벨 그대로 — 새 스토리지·새 enum 안 만든다. 못 찾으면 업종 무관 문구로 폴백. */
-  var _NOTE_EG = {
-    '미용실': '예: 뿌리만 톤다운 · 손상모라 저damage 약',
-    '헤어': '예: 뿌리만 톤다운 · 손상모라 저damage 약',
-    '네일': '예: 손톱이 짧아 길이 연장 · 손님이 직접 고른 색',
-    '붙임머리': '예: 22인치로 길게 · 손님이 직접 고른 색',
-    '속눈썹': '예: 눈매 처져서 J컬 · 자연스럽게 100가닥',
-    '왁싱': '예: 첫 왁싱이라 아프지 않게 · 민감성 피부',
-    '피부': '예: turnover 느려서 각질 위주 · 홍조 조심',
-    '반영구': '예: 기존 문신 흐려진 위 리터치 · 연한 갈색 원함',
-    '메이크업': '예: 야외 촬영이라 지속력 위주 · 톤 밝게',
-    '태닝': '예: 첫 태닝이라 연하게 · 자국 안 남게',
-    '두피': '예: 지성 두피라 딥클렌징 · 각질 많음',
-    '에스테틱': '예: 어깨 뭉침 위주 · 강도 약하게',
-  };
-  function _noteEg() {
-    var st = ''; try { st = localStorage.getItem('shop_type') || ''; } catch (_e) { void _e; }
-    st = String(st).trim();
-    if (_NOTE_EG[st]) return _NOTE_EG[st];
-    // 가입값이 'hair'·'헤어샵' 처럼 라벨과 달라도 정규화 라벨로 한 번 더 시도(caption-keyword-tags 와 같은 관용구).
-    try {
-      var lb = window.itdasyNormalizeShopType ? (window.itdasyNormalizeShopType(st).label || '') : '';
-      if (_NOTE_EG[lb]) return _NOTE_EG[lb];
-      for (var k in _NOTE_EG) { if (Object.prototype.hasOwnProperty.call(_NOTE_EG, k) && lb.indexOf(k) >= 0) return _NOTE_EG[k]; }
-    } catch (_e2) { void _e2; }
-    return '예: 손님이 직접 고른 색 · 지난번보다 짧게';   // 업종 모를 때 — 어느 샵에나 말이 되는 문구
-  }
+  // [2026-07-26 원영] 특이사항 업종별 예시(_NOTE_EG·_noteEg) 삭제 — placeholder 자체를 없애기로(입력칸은 라벨만으로 충분).
   function _svcTagsHtml() {
     var kws = [];
     try { if (typeof getShopKeywords === 'function') kws = getShopKeywords() || []; } catch (_e) { void _e; }
@@ -1833,69 +1804,43 @@
       return !!(a && a.isContentEditable && el && el.contains(a) && (a.hasAttribute('data-fl-igcap') || a.hasAttribute('data-fl-ighash')));
     } catch (_e) { return false; }
   }
-  // [v779 보스] 캡션 생성 중 로딩 — '차분한 프리미엄형'(로즈 링 + 말투/길이/이모지 칩).
-  //   itdasy_latest_analysis(페르소나)로 칩 값을 채운다. 미연동이면 칩 없이 링+문구만.
-  function _capPersonaWords() {
-    var raw = {}; try { raw = JSON.parse(localStorage.getItem('itdasy_latest_analysis') || '{}'); } catch (_e) { raw = {}; }
-    var avgLen = parseInt(raw.avg_caption_length) || 0;
-    var lenWord = avgLen > 0 ? (avgLen < 50 ? '짧게' : avgLen > 120 ? '길게' : '보통') : '보통';
-    var em = (raw.emojis || '').match(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u);
-    var toneWord = (raw.tone_summary || raw.tone || '').replace(/["']/g, '').trim().split(/[\s,·]+/)[0] || '자연스러운';
-    return { tone: toneWord, len: lenWord, emoji: em ? em[0] : '✨' };
-  }
-  // [v779 보스] 자체 완결형 — 외부 CSS(.cl-*)에 안 기댄다. CSS 캐시가 옛것이어도(HTML만 새로 와도)
-  //   링이 멈추거나 화면이 비지 않게, keyframes+스타일을 HTML 안에 심고 inline 으로만 그린다.
-  //   스피너는 iOS 에서 확실히 도는 border-spin(conic/mask 는 기기따라 안 도는 경우가 있어 폐기).
+  // [2026-07-26 원영] 캡션 생성 로딩 v3 — 강아지·페르소나 칩(자연스러운/보통/✨) 폐지 → 잇비(#ic-bot)가
+  //   초록 진행바를 걸어가는 로딩. 칩 3개는 미연동 기본값이 그대로 박혀 '셔플이 고장난 것'처럼 보였다.
+  //   대신 단계 멘트 3개가 로테이션(사진→말투→문장)하며 '지금 뭘 하는지'를 말해준다. 화면 세로 중앙 정렬.
+  //   자체 완결형 유지 — 외부 CSS(.cl-*)에 안 기댄다. CSS 캐시가 옛것이어도 keyframes 인라인이라 안 깨진다.
   function _capLoadingHtml() {
-    var on = _personaOn(), pw = _capPersonaWords();
-    var chip = function (k, v) {
-      return '<div style="flex:1;min-width:0;padding:9px 4px;border-radius:13px;background:rgba(213,138,149,.09);border:1.5px solid rgba(213,138,149,.28)">' +
-        '<div style="font-size:9.5px;font-weight:700;color:#b6a7ac">' + k + '</div>' +
-        '<div style="font-size:12.5px;font-weight:800;color:#d58a95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(v) + '</div></div>';
-    };
-    // [2026-07-21 보스] 슬롯머신·스피너 폐기 → 귀여운 강아지가 초록 진행바를 100%로 뛰어가는 로딩.
-    //   자체완결형(외부 CSS 無, keyframes 인라인) — CSS 캐시가 옛것이어도 안 깨진다. 강아지=SVG(이모지 금지 정책).
-    var DOG = '<svg width="36" height="30" viewBox="0 0 44 34" fill="none" aria-hidden="true">' +
-        '<path class="wcl-tail" d="M7 15 Q1 11 4 5" stroke="#a9744a" stroke-width="3.4" stroke-linecap="round"/>' +
-        '<g class="wcl-legB"><rect x="12" y="20" width="3.4" height="9" rx="1.7" fill="#8a5a35"/><rect x="27" y="20" width="3.4" height="9" rx="1.7" fill="#8a5a35"/></g>' +
-        '<g class="wcl-legA"><rect x="16" y="20" width="3.4" height="9" rx="1.7" fill="#b5764a"/><rect x="23" y="20" width="3.4" height="9" rx="1.7" fill="#b5764a"/></g>' +
-        '<ellipse cx="21" cy="16" rx="14" ry="8.5" fill="#b5764a"/>' +
-        '<circle cx="34" cy="12" r="7.5" fill="#b5764a"/>' +
-        '<path d="M29 5 Q27 0 32.5 3.5 Z" fill="#8a5a35"/>' +
-        '<circle cx="36" cy="11" r="1.4" fill="#3a2a1e"/>' +
-        '<circle cx="40" cy="13.5" r="1.9" fill="#3a2a1e"/>' +
-      '</svg>';
+    var on = _personaOn();
     return '<style>' +
         '@keyframes wclFill{0%{width:8%}92%{width:97%}100%{width:8%}}' +
         '@keyframes wclRun{0%{left:0%}92%{left:calc(100% - 40px)}100%{left:0%}}' +
-        '@keyframes wclBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}' +
-        '@keyframes wclLegA{0%,100%{transform:rotate(20deg)}50%{transform:rotate(-20deg)}}' +
-        '@keyframes wclLegB{0%,100%{transform:rotate(-20deg)}50%{transform:rotate(20deg)}}' +
-        '@keyframes wclTail{0%,100%{transform:rotate(-14deg)}50%{transform:rotate(18deg)}}' +
+        '@keyframes wclBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}' +
+        '@keyframes wclMsg{0%,4%{opacity:0;transform:translateY(6px)}9%,28%{opacity:1;transform:translateY(0)}33%,100%{opacity:0;transform:translateY(-6px)}}' +
         // [2026-07-22 보스] !important 필수 — style-fun.css / style-polish.css 의 전역
         //   `@media (prefers-reduced-motion: reduce){ *{animation-duration:.01ms!important;
-        //   animation-iteration-count:1!important} }` 가 강아지를 출발선에 얼려버린다.
-        //   아이폰 '동작 줄이기'를 켠 원장님 화면에선 다리·꼬리·진행바가 전부 정지했다.
+        //   animation-iteration-count:1!important} }` 가 로딩을 출발선에 얼려버린다.
+        //   아이폰 '동작 줄이기'를 켠 원장님 화면에선 진행바·멘트가 전부 정지했다.
         //   로딩 표시는 장식이 아니라 '지금 일하는 중'이라는 피드백이라, 멈추면 앱이 죽은 걸로 보인다.
-        '.wcl-legA{transform-origin:21px 20px;animation:wclLegA .34s ease-in-out infinite!important}' +
-        '.wcl-legB{transform-origin:21px 20px;animation:wclLegB .34s ease-in-out infinite!important}' +
-        '.wcl-tail{transform-origin:7px 15px;animation:wclTail .34s ease-in-out infinite!important}' +
         '.wcl-run{animation:wclRun 2.6s cubic-bezier(.45,.05,.55,.95) infinite!important}' +
-        '.wcl-bob{animation:wclBob .34s ease-in-out infinite!important}' +
+        '.wcl-bob{animation:wclBob .5s ease-in-out infinite!important}' +
         '.wcl-fill{animation:wclFill 2.6s cubic-bezier(.45,.05,.55,.95) infinite!important}' +
+        '.wcl-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;animation:wclMsg 7.2s ease-in-out infinite!important}' +
+        '.wcl-msg:nth-child(2){animation-delay:2.4s!important}' +
+        '.wcl-msg:nth-child(3){animation-delay:4.8s!important}' +
       '</style>' +
-      '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:60px 24px;min-height:340px;text-align:center">' +
-        '<div style="font-size:15.5px;font-weight:800;letter-spacing:-.02em;color:#2c2528">AI가 ' + (on ? '우리샵 말투로 ' : '') + '쓰는 중…</div>' +
-        '<div style="position:relative;width:100%;max-width:290px;height:42px">' +
-          '<div class="wcl-run" style="position:absolute;bottom:13px;left:0">' +
-            '<div class="wcl-bob">' + DOG + '</div></div>' +
+      // min-height 62vh — 아래 공백 없이 화면 세로 중앙에 오도록(원영: "너무 밑에 공백많지않아? 좀 가운대로").
+      '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px;min-height:62vh;text-align:center">' +
+        '<div style="font-size:16px;font-weight:800;letter-spacing:-.02em;color:#2c2528">잇비가 ' + (on ? '우리샵 말투로 ' : '') + '쓰는 중…</div>' +
+        '<div style="position:relative;width:100%;max-width:290px;height:48px">' +
+          '<div class="wcl-run" style="position:absolute;bottom:16px;left:0">' +
+            '<div class="wcl-bob" style="color:#d58a95"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#ic-bot"/></svg></div></div>' +
           '<div style="position:absolute;left:0;bottom:0;width:100%;height:11px;border-radius:6px;background:rgba(22,181,94,.13);overflow:hidden">' +
             '<div class="wcl-fill" style="height:100%;border-radius:6px;background:linear-gradient(90deg,#16B55E,#4ad683)"></div></div>' +
         '</div>' +
-        (on
-          ? '<div style="display:flex;gap:7px;width:100%;max-width:290px">' + chip('말투', pw.tone) + chip('길이', pw.len) + chip('이모지', pw.emoji) + '</div>'
-          : '') +
-        '<div style="font-size:12px;font-weight:600;color:#a89aa0;letter-spacing:-.01em">' + (on ? '원장님 스타일 그대로 맞추는 중이에요' : '잠시만 기다려 주세요') + '</div>' +
+        '<div style="position:relative;width:100%;max-width:290px;height:20px;font-size:12.5px;font-weight:700;color:#a89aa0;letter-spacing:-.01em">' +
+          '<span class="wcl-msg">사진을 살펴보는 중이에요</span>' +
+          '<span class="wcl-msg">' + (on ? '원장님 말투를 맞추는 중이에요' : '어울리는 말투를 고르는 중이에요') + '</span>' +
+          '<span class="wcl-msg">문장을 다듬는 중이에요</span>' +
+        '</div>' +
       '</div>';
   }
   function renderCaption() {
@@ -1923,7 +1868,7 @@
           _recentSvcHtml() +
           '<label class="cap-field-label capwiz__seclbl">특이사항 <span>선택 · 그대로 안 실려요, 뜻만 반영돼요</span></label>' +
           '<div class="capwiz__noterow">' +
-            '<input type="text" class="capwiz__notein" data-fl-specialnote maxlength="120" placeholder="' + esc(_noteEg()) + '" value="' + esc(_note) + '">' +   // [#6] 업종별 예시
+            '<input type="text" class="capwiz__notein" data-fl-specialnote maxlength="120" value="' + esc(_note) + '">' +   // [2026-07-26 원영] placeholder 예시 제거
             '<span class="capwiz__notecnt" data-fl-notecount>' + (120 - _note.length) + '</span>' +
           '</div>' +
           '<p class="capwiz__guard">직접·특이사항에 적은 글은 재료로만 써요. 욕설·감정 표현은 빼고, 시술 얘기만 골라 원장님 말투로 새로 씁니다.</p>' +
@@ -1944,15 +1889,16 @@
 	                    : '<div class="cap-byline">인스타를 연동하면 원장님 말투로 써드려요</div>') +
 	      '<label class="cap-field-label">게시글 <span>미리보기에서 바로 고쳐 쓸 수 있어요 · 시술을 바꾸려면 아래 재료부터 다시 고르기</span></label>' +
 	      _igPreviewCard(url, true) +   // [v584] 카드 안 캡션 직접 편집(별도 편집칸 제거)
+      // [2026-07-26 원영] 해시태그 = 칩 UI(개별 ×삭제 + 추가) — 카드 안 contenteditable 직접편집은
+      //   지우기/고치기 방법을 아무도 못 찾던 문제라 폐지. 칩이 진실원(d.hashtags/selectedHashes 동시 갱신).
+      _hashChipsHtml() +
       // [v589] 꼬리말 블록 폐지 → 설정폼으로 이동. 복사/다시생성/저장은 카드 액션줄로 이동.
-      // [v587] 별도 해시태그 편집칸 폐지 — 위 미리보기 카드의 해시태그(.ig-hash-edit)를 직접 편집.
       // [v778 복구·보스요청] '사진 편집' 버튼 되살림 — v776에서 뺐으나 캡션 본 뒤 사진을 바로 손보고 싶다는 요청.
       //   CSS(.cap-edit-btn)도 함께 복원. 미리보기 사진이 있을 때만 노출.
       ((!d.textOnly && url) ? '<button type="button" class="cap-edit-btn" data-fl="storyedit"><i class="ph-duotone ph-magic-wand"></i> 사진 편집</button>' : '') +
-      // [통합 2026-07-13·요청6] 발행 + 피드 미리보기를 같은 화면 하단에 흡수(구 preview 스텝). 스크롤로 캡션↔게시 한 흐름.
-      '<div class="cap-byline cap-byline--pub">이렇게 올라가요</div>' + custLine +
+      // [2026-07-26 원영] '이렇게 올라가요' 라벨 + 피드 그리드(_feedPreview) 제거 — 위 미리보기 카드로 이미 충분("피드 보여줬으면 됐지").
+      custLine +
       _publishBlock() +
-      _feedPreview(url) +
 		      '<button type="button" class="cap-restart" data-fl-var="reset">재료부터 다시 고르기</button>';
 	  }
 
@@ -2025,6 +1971,18 @@
       svin.addEventListener('blur', function () { _commitSvcKeyword(svin.value); });
       try { svin.focus(); } catch (_es) { void _es; }
     }
+    // [2026-07-26 원영] 해시태그 추가 인라인 입력 — svcaddin 과 같은 관용구(Enter=확정/Esc=취소/blur=확정).
+    var hin = el.querySelector('[data-fl-hashaddin]');
+    if (hin && !hin._wsBound) {
+      hin._wsBound = true;
+      hin.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { e.preventDefault(); _commitHashAdd(''); return; }
+        if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+        e.preventDefault(); _commitHashAdd(hin.value);
+      });
+      hin.addEventListener('blur', function () { _commitHashAdd(hin.value); });
+      try { hin.focus(); } catch (_eh) { void _eh; }
+    }
     // [#12] PC에서 게시글/해시태그를 클릭하면 곧바로 편집되도록 클릭→포커스 보장(상위 클릭 위임에 먹히던 회귀 방지).
     function _ensureEditFocus(node) {
       if (!node || node._wsClickFocus) return; node._wsClickFocus = true;
@@ -2038,15 +1996,7 @@
       igCap.addEventListener('input', function () { d.caption = igCap.textContent; });
       _ensureEditFocus(igCap);
     }
-    // [v587] 카드 안 해시태그(contenteditable)를 고치면 d.hashtags/selectedHashes 즉시 동기화(별도 편집칸 폐지).
-    var igHash = el.querySelector('[data-fl-ighash]');
-    if (igHash && igHash.isContentEditable && !igHash._wsLiveBound) {
-      igHash._wsLiveBound = true;
-      igHash.addEventListener('input', function () {
-        var hs = _parseHashes(igHash.textContent); d.hashtags = hs; d.selectedHashes = hs.slice();
-      });
-      _ensureEditFocus(igHash);
-    }
+    // [2026-07-26 원영] 카드 안 해시태그 contenteditable 동기화 삭제 — 편집은 아래 해시태그 칩 UI 로 일원화.
     // [v589·#3] 결과 화면이면 각 사진에 우리샵 스타일 적용 미리보기 합성(원본은 보존, 결과 표시 전용).
     if (String(d.caption || '').trim()) _autoComposeTemplate();
   }
@@ -2116,7 +2066,7 @@
 	            '</div>'
 	          : '<div class="ig-act"><div class="ig-ic"><i class="ph-duotone ph-heart"></i><i class="ph-duotone ph-chat-circle"></i><i class="ph-duotone ph-paper-plane-tilt"></i></div>' +
 	            '<div class="ig-save"><i class="ph-duotone ph-bookmark-simple"></i></div></div>') +
-	        '<div class="ig-copy2"><b>' + esc(handle) + '</b> <span data-fl-igcap' + (editable ? ' class="ig-cap-edit" contenteditable="true" role="textbox" aria-label="게시글 편집" spellcheck="false"' : '') + '>' + esc(d.caption || '') + '</span><br><span class="ig-hash' + (editable ? ' ig-hash-edit" contenteditable="true" role="textbox" aria-label="해시태그 편집" spellcheck="false' : '') + '" data-fl-ighash>' + esc((d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ')) + '</span><div class="ig-ago">' + (editable ? '게시글·해시태그를 눌러 바로 고쳐 쓰기' : '미리보기') + '</div></div>' +
+	        '<div class="ig-copy2"><b>' + esc(handle) + '</b> <span data-fl-igcap' + (editable ? ' class="ig-cap-edit" contenteditable="true" role="textbox" aria-label="게시글 편집" spellcheck="false"' : '') + '>' + esc(d.caption || '') + '</span><br><span class="ig-hash" data-fl-ighash>' + esc((d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ')) + '</span><div class="ig-ago">' + (editable ? '게시글을 눌러 바로 고쳐 쓰기' : '미리보기') + '</div></div>' +
 	      '</div>';
 	  }
 	  // [작업물 미리보기] 슬롯 대표 썸네일 — home _thumb 과 동일 우선순위(합성결과→단일합성→첫사진).
@@ -2127,48 +2077,48 @@
 	    var p = (s.photos || [])[0];
 	    return (p && (p.editedDataUrl || p.dataUrl)) || '';
 	  }
-	  // [v589] 피드 미리보기 — 이 사진을 올리면 내 프로필 피드가 어떻게 보일지 그리드로.
-	  function _feedPreview(url) {
-	    if (!url) return '';
-	    var ig = window.WorkspaceAdapter && window.WorkspaceAdapter.instagramProfile ? window.WorkspaceAdapter.instagramProfile() : { connected: false };
-	    // [피드 미리보기] 기존 피드 썸네일 = 메모리/세션 캐시(저장소 X) → 켜자마자 즉시. new 사진은 로컬 합성본이라 항상 즉시.
-	    var recent = (window.WorkspaceAdapter && window.WorkspaceAdapter.recentMediaCached) ? window.WorkspaceAdapter.recentMediaCached() : [];
-	    // 캐시 비었고 인스타 연결됨 → 1회만 당겨와 채운다(미리보기면 완료 시 재렌더). 실패해도 자리표시 유지.
-	    if (ig.connected && !recent.length && !d._igMediaFetched && window.WorkspaceAdapter.recentMedia) {
-	      d._igMediaFetched = true;
-	      try { window.WorkspaceAdapter.recentMedia().then(function (m) { if (m && m.length && (cur === 'caption' || cur === 'preview') && !_isEditingCaptionCard()) setScreen(cur, { push: false }); }); } catch (_e) { void _e; }
-	    }
-	    // [작업물 미리보기 2026-07-10] 채움 소스 분기 — 연동됨=실제 인스타 피드 / 미연동=내 작업물(로컬, 저장소 X).
-	    //   원장님 요청: 연동한 사람은 실제 피드에 어떻게 얹히는지, 미연동은 내가 만든 작업물이 자리를 채우게.
-	    var fill = ig.connected ? recent : (d._myWorkThumbs || []);
-	    var TILES = 11;   // 3×4 그리드 = 새 게시물 1 + 기존 11
-	    var cells = '<div class="wsfeed__cell wsfeed__cell--new" style="background-image:url(' + esc(_blobDisp(url)) + ')"><span class="wsfeed__new">NEW</span></div>';
-	    for (var i = 0; i < TILES; i++) {
-	      var _t = fill[i] && (fill[i].thumb || (typeof fill[i] === 'string' ? fill[i] : ''));   // 새형식(obj.thumb)·구형식(string) 호환
-	      cells += _t
-	        ? '<div class="wsfeed__cell" style="background-image:url(' + esc(_blobDisp(_t)) + ')"></div>'
-	        : '<div class="wsfeed__cell wsfeed__cell--ph"></div>';
-	    }
-	    var stat = ig.connected
-	      ? '<div class="wsfeed__prof"><span class="wsfeed__av"' + (ig.profilePic ? ' style="background-image:url(' + esc(ig.profilePic) + ')"' : '') + '></span><b>' + esc(ig.handle || '내 계정') + '</b></div>'
-	      : '';
-	    // 안내문구 — 연동: 실제 피드 / 미연동+작업물있음: 내 작업물 / 미연동+작업물없음: 연결 유도.
-	    var capMsg = ig.connected ? '왼쪽 위가 이번에 올릴 사진이에요'
-	      : (fill.length ? '왼쪽 위가 이번에 올릴 사진 · 나머지는 내 작업물이에요' : '왼쪽 위가 이번에 올릴 사진이에요 · 인스타 연결하면 실제 피드로 보여드려요');
-	    return '<div class="wsfeed">' +
-	      '<label class="cap-field-label wsfeed__lbl">피드 미리보기 <span>' + (ig.connected ? '올리면 내 피드가 이렇게 보여요' : '내 작업물과 함께 보기') + '</span></label>' +
-	      '<div class="wsfeed__card">' + stat +
-	        '<div class="wsfeed__grid">' + cells + '</div>' +
-	        '<p class="wsfeed__cap">' + capMsg + '</p>' +
-	        // [요청7 2026-07-13] '피드 정렬해보기' 제거 — 현재 작업 사진만 정렬·저장X 였음. 피드 정렬은 작업실 홈 '피드 정렬'(저장 콘텐츠 전체+순서저장)으로 이관.
-	      '</div></div>';
+	  // [2026-07-26 원영] 피드 미리보기(_feedPreview) 통째 삭제 — "피드 보여줬으면 됐지" 지시. 위 인스타 카드로 충분.
+	  //   wsfeed CSS 도 함께 정리(css/workspace-v2-flow.css).
+	  /* [2026-07-26 원영] 해시태그 칩 편집 — 예전엔 카드 안 텍스트 직접편집(contenteditable)뿐이라
+	     지우는 방법이 안 보였다("해시태그 어디서 지울수있는거야?"). 카드 밑에 칩 목록: ×로 개별 삭제, 추가는 인라인 입력.
+	     d.hashtags/selectedHashes 는 항상 같이 갱신(발행 payload 는 selectedHashes 우선이라 어긋나면 사고). */
+	  function _hashList() {
+	    return ((d.selectedHashes && d.selectedHashes.length) ? d.selectedHashes : (d.hashtags || [])).slice();
+	  }
+	  function _hashSet(arr) {
+	    var seen = {}, out = [];
+	    (arr || []).forEach(function (h) {
+	      h = String(h || '').trim().replace(/\s+/g, '');
+	      if (!h || h === '#') return;
+	      if (h[0] !== '#') h = '#' + h;
+	      if (!seen[h]) { seen[h] = 1; out.push(h); }
+	    });
+	    d.hashtags = out; d.selectedHashes = out.slice();
+	  }
+	  function _hashChipsHtml() {
+	    var hs = _hashList();
+	    var chips = hs.map(function (h) {
+	      return '<span class="cap-hashchip">' + esc(h) + '<button type="button" class="cap-hashchip__x" data-fl-hashdel="' + esc(h) + '" aria-label="이 해시태그 삭제">×</button></span>';
+	    }).join('');
+	    var add = d._hashAddOpen
+	      ? '<input type="text" class="cap-hashchip cap-hashchip--addin" data-fl-hashaddin maxlength="30" placeholder="#태그 입력 후 Enter" aria-label="해시태그 입력">'
+	      : '<button type="button" class="cap-hashchip cap-hashchip--add" data-fl="hashaddopen"><i class="ph-bold ph-plus"></i> 추가</button>';
+	    return '<label class="cap-field-label cap-hashlbl">해시태그 <span>×로 지우고, 필요하면 추가해요</span></label>' +
+	      '<div class="cap-hashchips">' + chips + add + '</div>';
+	  }
+	  function _commitHashAdd(v) {
+	    if (!d._hashAddOpen) return;   // Enter+blur 중복 방지(시술 추가와 같은 관용구)
+	    d._hashAddOpen = false;
+	    v = String(v || '').trim();
+	    if (v) _hashSet(_hashList().concat([v]));
+	    setScreen('caption', { push: false });
 	  }
 	  function renderPreview() {
 	    var url = outputUrl();
 	    var custLine = d.customerName ?
 	      '<div class="confirmline">연결 손님: <b>' + esc(d.customerName) + '</b>' + (d.customerVc ? ' · ' + d.customerVc + '회 방문' : ' · 첫 방문') + '</div>' : '';
-	    // [v592] 인스타 미리보기 단계 = 최종 카드 + 게시 + 피드 미리보기.
-	    return '' + '<div class="cap-byline">이렇게 올라가요</div>' + custLine + _igPreviewCard(url, true) + _publishBlock() + _feedPreview(url);
+	    // [v592] 인스타 미리보기 단계 = 최종 카드 + 게시.
+	    return '' + custLine + _igPreviewCard(url, true) + _publishBlock();
 	  }
 
   // [통합 2026-07-14] 발행 종류 자동 판단 — 원장이 '1장/여러장'을 고르지 않게. 버튼은 하나.
@@ -2203,8 +2153,12 @@
 	      // [계정 태그] 피드 사진에 계정 태그(선택) — @아이디 쉼표로.
 	      // [v776] 기본 접힘 — 쓸 일 드문 기능이 발행 흐름 한복판에 있어 혼란. 값 있으면 자동 펼침. 스타일은 CSS 클래스(v775 선반영)로 이동.
 	      var _tagVal = (d.igUserTags || []).map(function (u) { return '@' + u; }).join(', ');
+	      // [2026-07-26 원영] 닫기 추가 — 예전엔 열기만 있고 닫기가 없어 태그 안 달 건데도 입력칸을 못 접었다.
 	      var _tagsHtml = (d._tagsOpen || _tagVal)
-	        ? '<div class="cap-usertags"><input type="text" data-fl-usertags placeholder="@아이디 (쉼표로 여러 명)" value="' + esc(_tagVal) + '">' +
+	        ? '<div class="cap-usertags"><div style="display:flex;align-items:center;gap:8px">' +
+	            '<input type="text" data-fl-usertags placeholder="@아이디 (쉼표로 여러 명)" value="' + esc(_tagVal) + '" style="flex:1;min-width:0">' +
+	            '<button type="button" data-fl="tagsclose" aria-label="계정 태그 접기" style="flex:none;background:none;border:none;padding:4px;font-size:12px;font-weight:700;color:#a89aa0;cursor:pointer">안 달래요 <i class="ph-bold ph-x" style="vertical-align:-2px"></i></button>' +
+	          '</div>' +
           // [계정 태그 2026-07-14] 여러 장은 인스타 구조상 커버(첫 장)에만 태그가 붙는다 — 기대와 다르면 "안 됐다"로 읽히므로 명시.
           (_multi ? '<div class="cap-tagnote">여러 장은 첫 번째 사진(커버)에만 태그가 붙어요</div>' : '') + '</div>'
 	        : '<button type="button" class="cap-tagtoggle" data-fl="tagsopen">사진에 다른 계정 태그 달기 (선택)</button>';
@@ -2244,8 +2198,12 @@
     var _snNote = _sn >= 2
       ? '<div style="font-size:11.5px;font-weight:600;color:#a89aa0;margin:-4px 0 8px">사진 ' + _sn + '장이 여러 장 게시물로 올라가요</div>'
       : '';
+    // [2026-07-26 원영] 닫기 추가 — 예전엔 펼치기만 있고 되돌리기가 없어 예약 안 할 건데도 패널을 못 닫았다.
     return '<div style="margin-top:8px;padding:12px;border:1px solid rgba(213,138,149,.28);border-radius:14px;background:rgba(213,138,149,.05)">' +
-        '<div style="font-size:12.5px;font-weight:700;color:#8a7a80;margin-bottom:8px">언제 올릴까요?</div>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
+          '<div style="font-size:12.5px;font-weight:700;color:#8a7a80">언제 올릴까요?</div>' +
+          '<button type="button" data-fl="schedclose" aria-label="예약 접기" style="background:none;border:none;padding:2px 4px;font-size:12px;font-weight:700;color:#a89aa0;cursor:pointer">그냥 바로 올릴래요 <i class="ph-bold ph-x" style="vertical-align:-2px"></i></button>' +
+        '</div>' +
         _snNote +
         '<input type="datetime-local" data-fl-schedat value="' + esc(d._schedVal || _schedDefault()) + '" style="width:100%;height:42px;border:1px solid #E9EBEE;border-radius:10px;padding:0 10px;font-size:14px;box-sizing:border-box;margin-bottom:8px">' +
         '<button type="button" data-fl="schedule"' + (d._scheduling ? ' disabled' : '') + ' style="width:100%;height:46px;border:none;border-radius:12px;background:#d58a95;color:#fff;font-size:14.5px;font-weight:800;cursor:pointer">' + (d._scheduling ? '예약 중…' : '이 시간에 예약') + '</button>' +
@@ -2699,6 +2657,8 @@
       // [v778 복구] 캡션 결과의 '사진 편집' 버튼 핸들러 되살림 — 입력 반영 후 스토리 편집기 진입.
       if (a === 'storyedit') { flushCaptionInputs(); return _openStoryEditor(); }
       if (a === 'tagsopen') { d._tagsOpen = true; return setScreen(cur, { push: false }); }   // [v776] 계정 태그 펼치기
+      // [2026-07-26 원영] 계정 태그 접기 — 값이 있으면 자동 펼침 조건(_tagVal) 때문에 값도 같이 비워야 닫힌다.
+      if (a === 'tagsclose') { d._tagsOpen = false; d.igUserTags = []; return setScreen(cur, { push: false }); }
       if (a === 'crop') { return openCropFlow(); }
       // [v568·B-1] 전체화면 편집 — body 클래스로 .ed-photo-vp 를 화면 가득. ESC/버튼으로 닫기. 토글 후 마스크 재투영.
       if (a === 'edfull') {
@@ -2769,6 +2729,8 @@
       if (a === 'publish') { return publish(_publishKind()); }
       // [v779] 예약 발행 — '지금 말고 예약'을 펼치고, 시간 골라 예약.
       if (a === 'schedopen') { d._schedOpen = true; return setScreen('caption', { push: false }); }
+      // [2026-07-26 원영] 예약 패널 닫기 — 열기만 있고 닫기가 없어 되돌릴 수 없었다.
+      if (a === 'schedclose') { d._schedOpen = false; return setScreen('caption', { push: false }); }
       if (a === 'schedule') { return _doSchedule(); }
       // [cleanup] publishstory/storypick/storypickcancel 제거 — 진입 버튼 없어 도달 불가였던 스토리 발행 세트. 발행은 피드/여러 장(carousel)만.
       if (a === 'publishcarousel') { return publish('carousel'); }
@@ -2922,6 +2884,13 @@
         _pickServiceTag(_stag); return;
       }
       var svtadd = t.closest('[data-fl-svctagadd]'); if (svtadd) { _addSvcKeyword(); return; }
+      // [2026-07-26 원영] 해시태그 칩 — × 개별 삭제 / '+ 추가' = 인라인 입력 열기(확정은 _commitHashAdd).
+      var hdel = t.closest('[data-fl-hashdel]'); if (hdel) {
+        var _hk = hdel.getAttribute('data-fl-hashdel');
+        _hashSet(_hashList().filter(function (h) { return h !== _hk; }));
+        setScreen('caption', { push: false }); return;
+      }
+      if (a === 'hashaddopen') { d._hashAddOpen = true; return setScreen('caption', { push: false }); }
       var cg = t.closest('[data-fl-cgen]'); if (cg) { return _triggerCaptionGenerate(null); }
       // [아코디언] 잠긴 생성 버튼 탭 = 안내 + 첫 미답변 질문 펼치기
       var cgl = t.closest('[data-fl-cgenlock]'); if (cgl) { syncServiceFromDom(); d._wizOpen = null; toast('질문에 먼저 답해주세요'); setScreen('caption'); return; }
@@ -3965,9 +3934,7 @@
     if (!el) return;
     var ig = el.querySelector('[data-fl-igcap]');   // [v584] 카드 안 캡션 편집(원본)
     if (ig && ig.isContentEditable) { d.caption = (ig.textContent || '').trim(); }
-    // [v587] 해시태그 = 카드 안 contenteditable(.ig-hash-edit) → d.hashtags/selectedHashes(저장·미리보기·복사 반영).
-    var h = el.querySelector('[data-fl-ighash]');
-    if (h && h.isContentEditable) { var hs = _parseHashes(h.textContent); d.hashtags = hs; d.selectedHashes = hs.slice(); }
+    // [2026-07-26 원영] 해시태그는 칩 UI(_hashSet)가 진실원 — 카드 안 contenteditable 파싱 삭제.
   }
 
   function back() {

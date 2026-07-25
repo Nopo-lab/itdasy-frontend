@@ -8,7 +8,7 @@
 // [다양성 팩 2026-07-12] SSOT = window.ItdasyServiceVocab(js/data/service-vocab.js) 로 이관. 8버티컬(반영구·메이크업·태닝·두피·에스테틱 추가).
 //   아래는 모듈 미로드 대비 인라인 폴백(회귀 방지). _shopKeywordsMap() 이 모듈 KEYWORDS 를 위에 병합해 실사용.
 const _BASE_SHOP_KEYWORDS = {
-  '붙임머리': ['붙임머리','비드붙임','링붙임','테이프붙임','클립인','팁붙임','컬러붙임','옴브레','14인치','20인치','26인치'],
+  '붙임머리': ['붙임머리','18인치','20인치','22인치','24인치','26인치','비드붙임','링붙임','테이프붙임','팁붙임','클립인','컬러붙임','옴브레'],   // [2026-07-26 원영] 인치 나열이 실제 주문 단위 — 앞으로
   '네일아트': ['젤네일','손케어','이달의아트','프렌치','원톤','그라데이션','글리터','스톤','자개','시럽네일','연장','매트'],
   '네일': ['젤네일','손케어','이달의아트','프렌치','원톤','그라데이션','글리터','스톤','자개','시럽네일','연장','매트'],
   '헤어': ['커트','레이어드','펌','볼륨매직','아이롱펌','염색','뿌리염색','탈색','클리닉','앞머리펌','베이비펌','히피펌'],
@@ -81,19 +81,18 @@ function _loadRegisteredServices() {
     return c.map(t => t && String(t.name || t.service_name || '').trim()).filter(Boolean);
   } catch (_e) { return []; }
 }
-// 캡션 칩 키워드 목록 = (등록 시술 있으면 그것, 없으면 업종 vocab) − 삭제 + 커스텀.
+// 캡션 칩 키워드 목록 = (업종 vocab 앞 + 등록 시술 뒤 병합) − 삭제 + 커스텀.
 // [fix] 업종 미설정/미매핑(beauty·general 등)이면 '붙임머리'로 폴백하지 않는다 — 미용실인데 인치태그 쏟아지던 버그.
+// [2026-07-26 원영] 예전엔 등록 시술이 있으면 업종 vocab 을 통째로 무시 → 테스트로 등록된 타업종 시술(펌·젤네일)이
+//   붙임머리샵 칩을 덮어버렸다. 원장이 고른 업종이 항상 이기고, 등록 시술은 뒤에 병합(가격표 연결은 유지).
 function getShopKeywords() {
   const custom = _loadCustomKeywords();
   const deleted = _loadDeletedKeywords();
   const registered = _loadRegisteredServices();
-  if (registered.length) {   // 우리샵에 등록된 실제 시술이 최우선
-    const filtered = registered.filter(k => !deleted.includes(k));
-    return [...new Set([...filtered, ...custom])];
-  }
   const base = _shopKeywordBase();
-  if (!base) return [...new Set(custom)];   // 업종 미확정 → 커스텀만(자동 인치태그 금지)
-  const filtered = base.filter(k => !deleted.includes(k));
+  const merged = base ? [...base, ...registered] : registered;
+  if (!merged.length) return [...new Set(custom)];   // 업종 미확정 + 등록 시술 없음 → 커스텀만(자동 인치태그 금지)
+  const filtered = merged.filter(k => !deleted.includes(k));
   return [...new Set([...filtered, ...custom])];
 }
 
@@ -127,19 +126,19 @@ function toggleCaptionTag(el) {
 }
 
 function deleteCaptionKeyword(keyword, e) {
-  e.stopPropagation();
-  const base = _shopKeywordBase() || [];   // [fix] '붙임머리' 폴백 제거 — 정규화 기반
-  if (base.includes(keyword)) {
-    // 기본 키워드는 삭제 목록에 추가
+  if (e && e.stopPropagation) e.stopPropagation();
+  // [2026-07-26 원영] 예전엔 '업종 기본칩'만 deleted 에 기록 — 등록 시술 칩은 어느 분기에도 안 걸려
+  //   ×를 눌러도 리렌더 때 되살아났다(삭제가 안 되는 것처럼 보임). 커스텀이면 커스텀에서 빼고,
+  //   그 외(업종 기본 + 등록 시술)는 전부 deleted 목록에 기록해 다시 안 뜨게.
+  const custom = _loadCustomKeywords();
+  if (custom.includes(keyword)) {
+    _saveCustomKeywords(custom.filter(k => k !== keyword));
+  } else {
     const deleted = _loadDeletedKeywords();
     if (!deleted.includes(keyword)) {
       deleted.push(keyword);
       _saveDeletedKeywords(deleted);
     }
-  } else {
-    // 커스텀 키워드는 직접 삭제
-    const custom = _loadCustomKeywords();
-    _saveCustomKeywords(custom.filter(k => k !== keyword));
   }
   renderCaptionKeywordTags();
 }
