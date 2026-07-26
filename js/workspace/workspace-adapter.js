@@ -224,7 +224,11 @@
 	  function _templateSize(tpl) {
 	    var cats = (window.PhotoEditorTemplateMarketData && window.PhotoEditorTemplateMarketData.CATS) || (window.PhotoEditorTemplatesV2 && window.PhotoEditorTemplatesV2.CATS) || [];
 	    var cat = cats.filter(function (c) { return c.id === tpl.cat; })[0] || {};
-	    return cat.size ? { w: cat.size[0], h: cat.size[1] } : { w: 1080, h: 1350 };
+	    // [#18] 스토리/릴스(9:16)만 카테고리 크기 유지 — 피드형은 사용자 '게시 크기' 선택(4:5/1:1)이 우선.
+	    //   템플릿은 상대좌표 렌더라 캔버스 크기 오버라이드가 안전(premium-templates.js w*0.07 식).
+	    if (cat.ratio === '9:16') return { w: cat.size[0], h: cat.size[1] };
+	    var sq = false; try { sq = localStorage.getItem('itdasy:ws_format') === '11'; } catch (_e) { void _e; }
+	    return sq ? { w: 1080, h: 1080 } : { w: 1080, h: 1350 };
 	  }
 	  function _pickPhoto(photos, role, fallbackIdx) {
 	    photos = photos || [];

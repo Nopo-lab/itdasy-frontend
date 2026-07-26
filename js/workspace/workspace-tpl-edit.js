@@ -77,8 +77,16 @@
   function _defaults(id, found, shop) { var TS = window.PhotoEditorTemplateSlots; return (TS && TS.getDefaultValues) ? TS.getDefaultValues(id, found, { shopName: shop }) : {}; }
   function _esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
+  // [#18] 게시 크기 선택(4:5/1:1) 반영 — 스토리/릴스(9:16) 템플릿만 원래 크기 유지.
+  function _outSize(found) {
+    var cat = found && found.cat;
+    if (cat === 'story' || cat === 'reels') return { w: 1080, h: 1920 };
+    var sq = false; try { sq = localStorage.getItem('itdasy:ws_format') === '11'; } catch (_e) { void _e; }
+    return sq ? { w: 1080, h: 1080 } : { w: 1080, h: 1350 };
+  }
   function _renderCanvas(canvas, id, found, sv, beforeImg, afterImg) {
-    canvas.width = 1080; canvas.height = 1350;
+    var sz = _outSize(found);
+    canvas.width = sz.w; canvas.height = sz.h;
     var ctx = canvas.getContext('2d');
     var pal = found && found.palette;
     var data = {
@@ -90,7 +98,7 @@
     var has = beforeImg || afterImg;
     var state = has ? { editedImg: afterImg || beforeImg, originalImg: afterImg || beforeImg, img: afterImg || beforeImg, secondImg: beforeImg || afterImg } : null;
     var tplObj = { id: id, slotValues: sv, imageSlots: {} };
-    try { window.PhotoEditorBeautyPack.draw(ctx, 1080, 1350, state, tplObj, data); } catch (_e) { /* draw 실패는 무해 */ }
+    try { window.PhotoEditorBeautyPack.draw(ctx, sz.w, sz.h, state, tplObj, data); } catch (_e) { /* draw 실패는 무해 */ }
   }
 
   // 편집 가능한 텍스트 필드 — 섹션별. textarea 는 후기만.
@@ -188,6 +196,8 @@
     document.body.appendChild(ov);
 
     var canvas = ov.querySelector('[data-wtpl-canvas]');
+    // [#18] 미리보기 박스 비율을 출력 규격에 맞춤(기본 CSS 는 4/5 고정).
+    (function () { var _pv = ov.querySelector('.wtpl-preview'), _sz = _outSize(found); if (_pv) _pv.style.aspectRatio = _sz.w + ' / ' + _sz.h; })();
     function repaint() { _renderCanvas(canvas, id, found, sv, beforeImg, afterImg); }
     repaint();
 

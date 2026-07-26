@@ -258,6 +258,27 @@
   //   예전엔 저장값 있으면 무조건 붙였는데("계속 알아서 하단에 놓지 말고") → 설정 토글로 opt-in 전환.
   function _shopInfoOn() { try { return localStorage.getItem('itdasy:caption_shopinfo') === '1'; } catch (_e) { return false; } }
   function _shopInfoSaved() { try { return !!(String(localStorage.getItem('itdasy:shop_book') || '').trim() || String(localStorage.getItem('itdasy:shop_phone') || '').trim()); } catch (_e) { return false; } }
+  // [#18] 게시 크기(피드 규격) 선택 — 4:5(세로로 크게, 기본) / 1:1(정사각). 마지막 선택 기억.
+  //   선택값이 편집기 캔버스→템플릿 출력→콜라주→IG 미리보기까지 관통. 스토리/릴스 9:16은 템플릿이 별도 처리.
+  function _wsFormat() { try { return localStorage.getItem('itdasy:ws_format') === '11' ? '11' : '45'; } catch (_e) { return '45'; } }
+  function _wsRatio() { return _wsFormat() === '11' ? '1:1' : '4:5'; }
+  function _setWsFormat(v) { try { localStorage.setItem('itdasy:ws_format', v === '11' ? '11' : '45'); } catch (_e) { void _e; } }
+  // [#18] 업로드 화면 하단 규격 세그먼트 — 사진 1장 이상 선택 시에만 노출.
+  function _formatSegHtml(n) {
+    if (!n) return '';
+    var f = _wsFormat();
+    return '<div class="up-fmt"><span class="up-fmt__label">게시 크기</span>' +
+      '<button type="button" class="up-fmt__b' + (f === '45' ? ' on' : '') + '" data-fl-format="45">세로로 크게 <small>4:5</small></button>' +
+      '<button type="button" class="up-fmt__b' + (f === '11' ? ' on' : '') + '" data-fl-format="11">정사각 <small>1:1</small></button>' +
+    '</div>';
+  }
+  // [#18] 크롭·배경 비율 — 피드형(전후/피드/리뷰/이벤트)은 사용자 선택, 스토리(9:16)/가격표(free)는 그대로.
+  function _cropRatio(fb) {
+    var r = CROP_RATIO[d.tplPurpose];
+    if (r === '9:16' || r === 'free') return r;
+    if (!r) return fb || _wsRatio();
+    return _wsRatio();
+  }
   // [#19] 캡션 입력 화면의 '샵정보 반영' 토글 — 설정에 예약/전화가 저장돼 있을 때만 노출(없으면 켤 대상이 없음).
   function _shopInfoToggleHtml() {
     if (!_shopInfoSaved()) return '';
@@ -337,7 +358,8 @@
       }
       autoArranged = true;   // [#5] 미리보기(_autoComposeTemplate)도 이 텍스트를 합성하도록
     }
-    return { ss: ss, layers: layers, ratio: ss ? ss.frame.ratio : '4:5', autoArranged: autoArranged };
+    // [#18] 비율은 사용자 '게시 크기' 선택이 최우선 — ShopStyle frame.ratio(4:5 고정)보다 앞선다.
+    return { ss: ss, layers: layers, ratio: _wsRatio(), autoArranged: autoArranged };
   }
   // [v589·#3] 표시용 URL — 입력 화면/뒤로가기는 '원본', 캡션 '결과' 화면에서만 템플릿 적용 미리보기를 보여준다.
   //   사진 자체(editedDataUrl)는 절대 건드리지 않으므로(수동 '사진 꾸미기' 저장 제외) 뒤로가기 시 원본 유지.
@@ -587,7 +609,7 @@
         try {
           var _pp = meta && meta.perPhoto;
           if (_pp && _pp.length && window.ItdEditor && window.ItdEditor.compose) {
-            var _eph = editablePhotos(), _rt = (meta.editState && meta.editState.ratio) || '4:5';
+            var _eph = editablePhotos(), _rt = (meta.editState && meta.editState.ratio) || _wsRatio();
             _pp.forEach(function (e) {
               var tp = _eph[e.idx]; if (!tp || tp === p) return;   // 보던 장은 위에서 dataUrl 로 이미 저장
               var _cb = _cleanBase(tp) || photoUrl(tp);
@@ -775,7 +797,7 @@
       '<div class="upload-grid">' + tiles +
         '<div class="grid-add" data-fl-pick><i class="ph-bold ph-plus"></i><span>추가</span></div>' +
       '</div>' +
-      '<div class="up-foot" data-up-foot>' + _upSummaryHtml(selCount, multi, cnt) + _pairPreviewHtml(cnt) + '</div>';
+      '<div class="up-foot" data-up-foot>' + _formatSegHtml(selCount) + _upSummaryHtml(selCount, multi, cnt) + _pairPreviewHtml(cnt) + '</div>';
   }
   // [v531 렉] 역할/선택 변경 시 전체 재렌더(이미지 6장 base64 재파싱) 대신 in-place 갱신.
   //   타일 이미지 DOM 은 유지하고 selected 클래스·순서배지·역할 세그 on 상태만 바꾼다.
@@ -823,7 +845,7 @@
       var multi = selOrdered.length >= 2;
       var cnt = { before: 0, after: 0, hero: 0 };
       selOrdered.forEach(function (p) { var r = p.role || 'hero'; if (cnt[r] != null) cnt[r]++; else cnt.hero++; });
-      foot.innerHTML = _upSummaryHtml(selOrdered.length, multi, cnt) + _pairPreviewHtml(cnt);
+      foot.innerHTML = _formatSegHtml(selOrdered.length) + _upSummaryHtml(selOrdered.length, multi, cnt) + _pairPreviewHtml(cnt);
     });
   }
 
@@ -2061,7 +2083,7 @@
 	        '<div class="ig-car__img" style="background-image:url(' + esc(_blobDisp(it.url)) + ')"></div></div>';
 	    }).join('');
 	    var dots = items.map(function (it) { return '<button type="button" class="ig-car__dot' + (it.id === active ? ' on' : '') + '" data-fl-cardot="' + esc(it.id) + '" aria-label="이 사진 보기"></button>'; }).join('');
-	    return '<div class="ig-car cap-car" data-fl-carousel>' +
+	    return '<div class="ig-car cap-car' + (_wsFormat() === '11' ? ' ig-car--sq' : '') + '" data-fl-carousel>' +
 	      '<div class="ig-car__track cap-car__track" data-fl-cartrack>' + slides + '</div>' +
 	      '<div class="ig-car__dots">' + dots + '</div>' +
 	    '</div>';
@@ -2811,6 +2833,15 @@
       if (t.closest('[data-fl-pick]')) { el.querySelector('[data-fl-file]').click(); return; }
       var del = t.closest('[data-fl-del]'); if (del) { e.stopPropagation(); d.photos.splice(+del.getAttribute('data-fl-del'), 1); reassignRoles(); setScreen('upload'); return; }
       var roleBtn = t.closest('[data-fl-setrole]'); if (roleBtn) { e.stopPropagation(); var _pr = roleBtn.getAttribute('data-fl-setrole').split(':'); _setRole(+_pr[0], _pr[1]); if (cur === 'template') _rerenderTemplate(); else if (d.rolesOpen) _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
+      // [#18] 게시 크기 세그먼트 — 저장 후 세그 on 상태만 토글(전체 재렌더 없이).
+      var fmtBtn = t.closest('[data-fl-format]'); if (fmtBtn) {
+        e.stopPropagation();
+        _setWsFormat(fmtBtn.getAttribute('data-fl-format'));
+        d.previewUrl = null;   // 규격 변경 → 캐시된 합성 미리보기 무효화(다음 단계에서 새 비율로 재합성)
+        var _fseg = fmtBtn.parentNode.querySelectorAll('[data-fl-format]');
+        for (var _fi = 0; _fi < _fseg.length; _fi++) { _fseg[_fi].classList.toggle('on', _fseg[_fi] === fmtBtn); }
+        return;
+      }
       // [#2] 타일 탭 = 선택/해제 토글. 역할/삭제 버튼은 위에서 이미 처리됨.
       var upTile = t.closest('[data-fl-tile]'); if (upTile && cur === 'upload') { e.stopPropagation(); _toggleSelect(+upTile.getAttribute('data-fl-tile')); return; }
       if (t.closest('[data-fl-edphoto]')) { return; }
@@ -3401,7 +3432,7 @@
     // 항상 '배경 적용 전 원본'에서 재합성 — 색→흐림 등 옵션 전환 시 합성본을 또 누끼하지 않도록.
     var composeSrc = photo.preBgUrl || photo.editedDataUrl || photo.dataUrl;
     d.bgAction = action; d.bgBusy = true; d.bgFail = false; setScreen('edit');
-    window.WorkspaceAdapter.applyWorkspaceBgAction({ src: composeSrc, action: action, color: d.bgColor, bgImage: d.customBg, ratio: CROP_RATIO[d.tplPurpose] || 'original' })
+    window.WorkspaceAdapter.applyWorkspaceBgAction({ src: composeSrc, action: action, color: d.bgColor, bgImage: d.customBg, ratio: _cropRatio('original') })
       .then(function (r) {
         d.bgBusy = false;
         // [보안감사 M-11 2026-07-26] 누끼 처리 중 사용자가 레이아웃/캡션으로 이동했으면 화면을 뺏지 않는다.
@@ -3413,7 +3444,7 @@
           photo.fgCutout = r.removedBg || null;   // 투명 인물 — 이후 보정은 여기에만
           // [v539] ratio 저장 — 직후 슬라이더 재합성(_compositeBg)이 적용 때와 '동일 비율/배치'로 출력해야
           //   크기 점프가 안 생긴다. (editedDataUrl 은 ratioToSize(ratio) 크기, fgCutout 은 원본 크기라 불일치했음)
-          photo.bgSpec = photo.fgCutout ? { action: action, color: d.bgColor, bgImage: d.customBg, origUrl: photo.preBgUrl, ratio: CROP_RATIO[d.tplPurpose] || 'original' } : null;
+          photo.bgSpec = photo.fgCutout ? { action: action, color: d.bgColor, bgImage: d.customBg, origUrl: photo.preBgUrl, ratio: _cropRatio('original') } : null;
           d.previewUrl = null; d.bgFail = false; if (_onEdit) { toast('배경 적용 완료'); setScreen('edit'); _refreshPreview(); }
         }
         else { d.bgAction = prev; d.bgFail = true; d.bgFailMsg = (r && r.toast) || '배경 처리에 실패했어요'; if (_onEdit) { toast(d.bgFailMsg); setScreen('edit'); } }
@@ -3514,7 +3545,7 @@
 	        ctx.drawImage(im, sx, sy, sw, sh, dx, dy, dw, dh);
 	      }
 	      function _draw() {
-	        var W = 1080, H = 1080, gap = 4;   // 정사각 캔버스 + 가는 흰 거터
+	        var W = 1080, H = (_wsFormat() === '11' ? 1080 : 1350), gap = 4;   // [#18] 게시 크기 선택 반영(4:5/1:1) + 가는 흰 거터
 	        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
 	        var ctx = cv.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
 	        if (layout === 'tb') {
@@ -4063,7 +4094,7 @@
     if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.openCrop)) { toast('크롭 모듈을 불러오지 못했어요'); return; }
     var idx = d.photos.indexOf(curEditPhoto()); if (idx < 0) idx = 0;
     window.WorkspaceAdapter.openCrop({
-      photos: d.photos, index: idx, ratio: CROP_RATIO[d.tplPurpose] || '4:5',
+      photos: d.photos, index: idx, ratio: _cropRatio(),
       onApply: function (photoId, dataUrl, meta) {
         var p = d.photos.filter(function (x) { return x.id === photoId; })[0];
         if (p) { p.editedDataUrl = dataUrl; p.cropMeta = meta; }
@@ -4112,7 +4143,7 @@
     slot.workspaceContext = Object.assign({}, slot.workspaceContext, {
       type: TYPE_MAP[d.tplPurpose] || 'promo',
       expectedPhotos: d.tplPurpose === 'before_after' ? 2 : 1,
-      defaultRatio: CROP_RATIO[d.tplPurpose] || '4:5',
+      defaultRatio: _cropRatio(),
 	      templatePurpose: d.tplPurpose || 'feed',
 	      templateId: d.templateId || null,
 	      templateLabel: d.template || '',
