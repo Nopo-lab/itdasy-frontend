@@ -251,7 +251,7 @@
       const list = _loadOffline().filter(c => c.id !== id);
       _saveOffline(list);
       _cache = list;
-      try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'delete_customer', optimistic: false } })); } catch (_e) { void _e; }
+      try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'delete_customer', customer_id: id, optimistic: false } })); } catch (_e) { void _e; }
       return { ok: true };
     }
     await _api('DELETE', '/customers/' + id);
@@ -807,7 +807,9 @@
     }
   });
 
+  let _customerSaveInFlight = false;
   window._customerSave = async function (id) {
+    if (_customerSaveInFlight) return;  // [보안감사 M-6 2026-07-26] 연타 이중 저장 방지
     const payload = {
       name: document.getElementById('cfName').value.trim(),
       phone: document.getElementById('cfPhone').value.trim() || null,
@@ -819,6 +821,7 @@
       if (window.showToast) window.showToast('이름을 입력해 주세요');
       return;
     }
+    _customerSaveInFlight = true;
     try {
       if (id) await update(id, payload);
       else await create(payload);
@@ -831,6 +834,8 @@
     } catch (e) {
       console.warn('[customer] save 실패:', e);
       if (window.showToast) window.showToast('저장 실패 — 잠시 후 다시 시도해 주세요');
+    } finally {
+      _customerSaveInFlight = false;
     }
   };
 

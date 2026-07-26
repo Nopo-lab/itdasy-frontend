@@ -467,7 +467,22 @@
   function _openStoryEditor(o) {
     o = o || {};
     // [slot-sync Phase B] 다른 기기 slot(https 이미지) → 편집기 캔버스 오염 방지 위해 먼저 수화. 1회만 시도(실패해도 진행).
-    if (_needsHydrate() && !d._hydrateTried) { d._hydrateTried = true; toast('사진 불러오는 중…'); _hydrateD().then(function (ok) { if (!ok) d._hydrateTried = false; /* [버그수정 2026-07-06] 실패 시 재시도 가능하게 */ _openStoryEditor(o); }); return; }
+    // [보안감사 M-12 2026-07-26] 예전엔 hydrate 실패 시에도 _openStoryEditor(o) 를 곧바로 재귀 호출해서,
+    //   _needsHydrate() 가 계속 true 면 무한 재시도 루프('사진 불러오는 중' 반복, 편집기 진입 불가)였다.
+    //   또 _hydrateD() 가 reject 하면 _hydrateTried=true 로 남아 영영 안 열리는 다른 고착도 있었다.
+    //   → 성공 시에만 재오픈, 실패/reject 시엔 멈추고 안내(재시도는 사용자 재요청으로).
+    if (_needsHydrate() && !d._hydrateTried) {
+      d._hydrateTried = true; toast('사진 불러오는 중…');
+      _hydrateD().then(function (ok) {
+        if (ok) { _openStoryEditor(o); return; }
+        d._hydrateTried = false;
+        toast('사진을 불러오지 못했어요 — 잠시 후 다시 시도해 주세요');
+      }).catch(function () {
+        d._hydrateTried = false;
+        toast('사진을 불러오지 못했어요 — 잠시 후 다시 시도해 주세요');
+      });
+      return;
+    }
     // [#2 단일화] 편집기는 ItdEditor 단독(옛 StoryEditor 제거됨). 계약 open{photoUrl,onDone(dataUrl,meta)} 동일.
     // o.fresh=true → 이전 편집상태(editState) 복원 안 함(캡션 직후 자동 오픈: 옛날 콜라주·빈 텍스트가 되살아나던 문제).
     var Editor = window.ItdEditor;
@@ -2963,10 +2978,17 @@
     el.querySelector('[data-fl-bgfile]').addEventListener('change', function (e) {
       var f = (e.target.files || [])[0]; e.target.value = '';
       if (!f) return;
-      var r = new FileReader();
-      r.onload = function () { d.customBg = r.result; d.customBgName = f.name || '내 배경'; applyBg('image'); };
-      r.onerror = function () { toast('배경 이미지를 불러오지 못했어요'); };
-      r.readAsDataURL(f);
+      // [보안감사 M-10 2026-07-26] 본문 사진과 동일하게 HEIC 변환 + 리사이즈 경유.
+      //   예전엔 원본 File 을 그대로 readAsDataURL 해서 아이폰 HEIC 배경이 깨지고, 초대형 원본이
+      //   수 MB dataURL 로 상태·슬롯에 저장됐다.
+      var _rs = (typeof window._resizeIfNeeded === 'function') ? window._resizeIfNeeded(f, 1920) : Promise.resolve(f);
+      Promise.resolve(_rs).catch(function () { return f; }).then(function (small) {
+        if (!small) { toast('배경 이미지를 불러오지 못했어요'); return; }
+        var r = new FileReader();
+        r.onload = function () { d.customBg = r.result; d.customBgName = f.name || '내 배경'; applyBg('image'); };
+        r.onerror = function () { toast('배경 이미지를 불러오지 못했어요'); };
+        r.readAsDataURL(small);
+      });
     });
 	    el.addEventListener('input', function (e) {
 	      if (e.target.matches('[data-fl-usertags]')) {   // [계정 태그] @아이디 파싱 → d.igUserTags
@@ -3378,6 +3400,9 @@
     window.WorkspaceAdapter.applyWorkspaceBgAction({ src: composeSrc, action: action, color: d.bgColor, bgImage: d.customBg, ratio: CROP_RATIO[d.tplPurpose] || 'original' })
       .then(function (r) {
         d.bgBusy = false;
+        // [보안감사 M-11 2026-07-26] 누끼 처리 중 사용자가 레이아웃/캡션으로 이동했으면 화면을 뺏지 않는다.
+        //   결과(editedDataUrl/fgCutout)는 그대로 보존하되 setScreen('edit') 강제복귀만 막는다.
+        var _onEdit = (cur === 'edit');
         if (r && r.ok && r.dataUrl) {
           if (!photo.preBgUrl) photo.preBgUrl = composeSrc;   // 최초 1회 원본 보관(되돌리기용)
           photo.editedDataUrl = r.dataUrl;
@@ -3385,9 +3410,9 @@
           // [v539] ratio 저장 — 직후 슬라이더 재합성(_compositeBg)이 적용 때와 '동일 비율/배치'로 출력해야
           //   크기 점프가 안 생긴다. (editedDataUrl 은 ratioToSize(ratio) 크기, fgCutout 은 원본 크기라 불일치했음)
           photo.bgSpec = photo.fgCutout ? { action: action, color: d.bgColor, bgImage: d.customBg, origUrl: photo.preBgUrl, ratio: CROP_RATIO[d.tplPurpose] || 'original' } : null;
-          d.previewUrl = null; d.bgFail = false; toast('배경 적용 완료'); setScreen('edit'); _refreshPreview();
+          d.previewUrl = null; d.bgFail = false; if (_onEdit) { toast('배경 적용 완료'); setScreen('edit'); _refreshPreview(); }
         }
-        else { d.bgAction = prev; d.bgFail = true; d.bgFailMsg = (r && r.toast) || '배경 처리에 실패했어요'; toast(d.bgFailMsg); setScreen('edit'); }
+        else { d.bgAction = prev; d.bgFail = true; d.bgFailMsg = (r && r.toast) || '배경 처리에 실패했어요'; if (_onEdit) { toast(d.bgFailMsg); setScreen('edit'); } }
 	      });
 	  }
 

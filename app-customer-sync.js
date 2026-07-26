@@ -8,12 +8,13 @@
   const API  = () => window.API  || '';
   const AUTH = () => window.authHeader ? window.authHeader() : {};
 
+  // [보안감사 M-6 2026-07-26] 예전엔 존재하지 않는 sessionStorage 'ch_cache' 를 읽어(어디서도 set 안 함)
+  //   FE 이름 dedup 이 항상 무력화 → 매번 POST(백엔드 409 에만 의존)였다. 실제 캐시(CustomerCache)를 본다.
   function _localCustomerByName(name) {
     try {
-      const raw = sessionStorage.getItem('ch_cache');
-      if (!raw) return null;
-      const { d = [] } = JSON.parse(raw);
-      return d.find(c => (c.name || '').trim() === name.trim()) || null;
+      const items = (window.CustomerCache && window.CustomerCache.get && window.CustomerCache.get()) || [];
+      const t = String(name || '').trim();
+      return items.find(c => String(c.name || '').trim() === t) || null;
     } catch (_) { return null; }
   }
 

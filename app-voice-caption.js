@@ -488,27 +488,34 @@
       _toast('예약 모듈을 불러오지 못했어요.');
       return;
     }
+    // [보안감사 M-5 2026-07-26] 진입 즉시 _pendingRevisit 소거 — 확인 버튼 연타로 예약이 2건 생기던 것 차단.
+    //   예전엔 await 이후(성공 후)에 null 처리해서 create 진행 중 재탭이 뚫렸다.
+    const pending = _pendingRevisit;
+    _pendingRevisit = null;
     try {
       const now = new Date();
-      const target = new Date(now.getTime() + _pendingRevisit.weeks * 7 * 24 * 60 * 60 * 1000);
+      const target = new Date(now.getTime() + pending.weeks * 7 * 24 * 60 * 60 * 1000);
       // 영업 시간 11:00 으로 기본 세팅 (사용자가 나중에 수정 가능)
       target.setHours(11, 0, 0, 0);
       const ends = new Date(target.getTime() + 60 * 60 * 1000);  // 1시간 슬롯 기본
 
+      // 자동 11:00 슬롯이라 겹칠 수 있음 — 등록은 하되 충돌이면 알려준다.
+      let _dup = null;
+      try { _dup = window.Booking.findConflict && window.Booking.findConflict(target.toISOString(), ends.toISOString()); } catch (_e) { void _e; }
+
       await window.Booking.create({
         starts_at: target.toISOString(),
         ends_at: ends.toISOString(),
-        customer_id: _pendingRevisit.customer && _pendingRevisit.customer.id || null,
-        customer_name: _pendingRevisit.customer && _pendingRevisit.customer.name || null,
+        customer_id: (pending.customer && pending.customer.id) || null,
+        customer_name: (pending.customer && pending.customer.name) || null,
         service_name: _shopMeta().shopType + ' (재방문)',
-        memo: '음성 캡션에서 자동 제안 · ' + _pendingRevisit.weeks + '주 후 재방문',
+        memo: '음성 캡션에서 자동 제안 · ' + pending.weeks + '주 후 재방문',
       });
 
-      _toast(_pendingRevisit.weeks + '주 후 예약이 등록됐어요.');
+      _toast(pending.weeks + '주 후 예약이 등록됐어요.' + (_dup ? ' (그 시간에 다른 예약이 있어요 — 예약에서 조정하세요)' : ''));
       const p = document.getElementById('_voiceCaptionPopup');
       const box = p && p.querySelector('#_vcRevisit');
       if (box) box.style.display = 'none';
-      _pendingRevisit = null;
 
       // 다른 컴포넌트(달력·홈)에 알림
       try {

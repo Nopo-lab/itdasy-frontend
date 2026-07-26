@@ -193,6 +193,50 @@
     return { ok: true };
   }
 
+  // [보안감사 C-5 2026-07-26] 오프라인(endpoint-missing·no-token)에 만든 예약을 재접속 시 서버로 올린다.
+  //   예전엔 OFFLINE_KEY 에 쓰고 성공만 반환할 뿐 flush 경로가 없어서, 온라인 복귀 후 캐시가
+  //   서버값으로 덮이면 그 예약이 서버에도 화면에도 없이 영구 소실됐다(노쇼·매출 누락).
+  //   생성분만 재전송한다(오프라인 수정/삭제 replay 는 위험해 범위 밖). 성공한 건만 로컬에서 제거.
+  let _flushing = false;
+  async function _flushOffline() {
+    if (_flushing) return;
+    if (!window.API || !window.authHeader) return;
+    const auth = window.authHeader();
+    if (!auth || !auth.Authorization) return; // 토큰 아직 없으면 다음 기회에
+    const pending = _loadOffline().filter(b => b && !b.deleted_at);
+    if (!pending.length) return;
+    _flushing = true;
+    let changed = false;
+    try {
+      for (const rec of pending) {
+        const data = {
+          starts_at: rec.starts_at, ends_at: rec.ends_at,
+          customer_id: rec.customer_id || null, customer_name: rec.customer_name || null,
+          service_name: rec.service_name || null, memo: rec.memo || null,
+          status: rec.status || 'confirmed',
+          amount: (rec.amount != null) ? rec.amount : null,
+          deposit: (rec.deposit != null) ? rec.deposit : null,
+        };
+        try {
+          await _api('POST', '/bookings', data);
+        } catch (e) {
+          // 엔드포인트 여전히 없거나 토큰 문제면 통째로 중단(다음 online 이벤트에 재시도).
+          if (e.message === 'endpoint-missing' || e.message === 'no-token') break;
+          continue; // 개별 실패(중복·검증 등)는 스킵해 나머지 진행
+        }
+        _saveOffline(_loadOffline().filter(b => b.id !== rec.id)); // 성공분 제거
+        changed = true;
+      }
+    } finally {
+      _flushing = false;
+    }
+    if (changed) {
+      _isOffline = false;
+      _invalidateCache();
+      try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'booking' } })); } catch (_e) { void _e; }
+    }
+  }
+
   // [2026-04-26] 메모리 캐시 무효화 — 챗봇 등 외부 mutation 발생 시 호출
   function _invalidateCache() {
     for (const k in _cache) delete _cache[k];
@@ -273,7 +317,11 @@
     window.addEventListener('itdasy:data-changed', (e) => {
       const kind = e && e.detail && e.detail.kind;
       if (kind && !/(booking|force_sync|focus_sync|online_restore)/.test(kind)) return;
+      // [보안감사 C-5] 복귀/동기화 신호엔 오프라인 생성분부터 서버로 flush (덮이기 전에).
+      if (kind && /(force_sync|focus_sync|online_restore)/.test(kind)) { _flushOffline(); }
       _invalidateCache();
     });
+    // [보안감사 C-5] 네트워크 복귀 시 오프라인 예약 재전송.
+    window.addEventListener('online', () => { _flushOffline(); });
   }
 })();
