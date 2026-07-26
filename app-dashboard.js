@@ -448,10 +448,11 @@
         fresh[6] = atRisk;
         fresh[7] = inventory;
         fresh[8] = brief;
-        // 비핵심 데이터 도착 후 해당 위젯만 재렌더
-        try { _renderBookingWidget && _renderBookingWidget(bookings); } catch(e){ console.warn('[dashboard] 예약 위젯 갱신 실패:', e); }
-        try { _renderRetentionWidget && _renderRetentionWidget(atRisk); } catch(e){ console.warn('[dashboard] 위험 고객 위젯 갱신 실패:', e); }
-        try { _renderBriefWidget && _renderBriefWidget(brief); } catch(e){ console.warn('[dashboard] 브리핑 위젯 갱신 실패:', e); }
+        // [2026-07-26 에러스윕] 비핵심 데이터(예약·위험고객·브리핑) 도착 후 전체 재렌더.
+        //   예전엔 _renderBookingWidget 등 '존재하지 않는' 함수를 호출했다. 'X && X()' 가드는
+        //   미선언 식별자를 못 막아(ReferenceError) 매번 터졌고, 그래서 예약·위험고객·브리핑 위젯이
+        //   데이터가 도착해도 빈 채로 남았다. 완성된 fresh 로 한 번 다시 그린다.
+        try { _renderFromData(fresh); } catch(e){ console.warn('[dashboard] fresh 재렌더 실패:', e); }
       }).catch(() => {});
     } catch (_e) {
       // fresh 실패해도 stale 화면은 이미 표시됨 — 조용히 무시
