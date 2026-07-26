@@ -56,27 +56,34 @@
     }
     if (!token) return true;
 
-    try {
-      const api = (window.API || '');
-      const keySuffix = api.includes('staging')
-        ? 'staging'
-        : (api.includes('localhost') ? 'local' : 'prod');
-      localStorage.setItem('itdasy_token::' + keySuffix, token);
-    } catch (_e) { void _e; }
+    // [보안감사 H-2 2026-07-27] 딥링크(itdasy://oauth-return?token=)로 받은 토큰을 무검증 저장하면
+    //   세션 고정 공격이 된다: 공격자가 자기 JWT 를 담은 링크를 피해자가 열게 하면, 피해자 앱이
+    //   공격자 계정으로 로그인돼 이후 피해자의 사진·고객·매출이 공격자 계정에 쌓인다.
+    //   → 저장·세션적용 전에 백엔드 /auth/me 로 (1) 토큰이 우리 백엔드가 발급한 유효 토큰인지 +
+    //     (2) 서버가 돌려준 user id 가 토큰의 sub 와 일치하는지 확인한다.
+    //     (2) 는 전역 fetch 래퍼의 401 자동 리프레시가 '기존 세션'으로 바꿔치기하는 경우도 막는다.
+    //   완전 방어(OAuth 시작 시 state/nonce 발급→회신 대조)는 백엔드 동반 필요 — LAUNCH_REMAINING.md B.
+    const api = (window.API || '');
+    let claimedSub = '';
+    try { claimedSub = String(JSON.parse(atob(token.split('.')[1])).sub || ''); } catch (_e) { void _e; }
 
-    // 다른 사용자 토큰일 수 있으니 user_id 비교 → 캐시 정리 + 가입방법 배지 동기화
-    // (window.applyNewSession 이 정의된 뒤에만 동작; reload 후에는 자동 로직이 다시 동작)
-    try {
-      if (typeof window.applyNewSession === 'function') {
-        // 비동기지만 reload 전에 캐시 정리·배지 저장이 끝나도록 await
-        // (실패해도 reload 는 진행)
-        window.applyNewSession(token).catch(() => {});
-      }
-    } catch (_e) { void _e; }
-
-    if (window.showToast) window.showToast('✓ ' + provider + ' 로그인 완료!');
-    // 토큰 반영을 위해 앱 새로고침
-    setTimeout(() => { window.location.reload(); }, 300);
+    fetch(api + '/auth/me', { headers: { 'Authorization': 'Bearer ' + token } })
+      .then(function (res) { return res.ok ? res.json() : Promise.reject(new Error('invalid_token')); })
+      .then(function (me) {
+        const meId = String((me && (me.id != null ? me.id : me.user_id)) || '');
+        if (!claimedSub || !meId || meId !== claimedSub) throw new Error('token_user_mismatch');
+        // 검증 통과 → 저장 · 세션 적용 · 리로드
+        try {
+          const keySuffix = api.includes('staging') ? 'staging' : (api.includes('localhost') ? 'local' : 'prod');
+          localStorage.setItem('itdasy_token::' + keySuffix, token);
+        } catch (_e) { void _e; }
+        try { if (typeof window.applyNewSession === 'function') window.applyNewSession(token).catch(function () {}); } catch (_e) { void _e; }
+        if (window.showToast) window.showToast(provider + ' 로그인 완료!');
+        setTimeout(function () { window.location.reload(); }, 300);
+      })
+      .catch(function () {
+        if (window.showToast) window.showToast('로그인 정보를 확인하지 못했어요. 다시 시도해 주세요.');
+      });
     return true;
   }
 
