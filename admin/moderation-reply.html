@@ -225,15 +225,20 @@
     }
   }
 
+  // [보안감사 H-1 2026-07-26] 신고 콘텐츠는 사용자 생성값 → innerHTML 주입 전 반드시 이스케이프.
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
   function renderTicket(t) {
     const meta = document.getElementById('metaRow');
     const created = t.created_at ? new Date(t.created_at).toLocaleString('ko-KR') : '—';
     meta.innerHTML = `
-      <span><b>신고자:</b> user_id=${t.user_id}</span>
-      <span><b>분류:</b> ${t.category_label || t.category}</span>
-      <span><b>유형:</b> ${t.content_type || '—'}</span>
-      <span><b>접수:</b> ${created}</span>
-      <span><b>상태:</b> ${t.status}</span>
+      <span><b>신고자:</b> user_id=${escapeHtml(t.user_id)}</span>
+      <span><b>분류:</b> ${escapeHtml(t.category_label || t.category)}</span>
+      <span><b>유형:</b> ${escapeHtml(t.content_type || '—')}</span>
+      <span><b>접수:</b> ${escapeHtml(created)}</span>
+      <span><b>상태:</b> ${escapeHtml(t.status)}</span>
     `;
     document.getElementById('snippetBox').textContent = t.content_snippet || '(내용 없음)';
     if (t.detail && t.detail.trim()) {
@@ -242,7 +247,7 @@
     }
     const kwBox = document.getElementById('kwBox');
     if (Array.isArray(t.keywords) && t.keywords.length) {
-      kwBox.innerHTML = t.keywords.map(k => `<span class="tag">#${k}</span>`).join('');
+      kwBox.innerHTML = t.keywords.map(k => `<span class="tag">#${escapeHtml(k)}</span>`).join('');
     } else {
       kwBox.textContent = '(없음)';
     }

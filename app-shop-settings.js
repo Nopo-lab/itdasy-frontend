@@ -315,6 +315,7 @@
     // [2026-05-23] 1인샵 토글 복원 + _refreshStaffVisibility 제거 — 직원 기능 폐지.
     // 영업시간 hydrate — 백엔드 GET /shop/settings 우선, 실패 시 localStorage, 그것도 없으면 default
     let hours = _defaultHours();
+    let _serverHadHours = false; // [보안감사 M-9] 서버가 영업시간을 주면 로컬로 덮지 않는다(다중기기 stale 롤백 방지)
     try {
       const res = await fetch(_api() + '/shop/settings', { headers: { ..._auth() } });
       if (res.ok) {
@@ -323,6 +324,7 @@
         if (typeof bh === 'string') { try { bh = JSON.parse(bh); } catch (_e) { bh = null; } }
         if (bh && typeof bh === 'object' && !Array.isArray(bh)) {
           _DAY_KEYS.forEach(k => { if (bh[k]) hours[k] = { ...hours[k], ...bh[k] }; });
+          _serverHadHours = true;
         }
         // [2026-07-25 예약QA F5] 알림톡 자동발송 스위치 서버값 반영.
         const _alSw = document.getElementById('ssAlimtalkSwitch');
@@ -331,17 +333,33 @@
           _alSw.classList.toggle('is-on', _on);
           _alSw.setAttribute('aria-checked', _on ? 'true' : 'false');
         }
-      }
-    } catch (_e) { /* ignore — fallback to default */ }
-    try {
-      const localBH = localStorage.getItem('itdasy_business_hours_json');
-      if (localBH) {
-        const parsed = JSON.parse(localBH);
-        if (parsed && typeof parsed === 'object') {
-          _DAY_KEYS.forEach(k => { if (parsed[k]) hours[k] = { ...hours[k], ...parsed[k] }; });
+        // [보안감사 C-6 2026-07-26] 예약 자동확정 스위치도 서버값 반영.
+        //   기존엔 알림톡만 hydrate 하고 이건 빠져서, HTML 기본 is-on 그대로 떠
+        //   OFF 로 꺼둔 사장님도 설정 열고 저장할 때마다 auto_confirm:1 로 덮였다(의도치 않은 자동확정 사고).
+        //   서버가 값을 안 주면(신규) 문서화된 기본값 ON 유지, 명시적 0 이면 OFF 반영.
+        const _acSw = document.getElementById('ssAutoConfirmSwitch');
+        if (_acSw) {
+          const _acOn = (data.auto_confirm === undefined || data.auto_confirm === null)
+            ? true : !!data.auto_confirm;
+          _acSw.classList.toggle('is-on', _acOn);
+          _acSw.setAttribute('aria-checked', _acOn ? 'true' : 'false');
         }
       }
-    } catch (_e) { /* ignore */ }
+    } catch (_e) { /* ignore — fallback to default */ }
+    // [보안감사 M-9] 로컬 영업시간은 '서버에 값이 없을 때만' 폴백으로 쓴다.
+    //   예전엔 서버 로드 뒤 무조건 로컬로 재override 해서, 다른 기기가 고친 최신 영업시간이
+    //   이 기기의 오래된 로컬로 되돌아가고 저장 시 서버까지 롤백됐다.
+    if (!_serverHadHours) {
+      try {
+        const localBH = localStorage.getItem('itdasy_business_hours_json');
+        if (localBH) {
+          const parsed = JSON.parse(localBH);
+          if (parsed && typeof parsed === 'object') {
+            _DAY_KEYS.forEach(k => { if (parsed[k]) hours[k] = { ...hours[k], ...parsed[k] }; });
+          }
+        }
+      } catch (_e) { /* ignore */ }
+    }
     _expandedDay = null; // 화면 재진입 시 인라인 확장 초기화
     _renderHoursGrid(hours);
   }
@@ -371,7 +389,7 @@
       await _safeSet('itdasy_shop_addr', payload.address);
       localStorage.setItem('itdasy_shop_hours', _hrText);
       if (payload.business_hours_json) localStorage.setItem('itdasy_business_hours_json', payload.business_hours_json);
-      localStorage.setItem('itdasy_solo_mode', String(payload.solo_mode));
+      // [보안감사 L-8] payload.solo_mode 는 폐지돼 항상 undefined → 문자열 "undefined" 저장되던 것 제거.
     } catch (_e) { void _e; }
 
     // 드로어 헤더 즉시 갱신

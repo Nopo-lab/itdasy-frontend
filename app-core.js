@@ -933,6 +933,19 @@ function authHeader() {
       return NO_RETRY_PATH_RE.test(String(u));
     } catch (_) { return false; }
   }
+  // [보안감사 C-4 2026-07-26] 예약·매출·고객 '생성' POST 는 재시도 금지.
+  //   서버가 이미 커밋했는데 응답이 돌아오는 길에 끊기면(WiFi↔LTE 핸드오프·지하철) 래퍼가
+  //   같은 POST 를 다시 쏴서 같은 예약/매출이 2건 생긴다(멱등키 없음 → 돈 숫자·이중예약 사고).
+  //   GET(?쿼리)·PATCH/{id}·DELETE/{id} 는 읽기/멱등이라 안전 → 재시도 유지. 컬렉션 POST 만 막는다.
+  const CREATE_NO_RETRY_RE = /\/(bookings|revenue|customers)(\?|$)/;
+  function _isNonIdempotentCreate(input, init) {
+    try {
+      const m = (init && init.method ? String(init.method).toUpperCase() : 'GET');
+      if (m !== 'POST') return false;
+      const u = typeof input === 'string' ? input : (input && input.url) || '';
+      return CREATE_NO_RETRY_RE.test(String(u));
+    } catch (_) { return false; }
+  }
   function _isRetryableMethod(init) {
     const m = (init && init.method ? String(init.method).toUpperCase() : 'GET');
     if (m === 'GET' || m === 'HEAD') return true;
@@ -1019,7 +1032,7 @@ function authHeader() {
   }
 
   window.fetch = async function(input, init) {
-    const retryable = _isRetryableMethod(init) && _bodyReusable(init) && !_isNoRetryPath(input);
+    const retryable = _isRetryableMethod(init) && _bodyReusable(init) && !_isNoRetryPath(input) && !_isNonIdempotentCreate(input, init);
     const isLlm = _isLlmCall(input);   // [2026-07-22] 생성형 호출 — 오래 기다리되 타임아웃 재시도는 안 함
     let attempt = 0;
     // eslint-disable-next-line no-constant-condition
@@ -1059,7 +1072,12 @@ function authHeader() {
         // 5xx 게이트웨이성 에러: retryable 이면 재시도.
         // [핫픽스F #5-9] 토스트는 "재시도까지 모두 실패한 최종 실패"에서만. 재시도로 회복되면 무noise →
         //   예약 추가/변경이 retry 로 성공한 뒤 "서버 불안정" 문구가 뜨던 버그 차단(성공/실패 상태 분리).
-        if (retryable && RETRY_STATUSES.has(res.status)) {
+        // [보안감사 C-4] LLM 은 500(핸들러 내부 실패 = 이미 모델이 돌아 과금됨) 재시도 금지.
+        //   502/503/504(게이트웨이·콜드스타트 = 과금 전) 만 재시도해 이중 과금을 막는다.
+        const _retryStatusOk = isLlm
+          ? (res.status === 502 || res.status === 503 || res.status === 504)
+          : RETRY_STATUSES.has(res.status);
+        if (retryable && _retryStatusOk) {
           if (attempt < MAX_RETRIES) {
             await _sleep(BACKOFF_MS[attempt] || 1500);
             attempt++;
@@ -2594,6 +2612,7 @@ Object.assign(window, {
   resetShopSetup,
   localReset,
   handle401,
+  openDeleteAccountModal,
   closeDeleteAccountModal,
   confirmDeleteAccount,
   expandSmartMenu,

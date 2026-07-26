@@ -390,6 +390,10 @@
         return Promise.resolve({ ok: false, reason: 'need_service', toast: '시술 내역을 먼저 입력해 주세요' });
       }
       return window.CaptionEngine.generate(opts).then(function (r) {
+        // [보안감사 M-13 2026-07-26] r 이 null/undefined 면 r.caption 이 TypeError 를 던지고,
+        //   그 메시지엔 'TypeError' 단어가 없어 아래 human 필터를 통과 → 개발자 에러문자열이 토스트에 노출됐다.
+        r = r || {};
+        if (!r.caption) return { ok: false, reason: 'empty', toast: '캡션을 만들지 못했어요 — 잠시 후 다시 시도해 주세요' };
         return { ok: true, caption: r.caption, hashtags: r.hashtags, hashtagsText: r.hashtagsText, log_id: r.log_id };
       }).catch(function (e) {
         console.warn('[wsadapter] caption', e);
@@ -398,7 +402,8 @@
         //   원장님이 원인을 모른 채 계속 다시 눌렀다(누를 때마다 30초 대기 + 쿼터 더 소모).
         //   _personaFetch 가 detail 을 Error.message 로 실어 보낸다. 'HTTP 500' 같은 기계 문자열만 거른다.
         var msg = String((e && e.message) || '');
-        var human = msg && !/^HTTP\s|^\d{3}$|^401$|TypeError|NetworkError|Failed to fetch/i.test(msg);
+        var _isJsErr = e && (e.name === 'TypeError' || e.name === 'RangeError' || e.name === 'ReferenceError');
+        var human = msg && !_isJsErr && !/^HTTP\s|^\d{3}$|^401$|TypeError|NetworkError|Failed to fetch/i.test(msg);
         return { ok: false, reason: 'api', toast: human ? msg : '캡션 생성에 실패했어요 — 잠시 후 다시' };
       });
     },

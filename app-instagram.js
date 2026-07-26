@@ -23,8 +23,12 @@ function _renderTokenExpiryBanner(expiresAtIso) {
   banner.className = `banner ${isExpired ? 'banner--danger' : 'banner--warn'}`;
   banner.innerHTML = `<span style="flex:1;">${msg}</span>
     <button class="banner__cta" data-ig-reconnect>재연동</button>`;
+  // [보안감사 M-1 2026-07-26] 존재하지 않는 'connectInstaBtn'(실제 id 는 'instaBtn')을 클릭하려다
+  //   폴백 no-op 으로 삼켜져 재연동 버튼이 죽어 있었다(토큰 만료 = 재연동이 가장 필요한 순간).
+  //   홈 배너(app-home-customer-msgs)와 동일하게 connectInstagram() 을 직접 호출한다.
   banner.querySelector('[data-ig-reconnect]')?.addEventListener('click', () => {
-    (document.getElementById('connectInstaBtn') || { click: () => {} }).click();
+    if (typeof window.connectInstagram === 'function') window.connectInstagram();
+    else (document.getElementById('instaBtn') || { click: () => {} }).click();
   });
 
   const homePost = document.getElementById('homePostConnect');
@@ -1110,6 +1114,15 @@ function openInstagramPreview(opts) {
         if (!statusRes.ok) throw new Error(statusData.detail || 'status check 실패');
         if (!statusData.connected) {
           if (window.showToast) window.showToast('인스타 먼저 연동해주세요. 설정 → Instagram 연동');
+          upBtn.disabled = false;
+          upBtn.textContent = originalLabel;
+          return;
+        }
+        // [보안감사 M-2 2026-07-26] connected 는 '한 번이라도 연동했나'일 뿐 — 실제 게시 가능 여부는
+        //   token_valid 로 봐야 한다(만료·권한철회·Business→Personal 전환 후엔 connected=true 인데 죽은 토큰).
+        //   작업실 경로는 이미 tokenValid 를 게이트하는데 이 예전 발행 팝업만 빠져 있어 사후 에러로만 떴다.
+        if (statusData.token_valid === false) {
+          if (window.showToast) window.showToast('인스타 연동이 끊겼어요 — 설정에서 다시 연결해 주세요');
           upBtn.disabled = false;
           upBtn.textContent = originalLabel;
           return;

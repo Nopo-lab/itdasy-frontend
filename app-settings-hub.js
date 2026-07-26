@@ -103,6 +103,7 @@
       <div class="ms-sh">
         ${_rowHTML('subscription','ic-credit-card', '구독 관리',          '플랜 · 결제 · 취소', { boxColor: 'pink' })}
         ${_rowHTML('membership','ic-ticket',    '회원권',             '만료 임박 고객 · 충전 안내', { boxColor: 'coral' })}
+        ${_rowHTML('deleteaccount','ic-trash-2', '계정 탈퇴',          '모든 데이터 영구 삭제', { boxColor: 'coral', danger: true })}
       </div>
     `;
     // [2026-06-09] '도움(고객센터·문의)' 행 제거 — PC 사이드바 '문의하기' / 모바일 내샵관리 하단 링크로 일원화.
@@ -253,6 +254,9 @@
     // [2026-07-05] 'failures' 라우트 제거 — 자동화 실패는 알림함(app-notifications)으로 통합.
     if (act === 'subscription'){ close(); setTimeout(() => window.openPlanPopup && window.openPlanPopup(), 200); return; }
     if (act === 'membership'){ close(); setTimeout(() => window.MembershipUI && window.MembershipUI.openExpiringList && window.MembershipUI.openExpiringList(30), 200); return; }
+    // [보안감사 C-2 2026-07-26] 계정 탈퇴 — 삭제 로직·모달·API 는 완성돼 있었으나(app-core openDeleteAccountModal)
+    //   여는 UI 경로가 끊겨 있어(레거시 settingsSheet 미오픈) 앱심사 필수 요건(Apple 5.1.1)이 도달 불가였다.
+    if (act === 'deleteaccount'){ close(); setTimeout(() => window.openDeleteAccountModal && window.openDeleteAccountModal(), 200); return; }
     // [2026-06-09] 'support'/'logout' 라우트 제거 — 설정·연동에서 빠지고 사이드바/내샵관리 하단으로 이전.
     if (act === 'haptic') {
       try { window.toggleHapticSetting && window.toggleHapticSetting(); window.updateHapticToggleLabel && window.updateHapticToggleLabel(); } catch (_e) { void _e; }

@@ -7,11 +7,22 @@ function _uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
+// [보안감사 H-3 2026-07-26] onload 만 있어 FileReader 가 error 를 던지면 Promise 가 영영 settle 안 됐다.
+//   손상 파일·iCloud 미다운로드 placeholder·백그라운드 전환 중 읽기 중단(모두 2MB 이하일 수 있어
+//   _resizeIfNeeded 의 15초 안전망도 안 탐) → addFiles 의 Promise.all 이 영구 대기 = "사진이 안 올라가요".
+//   어떤 경우에도 settle 하게 하고, 실패 시 null 을 돌려 호출부가 걸러내게 한다.
 function _fileToDataUrl(file) {
   return new Promise(resolve => {
-    const r = new FileReader();
-    r.onload = e => resolve(e.target.result);
-    r.readAsDataURL(file);
+    let done = false;
+    const finish = (v) => { if (done) return; done = true; resolve(v); };
+    try {
+      const r = new FileReader();
+      r.onload = e => finish(e.target && e.target.result);
+      r.onerror = () => finish(null);
+      r.onabort = () => finish(null);
+      setTimeout(() => finish(null), 15000); // 최후 안전망
+      r.readAsDataURL(file);
+    } catch (_e) { void _e; finish(null); }
   });
 }
 

@@ -3933,12 +3933,21 @@
 	    reassignRoles(); _repaintUpload();   // [v531 렉] 선택 토글도 in-place 갱신
 	  }
 	  function addFiles(files, showToast, toEdit) {
-	    files = Array.from(files || []).slice(0, 10);
+	    var _all = Array.from(files || []);
+	    files = _all.slice(0, 10);
+	    // [보안감사 M-16] 10장 초과분을 조용히 버리고 "N장 추가됨"만 뜨던 것 → 명시적으로 안내.
+	    if (_all.length > 10) { try { toast('사진은 한 번에 10장까지만 추가돼요'); } catch (_e) { void _e; } }
 	    if (!files.length) return Promise.resolve([]);
 	    // [#6] 업로드 픽커가 느린 원인 = 폰 사진(3~8MB) 원본을 그대로 base64 로 읽어 담던 것.
 	    //   2MB 초과분은 먼저 1920px JPEG 로 축소(_resizeIfNeeded) 후 읽어 import·썸네일·편집기 로딩을 크게 단축.
 	    var _resize = (typeof window._resizeIfNeeded === 'function') ? window._resizeIfNeeded : function (f) { return Promise.resolve(f); };
-	    return Promise.all(files.map(function (f) { return Promise.resolve(_resize(f, 1920)).catch(function () { return f; }).then(fileToDataUrl); })).then(function (urls) {
+	    return Promise.all(files.map(function (f) { return Promise.resolve(_resize(f, 1920)).catch(function () { return f; }).then(fileToDataUrl); })).then(function (rawUrls) {
+	      // [보안감사 H-3] 읽기 실패(null)한 파일은 걸러낸다. 예전엔 한 장 실패가 Promise.all 전체를 reject 시켜
+	      //   같이 고른 정상 사진까지 조용히 버려지고 무피드백이었다. 이제 성공분만 넣고 실패 건수만 안내.
+	      var urls = rawUrls.filter(function (u) { return !!u; });
+	      var _failed = rawUrls.length - urls.length;
+	      if (_failed > 0) { try { toast(_failed + '장은 열 수 없어 건너뛰었어요'); } catch (_e) { void _e; } }
+	      if (!urls.length) { setScreen('upload'); return urls; }
 	      urls.forEach(function (u) { d.photos.push({ id: uid(), dataUrl: u, role: 'hero', selected: true, selSeq: ++d._selSeq }); });
 	      // [QA hotfix] 다중 업로드 시 전후/홍보컷 자동 확정 금지 — 사용자가 '전/후 토글' 또는
 	      //   카테고리/템플릿으로 직접 용도를 고르게 한다. (전/후 카테고리로 진입한 경우만 baMode 유지)
