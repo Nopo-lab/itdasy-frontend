@@ -2082,6 +2082,8 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
     <button id="planActionBtn" style="width:100%;padding:16px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--brand),#ff9aa8);color:#fff;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 15px rgba(241,128,145,0.3);min-height:52px;">월 6,900원 시작하기</button>
     <div id="planSubMeta" style="display:none;text-align:center;margin-top:10px;font-size:12px;color:#666;"></div>
     <button id="planCancelBtn" style="display:none;width:100%;margin-top:10px;padding:12px;border-radius:12px;border:1px solid #e5e5e5;background:#fff;color:#999;font-size:13px;font-weight:700;cursor:pointer;min-height:44px;">구독 취소</button>
+    <!-- [C-1] 앱스토어 IAP 구매 복원 — 네이티브+플러그인 있을 때만 app-plan.js 가 노출 (Apple 3.1.1 필수) -->
+    <button id="planRestoreBtn" style="display:none;width:100%;margin-top:8px;padding:10px;border-radius:12px;border:none;background:transparent;color:#5f6368;font-size:13px;font-weight:600;cursor:pointer;min-height:44px;text-decoration:underline;">구매 복원</button>
     <div style="text-align:center;margin-top:10px;font-size:11px;color:#6b7280;">가격은 스토어 정책에 따라 표시돼요</div>
   </div>
 </div>
@@ -2360,6 +2362,7 @@ window._lazyImgly = function _lazyImgly() {
 <script src="app-gestures.js" defer></script>
 <script src="app-theme.js?v=local-151154" defer></script>
 <script src="app-billing.js?v=local-151154" defer></script>
+<script src="app-iap.js?v=local-151154" defer></script>
 <script src="app-plan.js?v=local-151154" defer></script>
 <script src="app-customer-cache.js?v=local-151154" defer></script>
 <script src="app-customer.js?v=local-151154" defer></script>

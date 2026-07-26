@@ -184,6 +184,12 @@
       }
     }
     if (cancelBtn) cancelBtn.style.display = (paid && !_cancelScheduled) ? 'block' : 'none';
+    // [C-1] 구매 복원 버튼 — 네이티브 + IAP 플러그인 있을 때만 노출(Apple 3.1.1 필수).
+    const restoreBtn = document.getElementById('planRestoreBtn');
+    if (restoreBtn) {
+      const showRestore = _isNative() && window.ItdasyIAP && window.ItdasyIAP.isAvailable && window.ItdasyIAP.isAvailable();
+      restoreBtn.style.display = showRestore ? 'block' : 'none';
+    }
   }
 
   // [graceful disable] 웹에서 결제 불가(env 미설정)면 결제 버튼 비활성. 네이티브는 별도(IAP).
@@ -203,11 +209,9 @@
   function _updatePlanBadgeUI(plan) {
     const badge = document.getElementById('planBadge');
     if (!badge) return;
-    if (plan === 'pro') {
-      badge.textContent = _planDisplayName(plan);
-      badge.style.background = 'var(--brand)';
-      badge.style.color = '#fff';
-    } else if (plan === 'premium') {
+    // [C-1 2026-07-27] membership(정본 유료)도 브랜드색 — 예전엔 pro/premium 만 봐서
+    //   6,900원 결제자에게 배지가 회색(체험)으로 보였다.
+    if (plan === 'pro' || plan === 'premium' || plan === 'membership') {
       badge.textContent = _planDisplayName(plan);
       badge.style.background = 'var(--brand)';
       badge.style.color = '#fff';
@@ -236,8 +240,31 @@
     // 네이티브 앱: 앱스토어 IAP 만 사용 (Apple/Google anti-steering — 웹 PG 호출 금지).
     if (_isNative()) {
       if (window.hapticMedium) window.hapticMedium();
-      if (typeof window.showToast === 'function') window.showToast('앱에서는 앱스토어 결제로 진행돼요 (준비중)');
-      // TODO: @capacitor-community/in-app-purchases 플러그인 호출
+      // [C-1 2026-07-27] IAP 플러그인(cordova-plugin-purchase)이 설치된 빌드에서만 실제 결제.
+      //   플러그인 없으면(현재 빌드) isAvailable()=false → 기존 '준비중' 안내 유지(무회귀).
+      if (!(window.ItdasyIAP && window.ItdasyIAP.isAvailable && window.ItdasyIAP.isAvailable())) {
+        if (typeof window.showToast === 'function') window.showToast('앱스토어 결제 준비 중이에요. 곧 열려요!');
+        return;
+      }
+      var _btn = document.getElementById('planActionBtn');
+      var _orig = _btn ? _btn.textContent : '';
+      if (_btn) { _btn.disabled = true; _btn.style.opacity = '0.6'; _btn.textContent = '결제 진행 중…'; }
+      window.ItdasyIAP.purchaseMembership().then(function (r) {
+        if (r && r.ok) {
+          if (window.hapticSuccess) window.hapticSuccess();
+          _currentPlan = r.plan || 'membership';
+          _updateActionButton();
+          _updatePlanBadgeUI(_currentPlan);
+          if (typeof window.showToast === 'function') window.showToast('멤버십이 시작됐어요 🎉');
+          setTimeout(closePlanPopup, 1200);
+        } else {
+          if (_btn) { _btn.disabled = false; _btn.style.opacity = '1'; _btn.textContent = _orig; }
+          if (r && r.reason === 'cancelled') return; // 사용자가 취소 — 조용히
+          if (typeof window.showToast === 'function') {
+            window.showToast(r && r.message ? ('결제 실패: ' + r.message) : '결제를 완료하지 못했어요. 잠시 후 다시 시도해 주세요');
+          }
+        }
+      });
       return;
     }
 
@@ -289,6 +316,38 @@
   //   6,900원 결제자가 무료 취급(취소 UI·유료기능 클라 게이트에서 배제)됐다.
   window.isPaidPlan = () => ['pro', 'premium', 'membership'].includes(_currentPlan);
 
+  // [C-1] 구매 복원 — 스토어에서 소유한 구독을 다시 활성화(기기 변경·재설치 후).
+  async function doRestorePurchases() {
+    if (!(window.ItdasyIAP && window.ItdasyIAP.restore)) return;
+    const rb = document.getElementById('planRestoreBtn');
+    const orig = rb ? rb.textContent : '';
+    if (rb) { rb.disabled = true; rb.textContent = '복원 중…'; }
+    try {
+      const r = await window.ItdasyIAP.restore();
+      if (r && r.ok) {
+        if (window.hapticSuccess) window.hapticSuccess();
+        _currentPlan = r.plan || 'membership';
+        _updateActionButton(); _updatePlanBadgeUI(_currentPlan); _renderSubMeta();
+        if (typeof window.showToast === 'function') window.showToast('구매를 복원했어요 ✅');
+      } else if (typeof window.showToast === 'function') {
+        window.showToast('복원할 구매 내역이 없어요');
+      }
+    } catch (_e) {
+      if (typeof window.showToast === 'function') window.showToast('복원에 실패했어요. 잠시 후 다시 시도해 주세요');
+    } finally {
+      if (rb) { rb.disabled = false; rb.textContent = orig; }
+    }
+  }
+  window.doRestorePurchases = doRestorePurchases;
+
+  // [C-1] IAP/복원 성공으로 멤버십이 켜지면 플랜 상태 최신화(서버 기준).
+  window.addEventListener('itdasy:plan-activated', (e) => {
+    const plan = (e && e.detail && e.detail.plan) || 'membership';
+    _currentPlan = plan;
+    try { _updateActionButton(); _updatePlanBadgeUI(plan); _renderSubMeta(); } catch (_err) { void _err; }
+    if (typeof _loadStatus === 'function') _loadStatus().catch(() => {});
+  });
+
   // planActionBtn 클릭 이벤트 바인딩 (app-core.js 의 on() 등록 외에 안전장치)
   document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('planActionBtn');
@@ -296,6 +355,8 @@
       btn._planActionBound = true;
       btn.addEventListener('click', doPlanAction);
     }
+    const rbtn = document.getElementById('planRestoreBtn');
+    if (rbtn && !rbtn._bound) { rbtn._bound = true; rbtn.addEventListener('click', doRestorePurchases); }
     // 초기 진입 시 현재 플랜 로드
     setTimeout(() => { if (window.API && window.authHeader && window.authHeader()?.Authorization) _loadStatus().catch(() => {}); }, 1500);
   });
