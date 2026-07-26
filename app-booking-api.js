@@ -134,6 +134,29 @@
     return findConflict(startsAt, endsAt, excludeId) != null;
   }
 
+  // [보안감사 M-4 2026-07-26] findConflict 는 현재 로드된 달(_items)만 본다. 폼에서 '다른 달' 날짜를
+  //   고르면 그 달의 겹침을 못 잡아 무경고 이중예약이 생긴다. 이 함수는 해당 '날짜'의 예약만
+  //   prefetch(_items 는 안 건드림)해서 겹침을 확인한다. 실패/오류 시 null → 저장을 막지는 않는다.
+  async function dayConflict(startsAt, endsAt, excludeId) {
+    try {
+      const sv = new Date(startsAt).getTime(), ev = new Date(endsAt).getTime();
+      if (!Number.isFinite(sv) || !Number.isFinite(ev)) return null;
+      const dayStart = new Date(startsAt); dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(endsAt); dayEnd.setHours(23, 59, 59, 999);
+      const items = await list(dayStart.toISOString(), dayEnd.toISOString(), { prefetch: true });
+      if (!Array.isArray(items)) return null;
+      return items.find(b => {
+        if (excludeId && b.id === excludeId) return false;
+        if (b.status === 'cancelled' || b.status === 'no_show') return false;
+        const bs = new Date(b.starts_at).getTime();
+        if (!Number.isFinite(bs)) return false;
+        let be = new Date(b.ends_at).getTime();
+        if (!Number.isFinite(be)) be = bs + _DEFAULT_DUR_MS;
+        return !(ev <= bs || sv >= be);
+      }) || null;
+    } catch (_e) { return null; }
+  }
+
   async function create(payload) {
     if (!payload?.starts_at || !payload?.ends_at) throw new Error('time-required');
     const data = {
@@ -303,7 +326,7 @@
   }
 
   window.Booking = {
-    list, create, update, remove, hasConflict, findConflict,
+    list, create, update, remove, hasConflict, findConflict, dayConflict,
     shopHours: _shopHours,
     getCustomerLearning,
     _invalidateCache,

@@ -101,16 +101,29 @@
     });
   }
 
+  // [보안감사 M-7 2026-07-26] POST 진행 중인 옵티미스틱 추가분이 백그라운드 재검증에 덮여
+  //   순간 사라지고(사용자가 중복 재등록 유발) 하던 것 방지 — 서버 응답에 아직 없는 옵티미스틱만 보존.
+  function _mergeOptimistic(items) {
+    const pending = Array.isArray(_cache)
+      ? _cache.filter(c => c && (c._optimistic || (typeof c.id === 'string' && c.id.indexOf('__opt_') === 0)))
+      : [];
+    if (!pending.length || !Array.isArray(items)) return items;
+    const haveId = new Set(items.map(c => String(c.id)));
+    const haveName = new Set(items.map(c => String(c.name || '').trim()));
+    const keep = pending.filter(c => !haveId.has(String(c.id)) && !haveName.has(String(c.name || '').trim()));
+    return keep.length ? keep.concat(items) : items;
+  }
+
   async function _fetchFresh() {
     if (window.CustomerCache?.fetchFresh) {
-      const items = await window.CustomerCache.fetchFresh();
+      const items = _mergeOptimistic(await window.CustomerCache.fetchFresh());
       _isOffline = false;
       _cache = items;
       return _cache;
     }
     const d = await _api('GET', '/customers');
     _isOffline = false;
-    _cache = d.items || [];
+    _cache = _mergeOptimistic(d.items || []);
     _writeSWR(_cache);
     return _cache;
   }

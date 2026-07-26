@@ -2150,6 +2150,17 @@
           if (window.showToast) window.showToast(_conflictMsg(conflict));
           return;
         }
+        // [보안감사 M-4] 고른 날짜가 현재 보고 있는 달 밖이면 findConflict(_items=현재 달)가 못 잡는다.
+        //   그 날짜만 직접 조회해 한 번 더 확인(타월 이중예약 무경고 방지). 조회 실패 시엔 막지 않음.
+        const _pickYM = d.slice(0, 7);
+        const _curYM = `${_curYear}-${_pad(_curMonth)}`;
+        if (window.Booking?.dayConflict && _pickYM !== _curYM) {
+          const _c2 = await window.Booking.dayConflict(starts, ends, existing?.id);
+          if (_c2) {
+            if (window.showToast) window.showToast(_conflictMsg(_c2));
+            return;
+          }
+        }
       }
       // [2026-06-10] 신규 예약은 고객 필수 — 이름 없는 "이름 없음" 예약 생성 차단.
       //   (기존 예약 수정은 과거 데이터 호환 위해 그대로 허용)
