@@ -593,12 +593,11 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .ig-ic { display: flex; gap: 16px; align-items: center; }
 .wsv2flow .ig-ic svg, .wsv2flow .ig-save svg { width: 24px; height: 24px; stroke: var(--text); }
 .wsv2flow .ig-save { margin-left: auto; display: inline-flex; }
-/* [v589] 카드 액션줄 기능화 — 복사·다시생성·저장 */
-.wsv2flow .ig-act--fn { height: auto; gap: 2px; padding: 7px 6px; border-top: 1px solid var(--border); }
-.wsv2flow .ig-actbtn { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 3px; border: 0; background: none; padding: 7px 4px; border-radius: 12px; cursor: pointer; color: var(--text); font: inherit; transition: background .15s; }
-.wsv2flow .ig-actbtn:active { background: var(--accent-soft); }
-.wsv2flow .ig-actbtn svg { width: 23px; height: 23px; stroke: var(--text); }
-.wsv2flow .ig-actbtn b { font-size: 11px; font-weight: 600; color: var(--text-subtle); }
+/* [2026-07-26 원영] v589 카드 액션줄(.ig-act--fn) 철회 — 기능 버튼은 카드 밖 .cap-actrow 로.
+   텍스트 전용 필 버튼 한 줄(아이콘 없음), 카드 바로 아래. */
+.wsv2flow .cap-actrow { display: flex; gap: 8px; margin: -6px 0 16px; }
+.wsv2flow .cap-actbtn { flex: 1 1 0; height: 42px; border: 1px solid var(--border); border-radius: var(--r-pill, 999px); background: var(--surface); color: var(--text); font: inherit; font-size: 13px; font-weight: 700; letter-spacing: -.01em; cursor: pointer; box-shadow: var(--shadow-sm); transition: background .15s, transform .1s; }
+.wsv2flow .cap-actbtn:active { background: var(--accent-soft); transform: scale(.97); }
 
 /* [2026-07-26 원영] 피드 미리보기(.wsfeed*) 삭제 — '이렇게 올라가요' 섹션 폐지(_feedPreview 제거). */
 .wsv2flow .ig-copy2 { padding: 4px 14px 15px; font-size: 12.5px; line-height: 1.6; color: var(--text); white-space: pre-wrap; word-break: break-word; }

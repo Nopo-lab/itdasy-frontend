@@ -1910,6 +1910,7 @@
 	                    : '<div class="cap-byline">인스타를 연동하면 원장님 말투로 써드려요</div>') +
 	      '<label class="cap-field-label">게시글 <span>미리보기에서 바로 고쳐 쓸 수 있어요</span></label>' +
 	      _igPreviewCard(url, true) +   // [v584] 카드 안 캡션 직접 편집(별도 편집칸 제거)
+      _capActionRow() +             // [2026-07-26 원영] 복사·문장만 다시·저장 — 카드 밖 필 버튼
       // [2026-07-26 원영] 해시태그 = 칩 UI(개별 ×삭제 + 추가) — 카드 안 contenteditable 직접편집은
       //   지우기/고치기 방법을 아무도 못 찾던 문제라 폐지. 칩이 진실원(d.hashtags/selectedHashes 동시 갱신).
       _hashChipsHtml() +
@@ -2077,20 +2078,24 @@
 	    return '<div class="ig-card2">' +
 	        '<div class="ig-head2">' + avatar + '<span class="ig-name2">' + esc(name) + '</span><span class="ig-loc">' + esc(ig.connected ? '샵 인스타' : '연결 필요') + '</span><span class="ig-dots2">···</span></div>' +
 	        _igCarouselHtml(url) +
-	        // [v589] 카드 액션줄 기능화 — 인스타 아이콘 자리에 복사·다시생성·저장(결과화면에서만)
-	        (editable
-	          ? '<div class="ig-act ig-act--fn">' +
-	              '<button type="button" class="ig-actbtn" data-fl="copycap" aria-label="게시글 복사"><i class="ph-duotone ph-copy"></i><b>복사</b></button>' +
-	              '<button type="button" class="ig-actbtn" data-fl-var="regen" aria-label="문장만 다시 쓰기"><i class="ph-duotone ph-arrows-clockwise"></i><b>문장만 다시</b></button>' +
-	              '<button type="button" class="ig-actbtn" data-fl="saveimg" aria-label="이미지 저장"><i class="ph-duotone ph-download-simple"></i><b>저장</b></button>' +
-	            '</div>'
-	          : '<div class="ig-act"><div class="ig-ic"><i class="ph-duotone ph-heart"></i><i class="ph-duotone ph-chat-circle"></i><i class="ph-duotone ph-paper-plane-tilt"></i></div>' +
-	            '<div class="ig-save"><i class="ph-duotone ph-bookmark-simple"></i></div></div>') +
+	        // [2026-07-26 원영] v589 '카드 액션줄 기능화' 철회 — 목업 안 기능버튼 혼입이 어색("너무 별로").
+	        //   카드는 순수 인스타 미리보기(정적 아이콘)로 복원, 기능 버튼은 카드 아래 _capActionRow 로 분리.
+	        '<div class="ig-act"><div class="ig-ic"><i class="ph-duotone ph-heart"></i><i class="ph-duotone ph-chat-circle"></i><i class="ph-duotone ph-paper-plane-tilt"></i></div>' +
+	        '<div class="ig-save"><i class="ph-duotone ph-bookmark-simple"></i></div></div>' +
 	        /* [2026-07-26 원영] 닉네임 옆이 아니라 아랫줄부터 캡션 시작(미관) — <br> 삽입 */
         '<div class="ig-copy2"><b>' + esc(handle) + '</b><br><span data-fl-igcap' + (editable ? ' class="ig-cap-edit" contenteditable="true" role="textbox" aria-label="게시글 편집" spellcheck="false"' : '') + '>' + esc(d.caption || '') + '</span><br><span class="ig-hash" data-fl-ighash>' + esc((d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ')) + '</span><div class="ig-ago">' + (editable ? '게시글을 눌러 바로 고쳐 쓰기' : '미리보기') + '</div></div>' +
 	      '</div>';
 	  }
-	  // [작업물 미리보기] 슬롯 대표 썸네일 — home _thumb 과 동일 우선순위(합성결과→단일합성→첫사진).
+	  // [2026-07-26 원영] 복사·문장만 다시·저장 — 인스타 목업 카드 밖, 카드 바로 아래 텍스트 필 버튼 한 줄.
+  //   data-fl / data-fl-var 속성은 기존 위임 핸들러 그대로 사용(핸들러 수정 없음). 아이콘 없음(텍스트 전용).
+  function _capActionRow() {
+    return '<div class="cap-actrow">' +
+      '<button type="button" class="cap-actbtn" data-fl="copycap">복사</button>' +
+      '<button type="button" class="cap-actbtn" data-fl-var="regen">문장만 다시</button>' +
+      '<button type="button" class="cap-actbtn" data-fl="saveimg">저장</button>' +
+    '</div>';
+  }
+  // [작업물 미리보기] 슬롯 대표 썸네일 — home _thumb 과 동일 우선순위(합성결과→단일합성→첫사진).
 	  function _slotThumb(s) {
 	    if (!s) return '';
 	    if (s.templateOutputs && s.templateOutputs.length && s.templateOutputs[0].outputUrl) return s.templateOutputs[0].outputUrl;
@@ -2146,7 +2151,7 @@
 	    var custLine = d.customerName ?
 	      '<div class="confirmline">연결 손님: <b>' + esc(d.customerName) + '</b>' + (d.customerVc ? ' · ' + d.customerVc + '회 방문' : ' · 첫 방문') + '</div>' : '';
 	    // [v592] 인스타 미리보기 단계 = 최종 카드 + 게시.
-	    return '' + custLine + _igPreviewCard(url, true) + _publishBlock() + _finishActions(url);
+	    return '' + custLine + _igPreviewCard(url, true) + _capActionRow() + _publishBlock() + _finishActions(url);
 	  }
 
   // [통합 2026-07-14] 발행 종류 자동 판단 — 원장이 '1장/여러장'을 고르지 않게. 버튼은 하나.
@@ -2186,11 +2191,10 @@
 	      // [통합 2026-07-14] '여러 장으로 올리기' 별도 버튼 제거 — 위 버튼 하나가 _publishKind() 로 알아서 캐러셀 발행.
       (_multi ? '<div class="cap-pubnote">선택한 ' + _n + '장이 여러 장 게시물로 올라가요</div>' : '');
 	    }
+    // [2026-07-26 원영] 복사·저장 버튼 제거 — 카드 아래 _capActionRow 가 항상 제공(중복 금지). 연결 버튼만.
     return '<div class="wsflow-prep">' +
       '<div class="wsflow-prep__note">인스타 계정이 연결되지 않아 바로 업로드할 수 없어요. 준비만 해둘게요.</div>' +
       '<div class="wsflow-prep__row">' +
-        '<button type="button" data-fl="copycap">게시글 복사</button>' +
-        '<button type="button" data-fl="saveimg">이미지 저장</button>' +
         '<button type="button" class="pink" data-fl="igconnect">인스타 연결</button>' +
       '</div></div>';
   }
