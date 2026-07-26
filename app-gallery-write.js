@@ -194,7 +194,7 @@ function initCaptionSlotPicker() {
           return `
             <div id="csPick_${_captionEsc(slot.id)}" data-caption-slot="${_captionEsc(slot.id)}" style="flex-shrink:0;width:64px;cursor:pointer;text-align:center;">
               <div style="position:relative;">
-                <img src="${_captionEsc(thumb.editedDataUrl || thumb.dataUrl)}" style="width:64px;height:64px;object-fit:cover;border-radius:10px;border:2px solid transparent;transition:border-color 0.2s;" id="csThumb_${_captionEsc(slot.id)}">
+                <img src="${_captionEsc(thumb.editedDataUrl || thumb.dataUrl)}" alt="시술 사진" style="width:64px;height:64px;object-fit:cover;border-radius:10px;border:2px solid transparent;transition:border-color 0.2s;" id="csThumb_${_captionEsc(slot.id)}">
                 ${badge ? `<div style="position:absolute;top:-4px;right:-4px;background:#4caf50;color:#fff;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;border:2px solid #fff;">${badge}</div>` : ''}
               </div>
               <div style="font-size:9px;color:var(--text2);margin-top:3px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_captionEsc(slot.label)}</div>
@@ -324,7 +324,7 @@ function _showCaptionPublishPreview(photos, caption) {
           <div style="font-size:11px;color:var(--text-subtle);">sponsored</div>
         </div>
         <button style="padding:4px 12px;border-radius:6px;border:1.5px solid #dbdbdb;background:transparent;font-size:12px;font-weight:600;color:#262626;cursor:pointer;">팔로우</button>
-        <button data-write-preview-close style="background:transparent;border:none;font-size:18px;color:var(--text-subtle);cursor:pointer;margin-left:8px;">×</button>
+        <button data-write-preview-close aria-label="닫기" style="background:transparent;border:none;font-size:18px;color:var(--text-subtle);cursor:pointer;margin-left:8px;">×</button>
       </div>
       <!-- 사진 캐러셀 -->
       ${photoHtml}

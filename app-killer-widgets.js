@@ -24,6 +24,9 @@
 
   function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
 
+  // [2026-07-26] UI 버튼 이모지(🤖) → Lucide 아이콘 (CLAUDE.md §4). 인터랙션 후 복원 시에도 재사용.
+  const _IC_BOT = '<svg width="13" height="13" style="vertical-align:-2px" aria-hidden="true"><use href="#ic-bot"/></svg>';
+
   // [2026-04-30] SWR 캐시 추가 — 즉시 렌더 + 백그라운드 갱신
   const _BRIEF_CACHE_KEY = 'pv_cache::ai_brief';
   const _BRIEF_TTL_MS = 5 * 60 * 1000; // 5분
@@ -127,7 +130,7 @@
         <div style="font-size:13px;color:#222;line-height:1.5;">
           이번달 <strong>${(brief.this_month_total || 0).toLocaleString()}원</strong> · 전월 <strong>${(brief.prev_month_total || 0).toLocaleString()}원</strong>
         </div>
-        <button data-kw-insight style="margin-top:10px;padding:8px 14px;background:#f5f5f5;border:none;border-radius:8px;font-size:12px;color:#555;font-weight:700;cursor:pointer;">🤖 AI 코멘트 받기</button>
+        <button data-kw-insight style="margin-top:10px;padding:8px 14px;background:#f5f5f5;border:none;border-radius:8px;font-size:12px;color:#555;font-weight:700;cursor:pointer;">${_IC_BOT} AI 코멘트 받기</button>
         <div id="kw-insight-result" style="margin-top:10px;font-size:12px;color:#555;line-height:1.55;display:none;"></div>
       </div>`;
 
@@ -158,7 +161,7 @@
       <div class="kw-card" style="background:linear-gradient(135deg,#E8F4F1,#D1EDE5);padding:14px 16px;border-radius:14px;margin-bottom:12px;">
         <div style="font-size:11px;letter-spacing:1.5px;color:#2B8C7E;font-weight:800;margin-bottom:6px;">📈 AI 추천</div>
         <button data-kw-focus style="padding:9px 14px;background:#fff;border:1px solid #2B8C7E;border-radius:10px;font-size:12.5px;color:#2B8C7E;font-weight:800;cursor:pointer;">
-          🤖 오늘 집중할 3가지 받기
+          ${_IC_BOT} 오늘 집중할 3가지 받기
         </button>
         <div id="kw-focus-result" style="margin-top:10px;font-size:12.5px;color:#333;line-height:1.55;display:none;"></div>
       </div>`;
@@ -261,7 +264,7 @@
         const d = await _askAI('이번 달 매출 전월 대비 어때? 왜 그래? 3문장 이내로 알려줘');
         out.style.display = 'block';
         out.textContent = (d && d.answer) || '분석 실패';
-        btn.disabled = false; btn.textContent = '🤖 AI 코멘트 받기';
+        btn.disabled = false; btn.innerHTML = _IC_BOT + ' AI 코멘트 받기';
       });
     });
     document.querySelectorAll('[data-kw-draft]').forEach(btn => {
@@ -328,7 +331,7 @@
         const d = await _askAI('오늘 집중해야 할 3가지 행동을 bullet 으로 간단히 알려줘. 근거는 한 줄씩만.');
         out.style.display = 'block';
         out.textContent = (d && d.answer) || '분석 실패';
-        btn.disabled = false; btn.textContent = '🤖 오늘 집중할 3가지 받기';
+        btn.disabled = false; btn.innerHTML = _IC_BOT + ' 오늘 집중할 3가지 받기';
       });
     });
   }

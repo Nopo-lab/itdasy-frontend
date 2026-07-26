@@ -102,8 +102,8 @@
     el.style.cssText = 'margin-bottom:14px;padding:14px;background:linear-gradient(135deg,rgba(255,107,157,0.12),rgba(213,138,149,0.04));border-radius:14px;border:1px solid rgba(213,138,149,0.2);display:flex;gap:10px;align-items:center;';
     el.innerHTML = `
       <div style="display:flex;gap:-8px;flex-shrink:0;">
-        ${pair.before.image_url ? `<img src="${_esc(pair.before.image_url)}" style="width:44px;height:44px;border-radius:10px;object-fit:cover;border:2px solid #fff;">` : ''}
-        ${pair.after.image_url ? `<img src="${_esc(pair.after.image_url)}" style="width:44px;height:44px;border-radius:10px;object-fit:cover;border:2px solid #fff;margin-left:-10px;">` : ''}
+        ${pair.before.image_url ? `<img src="${_esc(pair.before.image_url)}" alt="시술 전 사진" loading="lazy" decoding="async" style="width:44px;height:44px;border-radius:10px;object-fit:cover;border:2px solid #fff;">` : ''}
+        ${pair.after.image_url ? `<img src="${_esc(pair.after.image_url)}" alt="시술 후 사진" loading="lazy" decoding="async" style="width:44px;height:44px;border-radius:10px;object-fit:cover;border:2px solid #fff;margin-left:-10px;">` : ''}
       </div>
       <div style="flex:1;min-width:0;">
         <div style="font-size:12px;font-weight:800;margin-bottom:2px;">${pair.customer_name ? _esc(window.withHonorific(pair.customer_name)) + ' ' : ''}비포·애프터 카드?</div>
