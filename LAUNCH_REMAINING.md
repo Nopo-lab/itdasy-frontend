@@ -17,6 +17,18 @@
 - [ ] 실기기 샌드박스 결제 1회 → `_appleReceipt`/`_googleToken` 추출 확인(`IAP_SETUP.md §5`). 안 맞으면 그 2함수만 수정
 - [ ] Apple S2S / Google RTDN 알림 핸들러 Phase 2(갱신·취소·환불 반영) — 백엔드 `iap.py` TODO
 
+## 🔎 라이브 E2E 검증 발견 (2026-07-27, 토큰으로 실계정 검증)
+전 플로우 콘솔 에러 0. 검증 통과: 잇비(매출/예약 조회 실데이터+LLM), 작업실(실 AI 캡션),
+C-2 계정삭제 UI 도달+2단계, M-7 고객 옵티미스틱(중복0), C-4 예약 생성 1건, M-4 dayConflict
+(겹침 검출·오탐 없음), M-1/M-2 IG token_valid 정상.
+
+- [ ] **C-6 auto_confirm 은 '죽은 토글'** — 라이브 검증 결과 백엔드에 `auto_confirm` 이 **전혀 없음**
+      (models/routers/schemas 전무). GET `/shop/settings` 도 안 돌려줌. 예약은 생성 시 항상
+      `status="confirmed"`(bookings.py:162)라 사실상 이미 전건 자동확정. **감사가 우려한 '의도치
+      않은 자동확정 과금 사고'는 실재하지 않고**, 문제는 토글이 켜져 보이지만 아무것도 안 한다는 것.
+      → **제품 결정**: (a) 죽은 토글 제거/비활성+안내, 또는 (b) 백엔드에 auto_confirm 컬럼+로직+GET 반영.
+      내 C-6 hydrate 수정(app-shop-settings.js)은 hydrate 할 값이 없어 **무효**(무해). 결정 나면 정리.
+
 ## 🟠 B. 백엔드 동반 필요
 - [ ] **H-2 OAuth state/nonce 완전화**: 프론트는 oauth-return 시 `/auth/me` 검증을 추가함(부분 완화, 라이브). 완전 방어는 백엔드가 OAuth 시작 시 `state` 발급→딥링크로 회신→프론트 대조 필요.
 - [ ] **M-14 결제 멱등키**: 프론트가 요청별 idempotency 키 부여(라이브). 백엔드가 그 키로 중복 결제/충전 dedup 해야 완성.
