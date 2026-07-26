@@ -563,7 +563,31 @@
   function removeLayer(L, track) {
     var i = S.layers.indexOf(L); if (i >= 0) S.layers.splice(i, 1);
     L.el.remove(); if (S.active === L) S.active = null;
-    if (track) _pushOp({ op: 'del', L: L, idx: i });   // [P1-3] 실수 삭제 되돌리기
+    if (track) { _pushOp({ op: 'del', L: L, idx: i }); _showDeleteToast(); }   // [P1-3] 실수 삭제 되돌리기 + [5차] 안내 토스트
+  }
+  // [5차] 실수 삭제 구제 — × 오탭 즉시삭제가 아무 안내 없이 사라지던 것. 지운 직후 "지웠어요 · 되돌리기"(3초).
+  //   되돌리기 = 기존 _undo()(del op 가 undo 스택에 이미 쌓임 — 새 복원 로직 안 만듦). 편집기 자체 구현(워크스페이스 토스트 의존 X).
+  var _delToastT = null;
+  function _showDeleteToast() {
+    if (!root) return;
+    var t = root.querySelector('.itl-deltoast');
+    if (!t) {
+      t = el('div', 'itl-deltoast');
+      var lbl = el('span', 'itl-deltoast__t'); lbl.textContent = '지웠어요';
+      var btn = el('button', 'itl-deltoast__u'); btn.type = 'button'; btn.textContent = '되돌리기';
+      t.appendChild(lbl); t.appendChild(btn);
+      root.appendChild(t);
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        clearTimeout(_delToastT);
+        t.classList.remove('is-show');
+        _undo();
+      });
+    }
+    // 연속 삭제 시 최신 것 하나만 — 타이머 리셋
+    clearTimeout(_delToastT);
+    t.classList.add('is-show');
+    _delToastT = setTimeout(function () { try { t.classList.remove('is-show'); } catch (_e) { void _e; } }, 3000);
   }
   // [P1-3] 구조적 undo/redo — 추가/삭제/복제만 추적(실제 DOM 노드 보존, 재생성 안 함 → 안전).
   //   이동·색변경 등 속성 변화는 드래그로 쉽게 재조정 가능하므로 제외. 가장 치명적인 '실수 삭제'를 확실히 커버.

@@ -169,7 +169,8 @@
         if (L.role !== role) return L;
         return Object.assign({}, L, { enabled: !!on });
       });
-      SS.save(ss.id, { layers: next });
+      // [5차] 원장이 설정에서 자동 텍스트를 직접 켜고/끈 것 = 스타일 명시 확정 → 이후 자동 오버레이 opt-in.
+      SS.save(ss.id, { layers: next, confirmed: true });
       return true;
     } catch (_e) { return false; }
   }

@@ -325,3 +325,12 @@
 .itshape__colors::-webkit-scrollbar{display:none}
 .itscw{width:28px;height:28px;border-radius:50%;flex:none;border:1.5px solid rgba(255,255,255,.55);cursor:pointer}
 .itscw.on{box-shadow:0 0 0 2px #1c1316,0 0 0 4px #fff}
+
+/* [5차] 레이어 삭제 안내 토스트 — × 오탭 즉시삭제 구제. 다크 필·하단 중앙·패널(z-10)보다 위·텍스트만(이모지 X). */
+.itl-deltoast{position:absolute;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,8px);
+  display:flex;align-items:center;gap:12px;z-index:50;padding:11px 14px 11px 18px;border-radius:999px;
+  background:rgba(20,12,16,.92);box-shadow:0 8px 24px rgba(0,0,0,.42);color:#fff;font-size:14px;font-weight:600;
+  white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease}
+.itl-deltoast.is-show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.itl-deltoast__u{background:none;border:none;color:#F2A9B5;font-size:14px;font-weight:800;cursor:pointer;padding:2px 4px;font-family:inherit}
+.itl-deltoast__u:active{opacity:.65}

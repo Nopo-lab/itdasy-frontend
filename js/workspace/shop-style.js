@@ -67,6 +67,8 @@
       name: name || '우리샵 스타일 A',
       isDefault: true,
       version: 1,                         // 수정 누적 버전(Phase C 학습/버전관리에서 증가)
+      confirmed: false,                   // [5차] 원장이 스타일을 '명시적으로 확정'했는가. 시드/자동생성=false.
+                                          //   false 면 자동 텍스트 오버레이(시술명·해시태그) 안 박음 — 확정 opt-in.
       createdAt: t,
       updatedAt: t,
       frame: { ratio: '4:5', pad: 0.06 }, // 게시 프레임 비율 + 안전 여백(상대)
@@ -160,6 +162,25 @@
     return getActive();
   }
 
+  // [5차] 스타일이 '확정됐는가' — 자동 텍스트 오버레이 opt-in 게이트의 단일 판정.
+  //   ① confirmed 필드가 있으면(신규 스타일) 그대로 사용.
+  //   ② 필드가 없는 옛 스타일(마이그레이션): '손댔으면' 확정 취급(하위호환 — 쓰던 원장은 계속 나오게).
+  //      판정 = 로고/워터마크를 설정했거나, 레이어 구성이 시드 기본(defaultStyle)과 다름.
+  //      ⚠ version 은 자동 학습(_learnShopStyle)도 올리므로 판정에 쓰지 않는다.
+  function isConfirmed(s) {
+    if (!s) return false;
+    if (typeof s.confirmed === 'boolean') return s.confirmed;
+    if (s.logo && s.logo.dataUrl) return true;
+    if (s.watermark && (s.watermark.text || '').trim()) return true;
+    var _fp = function (ls) {
+      return (ls || []).map(function (l) {
+        // 역할·타입·enabled·고정텍스트 유무로 구성 지문(위치/폰트 미세값은 제외 — 학습 미세조정만으론 확정 아님)
+        return (l.role || '') + '/' + (l.type || 'text') + '/' + (l.enabled === false ? '0' : '1') + '/' + (l.text ? 'T' : '');
+      }).join('|');
+    };
+    return _fp(s.layers) !== _fp(defaultStyle().layers);
+  }
+
   // 표시용 — '최근 수정 YYYY.MM.DD'
   function formatUpdated(s) {
     if (!s || !s.updatedAt) return '';
@@ -183,6 +204,7 @@
     duplicate: duplicate,
     remove: remove,
     ensureSeed: ensureSeed,
+    isConfirmed: isConfirmed,
     formatUpdated: formatUpdated
   };
 })();

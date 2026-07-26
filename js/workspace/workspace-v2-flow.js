@@ -285,6 +285,9 @@
     var roleText = _splitServiceForLayers(d.service);   // [v583·A] 시술명/시술내용 분리
     var layers = [];
     var autoArranged = false;
+    // [5차 opt-in] 원장이 스타일을 명시적으로 확정하기 전엔 자동 텍스트 오버레이(시술명·부제·본문·해시태그)를
+    //   박지 않는다. 로고·워터마크·라인·rect·고정 badge·작업기억(_orch)·사용자가 직접 넣는 텍스트는 영향 없음.
+    var _confirmed = !!(ss && window.ShopStyle && window.ShopStyle.isConfirmed && window.ShopStyle.isConfirmed(ss));
     if (ss) {
       // [v587·B-3] 해시태그도 오버레이 레이어로 — 생성된 해시태그 상위 4개만(사진 위 과밀 방지).
       /* [2026-07-23 보스] 시술명이 없으면 해시태그도 안 올린다.
@@ -305,6 +308,7 @@
         if (L.type === 'badge' && L.text) { layers.push(Object.assign({}, L, { x: (L.x != null ? L.x + (L.w != null ? L.w : 0.2) / 2 : 0.5) })); return; }
         var text = (L.role === 'hashtag') ? hashText : roleText[L.role];
         if (!text) return;
+        if (!_confirmed) return;   // [5차] 스타일 미확정 → 시술명/부제/본문/해시태그 자동배치 스킵(로고·데코는 위/아래에서 통과)
         // [v583·B] shop-style 좌표는 좌상단(좌측 끝) 기준 → story-editor 중앙 기준으로 변환(화면 밖 이탈 방지).
         var cx = (L.x != null ? L.x + (L.w != null ? L.w : 0.84) / 2 : 0.5);
         cx = Math.max(0.14, Math.min(0.86, cx));
@@ -326,7 +330,7 @@
     //   (업로드 직후엔 시술이 없어 title 빈값 → 폴백 안 함 = 깨끗한 사진으로 시작.)
     var _titleText = String(roleText.title || '').trim();
     var _titlePlaced = layers.some(function (L) { return L.text && L.text === roleText.title; });
-    if (_titleText && !_titlePlaced) {
+    if (_confirmed && _titleText && !_titlePlaced) {   // [5차] 미확정이면 title 폴백도 안 박음(같은 opt-in 게이트)
       layers.push({ text: roleText.title, role: 'title', x: 0.5, y: 0.44, w: 0.8, size: 0.08, align: 'center' });
       if (roleText.sub && !layers.some(function (L) { return L.text && L.text === roleText.sub; })) {
         layers.push({ text: roleText.sub, role: 'sub', x: 0.5, y: 0.56, w: 0.8, size: 0.05, align: 'center' });
