@@ -172,7 +172,7 @@
   function _renderSubMeta() {
     const meta = document.getElementById('planSubMeta');
     const cancelBtn = document.getElementById('planCancelBtn');
-    const paid = _currentPlan === 'pro' || _currentPlan === 'premium';
+    const paid = ['pro', 'premium', 'membership'].includes(_currentPlan);  // [2026-07-26] membership 도 유료(취소·만료 UI 노출)
     if (meta) {
       if (paid && _periodEnd) {
         const dt = new Date(_periodEnd);
@@ -285,7 +285,9 @@
   // 외부에서 현재 플랜 조회 (고객·매출 한도 분기용)
   window.getCurrentPlan = () => _currentPlan;
   window.getCurrentPlanLabel = () => _planDisplayName(_currentPlan);
-  window.isPaidPlan = () => _currentPlan === 'pro' || _currentPlan === 'premium';
+  // [2026-07-26 결제] membership(정본 단일 멤버십)도 유료로 인식 — 예전엔 pro/premium 만 봐서
+  //   6,900원 결제자가 무료 취급(취소 UI·유료기능 클라 게이트에서 배제)됐다.
+  window.isPaidPlan = () => ['pro', 'premium', 'membership'].includes(_currentPlan);
 
   // planActionBtn 클릭 이벤트 바인딩 (app-core.js 의 on() 등록 외에 안전장치)
   document.addEventListener('DOMContentLoaded', () => {
