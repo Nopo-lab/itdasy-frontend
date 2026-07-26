@@ -660,7 +660,16 @@
     },
     connectInstagram: function () { if (has(window.connectInstagram)) { window.connectInstagram(); return { ok: true }; } return { ok: false, reason: 'no_fn' }; },
     copyText: function (text) {
-      try { if (navigator.clipboard) { navigator.clipboard.writeText(text || ''); toast('캡션을 복사했어요'); return { ok: true }; } } catch (_e) { /* ignore */ }
+      // [보안감사 L-9 2026-07-26] writeText 를 await 안 하고 성공 토스트를 선표시 → 권한 거부 시 오안내였다.
+      //   실제 결과(성공/실패)에 맞춰 토스트를 띄운다.
+      try {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(text || '')
+            .then(function () { toast('캡션을 복사했어요'); })
+            .catch(function () { toast('복사에 실패했어요 — 길게 눌러 복사해 주세요'); });
+          return { ok: true };
+        }
+      } catch (_e) { /* ignore */ }
       return { ok: false, reason: 'no_clipboard' };
     },
     saveImage: function (dataUrl, name) {
