@@ -942,7 +942,10 @@ window.__LATEST_BUILD__ = '20260705-v709-fillwide';
   <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
     <div style="display:flex;align-items:baseline;gap:6px;">
       <div class="logo" data-static-action="tab-home" style="cursor:pointer;">Itda<span>sy</span></div>
-      <span id="appVersionBadge" data-static-action="recent-logs" style="font-size:9px;color:#bbb;font-weight:600;line-height:1;cursor:pointer;user-select:none;white-space:nowrap;" title="탭하면 최근 로그">v21</span>
+      <!-- [죽은기능 정리 2026-07-27] 'recent-logs' 액션 핸들러가 actions 맵에 없어 탭해도 무반응이었고,
+           로그 패널(showDebug)은 localhost 전용 게이트라 프로덕션 사용자에겐 애초에 안 뜬다.
+           탭 유혹만 주는 죽은 진입점이라 상호작용 외형(cursor/title/action)을 제거해 단순 표기로 둔다. -->
+      <span id="appVersionBadge" style="font-size:9px;color:#bbb;font-weight:600;line-height:1;user-select:none;white-space:nowrap;">v21</span>
     </div>
     <div class="logo-slogan">하루를 잇다, 쉽게</div>
   </div>

@@ -429,7 +429,7 @@ function _ensureBASelectPanel() {
     + '<button type="button" class="ba-cta" data-ba-assign="before">Before로 지정</button>'
     + '<button type="button" class="ba-cta" data-ba-assign="after">After로 지정</button>'
     + '<button type="button" class="ba-cta" data-ba-swap>서로 바꾸기</button>'
-    + '<button type="button" class="ba-cta ba-cta--primary" data-ba-template disabled>템플릿 고르기</button>'
+    + '<button type="button" class="ba-cta ba-cta--primary" data-ba-template disabled title="준비 중">전후 템플릿 (준비 중)</button>'
     + '</div></div>';
   host.appendChild(el);
   el.addEventListener('click', (e) => {
@@ -472,8 +472,10 @@ function _renderBASelect() {
     return '<button type="button" class="ba-card' + focus + '" data-ba-pick="' + p.id + '">'
       + '<img src="' + (p.editedDataUrl || p.dataUrl) + '" alt="">' + badge + '</button>';
   }).join('');
+  // [죽은기능 정리 2026-07-27] '템플릿 고르기'는 _baPickTemplate 이 "(준비 중)" 토스트만 하는 스텁이라,
+  //   활성화되면 동작하는 것처럼 보였다. 실제 전후 템플릿 스텝이 붙기 전엔 계속 비활성(준비 중) 유지.
   const tplBtn = document.querySelector('#baSelectPanel [data-ba-template]');
-  if (tplBtn) tplBtn.disabled = !_baReady();
+  if (tplBtn) tplBtn.disabled = true;
 }
 if (typeof window !== 'undefined') { window.openBASelect = openBASelect; window.closeBASelect = closeBASelect; }
 
