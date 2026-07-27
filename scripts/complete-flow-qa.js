@@ -13,7 +13,7 @@ const ROOT = path.resolve(__dirname, '..');
 const OUT = path.join(ROOT, 'output', 'playwright');
 const PAGES = process.env.BETA_URL || 'https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/';
 const EMAIL = process.env.DEMO_EMAIL || 'review@itdasy.com';
-const PW = process.env.DEMO_PW || 'review1234!';
+const PW = process.env.DEMO_PW || '';
 
 function stamp() { const d = new Date(); const p = n => String(n).padStart(2, '0'); return `QA_BETA_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`; }
 

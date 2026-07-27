@@ -30,3 +30,8 @@ output/playwright/
 graphify-out/*
 !graphify-out/graph.html
 __pycache__/
+
+# [보안감사 L-9 2026-07-27] Firebase 설정 파일은 커밋 금지 (실수 커밋 방지)
+android/app/google-services.json
+android/app/google-services.json.*
+ios/App/App/GoogleService-Info.plist

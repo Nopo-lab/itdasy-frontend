@@ -1031,6 +1031,17 @@ function authHeader() {
     _setAuthGateLocked(true);
   }
 
+  // [보안감사 H-6 2026-07-27] 401 자동 리프레시/재첨부는 우리 API 오리진에만.
+  //   전역 fetch 패치라 Supabase·R2·인스타·공격자 URL 등 아무 호스트가 401 을 주면
+  //   원장 JWT 가 그 호스트로 재첨부돼 유출됐다(cross-origin 토큰 유출). 오리진 대조로 차단.
+  function _isApiOrigin(input) {
+    try {
+      const url = typeof input === 'string' ? input : (input && input.url) || '';
+      if (!window.API) return false;
+      return new URL(url, location.href).origin === new URL(window.API, location.href).origin;
+    } catch (_e) { void _e; return false; }
+  }
+
   window.fetch = async function(input, init) {
     const retryable = _isRetryableMethod(init) && _bodyReusable(init) && !_isNoRetryPath(input) && !_isNonIdempotentCreate(input, init);
     const isLlm = _isLlmCall(input);   // [2026-07-22] 생성형 호출 — 오래 기다리되 타임아웃 재시도는 안 함
@@ -1044,7 +1055,7 @@ function authHeader() {
       try {
         const res = await _fetchWithTimeout(input, init, _tmo);
         if (res.ok) _resetConnFail();   // [버그2] 성공 응답 = 연결 정상 — 실패 카운터 리셋
-        if (res.status === 401 && getToken()) {
+        if (res.status === 401 && getToken() && _isApiOrigin(input)) {
           // /auth/refresh 자체가 401이면 무한루프 방지
           const url = typeof input === 'string' ? input : (input.url || '');
           if (url.includes('/auth/refresh') || url.includes('/auth/login')) {

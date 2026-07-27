@@ -9,7 +9,7 @@ const { chromium } = require('playwright');
 const PAGES = process.env.BETA_URL || 'https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/';
 const API = 'https://itdasy-backend-staging-644329093453.asia-northeast3.run.app';
 const EMAIL = process.env.DEMO_EMAIL || 'review@itdasy.com';
-const PW = process.env.DEMO_PW || 'review1234!';
+const PW = process.env.DEMO_PW || '';
 
 async function apiCounts() {
   const fetchJson = async (url, opts) => { const r = await fetch(url, opts); return r.ok ? r.json() : null; };

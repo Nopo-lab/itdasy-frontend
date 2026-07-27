@@ -72,9 +72,15 @@ jobs:
       # [핫픽스] Pages 아티팩트에서 node_modules 제외 — 22k+ 파일이 Pages 파일 한도를 넘겨
       #   tokens.css·app-core.js 등 정상 파일이 무작위 404 나던 문제 근본 해결(런타임 미참조라 안전).
       #   .nojekyll 보장으로 Jekyll 처리에 의한 파일 누락도 방지.
-      - name: Trim Pages artifact (drop node_modules, ensure .nojekyll)
+      - name: Trim Pages artifact (drop node_modules + internal files, ensure .nojekyll)
         run: |
-          rm -rf node_modules
+          # node_modules: Pages 파일 한도 초과로 정상 파일 404 나던 것 방지(런타임 미참조).
+          # [보안감사 M-2 2026-07-27] 내부·민감 파일 공개 배포 금지 — 전부 런타임 미참조라 안전:
+          #   android/ios(네이티브·manifest·plist), .github(워크플로), .ai/.claude(내부문서·소스중복·감사노트),
+          #   scripts(QA 스크립트·데모계정 흔적), docs(제출문서·법무템플릿), capacitor-templates(빌드템플릿),
+          #   루트 *.md(CLAUDE/AGENTS/AUDIT 등 내부문서). 런타임 privacy/terms 는 루트 *.html 이라 유지됨.
+          rm -rf node_modules android ios .github .ai .claude scripts docs capacitor-templates
+          rm -f ./*.md
           touch .nojekyll
           echo "files to publish: $(find . -type f -not -path './.git/*' | wc -l)"
       - uses: actions/configure-pages@v4

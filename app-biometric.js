@@ -38,32 +38,19 @@
   }
 
   async function enable(token) {
-    const p = await _plugin();
-    if (!p) { return false; }
-    try {
-      // iOS Keychain / Android Keystore 에 암호화 저장
-      await p.setBiometryType && p.setBiometryType();
-      localStorage.setItem(SECRET_KEY + '_flag', '1');
-      // 실제 토큰은 플러그인 보안 스토리지에 — 여기선 단순화
-      localStorage.setItem(SECRET_KEY, token);
-      return true;
-    } catch (e) { return false; }
+    // [보안감사 H-2 2026-07-27] JWT 를 평문 localStorage 에 저장하던 것을 폐기.
+    //   기존 구현은 생체 프롬프트를 통과해도 토큰을 평문 고정키(SECRET_KEY)에 그대로 뒀다 →
+    //   루팅/XSS/adb 백업으로 생체인증 없이 바로 탈취되는 '보안 위장'이었다.
+    //   진짜 보안저장(Keychain/Keystore) 플러그인이 붙기 전까지는 기능을 켜지 않는다(토큰 미저장).
+    //   TODO(M-19): @capacitor/preferences(secure) 또는 secure-storage 플러그인 연동 후
+    //     p.setSecret/getSecret 류의 보안 스토리지에 저장하도록 교체.
+    void token;
+    return false;
   }
 
   async function verify() {
-    const p = await _plugin();
-    if (!p) return null;
-    try {
-      await p.authenticate({
-        reason: '잇데이 재로그인',
-        cancelTitle: '취소',
-        allowDeviceCredential: true,
-        iosFallbackTitle: '비밀번호로 로그인',
-        androidTitle: '잇데이',
-        androidSubtitle: '생체 인증으로 빠르게 로그인',
-      });
-      return localStorage.getItem(SECRET_KEY);
-    } catch (e) { return null; }
+    // 보안저장 미연동 상태에서는 반환할 토큰이 없다(평문 저장 폐기). 항상 null → 일반 로그인 폴백.
+    return null;
   }
 
   async function disable() {
