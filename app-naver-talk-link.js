@@ -179,9 +179,27 @@
     }
   }
 
+  // [죽은동작 정리 2026-07-27] 연결 상태를 서버(GET /integrations/naver_talk)에서 재조회.
+  //   예전엔 localStorage('itdasy_nt_linked')만 봐서, 다른 기기에서 연결했거나 로컬을 지우면
+  //   실제 연결돼 있어도 '미연결'로 잘못 표시됐다.
+  function _refreshStatusFromServer() {
+    try {
+      fetch(_api() + '/integrations/naver_talk', { headers: _auth() })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (!d) return;
+          const linked = !!d.is_linked;
+          try { localStorage.setItem('itdasy_nt_linked', linked ? '1' : '0'); } catch (_e) { void _e; }
+          _setStatus(linked);
+        })
+        .catch(() => {});
+    } catch (_e) { void _e; }
+  }
+
   function openNaverTalkLink() {
     const el = _ensureMounted();
     _hydrate();
+    _refreshStatusFromServer();
     requestAnimationFrame(() => el.classList.add('is-open'));
     el.setAttribute('aria-hidden', 'false');
     // [2026-07-22 보스] 뒤로가기 등록 — 안 하면 안드로이드 back/스와이프에서 이 화면 대신 앱이 그대로 꺼진다.

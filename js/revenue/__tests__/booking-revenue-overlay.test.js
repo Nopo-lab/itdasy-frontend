@@ -66,7 +66,9 @@ describe('BookingRevenueOverlay', () => {
     expect(merged.projected_total).toBe(200000);
   });
 
-  test('summary does not double count when backend already included the deposit', () => {
+  // [A2 2026-07-27] BE /revenue/summary 의 total 은 confirmed_deposit_total 을 포함하지 않는다(별개 필드).
+  //   confirmed_deposit_total 필드가 응답에 있어도 total 에 든 게 아니므로 전액 더해야 캘린더 합계와 일치.
+  test('summary adds confirmed deposit — backend total excludes it (separate field)', () => {
     const agg = O.summarizeBookings(bookings, {
       year: 2026,
       month: 6,
@@ -78,9 +80,9 @@ describe('BookingRevenueOverlay', () => {
       confirmed_deposit_total: 20000,
       projected_total: 200000,
     }, agg);
-    expect(merged.total).toBe(120000);
+    expect(merged.total).toBe(140000);            // 120000(완료) + 20000(확정 예약금)
     expect(merged.confirmed_deposit_total).toBe(20000);
-    expect(merged.projected_total).toBe(200000);
+    expect(merged.projected_total).toBe(220000);  // 200000 + 20000
   });
 
   test('brief total and payment breakdown include missing booking deposit', () => {

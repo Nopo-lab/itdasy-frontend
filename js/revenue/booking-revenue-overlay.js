@@ -91,9 +91,17 @@
   }
 
   function _depositPatch(base, agg) {
-    const known = Math.max(_num(base.confirmed_deposit_total), _num(base.booking_deposit_total));
-    const target = Math.max(known, _num(agg && agg.confirmed_deposit_total));
-    return { target, delta: Math.max(0, target - known) };
+    // [A2 2026-07-27] BE /revenue/summary 의 total 은 확정 예약금(confirmed_deposit_total)을 포함하지 않는다
+    //   (revenue.py: total=완료매출 RevenueRecord 합, confirmed_deposit_total 은 별개 필드). 예전엔
+    //   base.confirmed_deposit_total 이 '있으면' 이미 total 에 든 걸로 보고 delta 만 더해, 히어로 총매출이
+    //   예약금만큼 캘린더 합계(예약금 포함)와 상시 어긋났다. 확정 예약은 완료 전이라 RevenueRecord 가 없어
+    //   전액 더해도 이중계상되지 않는다 → 확정 예약금 전액을 total 에 더한다.
+    const target = Math.max(
+      _num(base.confirmed_deposit_total),
+      _num(base.booking_deposit_total),
+      _num(agg && agg.confirmed_deposit_total)
+    );
+    return { target, delta: target };
   }
 
   function mergeSummary(summary, agg) {
