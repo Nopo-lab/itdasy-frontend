@@ -122,6 +122,18 @@ const API = (window.location.hostname === 'localhost' || window.location.hostnam
   ? (_API_STAGING_OVERRIDE ? PROD_API : 'http://localhost:8000')
   : PROD_API;
 
+// [보안감사 H-3 2026-07-27] 토큰 저장소 추상화 플래그 — 기본 OFF.
+//   ?securetoken=1 (또는 localStorage itdasy_securetoken=1) 로만 켜진다. ?api 오버라이드와 동일 패턴(1회 쿼리→고정).
+//   OFF: 아래 보안저장 경로는 전부 우회 → getToken/setToken 은 기존 코드 그대로(사용자 동작 100% 불변).
+//   ON: JWT 를 네이티브 Keychain/Keystore(있을 때)에 두고 평문 localStorage 복사본을 제거. 없으면 localStorage 폴백.
+//   ~26곳의 동기 getToken() 호출부를 async 로 바꾸지 않으려고, 부팅 때 1회 하이드레이션 후 in-memory 캐시로 서빙한다.
+const _SECURE_TOKEN = (function () {
+  try {
+    if (/[?&]securetoken=1/.test(location.search)) { try { localStorage.setItem('itdasy_securetoken', '1'); } catch (_p) { void _p; } return true; }  // 쿼리 1회 → 리로드에도 유지
+    return localStorage.getItem('itdasy_securetoken') === '1';
+  } catch (_e) { return false; }
+})();
+
 function apiUrl(path) {
   const raw = String(path == null ? '' : path);
   if (/^https?:\/\//i.test(raw)) return raw;
@@ -139,6 +151,139 @@ function apiFetch(path, opts) {
 // → API URL 기반으로 토큰 키를 분리해서 완전 격리.
 const _TOKEN_KEY = 'itdasy_token::' + (API.includes('staging') ? 'staging' : (API.includes('localhost') ? 'local' : 'prod'));
 const _LEGACY_TOKEN_KEY = 'itdasy_' + 'token';
+
+// ═══ [보안감사 H-3 2026-07-27] 토큰 저장소 추상화 (플래그 _SECURE_TOKEN ON 일 때만 사용) ═══
+//   in-memory 캐시. 부팅 때 _hydrateToken() 이 보안저장/localStorage 에서 1회 읽어 채운다.
+//   동기 getToken() 호출부(~26곳)는 캐시만 읽으므로 async 전환 불필요.
+let _tokenCache = null;
+let _tokenReady = false;
+
+// 만료 판정 + 부작용(만료 시 삭제·토스트·lockOverlay)을 한 곳으로. 기존 getToken() 인라인 로직을 그대로 옮겨
+//   OFF(인라인)/ON(이 헬퍼) 두 경로의 만료 동작이 100% 동일하도록 한다. 반환: 유효하면 t, 아니면 null.
+function _validateToken(t) {
+  if (!t) return null;
+  try {
+    const payload = JSON.parse(atob(t.split('.')[1]));
+    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+      localStorage.removeItem(_TOKEN_KEY);
+      // [A10] 토큰 만료 안내 + 로그인 화면
+      if (window.showToast) window.showToast('로그인이 만료되었어요. 다시 로그인해주세요');
+      setTimeout(() => {
+        const lock = document.getElementById('lockOverlay');
+        if (lock) lock.classList.remove('hidden');
+        try { _setAuthGateLocked(true); } catch (_) { /* ignore */ }
+      }, 1000);
+      return null;
+    }
+  } catch { return null; }
+  return t;
+}
+
+// 선택적 네이티브 보안저장 백엔드 — 있으면 {get,set,remove}, 없으면 null(→ 호출부 localStorage 폴백).
+//   app-biometric.js 의 _plugin() 스타일 그대로 하드 의존 없음. package.json 미변경.
+let _secureStorePromise = null;
+function _secureTokenStore() {
+  if (_secureStorePromise) return _secureStorePromise;
+  _secureStorePromise = (async () => {
+    try {
+      // 네이티브가 아니면(웹) 즉시 null → localStorage 폴백
+      if (!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return null;
+      let plugin = (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SecureStoragePlugin) || null;
+      if (!plugin) {
+        const mod = await import('@aparajita/capacitor-secure-storage').catch(() => null);
+        plugin = (mod && (mod.SecureStorage || mod.SecureStoragePlugin)) || null;
+      }
+      if (!plugin) return null;
+      const KEY = _TOKEN_KEY; // 백엔드별 키 격리 그대로
+      return {
+        async get() {
+          try {
+            if (typeof plugin.get !== 'function') return null;
+            let r;
+            try { r = await plugin.get({ key: KEY }); }           // {key,value} 시그니처
+            catch (_e1) { try { r = await plugin.get(KEY); } catch (_e2) { r = null; } }  // positional 시그니처
+            if (r == null) return null;
+            return typeof r === 'string' ? r : (r.value != null ? r.value : null);
+          } catch (_e) { return null; }
+        },
+        async set(v) {
+          try {
+            if (typeof plugin.set !== 'function') return;
+            try { await plugin.set({ key: KEY, value: v }); }
+            catch (_e1) { try { await plugin.set(KEY, v); } catch (_e2) { void _e2; } }
+          } catch (_e) { void _e; }
+        },
+        async remove() {
+          try {
+            const fn = plugin.remove || plugin.delete;
+            if (typeof fn !== 'function') return;
+            try { await fn.call(plugin, { key: KEY }); }
+            catch (_e1) { try { await fn.call(plugin, KEY); } catch (_e2) { void _e2; } }
+          } catch (_e) { void _e; }
+        },
+      };
+    } catch (_e) { return null; }
+  })();
+  return _secureStorePromise;
+}
+
+// 부팅 1회 하이드레이션(ON 전용). 보안저장 → 없으면 localStorage(+레거시키) 순으로 읽어 _tokenCache 채움.
+//   localStorage 에서 왔고 보안저장이 가능하면 그쪽으로 이관(secure.set + 평문 제거). 플러그인 오류엔 localStorage 로 폴백.
+let _hydratePromise = null;
+function _hydrateToken() {
+  if (_hydratePromise) return _hydratePromise;
+  _hydratePromise = (async () => {
+    let token = null, fromLocal = false, secure = null;
+    try {
+      secure = await _secureTokenStore();
+      if (secure) { try { token = await secure.get(); } catch (_e) { token = null; } }
+      if (!token) {
+        try { token = localStorage.getItem(_TOKEN_KEY); } catch (_e) { token = null; }
+        if (!token) {  // 레거시 키 폴백 (기존 getToken 동작 보존)
+          try {
+            const legacy = localStorage.getItem(_LEGACY_TOKEN_KEY);
+            if (legacy) { token = legacy; try { localStorage.setItem(_TOKEN_KEY, legacy); } catch (_e2) { void _e2; } }
+          } catch (_e3) { void _e3; }
+        }
+        if (token) fromLocal = true;
+      }
+      // localStorage 에서 읽었는데 보안저장 가능 → 이관(평문 제거)
+      if (token && fromLocal && secure) {
+        try { await secure.set(token); localStorage.removeItem(_TOKEN_KEY); } catch (_e) { void _e; }
+      }
+    } catch (_e) { /* 무엇이 실패하든 아래에서 캐시 확정 */ }
+    _tokenCache = token || null;
+    _tokenReady = true;
+    return _tokenCache;
+  })();
+  return _hydratePromise;
+}
+window._hydrateToken = _hydrateToken;
+window._tokenReadyCheck = function () { return _tokenReady; };
+
+// 부팅 게이트(ON 전용) — 하이드레이션을 최대 800ms 만 기다린다(보안저장 플러그인이 행 걸려도 부팅 안 막힘).
+//   타임아웃 시 동기 localStorage 읽기로 폴백해 캐시를 채운다.
+async function _bootHydrateGate() {
+  if (!_SECURE_TOKEN || _tokenReady) return;
+  try {
+    let timedOut = false;
+    await Promise.race([
+      _hydrateToken(),
+      new Promise((r) => setTimeout(() => { timedOut = true; r(); }, 800)),
+    ]);
+    if (timedOut && !_tokenReady) {
+      let t = null;
+      try { t = localStorage.getItem(_TOKEN_KEY) || localStorage.getItem(_LEGACY_TOKEN_KEY); } catch (_e) { t = null; }
+      _tokenCache = t || null;
+      _tokenReady = true;
+    }
+  } catch (_e) { /* ignore */ }
+}
+window._bootHydrateGate = _bootHydrateGate;
+
+// ON 이면 모듈 로드 즉시 하이드레이션 착수 — load 이벤트 시점엔 대개 이미 완료돼 게이트가 즉시 통과.
+if (_SECURE_TOKEN) { try { _hydrateToken(); } catch (_e) { void _e; } }
+// ═══ [보안감사 H-3] 끝 ═══
 
 let _instaHandle = '';  // checkInstaStatus에서 저장
 Object.defineProperty(window, '_instaHandle', {
@@ -581,32 +726,38 @@ document.getElementById('obShopNameInput').addEventListener('keydown', e => {
 });
 
 function getToken() {
-  try {
-    let t = localStorage.getItem(_TOKEN_KEY);
-    if (!t) {
-      const legacy = localStorage.getItem(_LEGACY_TOKEN_KEY);
-      if (legacy) {
-        t = legacy;
-        try { localStorage.setItem(_TOKEN_KEY, legacy); } catch (e) { console.warn('[auth] 토큰 이전 저장 실패', e); }
-      }
-    }
-    if (!t) return null;
+  // [보안감사 H-3 2026-07-27] 플래그 OFF → 아래 블록은 원본 그대로(byte-for-byte). 기본 경로가 원본과 동일함이 자명해야 함.
+  if (!_SECURE_TOKEN) {
     try {
-      const payload = JSON.parse(atob(t.split('.')[1]));
-      if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
-        localStorage.removeItem(_TOKEN_KEY);
-        // [A10] 토큰 만료 안내 + 로그인 화면
-        if (window.showToast) window.showToast('로그인이 만료되었어요. 다시 로그인해주세요');
-        setTimeout(() => {
-          const lock = document.getElementById('lockOverlay');
-          if (lock) lock.classList.remove('hidden');
-          try { _setAuthGateLocked(true); } catch (_) { /* ignore */ }
-        }, 1000);
-        return null;
+      let t = localStorage.getItem(_TOKEN_KEY);
+      if (!t) {
+        const legacy = localStorage.getItem(_LEGACY_TOKEN_KEY);
+        if (legacy) {
+          t = legacy;
+          try { localStorage.setItem(_TOKEN_KEY, legacy); } catch (e) { console.warn('[auth] 토큰 이전 저장 실패', e); }
+        }
       }
-    } catch { return null; }
-    return t;
-  } catch (_) { return null; }  // iOS Private 모드 SecurityError 방어
+      if (!t) return null;
+      try {
+        const payload = JSON.parse(atob(t.split('.')[1]));
+        if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+          localStorage.removeItem(_TOKEN_KEY);
+          // [A10] 토큰 만료 안내 + 로그인 화면
+          if (window.showToast) window.showToast('로그인이 만료되었어요. 다시 로그인해주세요');
+          setTimeout(() => {
+            const lock = document.getElementById('lockOverlay');
+            if (lock) lock.classList.remove('hidden');
+            try { _setAuthGateLocked(true); } catch (_) { /* ignore */ }
+          }, 1000);
+          return null;
+        }
+      } catch { return null; }
+      return t;
+    } catch (_) { return null; }  // iOS Private 모드 SecurityError 방어
+  }
+  // [보안감사 H-3] 플래그 ON → in-memory 캐시(_hydrateToken 이 부팅 때 보안저장/localStorage 에서 채움).
+  //   만료 판정·부작용은 _validateToken 으로 OFF 경로와 동일 처리.
+  return _validateToken(_tokenCache);
 }
 // [2026-04-24] 디바이스 간 데이터 불일치 방어 — 토큰 변경 감지 시 SWR 캐시 일괄 클리어.
 // 폰·노트북·태블릿 같은 계정으로 들어왔을 때 다른 디바이스의 stale 스냅샷이 보이는 문제 해결.
@@ -833,19 +984,56 @@ function _bindLoginSocialButtons() {
 }
 
 function setToken(t) {
+  // [보안감사 H-3 2026-07-27] 플래그 OFF → 아래 블록은 원본 그대로(byte-for-byte).
+  if (!_SECURE_TOKEN) {
+    try {
+      // 토큰 값이 바뀌면 (다른 계정·재로그인·로그아웃) 모든 SWR 캐시 무효화.
+      let prev = null;
+      try { prev = localStorage.getItem(_TOKEN_KEY); } catch (_e) { void _e; }
+      if (prev !== t) {
+        _clearAllSWRCache();
+      }
+      if (t === null || t === undefined) {
+        localStorage.removeItem(_TOKEN_KEY);
+      } else {
+        localStorage.setItem(_TOKEN_KEY, t);
+      }
+    } catch (_) { /* 용량 초과/시크릿 모드 조용히 무시 */ }
+    return;
+  }
+  // [보안감사 H-3] 플래그 ON → 캐시 갱신 + (변경 시)SWR 무효화 + 영속화.
   try {
-    // 토큰 값이 바뀌면 (다른 계정·재로그인·로그아웃) 모든 SWR 캐시 무효화.
-    let prev = null;
-    try { prev = localStorage.getItem(_TOKEN_KEY); } catch (_e) { void _e; }
-    if (prev !== t) {
-      _clearAllSWRCache();
+    const next = (t === null || t === undefined) ? null : t;
+    const prev = _tokenCache;
+    if (prev !== next) { _clearAllSWRCache(); }  // 이전 캐시와 비교(OFF 경로의 prev !== t 와 동일 취지)
+    _tokenCache = next;
+    _tokenReady = true;
+    // 웹(비네이티브)에서는 동기 localStorage 로 즉시 반영 — 리로드 즉시 견디게(기존 sync 의미 보존).
+    const maybeNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    if (!maybeNative) {
+      try {
+        if (next === null) { localStorage.removeItem(_TOKEN_KEY); }
+        else { localStorage.setItem(_TOKEN_KEY, next); }
+      } catch (_e) { void _e; }
+      return;
     }
-    if (t === null || t === undefined) {
-      localStorage.removeItem(_TOKEN_KEY);
-    } else {
-      localStorage.setItem(_TOKEN_KEY, t);
-    }
-  } catch (_) { /* 용량 초과/시크릿 모드 조용히 무시 */ }
+    // 네이티브 → 보안저장(있으면). 넣었으면 평문 복사본 제거. 없으면 localStorage 폴백.
+    (async () => {
+      try {
+        const secure = await _secureTokenStore();
+        if (secure) {
+          if (next === null) { await secure.remove(); }
+          else { await secure.set(next); }
+          try { localStorage.removeItem(_TOKEN_KEY); } catch (_e) { void _e; }  // 평문 복사본 제거
+        } else {
+          try {
+            if (next === null) { localStorage.removeItem(_TOKEN_KEY); }
+            else { localStorage.setItem(_TOKEN_KEY, next); }
+          } catch (_e) { void _e; }
+        }
+      } catch (_e) { void _e; }
+    })();
+  } catch (_) { /* 조용히 무시 */ }
 }
 function authHeader() {
   // [2026-04-28 진짜 fix] ngrok-skip-browser-warning 헤더 제거.
@@ -1926,7 +2114,10 @@ window.startAppleLogin = async function () {
 })();
 
 // ===== 앱 초기화 (모든 모듈 로드 후 실행) =====
-window.addEventListener('load', function() {
+window.addEventListener('load', async function() {
+  // [보안감사 H-3 2026-07-27] 부팅 게이트 — 인증 판단(#register/생체/getToken 자동로그인) 전에 토큰 하이드레이션 완료.
+  //   OFF 이면 이 if 가 false → await 자체가 실행되지 않아 아래 부팅 코드는 기존과 100% 동기적으로 동일하게 흐른다.
+  if (_SECURE_TOKEN) { await _bootHydrateGate(); }
   _bindLoginSocialButtons();
   applyStoreReviewLoginGuard();
 
