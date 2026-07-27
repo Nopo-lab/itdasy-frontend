@@ -75,30 +75,10 @@
           <button type="button" class="ss-cta" data-nt-connect>연결하기</button>
         </div>
 
-        <div class="ss-card">
-          <div class="ss-card-tt">수신 옵션</div>
-          <div class="ss-toggle">
-            <div>
-              <div class="ss-toggle-lbl">잇비 답장 초안 준비</div>
-              <div class="ss-toggle-sub">새 문의가 오면 잇비가 답장 초안을 미리 작성</div>
-            </div>
-            <div class="ss-switch is-on" role="switch" aria-checked="true" tabindex="0" data-nt-toggle="draft"></div>
-          </div>
-          <div class="ss-toggle">
-            <div>
-              <div class="ss-toggle-lbl">새 문의 알림</div>
-              <div class="ss-toggle-sub">톡톡 문의가 들어오면 알려드려요</div>
-            </div>
-            <div class="ss-switch is-on" role="switch" aria-checked="true" tabindex="0" data-nt-toggle="notify"></div>
-          </div>
-          <div class="ss-toggle">
-            <div>
-              <div class="ss-toggle-lbl">자동 발송</div>
-              <div class="ss-toggle-sub">원장님 확인 없이 바로 전송 · 권장 안 함</div>
-            </div>
-            <div class="ss-switch" role="switch" aria-checked="false" tabindex="0" data-nt-toggle="autosend"></div>
-          </div>
-        </div>
+        <!-- [죽은동작 정리 2026-07-27] '수신 옵션' 3토글(초안준비·새문의알림·자동발송) 제거.
+             localStorage 에만 저장되고 백엔드 DM 코어가 안 읽어 켜든 끄든 무동작이었다. 특히
+             '자동 발송 · 원장님 확인 없이 바로 전송'은 켜도 아무 일 없었다(실 발송은 항상 확인 큐 경유).
+             톡톡 문의의 초안/알림/발송은 공유 DM 자동응답 설정(내샵관리>잇비 자동화)이 관장한다. -->
       </div>
     `;
     document.body.appendChild(el);

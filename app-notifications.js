@@ -67,8 +67,17 @@
         method: 'POST',
         headers: window.authHeader ? window.authHeader() : {},
       });
+      // [죽은동작 정리 2026-07-27] BE 는 쿨다운·재시도한도·실제 발송실패를 전부 HTTP 200 + {ok:false}
+      //   로 응답한다. 예전엔 res.ok(200)만 보고 "다시 보냈어요"를 띄워, 실제로 안 나갔는데도
+      //   성공으로 오인시켰다. body 의 ok 와 message 를 읽어 정확히 안내한다.
       if (res.ok) {
-        if (window.showToast) window.showToast('다시 보냈어요');
+        const data = await res.json().catch(() => ({}));
+        if (data && data.ok) {
+          if (window.showToast) window.showToast(data.message || '다시 보냈어요');
+          return;
+        }
+        if (window.showToast) window.showToast((data && data.message) || '재시도하지 못했어요 — 잠시 후 다시 시도해주세요');
+        if (btn) btn.disabled = false;
         return;
       }
       if (window.showToast) window.showToast('재시도 실패 — 잠시 후 다시 시도해주세요');
@@ -159,6 +168,11 @@
       }
       if (kind === 'support_reply' || kind === 'support_ai_reply') {
         if (window.openSupportSheet) { window.openSupportSheet(); return true; }
+      }
+      // [죽은동작 정리 2026-07-27] 예약 알림은 "예약관리 보기 →" 라벨인데 라우팅이 없어 읽음+제거만 됐다.
+      //   (payload.customer_id 가 있으면 오히려 고객카드로 튀었음.) 캘린더로 보낸다. payload 분기보다 먼저.
+      if (kind === 'booking_soon' || kind === 'booking_confirm_prev_day' || kind.indexOf('booking') === 0) {
+        if (window.openCalendar) { window.openCalendar(); return true; }
       }
       // payload 안에 customer_id 있으면 고객 카드 열기
       if (n.payload) {

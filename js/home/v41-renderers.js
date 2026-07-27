@@ -196,7 +196,9 @@
     if (!n) return null;
     const name = brief.retouch_due_first_name || '손님';
     const hl = n === 1 ? `${name}님 리터치 시기예요` : `${name}님 외 ${n - 1}명 리터치 때예요`;
-    return { ok: 0, cat: '리터치 시기', dot: '#0D9488', hl, desc: '안내 DM 보낼 타이밍', btn: '안내 보내기', act: 'openCustomers', alert: true };
+    // [죽은동작 정리 2026-07-27] 버튼이 '안내 보내기'(발송 암시)인데 act 는 그냥 고객 허브만 연다(발송 플로우 없음).
+    //   실동작에 맞춰 '고객 보기'로 정직화(리터치 대상 확인 후 원장이 직접 DM/문자).
+    return { ok: 0, cat: '리터치 시기', dot: '#0D9488', hl, desc: '안내 보낼 타이밍이에요', btn: '고객 보기', act: 'openCustomers', alert: true };
   }
 
   function buildCarouselCards(brief) {
