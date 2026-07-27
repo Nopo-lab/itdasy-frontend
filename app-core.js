@@ -1338,6 +1338,17 @@ async function logout(opts) {
     }
   } catch (_e) { void _e; }
 
+  // [보안감사 H-4 2026-07-27] 서버측 세션 무효화 — 토큰을 지우기 전에 호출.
+  //   로컬 토큰만 지우면 탈취된 JWT 는 24h 만료까지 살아있고 /auth/refresh 로 무한 갱신됨.
+  //   /auth/logout 이 users.min_valid_iat 를 올려 그 이전 발급 토큰을 전부 거부시킨다.
+  //   네트워크 실패해도 로컬 로그아웃은 진행돼야 하므로 best-effort(타임아웃 포함) 로 감싼다.
+  try {
+    await Promise.race([
+      apiFetch('/auth/logout', { method: 'POST', headers: authHeader() }).catch(() => {}),
+      new Promise((res) => setTimeout(res, 3000)),
+    ]);
+  } catch (_e) { void _e; }
+
   // 1. 토큰 및 사용자 범위 스토리지 광범위 삭제
   setToken(null);
   // [2026-05-07 26차] 메모리 변수도 명시 클리어 — _purgeUserScopedStorage 는 storage 만 청소함.
