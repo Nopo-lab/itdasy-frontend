@@ -120,9 +120,9 @@ async function checkInstaStatus(fromLogin = false) {
       updateHeaderProfile(_instaHandle, data.persona ? data.persona.tone : null, data.profile_picture_url || '');
       updateStep('stepInsta', true);
       _renderTokenExpiryBanner(data.expires_at);
-      if (window.KillerWidgets && typeof window.KillerWidgets.renderRow === 'function') {
-        window.KillerWidgets.renderRow('homeKillerWidgets').catch(() => {});
-      }
+      // [죽은코드 정리 2026-07-27] KillerWidgets.renderRow('homeKillerWidgets') 호출 제거 —
+      //   렌더 타깃 컨테이너 'homeKillerWidgets'/'dashKiller' 가 DOM 어디에도 없어(HomeV41 로 대체됨)
+      //   render 가 getElementById=null 로 즉시 return, 모든 위젯이 안 떴다. 매 부팅 헛로드도 제거.
       if (typeof window.renderHomeResume === 'function') {
         window.renderHomeResume().catch(() => {});
       }

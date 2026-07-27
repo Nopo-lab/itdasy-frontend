@@ -2496,7 +2496,9 @@ window._lazyImgly = function _lazyImgly() {
 <script src="app-generic-sheet.js?v=local-151154" defer></script>
 <script src="app-service-templates.js?v=local-151154" defer></script>
 <!-- [2026-05-24] 파워뷰 (PowerView) JS 19개 전부 제거 — 기능 폐지 -->
-<script src="app-killer-widgets.js?v=local-151154" defer></script>
+<!-- [죽은코드 정리 2026-07-27] app-killer-widgets.js 로드 제거 — 렌더 컨테이너(homeKillerWidgets/dashKiller)가
+     DOM 에 없어 모든 위젯이 안 뜨는 죽은 코드였다(HomeV41 로 대체됨). 매 부팅 헛로드만 발생시켜 제거. -->
+
 <script src="app-autocomplete.js" defer></script>
 <!-- [P0-2 Phase2] app-revenue-hub·app-revenue-report → lazy 'revenue' 그룹 -->
 <script src="js/hubs/prototype-render.js?v=local-151154" defer></script>
