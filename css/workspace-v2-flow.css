@@ -55,6 +55,12 @@
 .wsv2flow .up-cloud svg { width: 24px; height: 24px; stroke: var(--brand-strong); }
 .wsv2flow .up-drop b { font-size: 13px; color: var(--text-muted); margin-bottom: 6px; }
 .wsv2flow .up-note { font-size: 10.5px; color: var(--text-subtle); font-weight: 700; }
+/* [2026-07-28 원영 2번·A안] 사진 없이 글만 쓰기 — 업로드 0장일 때 드롭존 아래 '또는' 구분선 + 필 버튼 */
+.wsv2flow .up-or { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; color: var(--text-subtle); font-size: 11px; font-weight: 700; }
+.wsv2flow .up-or::before, .wsv2flow .up-or::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.wsv2flow .up-textonly { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; height: 46px; border: 1px solid var(--border); border-radius: var(--r-pill); background: var(--surface); color: var(--text); font: inherit; font-size: 13px; font-weight: 800; letter-spacing: -.01em; cursor: pointer; box-shadow: var(--shadow-sm); transition: .15s; margin-bottom: 16px; }
+.wsv2flow .up-textonly i { color: var(--brand-strong); font-size: 15px; }
+.wsv2flow .up-textonly:active { transform: scale(.98); border-color: var(--brand-strong); }
 .wsv2flow .up-toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); padding: 13px 14px; margin-bottom: 16px; box-shadow: var(--shadow-sm); }
 .wsv2flow .up-toggle-copy b { display: block; font-size: 12.5px; color: var(--text); margin-bottom: 4px; }
 .wsv2flow .up-toggle-copy span { display: block; font-size: 10.5px; color: var(--text-subtle); font-weight: 600; line-height: 1.4; }
@@ -585,13 +591,14 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .ig-pager .d.on { background: var(--brand-strong); }
 /* [v779 보스] 고정 330px + cover 라 4:5 합성본 위·아래가 잘려 편집 결과 확인이 안 됐다.
    게시물 비율(4:5)로 박스를 잡아 전체가 보이게 — 다른 미리보기(tpl-car 등)와 동일 규칙. */
-.wsv2flow .ig-photo { width: 100%; aspect-ratio: 4 / 5; background: var(--frame) center/contain no-repeat; display: block; }
+.wsv2flow .ig-photo { width: 100%; aspect-ratio: 4 / 5; background: var(--frame) center/cover no-repeat; display: block; }   /* [#5] contain→cover — 규격과 다른 원본에서 옆 여백 생기던 것 제거(실제 게시 모습과 동일) */
+.wsv2flow .ig-photo--sq { aspect-ratio: 1 / 1; }   /* [#5] 정사각 선택 시 완성 미리보기도 1:1 */
 /* [v564·필수6] 인스타 미리보기 carousel — 게시글 carousel 과 동일 스와이프, IG 비율 */
 .wsv2flow .ig-car { margin: 0; }
 .wsv2flow .ig-car__track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 .wsv2flow .ig-car__track::-webkit-scrollbar { display: none; }
-.wsv2flow .ig-car__slide { position: relative; flex: 0 0 100%; scroll-snap-align: center; scroll-snap-stop: always; height: 330px; background: #000; cursor: pointer; }   /* [#2] 빠르게 스와이프해도 한 장씩만 넘어가게 */
-.wsv2flow .ig-car--sq .ig-car__slide { height: auto; aspect-ratio: 1 / 1; }   /* [#18] 정사각 1:1 선택 시 미리보기도 정사각 */
+.wsv2flow .ig-car__slide { position: relative; flex: 0 0 100%; scroll-snap-align: center; scroll-snap-stop: always; aspect-ratio: 4 / 5; background: #000; cursor: pointer; }   /* [#2] 한 장씩 스냅 / [#4] 330px 고정 → 선택 규격(4:5) 비율 — 위아래 잘림 제거 */
+.wsv2flow .ig-car--sq .ig-car__slide { aspect-ratio: 1 / 1; }   /* [#18] 정사각 1:1 선택 시 미리보기도 정사각 */
 .wsv2flow .ig-car__img { position: absolute; inset: 0; background-size: cover; background-position: center; }
 .wsv2flow .ig-car__dots { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 0 3px; }
 .wsv2flow .ig-car__dot { width: 6px; height: 6px; padding: 0; border: 0; border-radius: 50%; background: var(--border-strong); cursor: pointer; transition: width .2s, background .2s; }

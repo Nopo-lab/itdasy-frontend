@@ -52,7 +52,8 @@
 .itl__dup svg{width:12px;height:12px;stroke:#fff;fill:none;stroke-width:2.1}
 .itl-text{color:#fff;font-weight:800;line-height:1.16;text-align:center;white-space:pre-wrap;outline:none;
   text-shadow:0 1px 12px rgba(0,0,0,.4);padding:6px 10px;min-width:30px}
-.itl-text[contenteditable="true"]{cursor:text}
+/* [캐럿 버그 2026-07-27] 편집 중엔 레이어 박스(.itl)의 grab 커서 대신 text 커서 — is-editing 은 editText()가 붙임 */
+.itl.is-editing,.itl.is-editing .itl-text,.itl-text[contenteditable="true"]{cursor:text}
 .itl-sticker{font-size:64px;line-height:1;filter:drop-shadow(0 2px 8px rgba(0,0,0,.3))}
 
 /* 상단바 */
@@ -109,8 +110,18 @@
 .itfont.on{background:#fff;color:#1c1316;border-color:#fff;text-shadow:none}
 .itcolors{display:flex;gap:13px;overflow-x:auto;padding:2px 0;scrollbar-width:none}
 .itcolors::-webkit-scrollbar{display:none}
-.itsw{width:28px;height:28px;border-radius:50%;flex:none;border:1.5px solid rgba(255,255,255,.5);cursor:pointer}
-.itsw.on{box-shadow:0 0 0 2px #1c1316,0 0 0 4px #fff}
+/* [팔레트 통일 2026-07-27] 모든 색 스와치 공통 — 텍스트(.itsw)·도형(.itscw)·그리기(.itdsw)·배경(.itlaybg) 28px 단일 스타일 */
+.itsw,.itscw,.itdsw,.itlaybg{width:28px;height:28px;border-radius:50%;flex:none;border:1.5px solid rgba(255,255,255,.5);cursor:pointer;padding:0}
+.itsw.on,.itscw.on,.itdsw.on,.itlaybg.on{box-shadow:0 0 0 2px #1c1316,0 0 0 4px #fff}
+/* [스포이드] 파이펫 스와치 — 탭하면 사진에서 색 추출 모드 */
+.itsw--pip{display:inline-grid;place-items:center;background:rgba(255,255,255,.12)}
+.itsw--pip svg{width:15px;height:15px;stroke:#fff;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+/* [스포이드] 사진 위 색 추출 오버레이 + 손가락 위 미리보기 원(확대 링) */
+.iteyed{position:absolute;inset:0;z-index:8;cursor:crosshair;touch-action:none}
+.iteyed__ring{position:absolute;display:none;width:46px;height:46px;border-radius:50%;border:3px solid #fff;
+  box-shadow:0 0 0 1px rgba(0,0,0,.25),0 4px 14px rgba(0,0,0,.35);transform:translate(-50%,-140%);pointer-events:none}
+.iteyed__tip{position:absolute;left:50%;top:12px;transform:translateX(-50%);padding:7px 14px;border-radius:999px;
+  background:rgba(20,12,16,.72);color:#fff;font-size:12px;font-weight:700;white-space:nowrap;pointer-events:none}
 
 /* ── 스티커 시트 — 인스타식 어두운 반투명 + 스티커는 타일 없이 '떠 있게' ── */
 .itstk{background:rgba(22,17,20,.72);-webkit-backdrop-filter:saturate(150%) blur(26px);backdrop-filter:saturate(150%) blur(26px);
@@ -197,7 +208,7 @@
 .itlay2__fit button{height:28px;padding:0 11px;border:0;border-radius:7px;background:transparent;color:rgba(255,255,255,.85);font-size:11.5px;font-weight:700;cursor:pointer}
 .itlay2__fit button.on{background:#fff;color:#1c1316}
 /* [#7] 레이아웃 배경색 줄 — 색이 많아 우측이 잘리던 것을 좌우 스크롤로. 자기 줄 전체 폭 사용. */
-.itlay2__bg{display:flex;gap:8px;align-items:center;flex:1 1 100%;min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 0;flex-wrap:nowrap}
+.itlay2__bg{display:flex;gap:13px;align-items:center;flex:1 1 100%;min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 0;flex-wrap:nowrap}
 .itlay2__bg::-webkit-scrollbar{display:none}
 .itlay2__bg .itlaybg{flex:none}
 /* [#13] 무지개 스와치 — 탭하면 네이티브 색상 팔레트. 전 스펙트럼 자유 선택. */
@@ -215,8 +226,6 @@
 .itcp__foot{display:flex;align-items:center;gap:8px;margin-top:10px}
 .itcp__prev{width:22px;height:22px;border-radius:6px;border:1px solid rgba(0,0,0,.12);flex:none}
 .itcp__hex{font-size:12.5px;font-weight:800;letter-spacing:.4px;color:#333;font-family:ui-monospace,Menlo,monospace}
-.itlaybg{width:24px;height:24px;border-radius:50%;border:1.5px solid rgba(255,255,255,.6);cursor:pointer}
-.itlaybg.on{box-shadow:0 0 0 2px #1c1316,0 0 0 4px #fff}
 .itlay2__add{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 13px;border-radius:999px;background:var(--accent-strong,#BC6675);color:#fff;font-size:12px;font-weight:700;cursor:pointer}
 .itlay2__add svg{width:15px;height:15px;stroke:#fff;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 
@@ -239,8 +248,8 @@
 .itadj__bg--undo{flex:0 0 auto;width:62px;border-color:rgba(255,255,255,.4);background:rgba(20,12,16,.3)}
 .itadj__bg.is-busy{opacity:.6}
 /* [#4] 누끼 배경 색/사진 — 누끼 버튼 바로 아래. 탭하면 0초 재합성(매트 캐시) */
-.itadj__cutbg{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:-4px 0 12px}
-/* [2026-07-26 원영] 팔레트 A안 — 스와치 24px 통일(26px 불일치 제거), 기본은 주요색 한 줄만.
+.itadj__cutbg{display:flex;align-items:center;gap:13px;flex-wrap:wrap;margin:-4px 0 12px}
+/* [2026-07-27] 팔레트 통일 — 스와치 28px(.itsw 공통 스타일), 기본은 주요색 한 줄만.
    숨김색(.itlaybg--x)은 '+'(data-cutmore)로 .open 토글 시에만 표시. */
 .itadj__cutbg .itlaybg--x{display:none}
 .itadj__cutbg.open .itlaybg--x{display:inline-block}
@@ -275,10 +284,8 @@
 .itdrawp__size{display:flex;align-items:center;gap:11px;margin-bottom:12px}
 .itdrawp__lbl{color:#fff;font-size:12px;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.5);flex:none}
 .itdrawp__size input{flex:1;accent-color:#fff}
-.itdrawp__colors{display:flex;gap:13px;align-items:center;overflow-x:auto;scrollbar-width:none}
+.itdrawp__colors{display:flex;gap:13px;align-items:center;overflow-x:auto;scrollbar-width:none;padding:2px 0}
 .itdrawp__colors::-webkit-scrollbar{display:none}
-.itdsw{flex:none;width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.85);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3)}
-.itdsw.on{width:36px;height:36px;border:3px solid #fff}
 
 /* 레이아웃 프레임 프리셋(예시) */
 .itded__frame.fr-soft{box-shadow:inset 0 0 0 10px rgba(255,255,255,.9),inset 0 0 0 12px rgba(213,138,149,.5)}
@@ -323,8 +330,6 @@
 .itshape__thick input{width:96px;accent-color:#fff}
 .itshape__colors{display:flex;gap:13px;overflow-x:auto;scrollbar-width:none;padding:2px 0}
 .itshape__colors::-webkit-scrollbar{display:none}
-.itscw{width:28px;height:28px;border-radius:50%;flex:none;border:1.5px solid rgba(255,255,255,.55);cursor:pointer}
-.itscw.on{box-shadow:0 0 0 2px #1c1316,0 0 0 4px #fff}
 
 /* [5차] 레이어 삭제 안내 토스트 — × 오탭 즉시삭제 구제. 다크 필·하단 중앙·패널(z-10)보다 위·텍스트만(이모지 X). */
 .itl-deltoast{position:absolute;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,8px);

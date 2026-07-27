@@ -27,6 +27,17 @@
   function _rbSw(target, cls) {
     return '<button type="button" class="' + (cls || 'itsw') + ' itsw--rb" data-colorpick="' + target + '" title="색 직접 고르기" aria-label="색 직접 고르기"></button>';
   }
+  // [팔레트 통일 2026-07-27] 색 스와치 한 줄 렌더 — 텍스트/도형/그리기/배경 팔레트 공용(파일 내 중복 렌더 제거).
+  function _swRow(colors, attr, cls, onIdx, extraCls) {
+    return colors.map(function (c, i) {
+      var x = extraCls ? (extraCls(c, i) || '') : '';
+      return '<button type="button" class="' + cls + (i === onIdx ? ' on' : '') + (x ? ' ' + x : '') + '" ' + attr + '="' + c + '" style="background:' + c + '"></button>';
+    }).join('');
+  }
+  // [스포이드] 파이펫 스와치 — 편집 중인 사진에서 색을 찍어 적용(EyeDropper API 미지원 모바일 대응, 자체 구현).
+  function _pipSw(target, cls) {
+    return '<button type="button" class="' + (cls || 'itsw') + ' itsw--pip" data-eyedrop="' + target + '" title="사진에서 색 추출" aria-label="사진에서 색 추출">' + IC.pipette + '</button>';
+  }
   // [#13-v2] HSV 커스텀 색상 피커 — SV 사각형 + 색조 바(네이티브 대신 화면 안 팔레트).
   function _hsvToRgb(h, s, v) {
     var c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c, r = 0, g = 0, b = 0;
@@ -47,7 +58,7 @@
   function _cpOutside(e) { if (_cpState && _cpState.el && !_cpState.el.contains(e.target) && e.target !== _cpState.anchor) _closeColorPicker(); }
   function _openColorPicker(anchor, target) {
     _closeColorPicker();
-    var cur = (target === 'text' ? (activeText() && activeText().color) : target === 'shape' ? S.shapeColor : target === 'draw' ? S.drawColor : S.collageBg) || '#BC6675';
+    var cur = (target === 'text' ? (activeText() && activeText().color) : target === 'shape' ? S.shapeColor : target === 'draw' ? S.drawColor : target === 'cutbg' ? (S.photoBg && S.photoBg[S.adjSel] && S.photoBg[S.adjSel].color) : S.collageBg) || '#BC6675';
     var hsv = _hexToHsv(cur);
     var box = el('div', 'itcp');
     // [스크린샷 매칭] 사각형: X=색조(무지개) · Y=채도(위=진함, 아래=흰색). 오른쪽 세로바=밝기.
@@ -97,6 +108,62 @@
     else if (t === 'shape') { S.shapeColor = v; if (refs.panels && refs.panels.shape) refs.panels.shape.querySelectorAll('[data-scolor]').forEach(function (x) { x.classList.remove('on'); }); applyShapeStyle(); }
     else if (t === 'draw') { S.drawColor = v; if (root) root.querySelectorAll('[data-dcolor]').forEach(function (x) { x.classList.remove('on'); }); }
     else if (t === 'layout') { S.collageBg = v; S.collageBgImg = null; saveBgPref(); if (refs.panels && refs.panels.layout) refs.panels.layout.querySelectorAll('[data-bg]').forEach(function (x) { x.classList.remove('on'); }); renderCollage(); applyFit(); recutWithBg(); }
+    // [스포이드/무지개] 누끼 배경색 — 이미 누끼면 매트 캐시 0초 재합성만(recutWithBg). 아직 안 했으면 색만 기억(드래그 중 유료 누끼 API 연발 방지).
+    else if (t === 'cutbg') { S.photoBg = S.photoBg || {}; S.photoBg[S.adjSel] = { color: v, img: null }; if (refs.adjCutBg) refs.adjCutBg.querySelectorAll('[data-cutbg],[data-cutbgimg]').forEach(function (x) { x.classList.remove('on'); }); applyFit(); recutWithBg(); }
+  }
+  /* ── [스포이드] 사진에서 색 추출 — 합성 스냅샷(exportComposite 재사용)의 픽셀을 getImageData 로 읽는다.
+     전부 클라이언트 처리(서버 호출 0). 파이펫 탭 → 사진 터치/드래그로 미리보기 원 → 떼면 그 색 확정. ── */
+  var _eyed = null;
+  function _closeEyedrop() {
+    if (!_eyed) return;
+    if (_eyed.ov && _eyed.ov.parentNode) _eyed.ov.parentNode.removeChild(_eyed.ov);
+    _eyed = null;
+  }
+  function _openEyedrop(target) {
+    if (_eyed) { var same = _eyed.target === target; _closeEyedrop(); if (same) return; }   // 같은 파이펫 재탭 = 취소
+    _closeColorPicker();
+    exportComposite(function (url) {
+      if (!url) { toastIt('사진 색을 읽지 못했어요'); return; }
+      loadImg(url).then(function (im) {
+        if (!im || !S || !root.classList.contains('is-open')) { if (!im) toastIt('사진 색을 읽지 못했어요'); return; }
+        var cv = document.createElement('canvas'); cv.width = im.width; cv.height = im.height;
+        var cx = cv.getContext('2d'); cx.drawImage(im, 0, 0);
+        var ov = el('div', 'iteyed');
+        ov.innerHTML = '<div class="iteyed__tip">사진을 눌렀다 떼면 그 색이 적용돼요</div><div class="iteyed__ring" data-eyering></div>';
+        refs.stage.appendChild(ov);
+        _eyed = { target: target, cv: cv, ctx: cx, ov: ov, ring: ov.querySelector('[data-eyering]'), hex: null, down: false };
+        ov.addEventListener('pointerdown', _eyedMove);
+        ov.addEventListener('pointermove', _eyedMove);
+        ov.addEventListener('pointerup', _eyedPick);
+        ov.addEventListener('pointercancel', _closeEyedrop);
+      });
+    });
+  }
+  function _eyedHexAt(e) {
+    var r = refs.stage.getBoundingClientRect();
+    var x = Math.max(0, Math.min(_eyed.cv.width - 1, Math.round((e.clientX - r.left) / (r.width || 1) * _eyed.cv.width)));
+    var y = Math.max(0, Math.min(_eyed.cv.height - 1, Math.round((e.clientY - r.top) / (r.height || 1) * _eyed.cv.height)));
+    var d = _eyed.ctx.getImageData(x, y, 1, 1).data;
+    return '#' + [d[0], d[1], d[2]].map(function (n) { return ('0' + n.toString(16)).slice(-2); }).join('').toUpperCase();
+  }
+  function _eyedMove(e) {
+    if (!_eyed) return;
+    e.preventDefault(); e.stopPropagation();   // 스테이지 핀치·선택해제(selectLayer(null))로 안 새게
+    if (e.type === 'pointerdown') { _eyed.down = true; try { _eyed.ov.setPointerCapture(e.pointerId); } catch (_) { void _; } }
+    else if (!_eyed.down) return;   // 누른 채 이동만 추적(마우스 hover 제외)
+    var r = refs.stage.getBoundingClientRect();
+    _eyed.hex = _eyedHexAt(e);
+    _eyed.ring.style.display = 'block';
+    _eyed.ring.style.left = (e.clientX - r.left) + 'px';
+    _eyed.ring.style.top = (e.clientY - r.top) + 'px';
+    _eyed.ring.style.background = _eyed.hex;
+  }
+  function _eyedPick(e) {
+    if (!_eyed || !_eyed.down) return;
+    e.preventDefault(); e.stopPropagation();
+    var hex = _eyed.hex || _eyedHexAt(e), t = _eyed.target;
+    _closeEyedrop();
+    _colorPickApply(t, hex);
   }
   var SHOP_STK = ['🌸', '✨', '💗', '🎀', '👑'];
   var EMOJI = ['💄', '💅', '🔥', '😍', '🥰', '💎', '🌟', '🫶', '💖', '🌿', '☁️', '🎉'];
@@ -135,7 +202,9 @@
   function svg(path, sw) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (sw || 1.8) + '" stroke-linecap="round" stroke-linejoin="round">' + path + '</svg>'; }
   var IC = {
     x: svg('<path d="M18 6L6 18M6 6l12 12"/>'),
-    text: 'Aa',
+    // [2026-07-27] 텍스트 도구 — 'Aa' 라벨 → lucide type(T)을 둥근 네모로 감싼 아이콘
+    text: svg('<rect x="3" y="3" width="18" height="18" rx="4.5"/><path d="M8 8.5h8M12 8.5V16"/>'),
+    pipette: svg('<path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"/>'),
     sticker: svg('<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4 4 0 0 0 7 0"/><circle cx="9" cy="10" r="1"/><circle cx="15" cy="10" r="1"/>'),
     layout: svg('<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 9v12"/>'),
     draw: svg('<path d="M12 19l7-7-3-3-7 7-1 4 4-1z"/><path d="M16 8l3 3"/>'),
@@ -203,7 +272,7 @@
         '<button class="itded__done" data-r="done">완료</button>' +
       '</div>' +
       '<div class="itded__rail" data-r="rail">' +
-        '<button class="itrb on" data-tool="text">Aa</button>' +
+        '<button class="itrb" data-tool="text" aria-label="글자 추가">' + IC.text + '</button>' +
         '<button class="itrb" data-tool="adjust">' + IC.adjust + '</button>' +
         '<button class="itrb" data-tool="sticker">' + IC.sticker + '</button>' +
         // [요청4 2026-07-13] 레이아웃(상하좌우 등) 재선택 도구 제거 — 레이아웃은 업로드 직후 작업실 갤러리에서 이미 고름.
@@ -229,10 +298,9 @@
       var big = (f.key === 'pen' || f.key === 'gamja' || f.key === 'himelody' || f.key === 'gaegu') ? ';font-size:26px' : '';
       return '<button class="itfont' + (i === 0 ? ' on' : '') + '" data-font="' + f.key + '" aria-label="' + f.label + '" style="font-family:' + f.family + big + '">가나다</button>';
     }).join('');
-    var colors = COLORS.map(function (c, i) {
-      return '<button class="itsw' + (i === 0 ? ' on' : '') + '" data-color="' + c + '" style="background:' + c + '"></button>';
-    }).join('');
-    return '<div class="itpanel ittext is-open" data-panel="text">' +
+    var colors = _swRow(COLORS, 'data-color', 'itsw', 0);
+    // [2026-07-27] is-open 하드코딩 제거 — 폰트 패널은 기본 닫힘. Aa 탭/텍스트 레이어 선택 시에만 setTool 로 연다.
+    return '<div class="itpanel ittext" data-panel="text">' +
         '<div class="itgrip itgrip--p" data-pgrip></div>' +
                 '<div class="ittext__top">' +
           '<span class="italn" data-r="aln">' +
@@ -243,7 +311,7 @@
           '<span class="itsize">크기<input type="range" min="0.5" max="8" step="0.02" value="1" data-r="size"></span>' +
         '</div>' +
         '<div class="itfonts" data-r="fonts">' + fonts + '</div>' +
-        '<div class="itcolors" data-r="colors">' + colors + _rbSw('text', 'itsw') + '</div>' +
+        '<div class="itcolors" data-r="colors">' + colors + _rbSw('text', 'itsw') + _pipSw('text', 'itsw') + '</div>' +
       '</div>';
   }
   // [보정] 사진별 보정 패널 — 위 사진 스트립에서 사진 고르고 아래 슬라이더로 그 사진만 보정.
@@ -263,7 +331,8 @@
       // [2026-07-26 원영] 팔레트 A안 — 기본 한 줄(주요 6색+검정+업로드+최근)만, 나머지는 '+'(data-cutmore)로 펼치기.
       //   색이 두 줄로 줄바꿈되는 게 별로라는 피드백. 주요색 = BG_MAIN_IDX, 숨김색 = .itlaybg--x (open 시 표시).
       '<div class="itadj__cutbg" data-r="adjCutBg">' +
-        BG_COLORS.map(function (c, i) { return '<button class="itlaybg' + (i === 0 ? ' on' : '') + (BG_MAIN_IDX.indexOf(i) < 0 ? ' itlaybg--x' : '') + '" data-cutbg="' + c + '" style="background:' + c + '"></button>'; }).join('') +
+        _swRow(BG_COLORS, 'data-cutbg', 'itlaybg', 0, function (c, i) { return BG_MAIN_IDX.indexOf(i) < 0 ? 'itlaybg--x' : ''; }) +
+        _rbSw('cutbg', 'itlaybg') + _pipSw('cutbg', 'itlaybg') +
         '<label class="itlaybg itlaybg--up" aria-label="배경 사진"><input type="file" accept="image/*" data-r="adjBgImg" hidden>' + IC.addphoto + '</label>' +
         // [#2] 최근 업로드 배경 재사용 스와치(있을 때만 보임)
         (function () { try { var rb = localStorage.getItem('itdasy:itd_bgimg'); return rb ? '<button class="itlaybg itlaybg--recent" data-cutbgimg="1" aria-label="최근 배경 재사용" style="background-image:url(\'' + rb + '\')"></button>' : ''; } catch (_e) { return ''; } })() +
@@ -364,9 +433,7 @@
     var chips = SHAPES.map(function (s) {
       return '<button class="itshp" data-shape="' + s.key + '" aria-label="' + s.label + '"><span class="itshp__ic itshp__ic--' + s.key + '"></span><em>' + s.label + '</em></button>';
     }).join('');
-    var colors = COLORS.map(function (c, i) {
-      return '<button class="itscw' + (i === 2 ? ' on' : '') + '" data-scolor="' + c + '" style="background:' + c + '"></button>';
-    }).join('');
+    var colors = _swRow(COLORS, 'data-scolor', 'itscw', 2);
     return '<div class="itpanel itshape" data-panel="shape">' +
         '<div class="itgrip itgrip--p" data-pgrip></div>' +
               '<div class="itshape__row">' + chips + '</div>' +
@@ -386,7 +453,7 @@
       return '<button class="itlaytype' + (idx === 0 ? ' on' : '') + '" data-lay="' + idx + '" aria-label="' + L.label + '">' +
         '<span class="itlaytype__d">' + _layThumbSvg(L) + '</span><em>' + L.label + '</em></button>';
     }).join('');
-    var bg = BG_COLORS.map(function (c, i) { return '<button class="itlaybg' + (i === 0 ? ' on' : '') + '" data-bg="' + c + '" style="background:' + c + '"></button>'; }).join('');
+    var bg = _swRow(BG_COLORS, 'data-bg', 'itlaybg', 0);
     return '<div class="itpanel itlay2" data-panel="layout">' +
         '<div class="itgrip itgrip--p" data-pgrip></div>' +
       '<div class="itlay2__types">' + chips + '</div>' +
@@ -407,15 +474,13 @@
     var brushes = BRUSHES.map(function (b, i) {
       return '<button class="itbrush2' + (i === 0 ? ' on' : '') + '" data-brush="' + b + '" aria-label="' + (BRUSH_LABEL[b] || b) + '">' + IC[b] + '<em>' + (BRUSH_LABEL[b] || b) + '</em></button>';
     }).join('');
-    var colors = COLORS.map(function (c, i) {
-      return '<button class="itdsw' + (i === 2 ? ' on' : '') + '" data-dcolor="' + c + '" style="background:' + c + '"></button>';
-    }).join('');
+    var colors = _swRow(COLORS, 'data-dcolor', 'itdsw', 2);
     return '<div class="itpanel itdrawp" data-panel="draw">' +
       '<div class="itgrip itgrip--p" data-pgrip></div>' +
       '<div class="itdrawp__tools">' + brushes +
         '<button class="itdrawp__clear" data-r="drawClear">' + svg('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>', 2) + '전체 지우기</button></div>' +
       '<div class="itdrawp__size"><span class="itdrawp__lbl">굵기</span><input type="range" min="3" max="40" step="1" value="10" data-r="brushSize"></div>' +
-      '<div class="itdrawp__colors">' + colors + _rbSw('draw', 'itdsw') + '</div>' +
+      '<div class="itdrawp__colors">' + colors + _rbSw('draw', 'itdsw') + _pipSw('draw', 'itdsw') + '</div>' +
     '</div>';
   }
 
@@ -430,6 +495,7 @@
 
   /* ── 도구 전환 ── */
   function setTool(tool, _noAuto) {
+    _closeEyedrop();   // [스포이드] 도구 바꾸면 색 추출 모드 해제
     S.tool = tool;
     root.querySelectorAll('.itrb').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-tool') === tool); });
     Object.keys(refs.panels).forEach(function (k) { refs.panels[k].classList.toggle('is-open', k === tool); });
@@ -558,7 +624,9 @@
     S.layers.forEach(function (x) { x.el.classList.toggle('is-active', x === L); });
     // [#8b] 새로 선택된 순간엔 삭제/복제 핸들 클릭을 잠깐 막는다 — 선택시키는 그 탭이 방금 나타난 ×를 눌러 사라지던 것 방지(타이밍 무관 방어).
     if (L && !wasActive && L.el) { L.el.classList.add('itl--guard'); clearTimeout(L._guardT); L._guardT = setTimeout(function () { try { L.el.classList.remove('itl--guard'); } catch (_e) { void _e; } }, 320); }
-    if (L && L.type === 'text') syncTextControls(L);
+    // [2026-07-27] 폰트 패널 조건부 노출 — 텍스트 레이어 선택 시에만 열고, 선택 해제/다른 레이어면 닫는다(기존 setTool/_closeToolPanel 재사용).
+    if (L && L.type === 'text') { syncTextControls(L); if (S.tool !== 'text') setTool('text', true); }
+    else if (S.tool === 'text') _closeToolPanel();
   }
   function removeLayer(L, track) {
     var i = S.layers.indexOf(L); if (i >= 0) S.layers.splice(i, 1);
@@ -652,6 +720,10 @@
   }
   var drag = null, lpinch = null;
   function onLayerDown(e, L) {
+    // [캐럿 버그 2026-07-27] 편집 중(contenteditable)엔 브라우저 기본 캐럿 배치/드래그 선택에 맡긴다.
+    //   preventDefault·포인터캡처·드래그 시작이 클릭 캐럿 이동을 막고 커서를 grab 으로 고정하던 원인.
+    //   blur(편집 종료)로 contenteditable 이 풀리면 자동으로 원래 드래그 동작 복귀.
+    if (L.tx && L.tx.isContentEditable) return;
     // [#8b] 몸통 탭이면 삭제/복제 핸들 disarm — 몸통 위에 겹친 ×가 눌려 레이어가 사라지던 것 방지(핸들 직접 탭에서만 동작).
     L._delArmed = false; L._dupArmed = false;
     e.preventDefault(); selectLayer(L);
@@ -794,9 +866,11 @@
     return L;
   }
   function editText(L) {
+    L.el.classList.add('is-editing');   // [캐럿 버그] .itl 의 grab 커서 대신 text 커서(css .itl.is-editing)
     L.tx.setAttribute('contenteditable', 'true'); L.tx.focus();
     document.execCommand && document.execCommand('selectAll', false, null);
     L.tx.addEventListener('blur', function () {
+      L.el.classList.remove('is-editing');
       L.tx.removeAttribute('contenteditable');
       // [버그수정 2026-07-06] textContent 는 contenteditable 의 <br>/<div> 줄바꿈을 개행문자로 안 넣어
       //   두 줄 입력이 한 줄로 뭉쳤다(미리보기·export·재편집 3곳 불일치). innerText 는 개행을 \n 으로 보존.
@@ -1033,6 +1107,7 @@
   }
   // [#7] 하단 도구패널 전체 닫기 — 아무 도구도 선택 안 한 상태로(모든 패널 내림).
   function _closeToolPanel() {
+    _closeEyedrop();
     S.tool = null;
     root.querySelectorAll('.itrb').forEach(function (b) { b.classList.remove('on'); });
     Object.keys(refs.panels).forEach(function (k) { refs.panels[k].classList.remove('is-open'); });
@@ -1754,6 +1829,12 @@
       if (_cpState && _cpState.anchor === cp) { _closeColorPicker(); return; }
       _openColorPicker(cp, cp.getAttribute('data-colorpick'));
     });
+    // [스포이드] 파이펫 탭 → 사진에서 색 추출 모드(재탭 = 취소)
+    root.addEventListener('click', function (e) {
+      var pp = e.target.closest ? e.target.closest('[data-eyedrop]') : null; if (!pp) return;
+      e.preventDefault(); e.stopPropagation();
+      _openEyedrop(pp.getAttribute('data-eyedrop'));
+    });
     // [#5] 스티커 — 카테고리 탭 전환 + 이모지/글자스티커/SVG/우리샵칩/데코/내 스티커 → 레이어로 추가
     refs.stkSheet.addEventListener('click', function (e) {
       var tab = e.target.closest('[data-sttab]'); if (tab) { refs.stkTabs.querySelectorAll('[data-sttab]').forEach(function (x) { x.classList.toggle('on', x === tab); }); _renderStkTab(tab.getAttribute('data-sttab')); return; }
@@ -2035,8 +2116,8 @@
       else { if (!isSingleL(S.layout)) renderCollage(); _renderMissingIncoming(S.incoming); }   // [#2a] 복원했어도 없는 역할의 시술 텍스트는 추가
       // [#5] 시술내용 텍스트가 이미 올라왔으면 그걸 선택 → setTool('text')이 빈 '내용을 입력하세요'를 덧붙이지 않음.
       var firstText = S.layers.filter(function (L) { return L.type === 'text'; })[0];
-      if (firstText) selectLayer(firstText);
-      setTool('text', true);   // [#1] 초기엔 자동 텍스트 생성 금지 — 업로드 편집기에 '내용을 입력하세요'가 박히던 문제
+      if (firstText) selectLayer(firstText);   // 텍스트 선택 → selectLayer 가 폰트 패널까지 연다(조건부 노출)
+      else _closeToolPanel();   // [2026-07-27] 폰트 패널 기본 닫힘 — Aa 탭/텍스트 선택 전엔 아무 패널도 안 연다
     });
   }
   // [#4/#8/#11/#16] 복원 렌더 — 레이아웃 버튼/콜라주/레이어 반영(동기 호출 가능).
@@ -2052,7 +2133,7 @@
     if (S && S._popHandler) { try { window.removeEventListener('popstate', S._popHandler); } catch (_e) { void _e; } S._popHandler = null; }
     if (!fromPop && S && S._histPushed) { S._histPushed = false; window.__seSwallowPop = true; setTimeout(function () { window.__seSwallowPop = false; }, 0); try { history.back(); } catch (_e2) { void _e2; } }
   }
-  function close() { if (!root || !root.classList.contains('is-open')) return; _teardownBack(false); root.classList.remove('is-open'); }
+  function close() { if (!root || !root.classList.contains('is-open')) return; _closeEyedrop(); _teardownBack(false); root.classList.remove('is-open'); }
 
   // [#2 단일화] 헤드리스 합성 — 캡션 미리보기를 '편집기와 동일한 렌더러'로 그린다(미리보기=편집기).
   //   화면 밖 고정크기로 렌더 → 폰트/줄바꿈/겹침방지까지 편집기와 100% 동일. 편집 중이면 스킵(상태 충돌 방지).

@@ -791,7 +791,13 @@
         '<span class="up-cloud"><i class="ph-duotone ph-cloud-arrow-up"></i></span>' +
         '<b>사진을 드래그하거나 여기를 눌러 업로드</b>' +
         '<span class="up-note">여러 장 한 번에 · JPG · PNG 최대 20MB</span>' +
-      '</div>' + guide +
+      '</div>' +
+      // [2026-07-28 원영 2번·A안] 사진 없이 글만 쓰기 — 업로드 0장일 때만 드롭존 아래 노출.
+      //   글만 쓰기는 업로드의 하위 옵션이 아니라 별도 시작점이라 드롭존 밖에 대등하게 둔다.
+      (n ? '' :
+        '<div class="up-or" aria-hidden="true"><span>또는</span></div>' +
+        '<button type="button" class="up-textonly" data-fl="textonly"><i class="ph-bold ph-pencil-simple"></i>사진 없이 글만 쓰기</button>') +
+      guide +
       '<div class="up-section">업로드한 사진 <b>' + n + '</b> / 10' +
         (n ? ' <span class="up-rolehint">· 탭해 <b>선택/해제</b>' + (multi ? ' · 전후는 사진마다 <b>전·후</b> 지정' : '') + '</span>' : '') + '</div>' +
       '<div class="upload-grid">' + tiles +
@@ -2073,7 +2079,7 @@
 	    var items = _displayItems();
 	    if (items.length <= 1) {
 	      var u = items.length ? items[0].url : fallbackUrl;
-	      return '<div class="ig-photo" style="background-image:url(' + esc(_blobDisp(u)) + ')"></div>';
+	      return '<div class="ig-photo' + (_wsFormat() === '11' ? ' ig-photo--sq' : '') + '" style="background-image:url(' + esc(_blobDisp(u)) + ')"></div>';
 	    }
 	    var active = (d.activeDisplayId && items.some(function (it) { return it.id === d.activeDisplayId; })) ? d.activeDisplayId : items[0].id;
 	    var slides = items.map(function (it) {
@@ -2746,6 +2752,9 @@
       // [cleanup] footersave/footerclear·clen·chash·cpersona 핸들러 제거 — 레거시 캡션 UI(SIMPLE_FLOW=false) 삭제로 렌더러 사라져 도달 불가.
       // [v778 복구] 캡션 결과의 '사진 편집' 버튼 핸들러 되살림 — 입력 반영 후 스토리 편집기 진입.
       if (a === 'storyedit') { flushCaptionInputs(); return _openStoryEditor(); }
+      // [2026-07-28 원영 2번·A안] 업로드 화면에서 '사진 없이 글만 쓰기' — textOnly 모드로 캡션 직행.
+      //   기존 textOnly 진입(open({textOnly:true}))과 같은 상태, 단 navStack push 로 back=업로드 복귀.
+      if (a === 'textonly') { d.textOnly = true; return setScreen('caption'); }
       if (a === 'tagsopen') { d._tagsOpen = true; return setScreen(cur, { push: false }); }   // [v776] 계정 태그 펼치기
       // [2026-07-26 원영] 계정 태그 접기 — 값이 있으면 자동 펼침 조건(_tagVal) 때문에 값도 같이 비워야 닫힌다.
       if (a === 'tagsclose') { d._tagsOpen = false; d.igUserTags = []; return setScreen(cur, { push: false }); }
@@ -4019,6 +4028,9 @@
 	      //   이제 navStack 이 비어 back → _systemBack → close → 작업실 홈으로 바로 복귀(중간 업로드 화면 X).
 	      // [v590·#1] 심플 플로우면 업로드 진입경로(홈 시작하기 포함) 불문하고 '캡션 생성'으로 직행.
       //   기존엔 toEdit(홈→편집) 우선이라 사진편집으로 새던 회귀. SIMPLE_FLOW 최우선.
+      // [2026-07-28 원영 2번] 글만 쓰기로 갔다가 back 으로 돌아와 사진을 올리면 textOnly 해제 — 사진 플로우 복귀.
+      //   업로드 화면에서 추가한 경우만(cur 체크). 홈 textOnly 직행 플로우(캡션 화면)는 건드리지 않는다.
+      if (cur === 'upload') d.textOnly = false;
       if (!d.textOnly && editablePhotos().length) {
         setScreen('layout', { push: false });   // 사진 로드 후 '레이아웃 고르기'로
         /* [2026-07-22 보스] 잇비 채팅에서 이미 레이아웃을 골라 왔으면 그 구성을 적용하고
