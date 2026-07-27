@@ -10,7 +10,6 @@
 (function () {
   'use strict';
 
-  const LS_OUTSIDE_HOURS = 'itdasy:dm:outside_hours';
   let _overlay = null;          // 시트 overlay
   let _sheet = null;            // 카드 노드
   let _settings = null;         // settings 캐시
@@ -307,8 +306,9 @@
     const start = _esc(settings.auto_reply_start || '09:00');
     const end = _esc(settings.auto_reply_end || '22:00');
     const tz = _esc(settings.timezone_name || 'Asia/Seoul');
-    // TODO[v1.5]: settings에 auto_reply_outside_hours 추가될 때까지 localStorage 폴백
-    const outsideOn = (localStorage.getItem(LS_OUTSIDE_HOURS) ?? '1') === '1';
+    // [죽은토글 실구현 2026-07-27] 백엔드 auto_reply_outside_hours 신설 → 서버값으로 hydrate.
+    //   예전엔 localStorage 에만 저장돼 백엔드가 아무 것도 안 하던 죽은 토글이었다. 기본 OFF(안전).
+    const outsideOn = !!settings.auto_reply_outside_hours;
     return `
       <div class="dm-section">
         <div class="dm-section__title">자동 응답 시간</div>
@@ -1133,8 +1133,8 @@
       const next = !btn.classList.contains('is-on');
       btn.classList.toggle('is-on', next);
       btn.setAttribute('aria-pressed', String(next));
-      // TODO[v1.5]: settings.auto_reply_outside_hours 저장
-      localStorage.setItem(LS_OUTSIDE_HOURS, next ? '1' : '0');
+      // [죽은토글 실구현 2026-07-27] 이제 백엔드에 저장 → 운영시간 밖 DM 에 자리비움 멘트 자동발송.
+      _saveSettings({ auto_reply_outside_hours: next });
       _haptic();
     });
   }
