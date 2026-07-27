@@ -74,9 +74,9 @@
           <div class="ss-toggle">
             <div>
               <div class="ss-toggle-lbl">예약 자동 확정</div>
-              <div class="ss-toggle-sub">예약금 결제 완료 시 자동으로 확정 처리</div>
+              <div class="ss-toggle-sub">손님 입금 신호가 오면 원장 확인 없이 자동으로 예약을 확정해요. 꺼두면 [입금 확인+예약 확정] 버튼으로 직접 확정해요(기본).</div>
             </div>
-            <div class="ss-switch is-on" id="ssAutoConfirmSwitch" role="switch" aria-checked="true" tabindex="0"></div>
+            <div class="ss-switch" id="ssAutoConfirmSwitch" role="switch" aria-checked="false" tabindex="0"></div>
           </div>
           <div class="ss-toggle" style="margin-top:12px;">
             <div>
@@ -333,14 +333,11 @@
           _alSw.classList.toggle('is-on', _on);
           _alSw.setAttribute('aria-checked', _on ? 'true' : 'false');
         }
-        // [보안감사 C-6 2026-07-26] 예약 자동확정 스위치도 서버값 반영.
-        //   기존엔 알림톡만 hydrate 하고 이건 빠져서, HTML 기본 is-on 그대로 떠
-        //   OFF 로 꺼둔 사장님도 설정 열고 저장할 때마다 auto_confirm:1 로 덮였다(의도치 않은 자동확정 사고).
-        //   서버가 값을 안 주면(신규) 문서화된 기본값 ON 유지, 명시적 0 이면 OFF 반영.
+        // [C-6 2026-07-27] 예약 자동확정 스위치 서버값 반영. 백엔드에 auto_confirm 컬럼을 신설해
+        //   이제 GET 에서 실제 값을 내려준다(기본 False = 팀 설계대로 원장 수동 확정). 켠 샵에서만 자동확정.
         const _acSw = document.getElementById('ssAutoConfirmSwitch');
         if (_acSw) {
-          const _acOn = (data.auto_confirm === undefined || data.auto_confirm === null)
-            ? true : !!data.auto_confirm;
+          const _acOn = !!data.auto_confirm;
           _acSw.classList.toggle('is-on', _acOn);
           _acSw.setAttribute('aria-checked', _acOn ? 'true' : 'false');
         }
