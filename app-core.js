@@ -122,17 +122,30 @@ const API = (window.location.hostname === 'localhost' || window.location.hostnam
   ? (_API_STAGING_OVERRIDE ? PROD_API : 'http://localhost:8000')
   : PROD_API;
 
-// [보안감사 H-3 2026-07-27] 토큰 저장소 추상화 플래그 — 기본 OFF.
-//   ?securetoken=1 (또는 localStorage itdasy_securetoken=1) 로만 켜진다. ?api 오버라이드와 동일 패턴(1회 쿼리→고정).
-//   OFF: 아래 보안저장 경로는 전부 우회 → getToken/setToken 은 기존 코드 그대로(사용자 동작 100% 불변).
-//   ON: JWT 를 네이티브 Keychain/Keystore(있을 때)에 두고 평문 localStorage 복사본을 제거. 없으면 localStorage 폴백.
+// [보안감사 H-3 2026-07-27] 토큰 저장소 보안 모드 — 기본 OFF, "빌드에 보안저장 플러그인이 실제로 포함됐을 때" 자동 ON.
+//   ▶ 웹(비네이티브): 원본 localStorage 경로 100% 불변. 감지·await 자체가 안 돎(부팅비용 0).
+//   ▶ 플러그인 없는 네이티브(현재 모든 설치본): 원본 localStorage 경로 100% 불변(감지 실패 → OFF 유지).
+//   ▶ 플러그인 있는 네이티브(향후 빌드): 부팅 때 자동 감지 → JWT 를 Keychain/Keystore 로 이관 + 평문 localStorage 제거.
+//   오버라이드(?api 와 동일하게 1회 쿼리→localStorage 고정): ?securetoken=1 강제 ON(테스트), ?securetoken=0 강제 OFF(킬스위치).
 //   ~26곳의 동기 getToken() 호출부를 async 로 바꾸지 않으려고, 부팅 때 1회 하이드레이션 후 in-memory 캐시로 서빙한다.
-const _SECURE_TOKEN = (function () {
+const _secureForced = (function () {   // true=강제ON, false=강제OFF(킬스위치), null=자동감지
   try {
     if (/[?&]securetoken=1/.test(location.search)) { try { localStorage.setItem('itdasy_securetoken', '1'); } catch (_p) { void _p; } return true; }  // 쿼리 1회 → 리로드에도 유지
-    return localStorage.getItem('itdasy_securetoken') === '1';
-  } catch (_e) { return false; }
+    if (/[?&]securetoken=0/.test(location.search)) { try { localStorage.setItem('itdasy_securetoken', '0'); } catch (_p) { void _p; } return false; }
+    const v = localStorage.getItem('itdasy_securetoken');
+    if (v === '1') return true;
+    if (v === '0') return false;
+    return null;
+  } catch (_e) { return null; }
 })();
+// [보안감사 H-3] 런타임 가변 스위치. 기본 false → getToken/setToken 은 (감지 전까지) 원본 경로.
+//   강제 ON 이면 즉시 true. 자동감지(네이티브 + 플러그인 확인)는 부팅 게이트에서 true 로 승격한다.
+let _secureMode = (_secureForced === true);
+// [보안감사 H-3] 네이티브 여부 동기 체크(웹이면 false → 감지 로직 자체를 건너뜀).
+function _isNativePlatform() {
+  try { return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); }
+  catch (_e) { return false; }
+}
 
 function apiUrl(path) {
   const raw = String(path == null ? '' : path);
@@ -152,7 +165,7 @@ function apiFetch(path, opts) {
 const _TOKEN_KEY = 'itdasy_token::' + (API.includes('staging') ? 'staging' : (API.includes('localhost') ? 'local' : 'prod'));
 const _LEGACY_TOKEN_KEY = 'itdasy_' + 'token';
 
-// ═══ [보안감사 H-3 2026-07-27] 토큰 저장소 추상화 (플래그 _SECURE_TOKEN ON 일 때만 사용) ═══
+// ═══ [보안감사 H-3 2026-07-27] 토큰 저장소 추상화 (secure 모드 _secureMode ON 일 때만 사용) ═══
 //   in-memory 캐시. 부팅 때 _hydrateToken() 이 보안저장/localStorage 에서 1회 읽어 채운다.
 //   동기 getToken() 호출부(~26곳)는 캐시만 읽으므로 async 전환 불필요.
 let _tokenCache = null;
@@ -180,45 +193,41 @@ function _validateToken(t) {
 }
 
 // 선택적 네이티브 보안저장 백엔드 — 있으면 {get,set,remove}, 없으면 null(→ 호출부 localStorage 폴백).
-//   app-biometric.js 의 _plugin() 스타일 그대로 하드 의존 없음. package.json 미변경.
+//   [보안감사 H-3 2026-07-27] 실제 API: @aparajita/capacitor-secure-storage v6.
+//     · 등록 이름/익스포트 = SecureStorage (registerPlugin('SecureStorage'), export { proxy as SecureStorage }).
+//     · 저수준 문자열 API(그대로 JWT 문자열용): getItem(key)->Promise<string|null>, setItem(key,value)->Promise<void>,
+//       removeItem(key)->Promise<void>.  (get/set/remove 는 JSON 변환·Date 파싱이 붙어 문자열엔 부적합 → getItem 계열 사용)
+//     · getItem/setItem/removeItem 은 SecureStorageBase(JS 레이어) 메서드라 반드시 "모듈 익스포트 프록시"로 접근해야 한다.
+//       (window.Capacitor.Plugins.SecureStorage 브리지 프록시는 internal* 네이티브 메서드만 노출할 수 있어 getItem 이 없을 수 있음)
 let _secureStorePromise = null;
 function _secureTokenStore() {
   if (_secureStorePromise) return _secureStorePromise;
   _secureStorePromise = (async () => {
     try {
-      // 네이티브가 아니면(웹) 즉시 null → localStorage 폴백
-      if (!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return null;
-      let plugin = (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SecureStoragePlugin) || null;
-      if (!plugin) {
-        const mod = await import('@aparajita/capacitor-secure-storage').catch(() => null);
-        plugin = (mod && (mod.SecureStorage || mod.SecureStoragePlugin)) || null;
+      // 네이티브가 아니면(웹) 즉시 null → localStorage 폴백 (감지 자체를 안 함)
+      if (!_isNativePlatform()) return null;
+      // 정본 = 모듈 익스포트(전체 JS API 보장). 실패 시에만 브리지 프록시 폴백(getItem 있을 때만 채택).
+      let plugin = null;
+      const mod = await import('@aparajita/capacitor-secure-storage').catch(() => null);
+      plugin = (mod && mod.SecureStorage) || null;
+      if (!plugin || typeof plugin.getItem !== 'function') {
+        const bridge = (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SecureStorage) || null;
+        if (bridge && typeof bridge.getItem === 'function') plugin = bridge;
       }
-      if (!plugin) return null;
+      if (!plugin || typeof plugin.getItem !== 'function' || typeof plugin.setItem !== 'function') return null;
       const KEY = _TOKEN_KEY; // 백엔드별 키 격리 그대로
       return {
         async get() {
-          try {
-            if (typeof plugin.get !== 'function') return null;
-            let r;
-            try { r = await plugin.get({ key: KEY }); }           // {key,value} 시그니처
-            catch (_e1) { try { r = await plugin.get(KEY); } catch (_e2) { r = null; } }  // positional 시그니처
-            if (r == null) return null;
-            return typeof r === 'string' ? r : (r.value != null ? r.value : null);
-          } catch (_e) { return null; }
+          try { const v = await plugin.getItem(KEY); return (typeof v === 'string' && v) ? v : null; }
+          catch (_e) { return null; }
         },
         async set(v) {
-          try {
-            if (typeof plugin.set !== 'function') return;
-            try { await plugin.set({ key: KEY, value: v }); }
-            catch (_e1) { try { await plugin.set(KEY, v); } catch (_e2) { void _e2; } }
-          } catch (_e) { void _e; }
+          try { await plugin.setItem(KEY, String(v)); } catch (_e) { void _e; }
         },
         async remove() {
           try {
-            const fn = plugin.remove || plugin.delete;
-            if (typeof fn !== 'function') return;
-            try { await fn.call(plugin, { key: KEY }); }
-            catch (_e1) { try { await fn.call(plugin, KEY); } catch (_e2) { void _e2; } }
+            if (typeof plugin.removeItem === 'function') await plugin.removeItem(KEY);
+            else if (typeof plugin.remove === 'function') await plugin.remove(KEY);  // 하위호환(불리언 반환)
           } catch (_e) { void _e; }
         },
       };
@@ -261,10 +270,27 @@ function _hydrateToken() {
 window._hydrateToken = _hydrateToken;
 window._tokenReadyCheck = function () { return _tokenReady; };
 
-// 부팅 게이트(ON 전용) — 하이드레이션을 최대 800ms 만 기다린다(보안저장 플러그인이 행 걸려도 부팅 안 막힘).
-//   타임아웃 시 동기 localStorage 읽기로 폴백해 캐시를 채운다.
+// 부팅 게이트 — [보안감사 H-3 2026-07-27] 정적 플래그 → 런타임 플러그인 감지.
+//   ▶ 강제 OFF(킬스위치): 즉시 반환 → 원본 경로(하이드레이션 없음).
+//   ▶ 감지: 네이티브에서만. 웹은 호출부에서 애초에 이 게이트를 부르지 않지만, 불려도 isNative=false 로 즉시 반환.
+//     네이티브면 플러그인 프로브(800ms 바운드) → 있으면 _secureMode=true 로 승격, 없으면 false 유지(원본 경로).
+//   ▶ secure 모드 진입 시: 하이드레이션(localStorage→Keychain 이관 포함)을 최대 800ms 만 기다린다(플러그인이 행 걸려도 부팅 안 막힘).
 async function _bootHydrateGate() {
-  if (!_SECURE_TOKEN || _tokenReady) return;
+  if (_tokenReady) return;              // 이미 하이드레이션 완료(강제 ON 이 로드 때 착수한 경우 등)
+  if (_secureForced === false) return;  // 강제 OFF(킬스위치) → 원본 경로
+  if (!_secureMode) {
+    // 아직 secure 모드가 아니면 = 자동감지 대상. 웹이면 감지 안 함(원본 경로, 추가 async 비용 0).
+    if (!_isNativePlatform()) return;
+    let store = null;
+    try {
+      store = await Promise.race([
+        _secureTokenStore(),
+        new Promise((r) => setTimeout(() => r(null), 800)),  // 프로브도 바운드
+      ]);
+    } catch (_e) { store = null; }
+    if (!store) return;   // 네이티브지만 플러그인 없음 → 원본 localStorage 경로 유지
+    _secureMode = true;   // 플러그인 확인 → secure 모드 진입
+  }
   try {
     let timedOut = false;
     await Promise.race([
@@ -281,8 +307,9 @@ async function _bootHydrateGate() {
 }
 window._bootHydrateGate = _bootHydrateGate;
 
-// ON 이면 모듈 로드 즉시 하이드레이션 착수 — load 이벤트 시점엔 대개 이미 완료돼 게이트가 즉시 통과.
-if (_SECURE_TOKEN) { try { _hydrateToken(); } catch (_e) { void _e; } }
+// [보안감사 H-3] 강제 ON 이면 모듈 로드 즉시 하이드레이션 착수 — load 이벤트 시점엔 대개 이미 완료돼 게이트가 즉시 통과.
+//   (자동감지 경로는 네이티브 여부·플러그인 확인이 필요하므로 로드 즉시가 아니라 부팅 게이트에서 착수.)
+if (_secureMode) { try { _hydrateToken(); } catch (_e) { void _e; } }
 // ═══ [보안감사 H-3] 끝 ═══
 
 let _instaHandle = '';  // checkInstaStatus에서 저장
@@ -726,8 +753,8 @@ document.getElementById('obShopNameInput').addEventListener('keydown', e => {
 });
 
 function getToken() {
-  // [보안감사 H-3 2026-07-27] 플래그 OFF → 아래 블록은 원본 그대로(byte-for-byte). 기본 경로가 원본과 동일함이 자명해야 함.
-  if (!_SECURE_TOKEN) {
+  // [보안감사 H-3 2026-07-27] secure 모드 OFF → 아래 블록은 원본 그대로(byte-for-byte). 웹·플러그인없는네이티브는 항상 여기.
+  if (!_secureMode) {
     try {
       let t = localStorage.getItem(_TOKEN_KEY);
       if (!t) {
@@ -755,7 +782,7 @@ function getToken() {
       return t;
     } catch (_) { return null; }  // iOS Private 모드 SecurityError 방어
   }
-  // [보안감사 H-3] 플래그 ON → in-memory 캐시(_hydrateToken 이 부팅 때 보안저장/localStorage 에서 채움).
+  // [보안감사 H-3] secure 모드 ON → in-memory 캐시(_hydrateToken 이 부팅 때 보안저장/localStorage 에서 채움).
   //   만료 판정·부작용은 _validateToken 으로 OFF 경로와 동일 처리.
   return _validateToken(_tokenCache);
 }
@@ -984,8 +1011,8 @@ function _bindLoginSocialButtons() {
 }
 
 function setToken(t) {
-  // [보안감사 H-3 2026-07-27] 플래그 OFF → 아래 블록은 원본 그대로(byte-for-byte).
-  if (!_SECURE_TOKEN) {
+  // [보안감사 H-3 2026-07-27] secure 모드 OFF → 아래 블록은 원본 그대로(byte-for-byte). 웹·플러그인없는네이티브는 항상 여기.
+  if (!_secureMode) {
     try {
       // 토큰 값이 바뀌면 (다른 계정·재로그인·로그아웃) 모든 SWR 캐시 무효화.
       let prev = null;
@@ -1001,7 +1028,7 @@ function setToken(t) {
     } catch (_) { /* 용량 초과/시크릿 모드 조용히 무시 */ }
     return;
   }
-  // [보안감사 H-3] 플래그 ON → 캐시 갱신 + (변경 시)SWR 무효화 + 영속화.
+  // [보안감사 H-3] secure 모드 ON → 캐시 갱신 + (변경 시)SWR 무효화 + 영속화.
   try {
     const next = (t === null || t === undefined) ? null : t;
     const prev = _tokenCache;
@@ -2116,8 +2143,9 @@ window.startAppleLogin = async function () {
 // ===== 앱 초기화 (모든 모듈 로드 후 실행) =====
 window.addEventListener('load', async function() {
   // [보안감사 H-3 2026-07-27] 부팅 게이트 — 인증 판단(#register/생체/getToken 자동로그인) 전에 토큰 하이드레이션 완료.
-  //   OFF 이면 이 if 가 false → await 자체가 실행되지 않아 아래 부팅 코드는 기존과 100% 동기적으로 동일하게 흐른다.
-  if (_SECURE_TOKEN) { await _bootHydrateGate(); }
+  //   ▶ 웹(비네이티브) 또는 강제 OFF → 이 if 가 false → await 자체가 실행되지 않아 아래 부팅 코드는 기존과 100% 동기적으로 동일.
+  //   ▶ 강제 ON(_secureMode=true) 또는 (네이티브 && 강제OFF 아님)일 때만 게이트로 들어가 감지·하이드레이션.
+  if (_secureMode || (_secureForced !== false && _isNativePlatform())) { await _bootHydrateGate(); }
   _bindLoginSocialButtons();
   applyStoreReviewLoginGuard();
 
