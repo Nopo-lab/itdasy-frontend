@@ -1698,6 +1698,33 @@ function _isAllowedOAuthUrl(url) {
     return false;
   }
 }
+// [보안감사 C-2/C-3 2026-07-27] OAuth PKCE 시작.
+// 로그인 시작 시 code_verifier 를 생성·로컬저장하고 code_challenge 를 백엔드에 넘긴다.
+// 콜백은 JWT 대신 1회용 code 를 돌려주고, 복귀 핸들러(app-oauth-return / oauth-return.html)가
+// verifier 로 POST /auth/oauth/exchange 해서 JWT 를 받는다.
+// → 딥링크를 가로챈 악성 앱은 verifier 없어 교환 불가(C-3), 공격자 code 는 challenge 불일치로 실패(C-2).
+function _oauthB64url(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+async function _oauthPkceStart() {
+  try {
+    const vb = new Uint8Array(32);
+    crypto.getRandomValues(vb);
+    const verifier = _oauthB64url(vb);
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+    const challenge = _oauthB64url(new Uint8Array(digest));
+    localStorage.setItem('itdasy_oauth_pkce', JSON.stringify({ v: verifier, t: Date.now() }));
+    return challenge;
+  } catch (_e) {
+    // crypto 미지원 등 — challenge 없이 진행하면 백엔드가 레거시 token 방식으로 폴백
+    void _e;
+    return '';
+  }
+}
+window._oauthPkceStart = _oauthPkceStart;
+
 function _navigateOAuth(url) {
   if (!_isAllowedOAuthUrl(url)) {
     showToast('로그인 서버 응답이 유효하지 않아요. 잠시 후 다시 시도해주세요.', 'error');
@@ -1717,8 +1744,10 @@ window.startGoogleLogin = async function () {
   try {
     // GitHub Pages 서브패스 (/itdasy-frontend-test-yeunjun/) 대응 — 현재 URL 기준 상대 경로
     const returnTo = new URL('oauth-return.html', window.location.href).href;
+    const _cc = await _oauthPkceStart();
     const res = await fetch(
-      `${window.API}/auth/google/authorize?return_to=${encodeURIComponent(returnTo)}`
+      `${window.API}/auth/google/authorize?return_to=${encodeURIComponent(returnTo)}` +
+      (_cc ? `&code_challenge=${encodeURIComponent(_cc)}` : '')
     );
     if (!res.ok) throw new Error('Google 로그인 준비 실패');
     const { url } = await res.json();
@@ -1734,8 +1763,10 @@ window.startKakaoLogin = async function () {
   try {
     // GitHub Pages 서브패스 (/itdasy-frontend-test-yeunjun/) 대응 — 현재 URL 기준 상대 경로
     const returnTo = new URL('oauth-return.html', window.location.href).href;
+    const _cc = await _oauthPkceStart();
     const res = await fetch(
-      `${window.API}/auth/kakao/authorize?return_to=${encodeURIComponent(returnTo)}`
+      `${window.API}/auth/kakao/authorize?return_to=${encodeURIComponent(returnTo)}` +
+      (_cc ? `&code_challenge=${encodeURIComponent(_cc)}` : '')
     );
     if (!res.ok) throw new Error('카카오 로그인 준비 실패');
     const { url } = await res.json();
@@ -1750,8 +1781,10 @@ window.startKakaoLogin = async function () {
 window.startNaverLogin = async function () {
   try {
     const returnTo = new URL('oauth-return.html', window.location.href).href;
+    const _cc = await _oauthPkceStart();
     const res = await fetch(
-      `${window.API}/auth/naver/authorize?return_to=${encodeURIComponent(returnTo)}`
+      `${window.API}/auth/naver/authorize?return_to=${encodeURIComponent(returnTo)}` +
+      (_cc ? `&code_challenge=${encodeURIComponent(_cc)}` : '')
     );
     if (!res.ok) throw new Error('네이버 로그인 준비 실패');
     const data = await res.json();

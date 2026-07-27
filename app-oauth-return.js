@@ -47,23 +47,56 @@
     }
 
     const token = params.get('token');
+    const code = params.get('code');
     const provider = params.get('provider') || 'oauth';
     const err = params.get('error');
+    const api = (window.API || '');
 
     if (err) {
       if (window.showToast) window.showToast('로그인 실패: ' + decodeURIComponent(err));
       return true;
     }
+
+    // [보안감사 C-2/C-3 2026-07-27] 신규: 백엔드가 JWT 대신 1회용 code 만 넘긴다.
+    //   app-core._oauthPkceStart 가 로컬에 저장해둔 code_verifier 로 POST /auth/oauth/exchange 해서 JWT 교환.
+    //   딥링크(itdasy://oauth-return?code=)를 가로챈 악성 앱은 verifier 없어 교환 불가(C-3 토큰탈취 차단),
+    //   공격자 code 는 우리 verifier 로 만든 challenge 와 안 맞아 실패(C-2 세션고정 차단).
+    if (code) {
+      let pk = null;
+      try { pk = JSON.parse(localStorage.getItem('itdasy_oauth_pkce') || 'null'); } catch (_e) { void _e; }
+      if (!pk || !pk.v) {
+        if (window.showToast) window.showToast('로그인을 처음부터 다시 시작해 주세요.');
+        return true;
+      }
+      fetch(api + '/auth/oauth/exchange', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code, code_verifier: pk.v }),
+      })
+        .then(function (res) { return res.ok ? res.json() : Promise.reject(new Error('exchange_failed')); })
+        .then(function (d) {
+          if (!d || !d.access_token) throw new Error('no_token');
+          try { localStorage.removeItem('itdasy_oauth_pkce'); } catch (_e) { void _e; }
+          try {
+            const keySuffix = api.includes('staging') ? 'staging' : (api.includes('localhost') ? 'local' : 'prod');
+            localStorage.setItem('itdasy_token::' + keySuffix, d.access_token);
+          } catch (_e) { void _e; }
+          try { if (typeof window.applyNewSession === 'function') window.applyNewSession(d.access_token).catch(function () {}); } catch (_e) { void _e; }
+          if (window.showToast) window.showToast(provider + ' 로그인 완료!');
+          setTimeout(function () { window.location.reload(); }, 300);
+        })
+        .catch(function () {
+          if (window.showToast) window.showToast('로그인 코드가 만료됐어요. 다시 시도해 주세요.');
+        });
+      return true;
+    }
+
     if (!token) return true;
 
-    // [보안감사 H-2 2026-07-27] 딥링크(itdasy://oauth-return?token=)로 받은 토큰을 무검증 저장하면
-    //   세션 고정 공격이 된다: 공격자가 자기 JWT 를 담은 링크를 피해자가 열게 하면, 피해자 앱이
-    //   공격자 계정으로 로그인돼 이후 피해자의 사진·고객·매출이 공격자 계정에 쌓인다.
-    //   → 저장·세션적용 전에 백엔드 /auth/me 로 (1) 토큰이 우리 백엔드가 발급한 유효 토큰인지 +
-    //     (2) 서버가 돌려준 user id 가 토큰의 sub 와 일치하는지 확인한다.
-    //     (2) 는 전역 fetch 래퍼의 401 자동 리프레시가 '기존 세션'으로 바꿔치기하는 경우도 막는다.
-    //   완전 방어(OAuth 시작 시 state/nonce 발급→회신 대조)는 백엔드 동반 필요 — LAUNCH_REMAINING.md B.
-    const api = (window.API || '');
+    // [보안감사 H-2 2026-07-27] 레거시 폴백(전환기): 딥링크로 token 을 직접 받은 경우.
+    //   무검증 저장하면 세션 고정 공격이 되므로, 저장·세션적용 전에 백엔드 /auth/me 로
+    //   (1) 유효 토큰인지 + (2) 서버가 돌려준 user id 가 토큰 sub 와 일치하는지 확인한다.
+    //   (신규 code 교환 경로가 이 경로를 대체 — code_challenge 를 보내는 프론트는 항상 code 를 받는다.)
     let claimedSub = '';
     try { claimedSub = String(JSON.parse(atob(token.split('.')[1])).sub || ''); } catch (_e) { void _e; }
 

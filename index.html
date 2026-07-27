@@ -2,6 +2,13 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<!-- [보안감사 C-1 2026-07-27] 가드레일 CSP (비파괴 항목만).
+     object-src 'none' = <object>/<embed> 주입 차단, base-uri 'self' = <base> 태그 하이재킹 차단
+     (주입된 <base> 로 상대경로 스크립트 로드를 공격자 서버로 돌리는 XSS/원격로딩 악용 방어).
+     ⚠️ script-src/connect-src/frame-ancestors 는 <meta> 로는 앱을 깨뜨릴 위험/무효라 제외 —
+        HTTP 헤더 + report-only 로 점진 롤아웃 권장(LAUNCH_REMAINING.md C-1). -->
+<meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'self'">
+
 <!-- [2026-05-15 NUCLEAR v6] v128 부팅 깨짐 rescue — KILL_KEY bump (v5→v6)
      사용자 보고: "Uncaught SyntaxError: Unexpected end of input @ index.html:2053".
      index.html 은 origin 에서 2052줄까지만 — 즉 PWA 캐시에 잘린 옛 index.html (line 2053+ 까지) 박혀
