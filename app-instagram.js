@@ -1,5 +1,20 @@
 // Itdasy Studio - Instagram 연동 & 말투분석
 
+// [보안감사 H-7 준비 2026-07-27] 인스타 OAuth 시작을 (네이티브에서) 인앱 웹뷰 이동 대신
+//   Browser 플러그인(SFSafariViewController)으로 열기 위한 플래그. 기본 OFF.
+//   ▶ 켜야 iOS App-Bound Domains(H-7)를 걸어도 인스타 로그인이 안 깨진다(웹뷰가 우리 도메인 밖으로 안 나감).
+//   ▶ 기본 OFF 이므로 웹·현재 모든 네이티브 설치본은 기존 window.location.href 경로 그대로(바이트 동일).
+//   ▶ 실제 ON 은 기기/시뮬 E2E 검증하는 별도 빌드 세션에서. 그 전엔 아무 동작 변화 없음.
+//   오버라이드(?securetoken 과 동일 패턴, 1회 쿼리→localStorage 고정):
+//     ?igbrowser=1 강제 ON(테스트) · ?igbrowser=0 강제 OFF(킬스위치) · 기본 null(OFF).
+const _IG_BROWSER = (function () {
+  try {
+    if (/[?&]igbrowser=1/.test(location.search)) { try { localStorage.setItem('itdasy_igbrowser', '1'); } catch (_p) { void _p; } return true; }  // 쿼리 1회 → 리로드에도 유지
+    if (/[?&]igbrowser=0/.test(location.search)) { try { localStorage.setItem('itdasy_igbrowser', '0'); } catch (_p) { void _p; } return false; }
+    return localStorage.getItem('itdasy_igbrowser') === '1';
+  } catch (_e) { return false; }
+})();
+
 // ===== 인스타 토큰 만료 배너 =====
 // Instagram Graph API 장기 토큰은 60일 만료. 7일 이내 또는 이미 만료 시 재연동 배너 노출.
 function _renderTokenExpiryBanner(expiresAtIso) {
@@ -889,7 +904,16 @@ async function connectInstagram() {
     // [2026-06-12] OAuth 출발 표시 — 복귀 직후 SW controllerchange→reload 가 ?connected=success
     //   를 날리지 못하게 app-core 의 reload 가드가 이 플래그를 본다. 분석 오버레이 종료 시 remove.
     try { sessionStorage.setItem('itdasy_oauth_inflight', '1'); } catch (_e) { void _e; }
-    window.location.href = `${API}/instagram/go?token=${encodeURIComponent(token)}&origin=${origin}&return_to=${returnToEnc}`;
+    // [보안감사 H-7 준비 2026-07-27] 플래그 ON + 네이티브 + Browser 플러그인일 때만 SFSafariViewController 로 연다
+    //   (구글/카카오 _navigateOAuth 와 동일한 방식 — 웹뷰가 instagram.com 로 안 나가므로 App-Bound Domains 와 양립).
+    //   복귀는 기존과 동일하게 itdasy://oauth/callback 딥링크(app-oauth-return.js connected=success)로 돌아온다.
+    //   구글/카카오도 복귀 시 Browser.close() 를 명시 호출하지 않으므로 인스타도 별도 close 로직을 추가하지 않는다.
+    //   else 분기는 원본 그대로 — 웹·플래그OFF 네이티브(현재 전부)는 100% 기존 동작.
+    if (_IG_BROWSER && isNative && window.Capacitor?.Plugins?.Browser) {
+      window.Capacitor.Plugins.Browser.open({ url: `${API}/instagram/go?token=${encodeURIComponent(token)}&origin=${origin}&return_to=${returnToEnc}` });
+    } else {
+      window.location.href = `${API}/instagram/go?token=${encodeURIComponent(token)}&origin=${origin}&return_to=${returnToEnc}`;
+    }
 
   } catch(e) {
     showToast('연동 중 오류가 발생했습니다. 크롬/사파리에서 재시도해주세요');
