@@ -2,7 +2,294 @@
 
 > 새 세션이 시작되면 **이 파일을 먼저 읽고** 현재 단계·대기 결정·마지막 체크포인트를 파악한다.
 
-**LAST UPDATED:** 2026-06-03 · PE-R2 사진편집 시작 화면 리뉴얼 완료
+**LAST UPDATED:** 2026-06-24 · v550 ROI 안전 수정 — Android 실제 기기 대기
+
+---
+
+## 🟡 2026-06-24 — v550 ROI 안전 수정 진행
+
+완료:
+- 손 마스크 없으면 손 피부톤 보정 중단.
+- 네일 마스크 없으면 네일 광택·경계 보정 중단.
+- 피부색·반짝임 추정 경로 제거.
+- 실패 시 슬라이더 0 + 정확한 안내 문구 표시.
+- PC 마스크를 사진과 같은 `contain` 위치로 표시.
+- 추정 마스크 화면 표시 제거, 색상 통일.
+- 눈·눈썹·헤어 검출 방식 미수정.
+- PC 800×600 세로·가로·정사각 마스크 위치 PASS.
+- 전체 테스트 140개, 기본 실행 확인 95개, 네일 17개, 상태 18개, 눈썹 16개 통과.
+
+대기:
+- `adb devices -l` 결과 실제 Android 연결 0대.
+- 작업 원칙에 따라 Android 실제 기기 PASS 전 커밋·푸시하지 않음.
+
+브랜치:
+- `fe/T-600-v550-roi-safety`
+
+보고서:
+- `output/v550-roi-fix-report-20260624.md`
+- 증거: `output/v550-browser-qa/`
+
+---
+
+## 🔴 2026-06-24 — v549 ROI 원인 조사 완료
+
+PDF 지시:
+- 기존 PASS 철회.
+- 코드는 아직 고치지 않고 눈·눈썹·손·손톱·헤어 인식 방식과 기본 영역 보정 길을 먼저 조사.
+
+핵심:
+- PC 자동 브라우저의 헤어 모델은 그래픽 기능 시작 실패. 실제 휴대폰의 헤어 성공과 구분해야 함.
+- PC는 사진을 전체 보이게, 마스크를 화면 가득 채워 표시해 가로 화면에서 위치가 어긋남.
+- 사용자 실제 휴대폰 관찰: 눈·눈썹·헤어는 대체로 정상, 손 피부와 네일만 실패.
+- 손은 21개 점의 바깥선을 잇고, 네일은 손가락 끝에 타원을 그리는 방식이라 실제 휴대폰 실패 원인과 맞음.
+- 정확한 손·손톱 영역이 없어도 피부색·반짝임 추정으로 계속 보정하는 길이 남아 있어 PDF의 “영역 없음 = 보정 없음” 조건 위반.
+- 실행 파일 수정 없음.
+
+보고서:
+- `output/v549-roi-investigation-20260624.md`
+- 추가 실행 정보: `output/v549-browser-qa/roi-runtime-supplement.json`
+- 다음 작업 우선순위: 손·손톱의 정확한 영역이 없으면 보정 중단.
+
+---
+
+## 2026-06-24 — v549 브라우저 마스크 QA 완료
+
+요청 변경:
+- 원영님 지시로 실제 기기 대신 Chrome 브라우저와 `cbt4@itdasy.com` 계정으로 검증.
+- 누락 사진 6종은 합성 QA 사진으로 생성해 사용.
+
+결과:
+- 21개 기능·사진 조합을 확인했고 최종 FAIL.
+- 눈·눈썹·헤어는 위치를 못 찾아 마스크 표시 없음.
+- 손은 배경까지 넓게 포함.
+- 네일은 손 피부까지 포함하고 표시색도 요구한 핑크가 아니라 초록으로 보임.
+- 헤어 윤기는 벽·옷까지 함께 변함.
+
+보고서:
+- `output/v549-device-mask-qa-20260624.md`
+- 증거: `output/v549-browser-qa/`
+
+---
+
+## 🟣 2026-06-18 — 잇비 자연어 실제 크롬 QA
+
+배경: 원영님이 "잇비 관련 자연어 워크플로 우리 앱 기능 동작 전부 QA, 안 되면 실패. 크롬 로그인해뒀으니 거기서 진행" 요청.
+
+완료:
+- 원영님 로그인 크롬의 실제 잇데이 스튜디오 탭에서 잇비 대화창을 열고 자연어 흐름 18개를 확인.
+- 실제 예약 확정, 고객 추가 확정, 저장, 게시 버튼은 누르지 않고 답변/확인 카드가 기대대로 나오는지만 확인.
+- 확인 보고서 생성: `output/itbi-natural-language-qa-20260618.json`.
+
+통과:
+- 잇비 자기소개.
+- 오늘/내일 예약 조회. 현재 날짜는 2026-06-18 기준으로 처리됨.
+- 없는 고객 예약 조회: "황민지 예약은 언제야?"에서 임의 확정하지 않음.
+- 예약 잡기 이어말하기: "강연준 예약 잡아줘 → 내일 3시 → 속눈썹 펌" 확인 카드까지 정상.
+- 기존 고객 추가 방지: "강연준 고객 추가해"에서 이미 있는 고객인지 먼저 확인.
+- 없는 고객 찾기: "윤하영 고객 찾아줘"에서 비슷한 후보를 제안하고 자동 확정하지 않음.
+- 예정 매출 조회.
+- 캡션 작성.
+- 저장한 카드/작업실 열기.
+- 금융 요청 거절: "비트코인 사줘"를 지원 어렵다고 안내.
+- 사진 1장 홍보 요청.
+- 사진 2장 전후사진 요청.
+
+실패:
+- 가격표 기능 1건 실패.
+- 재현 문장: `가격표 만들어줘 젤네일 50000원 속눈썹펌 60000원`
+- 실제 결과: 가격표 카드에는 `젤네일 50,000원` 1개만 들어가고 `속눈썹펌 60,000원`이 빠짐.
+- 추가 재검증에서도 같은 결과.
+
+주의:
+- 작업 전부터 있던 `.claude/`, `output/photo-beauty-contract-qa-report.json`, `output/ocr-pricelist-import-qa-report.md`, `workspace-mockup.html`, 작업실 관련 변경은 이번 QA와 별개라 건드리지 않음.
+- 커밋/푸시는 하지 않음.
+
+---
+
+## 🟣 2026-06-16 — 잇비 채팅 전수조사/회귀 수정
+
+배경: 원영님이 잇비 채팅의 예약/고객/사진모드/캡션/작업실/템플릿/이벤트/가격표/문맥기억 문제를 전체 흐름 기준으로 전수조사 요청.
+
+완료:
+- 예약 채팅에서 "내일 3시/2시"를 새벽이 아니라 오후 시간으로 해석.
+- "예약 잡기 → 고객명 → 시간 → 시술명" 순서가 끊기지 않게 예약 draft를 보강.
+- "황민지 예약은 언제야?"처럼 고객별 예약 조회를 채팅 안에서 처리하고, 바로 뒤 "4시로"가 방금 본 예약 변경으로 이어지게 함.
+- "윤하영 고객 찾아줘"처럼 정확히 없는 고객은 비슷한 후보를 제안하고 자동 확정하지 않게 함.
+- 가격표 검사기가 예약 문장/전화번호를 가격표로 잘못 읽지 않게 보강.
+- 사진/전후/캡션/이벤트/작업실 흐름을 46개 문장으로 자동 확인하는 새 스크립트 추가.
+- 빌드: `20260616-v497-itbi-full-audit`.
+
+수정 파일:
+- `app-assistant.js`
+- `assistant-intent-router.js`
+- `js/assistant/core/action-hub.js`
+- `js/assistant/core/booking-context.js`
+- `js/assistant/core/booking-draft.js`
+- `js/assistant/core/customer-add-guard.js`
+- `scripts/itbi-chat-full-audit-qa.js`
+- `scripts/hotfixF-booking-draft-qa.js`
+- `scripts/itbi-template-flow-qa.js`
+- `scripts/photo-mode-guided-qa.js`
+- `index.html`
+- `app-core.js`
+- `sw.js`
+- `js/load-groups.js`
+
+확인:
+- 새 잇비 전수조사 확인 통과: 46/46.
+- 예약 draft 확인 통과: 11/11.
+- 잇비 안전 가드 확인 통과: 17/17.
+- 사진모드/템플릿/작업실/시술완료 관련 확인 통과.
+- 전체 테스트 통과: 136개.
+- 기본 실행 확인 통과: 94 scripts, build `20260616-v497-itbi-full-audit`.
+- 자동 검사 확인: 빨간 오류 0개, 기존 노란 경고는 남아 있음.
+
+주의:
+- 작업 전부터 있던 `.claude/`, `output/photo-beauty-contract-qa-report.json`, `output/ocr-pricelist-import-qa-report.md`, `workspace-mockup.html` 변경/추가는 이번 수정과 별개라 건드리거나 올리지 않음.
+- 커밋/푸시는 원영님 승인 전까지 하지 않음.
+
+---
+
+## 🟣 2026-06-15 — 예약금 매출 반영 수정
+
+배경: 원영님이 예약 생성 때 예약금 20,000원을 넣어도 내샵관리와 매출관리에 바로 반영되지 않는다고 제보.
+
+완료:
+- 예약금 계산 보강 파일을 새로 추가해서, 서버 매출 숫자가 예약금을 빼고 와도 화면에서 예약 목록을 보고 즉시 보태게 함.
+- 내샵관리와 홈의 "이번달 매출"에 확정 예약의 예약금을 바로 반영.
+- 매출관리 이번달 화면의 총매출/예약금/남은 예약/예상 매출을 같은 기준으로 정리.
+- 예약금은 이미 받은 돈으로 총매출에 포함하고, 남은 예약은 시술비에서 예약금을 뺀 금액으로 계산.
+- 예약 생성/수정 때 내샵관리·매출관리 캐시를 같이 비워 실시간 반영되게 보강.
+- 빌드: `20260615-v471-qag`.
+
+수정 파일:
+- `js/revenue/booking-revenue-overlay.js`
+- `js/revenue/__tests__/booking-revenue-overlay.test.js`
+- `app-revenue-month.js`
+- `app-myshop-v3.js`
+- `app-home-v41.js`
+- `app-booking-api.js`
+- `app-calendar-view.js`
+- `index.html`
+- `app-core.js`
+- `sw.js`
+
+확인:
+- 예약금 계산 테스트 통과: 4개.
+- 전체 테스트 통과: 136개.
+- 기본 실행 확인 통과: 92 scripts, build `20260615-v471-qag`.
+- 자동 검사 확인: 빨간 오류 0개, 기존 노란 경고 108개.
+- 브라우저 확인 통과: 10만원 예약/예약금 2만원 기준 내샵관리 20,000원, 매출관리 총매출 20,000원, 예약금 20,000원, 남은 예약 80,000원, 예상 100,000원.
+
+주의:
+- 작업 전부터 있던 `.claude/`, `output/photo-beauty-contract-qa-report.json`, `output/ocr-pricelist-import-qa-report.md` 변경/추가는 이번 수정과 별개.
+
+---
+
+## 🟣 2026-06-15 — 잇비 고객 확인/예약 취소 복구 수정
+
+배경: 원영님이 잇비 실사용 중 남은 문제를 제보.
+- "강연준 고객 추가해"라고 했을 때 이미 고객 명단에 있으면 먼저 확인해야 함.
+- "내일 예약"을 본 뒤 "그거 취소해", "12:00 강연준 취소해", "내일 예약 복구해"가 이어져야 함.
+
+완료:
+- 잇비가 고객 추가 요청을 받으면 고객 명단에서 같은 이름을 먼저 찾고, 있으면 "이 고객님 맞나요?"와 고객 정보를 먼저 보여줌.
+- "맞아요 고객 기록 열기"는 기존 고객 기록을 열고, "새 고객으로 추가"는 별도 추가 확인 카드로 이어짐.
+- 잇비가 방금 보여준 예약 목록을 잠깐 기억해서 "그거 취소해", "12:00 강연준 취소해", "응 그거 취소해"를 이해함.
+- 방금 취소한 예약을 기억해서 "내일 예약 복구해", "내일예약 되돌리기"로 복구 확인 카드를 띄움.
+- 원영님이 실제로 쓰는 "완료"도 확인 답변으로 처리되게 추가.
+- 빌드: `20260615-v470-qag`.
+
+수정 파일:
+- `app-assistant.js`
+- `assistant-intent-router.js`
+- `js/assistant/core/booking-context.js`
+- `js/assistant/core/customer-add-guard.js`
+- `js/load-groups.js`
+- `index.html`
+- `app-core.js`
+- `sw.js`
+
+확인:
+- 브라우저 재현 통과: 기존 고객 확인, 고객 기록 열기, 내일 예약 목록, 그거 취소, 완료로 취소, 취소 뒤 예약 없음, 복구 카드, 완료로 복구.
+- 추가 재현 통과: "12:00 강연준 취소해", "응 그거 취소해".
+- 문법 확인 통과.
+- `npm run smoke` 통과: 91 scripts, build `20260615-v470-qag`.
+- `npm test -- --runInBand` 통과: 132개.
+- `npm run lint` 확인: 빨간 오류 0개, 기존 노란 경고 108개.
+- 공백 검사 통과.
+
+주의:
+- 실제 스테이징 로그인 데이터로 최종 확인은 원영님 계정에서 한 번 더 보면 좋음.
+- 작업 전부터 남아 있던 `.claude/`, `output/photo-beauty-contract-qa-report.json`, `output/ocr-pricelist-import-qa-report.md` 변경/추가는 이번 수정과 섞지 않음.
+
+---
+
+## 🟣 2026-06-15 — 결제 PG/프론트 표시 상태 확인
+
+배경: 원영님이 "PG 연결 제대로 됐나, 승인 후 env 받아 Cloud Run에 넣으면 되는지, env 없이 구현한 프론트를 보고 싶다"고 요청.
+
+확인:
+- 프론트 `app-billing.js`는 PortOne 결제 SDK를 결제 시점에만 불러오고, `/billing/config`에서 공개 설정을 받아 동작함.
+- 스테이징 백엔드 `/health` 응답 정상: `db:true`, `env:true`.
+- 스테이징 백엔드 `/billing/config` 응답: `enabled:false`, `storeId:""`, `channelKey:""`. 즉 결제사 승인 후 받은 결제 env를 Cloud Run에 넣기 전에는 결제 UI가 "준비 중"이 되는 상태가 정상.
+- `/billing/issue`는 로그인 없이는 `401 Not authenticated`로 막힘. 결제 생성 경로가 공개로 뚫려 있지는 않음.
+- env 없이 프론트 로컬 화면 표시 확인 완료. 로컬 서버: `http://0.0.0.0:8091/?debug=1`.
+- Playwright 모바일 캡처: `output/playwright/current-frontend-no-env-mobile.png`.
+
+주의:
+- 현재 로컬 백엔드 코드에서는 `/billing/*` 라우터 위치가 검색되지 않았지만, 배포된 스테이징 Cloud Run은 `/billing/config`, `/billing/issue`를 응답함. 배포본과 로컬 백엔드 폴더 차이는 후속 확인 필요.
+- 작업 중 `.ai/BOARD.md`에는 부팅 기록만 추가. 기존 변경 파일(`output/photo-beauty-contract-qa-report.json`, `.claude/`, `output/ocr-pricelist-import-qa-report.md`)은 건드리지 않음.
+
+---
+
+## 🟣 2026-06-14 — 잇비 사진편집 모드 통합 마무리 완료
+
+배경: 원영님이 받은 `05-itbi-photo-mode-chat.html`, 작업계획서, 인수인계 문서를 확인한 뒤 "사진 한 장 → 잇비가 안내 → 홍보 결과 만들기" 흐름을 기존 잇비 대화창 안으로 합치는 작업.
+
+완료:
+- 옛날 사진 대화 흐름 2개를 로딩 목록에서 제거하고 파일도 삭제.
+- 새 보조 파일 `js/assistant/core/photo-mode-support.js` 추가. 홍보/전후/후기/캡션 요청은 사진편집 모드로 보내고, 가격표/메뉴판/DM/카카오/발송 요청은 제외.
+- 사진을 올리거나 "인스타 홍보용으로 만들어줘", "전후사진 카드 만들어줘", "캡션 써줘"라고 말하면 새 사진편집 모드로 들어가게 연결.
+- 사진+문구를 같이 올리면 바로 다음 질문으로 이어지게 정리.
+- 사진편집 모드 안에 이전 / 처음부터 / 종료 버튼 추가.
+- 전후사진 흐름에서 뒤로가기를 누르면 역할 선택 질문으로 돌아가게 보정.
+- 캡션만 필요한 경우에도 사진편집 모드 안에서 문구 초안을 만들게 추가.
+- 자동 게시, 자동 발송, 자동 저장은 하지 않도록 안전 버튼만 유지.
+
+수정 파일:
+- `app-assistant.js`
+- `index.html`
+- `js/load-groups.js`
+- `js/assistant/core/photo-mode.js`
+- `js/assistant/core/photo-mode-support.js`
+- `js/assistant/core/promo-result-builder.js`
+- `js/assistant/core/marketing-draft-policy.js`
+- `scripts/photo-mode-guided-qa.js`
+- `scripts/itbi-promo-chain-qa.js`
+- `scripts/itbi-first-wow-qa.js`
+- `scripts/tpl-recommend-qa.js`
+- `scripts/itbi-marketing-draft-policy-qa.js`
+- `scripts/t119-attach-qa.js`
+
+삭제 파일:
+- `js/assistant/core/photo-flow.js`
+- `js/assistant/core/photo-chain.js`
+
+확인:
+- 주요 파일 문법 확인 통과.
+- 사진편집 모드 전용 확인 통과: 홍보/캡션/전후사진 진입, 가격표/DM 제외, 이전/처음부터/종료 버튼, 옛날 전역 기능 제거.
+- 기존 대표 확인 통과: 첫 경험, 템플릿 추천, 홍보 흐름, 마케팅 문구 정책, 사진 첨부 흐름.
+- `npm run smoke` 통과: 90 scripts.
+- `npm test -- --runInBand` 통과: 2개 묶음, 115개 테스트.
+- `npm run lint` 확인: 빨간 오류 0개, 기존 경고 106개.
+- 공백 검사 통과.
+
+주의:
+- 실제 사진 저장/보정 엔진 고도화는 이번 범위가 아님.
+- 브라우저 캡처는 보조로만 확인했다. 자동 화면 도구에서 대화창 부모가 숨김 상태로 잡혀 최종 판정에는 쓰지 않음.
+- 작업 전부터 `output/photo-beauty-contract-qa-report.json`, `.claude/`, `output/ocr-pricelist-import-qa-report.md` 변경/추가가 남아 있었고 이번 작업과 섞지 않음.
 
 ---
 
@@ -1467,7 +1754,17 @@ ultra-plan 진행률:
 
 ### ESCALATION
 
-- 없음.
+- v550 ROI 수정은 PC와 자동 확인 완료.
+- Android 실제 기기가 연결되지 않아 실기기 QA, 커밋, 푸시 대기.
+
+### 2026-06-16 — 통합 인박스: DM → 다채널 표시 (로컬 커밋)
+
+DM 전용 인박스를 인스타/카톡/네이버 톡톡 멀티채널 표시로. BE `DMMessageLog.channel`(2a) 기반. 렌더만 교체, 로직 0 변경(인스타 회귀-0).
+- `js/channel-mark.js`(신규): `window.ChannelMark.norm/mark` 공유 글리프 — instagram=#E1306C 카메라 / kakao=#FEE500 말풍선 / naver=#03C75A 볼드N. 이모지 금지·브랜드 글리프. app-core 직후 로드(index.html), 두 소비자 공용(중복 정의 금지).
+- `app-dm-confirm-queue.js`(실시간 DM): 카드 우상단 채널 마크(프사 위 덮지 않음) + 채널 필터 탭 `[전체·인스타·카톡·네이버 톡톡]`(카운트 동적, 재조회 없이 `_lastItems` 캐시 필터). 답장/수정(인라인 textarea)/전송(send·send_edit)/무시(discard)/초기화(reset)/입금확인(confirm-deposit) 바인딩 축자 보존.
+- `app-home-customer-msgs.js`(홈 고객메시지): 아바타 우하단 모서리에 채널 마크(프사·X·언리드닷 유지, 3개 가로 구조 유지).
+- BE(itdasy_backend-test) `dm_confirm_queue.QueueItemOut`에 `channel` 추가, `talktalk→naver` 정규화. FE는 필드 없으면 instagram 폴백.
+- 검증: node --check 3파일 OK. 현재 라이브 채널=인스타뿐 → 전부 인스타 마크로 표시.
 
 2026-04-20 ~ 2026-05-06 이전 체크포인트는 `.ai/CHANGELOG_2026-05.md` 참조.
 

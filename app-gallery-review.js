@@ -102,8 +102,10 @@ function _renderReviewPanel() {
               <span class="rv-card-date">방금</span>
             </div>
             <div class="rv-sticker-actions">
-              <button class="btn-secondary" data-rv-full data-rv-index="${i}">전체 사용</button>
-              <button class="btn-primary" data-rv-text data-rv-index="${i}">텍스트만</button>
+              <!-- [죽은기능 정리 2026-07-27] '텍스트만'(data-rv-text)은 /image/extract-review-region 이
+                   백엔드에 없어(404) 항상 "텍스트 추출 실패 → 전체 캡처로 붙일게요"로만 끝났다.
+                   실패-폴백 경로라 사용자에게 혼란만 줘 제거하고, 작동하는 '전체 사용'을 기본으로 승격. -->
+              <button class="btn-primary" data-rv-full data-rv-index="${i}">사진에 붙이기</button>
             </div>
           </div>
         `).join('')}

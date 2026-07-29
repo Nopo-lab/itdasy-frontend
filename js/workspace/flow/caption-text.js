@@ -68,18 +68,33 @@
   var _OVL_DROP = /말투|이모지|해시태그|글자|자\s*이내|자로|부탁|써\s*줘|써줘|넣어|느낌으로|재밌|웃겼|웃음|여친|여자친구|남친|남자친구|오신듯|같이\s*옴|함께\s*옴|단골|기분|친절|후기|정도로|처럼|해\s*줘|해줘|골라|추천해/;
   // [#4] 단어 단위로 뺄 '사적/가격/지시' 토큰 — 구분자 없는 한 덩어리 입력도 시술어만 남기고 사담만 제거.
   var _WORD_DROP = /(남친|여친|남자친구|여자친구|친구|함께|같이|커플|모녀|자매|왔|오셨|오심|오신|재밌|기분|단골|소개|가격|비용|얼마|원짜리|만원|천원|짜리|말투|이모지|해시태그|글자|부탁|느낌|추천|골라|써줘|해줘|해주세|해주셨|감사|축하|환영|만족|드려요|드립니다|주셔|주셨|와주|입니다|했어요|였어요|재방문|고객|손님|예약|문의)/;
-  function _splitServiceForLayers(svc) {
+  // [버그6 2026-07-14] 정제 파이프라인 공통 추출 — '사담/가격/지시/이모지/고객명/샵명 제거'까지만 하고 자르지 않는다.
+  //   오버레이(_splitServiceForLayers)는 여기서 앞 4단어만 쓰고, 캡션 API(_publicServiceKeywords)는 전체를 쓴다.
+  function _svcWords(svc) {
     var s = String(svc || '')
       .replace(/(?:인스타|sns|감성|내추럴|모던|빈티지|러블리|시크|트렌디|미니멀|청순|글램|깔끔|세련|화사)?\s*(?:톤앤무드|톤앤매너|톤|느낌|감성|무드|분위기|바이브)\s*(?:으로|로|하게|있게|스럽게)\s*(?:마무리|마감|연출|편집|보정|작성)?/gi, ' ');
     s = _cleanService(s).service;   // [v590·#A][#1] 오버레이에 고객명·샵이름 안 박힘
     s = s.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}]/gu, ' ');   // 이모지 제거
     s = s.replace(/\d+\s*자(?:\s*(?:이내|로|정도))?/g, ' ');   // '300자' 같은 글자수 지시 제거
+    /* [2026-07-23 보스] 숫자 사이 마침표는 자르지 않는다.
+       예전엔 '.' 를 무조건 구분자로 써서 속눈썹 굵기 **0.15mm 가 '0' + '15mm' 로 쪼개졌고**,
+       '0' 은 필터에 걸려 사라져 사진에 "15mm" 만 박혔다(실측). 뷰티에서 0.15/0.10 은 흔한 스펙이라
+       그대로 살려야 한다. 소수점을 임시 치환했다가 자른 뒤 되돌린다(정규식 lookbehind 미지원 기기 대비). */
+    return s.replace(/(\d)\.(\d)/g, '$1\u0001$2')
+      .split(/[\n,·、.\s]+/)
+      .map(function (x) { return x.replace(/\u0001/g, '.').trim(); })
+      // [버그수정 2026-07-06] 시술어 포함 토큰(커플네일·모녀펌·자매룩 등)은 사담 필터에서 보호 — 부분일치 오삭제 방지.
+      .filter(function (w) { return w && (_SERVICE_ROOT.test(w) || (!_WORD_DROP.test(w) && !_OVL_DROP.test(w))); });
+  }
+  // [버그6 2026-07-14] 캡션 API 전용 — 절단 없는 '공개 시술 키워드' 전체.
+  //   기존엔 flow 가 오버레이용 title+sub(앞 4단어)를 캡션 입력에 재사용해, 시술명 5개 이상 입력 시 뒤가 통째로 소실됐다.
+  //   ("레이어드컷 뿌리염색 클리닉 두피스케일링 앞머리펌" → '앞머리펌' 유실)
+  function _publicServiceKeywords(svc) { return _svcWords(svc).join(' ').trim(); }
+  function _splitServiceForLayers(svc) {
     // [distill] 사진 위 오버레이엔 '딱 핵심(시술명 + 포인트 스펙)'만 — 사적·인사·지시·긴 서술은 넣지 않는다.
     //   예: "붙임머리 비드 방식 26인치 옴브레 자연스러운 볼륨감 김수현 고객님 재방문 감사합니다 롱헤어 완성"
     //     → 제목 "붙임머리 비드 방식" / 부제 "26인치 옴브레" (뒤 사담·서술은 전부 제외).
-    var words = s.split(/[\n,·、.\s]+/).map(function (x) { return x.trim(); })
-      // [버그수정 2026-07-06] 시술어 포함 토큰(커플네일·모녀펌·자매룩 등)은 사담 필터에서 보호 — 부분일치 오삭제 방지.
-      .filter(function (w) { return w && (_SERVICE_ROOT.test(w) || (!_WORD_DROP.test(w) && !_OVL_DROP.test(w))); });
+    var words = _svcWords(svc);
     if (!words.length) return { title: '', sub: '', body: '' };
     var specRe = /^\d+\s*(?:인치|호|cm|mm|단|레벨|톤|등급|번|주|주차)$/;
     var specIdx = -1;
@@ -99,5 +114,6 @@
   window.WSCaptionText = {
     extractCustomer: _extractCustomer, shopName: _shopName, stripShopName: _stripShopName,
     detectShopName: _detectShopName, cleanService: _cleanService, splitServiceForLayers: _splitServiceForLayers,
+    publicServiceKeywords: _publicServiceKeywords,
   };
 })();

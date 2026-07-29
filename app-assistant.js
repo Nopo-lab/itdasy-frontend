@@ -527,6 +527,7 @@
         ${_renderItbiCardsPromo(m, idx)}
         ${photoResultHtml}
         ${looseTextHtml}
+        ${_renderLayoutPicks(m, idx)}
         ${_renderBookingCards(m, idx)}
         ${_renderPmTpls(m, idx)}
         ${_renderPhotoRoles(m, idx)}
@@ -581,7 +582,8 @@
       const phone = b.customer_phone || b.phone || '';
       const deposit = Number(b.deposit || 0);
       const amount = Number(b.amount || 0);
-      const memo = b.memo ? _esc(String(b.memo).slice(0, 80)) : '';
+      const memoClean = b.memo ? (window.itdCleanMemo ? window.itdCleanMemo(String(b.memo)) : String(b.memo)) : '';
+      const memo = memoClean ? _esc(memoClean.slice(0, 80)) : '';
       const rows = [];
       rows.push(`<div style="font-weight:700;font-size:15px;color:#191F28;">${who}${svc ? ` <span style="font-weight:500;color:#4E5968;">· ${svc}</span>` : ''}</div>`);
       rows.push(`<div style="font-size:13px;color:#4E5968;margin-top:3px;">${_esc(human)} · ${status}</div>`);
@@ -717,6 +719,50 @@
         return `<button data-asst-intent-chip="${idx}:${_esc(c.id)}" style="${style}">${_esc(c.label)}</button>`;
       }).join('')}
     </div>`;
+  }
+
+  /* [2026-07-22 보스] 잇비 채팅 안에서 레이아웃 고르기 — "채팅 안에서 딸깍".
+     사진을 던지면 작업실로 화면을 옮기지 않고, 여기서 구성 카드를 보여주고 하나 누르면
+     그 구성으로 바로 게시글(캡션) 단계까지 넘어간다.
+     ⚠️ 선택지 목록은 여기 복사해 두지 않는다 — 정본은 workspace/flow/layout.js 의 _compOptions.
+        복사해 두면 구성이 바뀔 때 채팅엔 있는데 눌러도 안 먹는 유령 선택지가 생긴다. */
+  function _renderLayoutPicks(m, idx) {
+    if (!Array.isArray(m.layout_picks) || !m.layout_picks.length) return '';
+    const cards = m.layout_picks.map((o) => {
+      const thumb = _layoutPickThumb(o.key, m.layout_n || 2);
+      return `<button type="button" data-asst-layoutpick="${idx}:${_esc(o.key)}"
+        style="flex:0 0 132px;display:flex;flex-direction:column;gap:7px;padding:10px;border:0.5px solid #E5E8EB;border-radius:14px;background:#fff;cursor:pointer;text-align:left;font-family:inherit;">
+        ${thumb}
+        <span style="font-size:12.5px;font-weight:700;color:#191F28;line-height:1.3;">${_esc(o.name)}</span>
+        <span style="font-size:11px;color:#8B95A1;line-height:1.35;">${_esc(o.desc || '')}</span>
+      </button>`;
+    }).join('');
+    return `<div style="margin-top:10px;display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;">${cards}</div>`;
+  }
+
+  /* 구성 미리보기 도형 — 실제 사진을 합성하지 않고 '칸 배치'만 보여준다.
+     합성은 무겁고(캔버스 N장) 채팅에서 기다릴 만한 값이 아니다. 배치만 봐도 뭘 고르는지 안다. */
+  function _layoutPickThumb(key, n) {
+    const box = 'background:#F2F4F6;border-radius:4px;';
+    const wrap = (inner) => `<span style="display:block;width:100%;aspect-ratio:4/5;background:#FAFBFC;border-radius:9px;padding:7px;box-sizing:border-box;">${inner}</span>`;
+    if (key === 'flat') {
+      const cells = Array.from({ length: Math.min(n, 3) }, (_, i) =>
+        `<span style="${box}position:absolute;inset:0;left:${i * 9}px;top:${i * 5}px;opacity:${1 - i * 0.25};"></span>`).reverse().join('');
+      return wrap(`<span style="display:block;position:relative;width:100%;height:100%;">${cells}</span>`);
+    }
+    if (key === 'merge-lr' || key === 'ba') {
+      return wrap(`<span style="display:flex;gap:4px;width:100%;height:100%;"><span style="${box}flex:1;"></span><span style="${box}flex:1;"></span></span>`);
+    }
+    if (key === 'merge-tb') {
+      return wrap(`<span style="display:flex;flex-direction:column;gap:4px;width:100%;height:100%;"><span style="${box}flex:1;"></span><span style="${box}flex:1;"></span></span>`);
+    }
+    if (key === 'cover' || key === 'grid2') {
+      return wrap(`<span style="display:flex;flex-direction:column;gap:4px;width:100%;height:100%;"><span style="${box}flex:2;"></span><span style="display:flex;gap:4px;flex:1;"><span style="${box}flex:1;"></span><span style="${box}flex:1;"></span></span></span>`);
+    }
+    if (key === 'grid') {
+      return wrap(`<span style="display:grid;grid-template-columns:1fr 1fr;gap:4px;width:100%;height:100%;"><span style="${box}"></span><span style="${box}"></span><span style="${box}"></span><span style="${box}"></span></span>`);
+    }
+    return wrap(`<span style="${box}display:block;width:100%;height:100%;"></span>`);
   }
 
   function _renderPhotoResult(m, idx) {
@@ -873,6 +919,7 @@
       + '|' + (m.promo_result ? 'W' + ((m.promo_result.afterDataUrl || '').length) : '_')
       + '|' + (m.photo_result ? 'P' + (m.photo_result.dataUrl ? m.photo_result.dataUrl.length : 0) : '_')
       + '|' + (Array.isArray(m.intent_chips) ? 'C' + m.intent_chips.length : '_')
+      + '|' + (Array.isArray(m.layout_picks) ? 'L' + m.layout_picks.length : '_')
       + '|' + idx;
   }
 
@@ -1056,7 +1103,12 @@
   function _renderActionBubble(action, historyIdx, status, editing) {
     if (!action || !action.kind) return '';
     const kindBadge = _actionKindBadge(action.kind);
-    if (status === 'done') return _renderActionDoneBubble();
+    if (status === 'done') {
+      const _m = _history[historyIdx];
+      const _pop = !!(_m && _m._justDone);
+      if (_m) _m._justDone = false;   // 한 번만 — 이후 재렌더는 정적 완료 카드
+      return _renderActionDoneBubble(_pop);
+    }
     if (status === 'failed') return _renderActionFailedBubble(historyIdx);
     if (status === 'running') return _renderActionRunningBubble(kindBadge);
     if (editing) return _renderActionEditBubble(action, historyIdx, kindBadge);
@@ -1083,14 +1135,33 @@
       mark_booking_completed:{ icon: 'ic-check-circle', label: '시술 완료',     color: C },
       refund_revenue:        { icon: 'ic-corner-up-left', label: '환불 처리',   color: C },
       update_service_price:  { icon: 'ic-dollar-sign',  label: '가격 변경',     color: C },
+      // [Phase 0~3 · 2026-07-20] 잇비 신규 kind — 단일카드 배지(무채색 통일 유지)
+      create_treatment_record:{ icon: 'ic-camera',         label: '시술 기록',    color: C },
+      add_customer_memo:      { icon: 'ic-edit-3',         label: '고객 메모',    color: C },
+      request_review:         { icon: 'ic-star',           label: '리뷰 요청',    color: C },
+      toggle_dm_autoreply:    { icon: 'ic-message-square', label: 'DM 자동응답',  color: C },
+      toggle_automation_rule: { icon: 'ic-settings',       label: '자동화 설정',  color: C },
     }[kind] || { icon: 'ic-check', label: kind, color: C };
   }
 
-  function _renderActionDoneBubble() {
+  // [카드폴리시] 제어(설정) 계열 kind — 카드 좌측 은은한 액센트 바로 데이터 작업과 구분.
+  const _CONTROL_ACCENT = { toggle_dm_autoreply: '#8B5CF6', toggle_automation_rule: '#6366F1' };
+  function _cardShell(kind) {
+    const a = _CONTROL_ACCENT[kind];
+    return a
+      ? `border:0.5px solid #E5E8EB;border-left:3px solid ${a};border-radius:0 14px 14px 0;`
+      : `border:0.5px solid #E5E8EB;border-radius:14px;`;
+  }
+
+  function _renderActionDoneBubble(pop) {
+    // [카드폴리시] 완료 순간 체크 팝(+잔물결). pop=false 면 정적. 모션 최소화 설정 존중.
+    const cls = pop ? ' itbi-pop' : '';
+    const ring = pop ? '<span class="itbi-ring" style="position:absolute;inset:0;border-radius:50%;background:#E2F8EB;"></span>' : '';
+    const styleTag = pop ? '<style>.itbi-pop{animation:itbiPop .42s cubic-bezier(.34,1.56,.64,1) both}.itbi-ring{animation:itbiRing .6s ease-out both}@keyframes itbiPop{0%{transform:scale(.3);opacity:0}55%{transform:scale(1.18)}100%{transform:scale(1);opacity:1}}@keyframes itbiRing{0%{transform:scale(.5);opacity:.55}100%{transform:scale(1.9);opacity:0}}@media(prefers-reduced-motion:reduce){.itbi-pop,.itbi-ring{animation:none}}</style>' : '';
     return `<div class="asst-card asst-card--done" style="margin-top:8px;padding:12px 14px;background:#FFFFFF;color-scheme:light;border:0.5px solid #E5E8EB;border-radius:14px;display:flex;align-items:center;gap:8px;">
-      <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#E2F8EB;color:#0F8746;">${_svg('ic-check', 13)}</span>
+      <span style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;">${ring}<span class="${cls.trim()}" style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#E2F8EB;color:#0F8746;">${_svg('ic-check', 13)}</span></span>
       <span style="font-size:12px;font-weight:700;color:#0F8746;">완료</span>
-    </div>`;
+    </div>${styleTag}`;
   }
 
   function _renderActionFailedBubble(historyIdx) {
@@ -1126,9 +1197,10 @@
     const addField = (field, label, val, extra) => _pushSingleEditField(editFields, historyIdx, field, label, val, extra);
     const itemsHtml = _singleEditItemsHtml(action, historyIdx, p, kindBadge, addField);
     if (!itemsHtml) _pushSingleBaseFields(action, p, editFields, addField, historyIdx);
-    return `<div class="asst-card asst-card--edit" style="margin-top:8px;padding:14px;background:#FFFFFF;color-scheme:light;border:0.5px solid #E5E8EB;border-radius:14px;">
+    const _accentE = _CONTROL_ACCENT[action.kind];
+    return `<div class="asst-card asst-card--edit" style="margin-top:8px;padding:14px;background:#FFFFFF;color-scheme:light;${_cardShell(action.kind)}">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-        <span style="display:inline-flex;align-items:center;color:${kindBadge.color};">${_svg(kindBadge.icon, 16)}</span>
+        <span style="display:inline-flex;align-items:center;color:${_accentE || kindBadge.color};">${_svg(kindBadge.icon, 16)}</span>
         <span style="font-size:12px;font-weight:700;color:#191F28;letter-spacing:-0.2px;">${kindBadge.label} · 편집 모드</span>
       </div>
       ${editFields.length ? `<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">${editFields.join('')}</div>` : ''}
@@ -1216,9 +1288,10 @@
     const _safety = (window.ItdasyMarketingSafety && typeof window.ItdasyMarketingSafety.renderSafetyHTML === 'function')
       ? window.ItdasyMarketingSafety.renderSafetyHTML(action, _esc) : '';
     const _runLabel = (action && _ACTION_RUN_LABEL[action.kind]) || '추가하기';
-    return `<div class="asst-card asst-card--pending" style="margin-top:8px;padding:14px;background:#FFFFFF;color-scheme:light;border:0.5px solid #E5E8EB;border-radius:14px;">
+    const _accent = _CONTROL_ACCENT[action.kind];
+    return `<div class="asst-card asst-card--pending" style="margin-top:8px;padding:14px;background:#FFFFFF;color-scheme:light;${_cardShell(action.kind)}">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-        <span style="display:inline-flex;align-items:center;color:${kindBadge.color};">${_svg(kindBadge.icon, 16)}</span>
+        <span style="display:inline-flex;align-items:center;color:${_accent || kindBadge.color};">${_svg(kindBadge.icon, 16)}</span>
         <span style="font-size:12px;font-weight:700;color:#191F28;letter-spacing:-0.2px;">${kindBadge.label}</span>
       </div>
       ${_safety}
@@ -1545,6 +1618,7 @@
   // 단일 document-level 위임 (한 번만 등록)
   let _delegationBound = false;
   let _sendInFlight = false;
+  let _sendActive = false; // [카오스 P1] _send() 재진입 락 — _sendInFlight 는 shortcut 마다 토글돼(await 사이 false) 연타 방어에 무력. _send 전체 실행 구간을 덮는다.
   // [v178 2026-05-18] 사진 펜딩 (드래프트 첨부) — 갤러리/카메라 선택 시 자동 전송 X.
   //   입력창 위 칩으로 펜딩 → 사용자 텍스트 입력 후 ▷ 누르면 사진+텍스트 함께 전송.
   let _photoPending = null;
@@ -1667,8 +1741,19 @@
     if (!Array.isArray(cards)) return true;
     const card = cards.find((c) => c.id === cardId);
     const src = m.photo_result && m.photo_result.originalSrc;
-    if (!card || !src || !window.PhotoEditor || typeof window.PhotoEditor.open !== 'function') return true;
-    window.PhotoEditor.open({ src: src, initial_tab: card.initial_tab || 'beauty', initialState: card.state, itbiMeta: card.meta || null });
+    if (!card || !src) return true;
+    // [2026-07-22] 옛 PhotoEditor 대신 현재 인스타식 편집기(ItdEditor)로.
+    var _go = function () {
+      try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_c) { void _c; }
+      if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+        window.WorkspaceFlow.command({ type: 'storyedit', photoUrls: [src] });
+      } else if (window.showToast) {
+        window.showToast('작업실을 여는 중이에요. 잠시 후 다시 눌러주세요');   // [2026-07-22] 옛 PhotoEditor 폴백 제거
+      }
+    };
+    if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) {
+      Promise.resolve(window.AppLoader.ensure('photo')).then(_go, _go);
+    } else { _go(); }
     return true;
   }
 
@@ -1815,6 +1900,31 @@
     try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_e) { void _e; }
   }
 
+  // [2026-07-22] 옛 PhotoEditor(PE.open + TV.apply + _internal) 대신 headless 템플릿 상태 생성.
+  //   template-autoapply 와 같은 파이프라인 — 렌더는 PremiumTemplates, 편집은 문구 편집 시트,
+  //   저장 시 합성본을 작업실/현재 편집기로 넘긴다. 실패 시 null.
+  //   ⚠️ 여기서 작업실 편집기를 같이 열면 시트 DOM 이 날아간다(오버레이 정리) — 저장 시점에만 연다.
+  function _headlessTemplate(tplId, srcUrl, purpose, label) {
+    const TA = window.ItdasyTemplateAutoApply;
+    const PT = window.PhotoEditorPremiumTemplates;
+    if (!tplId || !TA || typeof TA.composeAndHandOff !== 'function') return null;
+    if (!PT || typeof PT.renderHook !== 'function') return null;
+    const onSave = _assistantTemplateOnSave({ purpose: purpose, label: label });
+    const state = {
+      tplV2: { id: tplId, slotValues: {}, imageSlots: { main_photo: { src: srcUrl || '' } } },
+      onSave: onSave,
+    };
+    try { if (typeof TA.setActiveState === 'function') TA.setActiveState(state); } catch (_e) { void _e; }
+    const helpers = {
+      scheduleRedraw: function () {},
+      renderPanel: function () {},
+      pushHistory: function () {},
+      applyStatePatch: function () {},
+      save: function () { return TA.composeAndHandOff(state, onSave); },
+    };
+    return { state: state, helpers: helpers };
+  }
+
   // [P0-B/P0-C] 잇비 자동적용 결과를 "저장" 시 마무리 갤러리 + 작업실 슬롯 둘 다에 baked 이미지로 남긴다.
   //   onSave 가 붙으면 편집기가 임베드 모드가 되어 저장이 _exportImage(다운로드) 대신 _saveViaCallback 으로 라우팅됨.
   //   실제 저장은 window.saveAssistantTemplateResult 어댑터(gallery saveToGallery + slot saveSlotToDB)에 위임.
@@ -1830,7 +1940,9 @@
         // [P2-2a] 저장 직전 편집기 state(tplV2)에서 재편집용 메타 캡처.
         let _meta = null;
         try {
-          const _st = window.PhotoEditor && window.PhotoEditor._internal && window.PhotoEditor._internal.getState && window.PhotoEditor._internal.getState();
+          // [2026-07-22] 옛 편집기 _internal.getState() → headless 활성 state.
+          const _TA = window.ItdasyTemplateAutoApply;
+          const _st = (_TA && typeof _TA.getActiveState === 'function') ? _TA.getActiveState() : null;
           if (typeof window.buildAssistantTemplateMeta === 'function') _meta = window.buildAssistantTemplateMeta(_st, m.purpose || 'price');
         } catch (_me) { _meta = null; }
         // [2026-06-11 B7] 저장 결과 확인 후 토스트 — 실패했는데 "저장했어요" 금지
@@ -2181,8 +2293,6 @@
 
   function _applyPriceTemplateDraft(action, msg) {
     try {
-      const PE = window.PhotoEditor, TV = window.PhotoEditorTemplatesV2;
-      if (!PE || !PE.open || !PE._internal || !TV || !TV.apply) return false;
       const draft = _priceTemplateDraft(action, msg);
       const services = _priceServices(draft);
       if (!services.length) return _priceTemplateFailed();
@@ -2190,14 +2300,11 @@
       const tplId = _selectPriceTemplateId(draft, p.preferredTemplateId);
       const tpl = _priceTemplateById(tplId);
       if (!tplId || !tpl) return _priceTemplateFailed();
-      PE.open({ src: _priceTemplateSource(action, msg), initial_tab: 'template', source: 'assistant', onSave: _assistantTemplateOnSave({ purpose: 'price', label: _priceTemplateLabel(tpl, tplId) }) });   // [P0-B] 저장→작업실 · [§13] 닫으면 잇비 복귀
-      TV.apply(tplId);
-      const helpers = PE._internal.helpers || {};
-      const state = PE._internal.getState && PE._internal.getState();
+      // [2026-07-22] 옛 편집기 대신 headless — 저장→작업실은 동일.
+      const _h = _headlessTemplate(tplId, _priceTemplateSource(action, msg), 'price', _priceTemplateLabel(tpl, tplId));
+      if (!_h) return _priceTemplateFailed();
+      const state = _h.state, helpers = _h.helpers;
       if (!_injectPriceSlotValues(state, draft, services)) return _priceTemplateFailed();
-      if (helpers.renderPanel) helpers.renderPanel();
-      if (helpers.scheduleRedraw) helpers.scheduleRedraw();
-      if (helpers.pushHistory) helpers.pushHistory();
       _openPriceEditSheet(state, tplId, tpl, helpers);
       if (window.showToast) window.showToast('가격표를 넣었어요. 문구 편집에서 확인해 주세요.');
       _pushPriceTemplateResult(tpl, tplId, services);
@@ -2233,8 +2340,6 @@
   // [M2] price 샘플 적용 — _applyPriceTemplateDraft 메커닉/결과 UX 재사용(draft 대신 sample.slotValues).
   function _applyPriceSample(payload) {
     try {
-      const PE = window.PhotoEditor, TV = window.PhotoEditorTemplatesV2;
-      if (!PE || !PE.open || !PE._internal || !TV || !TV.apply) return _priceTemplateFailed();
       const slotValues = (payload && payload.slotValues) || {};
       const services = Array.isArray(slotValues.services) ? slotValues.services : [];
       if (!services.length) return _priceTemplateFailed();
@@ -2251,14 +2356,11 @@
       if (!tplId || !tpl) return _priceTemplateFailed();
       let source = '';
       try { const src = window.ItdasySourceImage && window.ItdasySourceImage.resolve(); source = (src && src.dataUrl) ? src.dataUrl : ''; } catch (_e) { source = ''; }
-      PE.open({ src: source, initial_tab: 'template', source: 'assistant', onSave: _assistantTemplateOnSave({ purpose: 'price', label: _priceTemplateLabel(tpl, tplId) }) });   // [P0-B] 저장→작업실 · [§13] 닫으면 잇비 복귀
-      TV.apply(tplId);
-      const helpers = PE._internal.helpers || {};
-      const state = PE._internal.getState && PE._internal.getState();
+      // [2026-07-22] 옛 편집기 대신 headless — 저장→작업실은 동일.
+      const _h = _headlessTemplate(tplId, source, 'price', _priceTemplateLabel(tpl, tplId));
+      if (!_h) return _priceTemplateFailed();
+      const state = _h.state, helpers = _h.helpers;
       if (!_injectPriceSampleSlots(state, slotValues)) return _priceTemplateFailed();
-      if (helpers.renderPanel) helpers.renderPanel();
-      if (helpers.scheduleRedraw) helpers.scheduleRedraw();
-      if (helpers.pushHistory) helpers.pushHistory();
       _openPriceEditSheet(state, tplId, tpl, helpers);
       if (window.showToast) window.showToast('가격표를 넣었어요. 문구 편집에서 확인해 주세요.');
       _pushPriceTemplateResult(tpl, tplId, services);
@@ -2271,21 +2373,16 @@
     }
   }
 
-  async function _startPhotoModeFromSample(input, q, photos) {
-    const PM = window.ItdasyPhotoMode;
-    if (!PM) return false;
+  // [2026-07-21 Phase2] 샘플(전후/후기) 매칭 → 옛 photo-mode 대신 현재 작업실의 해당 모드로 진입.
+  async function _startPhotoModeFromSample(input, q, photos, cat) {
     _clearAssistantInput(input);
     _history.push({ role: 'user', text: q, photos: photos || [], thumb: photos && photos[0], local_only: true });
-    let msg = null;
-    try {
-      // [이슈6] 이미 사진편집 모드 진행 중이면 사진을 재-push 하지 않는다(중복 누적 → 한 장만 처리 방지).
-      //   진행 중엔 텍스트(칩 라벨)로만 단계 진행, 비활성일 때만 사진으로 새 세션 시작.
-      msg = PM.isActive()
-        ? await PM.handleText(q, null)
-        : (photos && photos.length ? await PM.handlePhotos(photos, q, null) : await PM.handleText(q, null));
-    } catch (_e) { msg = null; }
-    _history.push(Object.assign({ role: 'assistant' }, msg || { text: '사진편집 모드로 이어갈게요. 편집할 사진을 보내주세요.' }, { local_only: true }));
-    _pmForceRender();
+    if (photos && photos.length) {
+      const _ok = await _wsOpenFromChat(cat || null, photos);
+      if (_ok) return true;
+    }
+    _history.push({ role: 'assistant', text: '작업실에서 이어서 만들어요. 편집할 사진을 먼저 보내주세요.', local_only: true });
+    _renderHistory();
     return true;
   }
 
@@ -2310,7 +2407,7 @@
     // ── 매칭 성공: 여기부터 소비. 이후 오류는 true 로 흡수(이중 push 방지). ──
     try {
       if (payload.purpose === 'review' || payload.purpose === 'before_after') {
-        return await _startPhotoModeFromSample(input, q, photos);
+        return await _startPhotoModeFromSample(input, q, photos, payload.purpose === 'review' ? 'review' : 'ba');
       }
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
@@ -2375,7 +2472,7 @@
     ov.innerHTML = '<div style="width:100%;max-width:390px;max-height:72vh;overflow:auto;background:#fff;border-radius:22px 22px 18px 18px;padding:16px;box-shadow:0 -10px 34px rgba(25,31,40,.22);">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">' +
       '<div><strong style="font-size:16px;color:#191F28;">템플릿 선택</strong><div style="font-size:12px;color:#8B95A1;margin-top:3px;">고르면 채팅창에서 적용본을 바로 보여드려요.</div></div>' +
-      '<button type="button" data-asst-tpl-close style="border:0;background:#F2F4F6;border-radius:999px;width:34px;height:34px;font-size:18px;cursor:pointer;">×</button></div>' +
+      '<button type="button" data-asst-tpl-close aria-label="닫기" style="border:0;background:#F2F4F6;border-radius:999px;width:34px;height:34px;font-size:18px;cursor:pointer;">×</button></div>' +
       '<div data-asst-tpl-grid style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">' + cards + '</div></div>';
     host.appendChild(ov);
     ov.querySelector('[data-asst-tpl-close]').addEventListener('click', _removeAssistantTemplatePicker);
@@ -2723,6 +2820,7 @@
     try {
       const d = await _executeAction(msg.action);
       msg.action_status = 'done';
+      msg._justDone = true;   // [카드폴리시] 완료 순간 딱 한 번 체크 팝(재렌더 시 재생 안 함)
       _renderHistory();
       // [2026-05-25] generate_bulk_message / draft_message — 백엔드가 빈 message_draft 반환 시
       //   "메세지 초안이 비어있어요" 처럼 보여 사용자 혼란. 응답에 따라 친절한 안내로 분기.
@@ -3081,13 +3179,20 @@
   }
 
   function _openPhotoEditorForChat(opts, initialTab) {
-    if (window.PhotoEditor && typeof window.PhotoEditor.open === 'function') {
-      window.PhotoEditor.open({
-        src: opts.photoUrl,
-        initial_tab: initialTab,
-        customer_id: opts.customerCtx ? opts.customerCtx.id : undefined,
-      });
-    }
+    // [2026-07-22] 옛 PhotoEditor 대신 현재 인스타식 편집기(ItdEditor)로 — 전후/템플릿(ba,template)은 작업실 레이아웃 cat 으로.
+    var _cat = (initialTab === 'template') ? 'ba' : null;
+    var _photos = (opts.photos && opts.photos.length) ? opts.photos : (opts.photoUrl ? [opts.photoUrl] : null);
+    var go = function () {
+      try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_c) { void _c; }
+      if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+        window.WorkspaceFlow.command(_cat ? { type: 'open', cat: _cat, photoUrls: _photos } : { type: 'storyedit', photoUrls: _photos });
+      } else if (window.showToast) {
+        window.showToast('작업실을 여는 중이에요. 잠시 후 다시 눌러주세요');   // [2026-07-22] 옛 PhotoEditor 폴백 제거
+      }
+    };
+    if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) {
+      Promise.resolve(window.AppLoader.ensure('photo')).then(go, go);
+    } else { go(); }
   }
 
   function _pushPhotoShortcutMessage(opts, text) {
@@ -3439,21 +3544,6 @@
     return !!(question && /(영수증|매출|금액|결제|판매|메뉴|상품)/.test(question));
   }
 
-  function _pushPhotoSuggestion(question, photoUrls) {
-    _history.push({ role: 'user', text: question || '', thumb: photoUrls[0] || '', photos: photoUrls });
-    _history.push({
-      role: 'assistant',
-      text: '사진 1장 확인했어요. 시술 완료 사진으로 자연스럽게 보정할까요?',
-      intent_chips: [
-        { id: 'edit_done', label: '보정하기', question: '시술 완료사진으로 자연스럽게 보정해줘', primary: true },
-        { id: 'workspace', label: '작업실에서 게시글 만들기', question: '작업실 열어서 게시글 만들기' },
-        { id: 'instagram', label: '보정하고 인스타 업로드까지', question: '시술 완료사진으로 자연스럽게 보정하고 인스타 업로드까지 준비해줘' },
-        { id: 'template', label: '템플릿 먼저 보기', question: '이 사진 템플릿 골라줘' },
-      ],
-    });
-    _renderHistory();
-  }
-
   function _photoPlaceholderText(question, count) {
     const base = question || (count > 1 ? ('사진 ' + count + '장 업로드 중…') : '사진 업로드 중…');
     return (count > 1 && question) ? (question + ' (외 ' + (count - 1) + '장 함께)') : base;
@@ -3608,6 +3698,46 @@
     _clearChatPending();
   }
 
+  // [2026-07-21 Phase2] 채팅에서 현재 작업실을 알맞은 모드로 연다(옛 photo-mode 대체 공용 진입).
+  //   photo 그룹 ensure → 잇비 닫기 → WorkspaceFlow.command. 못 열면 false.
+  async function _wsOpenFromChat(cat, photos, screen) {
+    try {
+      if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) {
+        await window.AppLoader.ensure('photo');
+      }
+    } catch (_e) { void _e; }
+    if (!(window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function')) return false;
+    try { if (window.ItdasySourceImage && photos && photos[0]) window.ItdasySourceImage.noteChatPhoto({ dataUrl: photos[0], messageId: 'chat-ws' }); } catch (_e) { void _e; }
+    try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_e) { void _e; }
+    // [2026-07-22] screen 'edit'(사진 편집)은 인스타식 편집기(ItdEditor) — storyedit 명령. 그 외는 일반 진입.
+    if (screen === 'edit') {
+      window.WorkspaceFlow.command({ type: 'storyedit', photoUrls: (photos || []).slice(0, 10) });
+      return true;
+    }
+    var cmd = { type: 'open', photoUrls: (photos || []).slice(0, 10), cat: cat || null };
+    if (screen) cmd.screen = screen;
+    window.WorkspaceFlow.command(cmd);
+    return true;
+  }
+
+  // [2026-07-21] 채팅 사진 → 예쁜 선택 카드. 각 칩이 현재 작업실(WorkspaceFlow)의 알맞은 모드로 진입한다.
+  //   (옛 photo-mode 템플릿 갤러리·다단계 가이드 대체 — 카드 디자인은 살리고 목적지만 현재 작업실로.)
+  //   실제 진입/photo그룹 ensure 는 photo-actions.js 의 인텐트칩 핸들러(ws_* )가 담당.
+  function _pushWorkspacePhotoCard(question, photoUrls) {
+    var n = photoUrls.length;
+    var chips = [{ id: 'ws_post', label: '게시글 만들기', primary: true }];
+    if (n >= 2) chips.push({ id: 'ws_ba', label: '전후 비교' });     // 전후는 2장부터
+    chips.push({ id: 'ws_review', label: '후기 카드' });
+    chips.push({ id: 'ws_edit', label: '사진 편집' });
+    _history.push({ role: 'user', text: question || '', thumb: photoUrls[0] || '', photos: photoUrls, local_only: true });
+    _history.push({
+      role: 'assistant', local_only: true,
+      text: '사진 ' + n + '장 받았어요. 이 사진으로 뭘 만들까요?',
+      intent_chips: chips,
+    });
+    _renderHistory();
+  }
+
   async function _uploadPhotos(files) {
     if (_sendInFlight) return;
     const selectedFiles = _normalizePhotoFiles(files);
@@ -3619,33 +3749,69 @@
     //   다중 업로드는 첫 장 기준(photoUrls[0]). 모든 업로드 경로(shortcut/suggestion/OCR) 공통 진입점.
     try { if (window.ItdasySourceImage && photoUrls[0]) window.ItdasySourceImage.noteChatPhoto({ dataUrl: photoUrls[0], messageId: 'chat-' + _history.length }); } catch (_e) { void _e; }
     try {
-      // 사진편집 모드가 사진 업로드 흐름을 통합 처리한다. 가격표·DM 등은 shouldStart 에서 제외.
-      const PM = window.ItdasyPhotoMode;
-      // [이슈1] 가격표/메뉴판/DM/발송은 shouldStart 의 BLOCK_RE 가, OCR(영수증·매출)은 여기 가드가 제외.
-      //   그 외 사진 업로드는 사진편집 모드로 일원화 → 레거시 BA(_pendingBA*) 가로채기 제거.
-      const _pmBlocked = _isOcrPhotoIntent(question);
-      const pmWantsPhoto = PM && photoUrls.length && !_pmBlocked && (
-        PM.isActive() || !question || (PM.shouldStart && PM.shouldStart(question, { hasPhoto: true }))
-      );
-      if (pmWantsPhoto) {
-        // local_only: 서버 미저장 PM 사진 말풍선/응답 → 서버 머지 때 보존(빈 말풍선·드롭 방지).
-        _history.push({ role: 'user', text: question || '', thumb: photoUrls[0], photos: photoUrls, local_only: true });
-        _renderHistory();
-        let _pmMsg = null;
-        try { _pmMsg = await PM.handlePhotos(photoUrls, question, null); } catch (_e) { _pmMsg = null; }
-        _history.push(Object.assign({ role: 'assistant' }, _pmMsg || { text: '사진을 받았어요. 잠시 후 다시 시도해 주세요.' }, { local_only: true }));
-        _pmDbg('upload.push', { len: _history.length, keys: Object.keys(_pmMsg || {}) });
-        _pmForceRender();
-        _pmDbg('upload.render', _pmSheetState());
-        _sendInFlight = false; _inflightCtrl = null;
-        return;
-      }
+      // [2026-07-21] 사진 던지면 옛 photo-mode(템플릿 갤러리)가 아니라 현재 작업실(레이아웃-퍼스트)로 재편성.
+      //   특수 인텐트는 기존 경로 유지: 가격표(_tryPriceListDraft)·OCR 영수증/매출/메뉴(_isOcrPhotoIntent→서버)·
+      //   캡션 전용(_isCaptionIntent→서버). 그 외 '사진으로 게시글' 흐름은 전부 현재 작업실로 직행.
       if (question && _tryPriceListDraft(null, question, photoUrls)) return;
       const _isCaptionIntent = !!(question && /캡션|홍보\s*글|홍보글|해시태그|문구|인스타\s*(글|피드\s*글)/.test(question));
       if (await _tryPhotoShortcut(question, photoUrls)) return;
-      if (photoUrls.length && !_isOcrPhotoIntent(question) && !_isCaptionIntent) {
-        _pushPhotoSuggestion(question, photoUrls);
+      // [2026-07-22] 사진 + 편집 브리핑("좌측하단 텍스트·스티커 덕지덕지, 22인치 재시술")이면
+      //   카드 대신 오케스트레이터로 — 레이아웃 고른 뒤 텍스트·스티커·캡션 자동.
+      var _brief = (question && window.ItdasyPhotoBrief && window.ItdasyPhotoBrief.parse) ? window.ItdasyPhotoBrief.parse(question) : null;
+      if (_brief && _brief.hasBrief && photoUrls.length && !_isOcrPhotoIntent(question)) {
+        _history.push({ role: 'user', text: question, thumb: photoUrls[0], photos: photoUrls, local_only: true });
+        _history.push({ role: 'assistant', local_only: true,
+          text: '알겠어요! 레이아웃만 고르면 ' + (_brief.wantsText ? '시술내용 텍스트' : '') + (_brief.wantsText && _brief.wantsSticker ? '·' : '') + (_brief.wantsSticker ? '스티커' : '') + '·캡션까지 자동으로 입혀드릴게요' + (_brief.service ? ' (' + _brief.service + ')' : '') });
+        _renderHistory();
+        (async function () {
+          // [Phase2b] 백엔드 LLM 으로 브리핑 보강(fail-safe: 실패하면 휴리스틱 _brief 그대로).
+          var _finalBrief = _brief;
+          try { if (window.ItdasyPhotoBrief && window.ItdasyPhotoBrief.parseSmart) { _finalBrief = (await window.ItdasyPhotoBrief.parseSmart(question)) || _brief; } } catch (_pe) { _finalBrief = _brief; }
+          try { if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) await window.AppLoader.ensure('photo'); } catch (_e) { void _e; }
+          try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_e) { void _e; }
+          if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+            window.WorkspaceFlow.command({ type: 'orchestrate', photoUrls: photoUrls.slice(0, 10), brief: _finalBrief });
+          }
+        })();
         if (window.hapticLight) window.hapticLight();
+        _sendInFlight = false; _inflightCtrl = null;
+        return;
+      }
+      if (photoUrls.length && !_isOcrPhotoIntent(question) && !_isCaptionIntent) {
+        /* [2026-07-22 보스] 사진만 던지면 **잇비 채팅 안에서** 레이아웃을 고르게 한다.
+           예전 1: '게시글 만들기/전후 비교/후기 카드/사진 편집' 칩 4개 → 한 단계 군더더기.
+           예전 2: 곧장 작업실 레이아웃 화면으로 이동 → 채팅에서 튕겨나가는 느낌.
+           지금: 채팅에 구성 카드가 뜨고, 하나 누르면 그 구성으로 게시글 화면까지 직행 = "채팅 안에서 딸깍".
+           선택지는 workspace/flow/layout.js 의 _compOptions 가 정본 — 여기서 지어내지 않는다. */
+        _history.push({ role: 'user', text: question || '', thumb: photoUrls[0] || '', photos: photoUrls, local_only: true });
+        _renderHistory();   // 사진은 **즉시** 보여준다 — 구성 목록을 기다리느라 채팅이 비어 보이면 안 된다
+        (async function () {
+          // 구성 목록을 물으려면 WorkspaceFlow(photo 그룹)가 먼저 로드돼 있어야 한다.
+          try { if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) await window.AppLoader.ensure('photo'); } catch (_e) { void _e; }
+          var picks = [];
+          try {
+            if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+              var _r = window.WorkspaceFlow.command({ type: 'layoutopts', n: photoUrls.length });
+              picks = (_r && _r.options) || [];
+            }
+          } catch (_e) { picks = []; }
+          if (picks.length) {
+            _history.push({ role: 'assistant', local_only: true,
+              text: '사진 ' + photoUrls.length + '장 받았어요. 어떻게 만들까요?',
+              layout_picks: picks, layout_n: photoUrls.length });
+          } else {
+            // 1장이면 고를 구성이 없다(그대로 1장) → 바로 작업실로.
+            _history.push({ role: 'assistant', local_only: true,
+              text: '사진 받았어요. 게시글 만들러 갈게요 — 시술 내용만 알려주시면 돼요.' });
+            if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+              try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_c) { void _c; }
+              window.WorkspaceFlow.command({ type: 'orchestrate', photoUrls: photoUrls.slice(0, 10), brief: null });
+            }
+          }
+          _renderHistory();
+        })();
+        if (window.hapticLight) window.hapticLight();
+        _sendInFlight = false; _inflightCtrl = null;
         return;
       }
       _pushPhotoUploadPlaceholder(question, selectedFiles.length, photoUrls);
@@ -3691,13 +3857,17 @@
   function _lastPendingSingleAction() {
     for (let i = _history.length - 1; i >= 0; i--) {
       const m = _history[i];
-      if (m && m.role === 'assistant' && m.action && m.action.kind && m.action_status !== 'done') return m;
+      // [카오스 P0] 이미 실행 중(running)/완료(done)인 액션은 제외 — 연타 affirm 이중 실행 방지.
+      if (m && m.role === 'assistant' && m.action && m.action.kind
+          && m.action_status !== 'done' && m.action_status !== 'running') return m;
     }
     return null;
   }
 
   function _isAffirmReply(q) {
-    return /^(응|그래|맞아|예|네|좋아|확인|진행|완료|취소해|ok|좋|어어|ㅇㅇ|어)$/i.test(q.trim());
+    // [카오스 P1] '취소해'·'완료' 제거 — 취소 의도가 affirm 으로 오분류돼 pending 액션(예약·매출)을
+    //   반대로 실행하던 문제. 이 둘은 affirm 파이프라인 아닌 일반 처리로 흘려보낸다.
+    return /^(응|그래|맞아|예|네|좋아|확인|진행|ok|좋|어어|ㅇㅇ|어)$/i.test(q.trim());
   }
 
   function _markActionFailed(message, err) {
@@ -3712,6 +3882,11 @@
     if (!_isAffirmReply(q)) return false;
     const message = _lastPendingSingleAction();
     if (!message) return false;
+    // [카오스 P0] 이중 실행 방지 — running/done 이면 무시, await 전에 status 를 동기 세팅한다.
+    //   (연타 "응" 또는 카드 실행버튼+"응" 로 매출/예약/환불이 2번 실행되던 문제. _runAction 과 동일 가드.
+    //    비-risky mutating kind 는 native confirm 게이트가 없어 깨끗한 이중 실행이 나던 경로.)
+    if (message.action_status === 'running' || message.action_status === 'done') return true;
+    message.action_status = 'running';
     _clearAssistantInput(input);
     _history.push({ role: 'user', text: q });
     _renderHistory();
@@ -3725,10 +3900,11 @@
       if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
     } catch (err) {
       if (err && err.userCancelled) {
+        message.action_status = 'pending';   // [카오스] 사용자 취소 → 재시도 가능하게 status 복원
         if (window.showToast) window.showToast('취소했어요');
         return true;
       }
-      _markActionFailed(message, err);
+      _markActionFailed(message, err);   // status='failed' (재시도 허용)
     }
     return true;
   }
@@ -4122,17 +4298,19 @@
   }
 
   function _tryPhotoEditorShortcut(input, q) {
-    const editor = window.PhotoEditor && typeof window.PhotoEditor.open === 'function';
-    if (!editor) return false;
     if (window.ItdasyAssistantPhotoCommands?.tryRun?.(input, q, { clearInput: _clearAssistantInput })) return true;
-    if (/(사진|이미지|포토)\\s*(편집|보정|수정|꾸미|예쁘게|만들|업로드)/.test(q)
-        || /(편집기|편집\\s*화면|보정\\s*화면|에디터)\\s*(열|보여|시작|이동|가)?/.test(q)
+    // [2026-07-22] 옛 PhotoEditor(A 슬라이더) 호출 완전 제거 → 현재 작업실(WorkspaceFlow) 로만 연결.
+    //   정규식은 원래 `\\s`(리터럴 백슬래시) 오타로 공백 발화가 안 잡히던 死코드 → `\s`(공백)로 교정.
+    const _hasWs = window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function';
+    if (!_hasWs) return false;
+    if (/(사진|이미지|포토)\s*(편집|보정|수정|꾸미|예쁘게|만들|업로드)/.test(q)
+        || /(편집기|편집\s*화면|보정\s*화면|에디터)\s*(열|보여|시작|이동|가)?/.test(q)
         || /^편집기?$/.test(q.trim())) {
-      _runSheetShortcut(input, () => window.PhotoEditor.open({}));
+      _runSheetShortcut(input, () => window.WorkspaceFlow.command({ type: 'storyedit', photoUrls: _lastUserPhotos() }));
       return true;
     }
-    if (/(전후|before\\s*after|b&a|비포\\s*애프터|시술\\s*전후).*?(카드|만들|보여|업로드)/.test(q)) {
-      _runSheetShortcut(input, () => window.PhotoEditor.open({ initial_tab: 'template' }));
+    if (/(전후|before\s*after|b&a|비포\s*애프터|시술\s*전후).*?(카드|만들|보여|업로드)/.test(q)) {
+      _runSheetShortcut(input, () => window.WorkspaceFlow.command({ type: 'open', cat: 'ba', photoUrls: _lastUserPhotos() }));
       return true;
     }
     return false;
@@ -4140,13 +4318,13 @@
 
   function _trySimpleOpenShortcut(input, q) {
     const pairs = [
-      [/(브랜드\\s*키트|brand\\s*kit|샵\\s*브랜드|워터마크\\s*(설정|관리))/, () => window.BrandKit?.open?.()],
+      [/(브랜드\s*키트|brand\s*kit|샵\s*브랜드|워터마크\s*(설정|관리))/, () => window.BrandKit?.open?.()],
       [/회원권.*(만료|임박)|만료.*회원권/, () => window.MembershipUI?.openExpiringList?.(30)],
-      [/(dm|디엠|자동\\s*응답|자동\\s*답장).*(설정|관리|편집|룰)|자동\\s*응답\\s*(켜|꺼|on|off)/, window.openDMAutoreplySettings],
-      [/(통계|분석|인사이트|insight|매출\\s*(요약|리포트|추이|분석))/, window.openInsights],
+      [/(dm|디엠|자동\s*응답|자동\s*답장).*(설정|관리|편집|룰)|자동\s*응답\s*(켜|꺼|on|off)/, window.openDMAutoreplySettings],
+      [/(통계|분석|인사이트|insight|매출\s*(요약|리포트|추이|분석))/, window.openInsights],
       [/(백업|backup|데이터.*(복구|내보내|받|export))/, window.openBackupScreen],
-      [/(리뷰|후기)\\s*(요청|보내|부탁|발송)/, window.openReviewRequests],
-      [/(이탈|위험|복귀|재방문)\\s*(고객|손님|관리)?|retention/i, window.openRetentionAI],
+      [/(리뷰|후기)\s*(요청|보내|부탁|발송)/, window.openReviewRequests],
+      [/(이탈|위험|복귀|재방문)\s*(고객|손님|관리)?|retention/i, window.openRetentionAI],
     ];
     return _runFirstShortcutPair(input, q, pairs);
   }
@@ -4162,20 +4340,20 @@
   }
 
   function _tryTabShortcut(input, q) {
-    if (/(갤러리|포트폴리오|작품)\\s*(열|보여|이동|가)/.test(q) || /^(갤러리|포트폴리오)$/.test(q.trim())) {
+    if (/(갤러리|포트폴리오|작품)\s*(열|보여|이동|가)/.test(q) || /^(갤러리|포트폴리오)$/.test(q.trim())) {
       if (typeof window.showTab === 'function') {
         _runSheetShortcut(input, () => window.showTab('gallery', document.querySelector('.tab-bar__btn[data-tab="gallery"]')));
         return true;
       }
     }
-    if (/(영업\\s*시간|매장\\s*정보|가게\\s*정보|샵\\s*정보|설정).*(변경|수정|확인|보기|열|관리)?/.test(q)) {
+    if (/(영업\s*시간|매장\s*정보|가게\s*정보|샵\s*정보|설정).*(변경|수정|확인|보기|열|관리)?/.test(q)) {
       return _trySettingsShortcut(input, q);
     }
     return false;
   }
 
   function _trySettingsShortcut(input, q) {
-    if (!/^설정\\s*$|영업\\s*시간|매장\\s*정보|가게\\s*정보|샵\\s*정보/.test(q)) return false;
+    if (!/^설정\s*$|영업\s*시간|매장\s*정보|가게\s*정보|샵\s*정보/.test(q)) return false;
     if (typeof window.openSettingsHub !== 'function') return false;
     _runSheetShortcut(input, () => window.openSettingsHub());
     return true;
@@ -4186,7 +4364,7 @@
     if (/(음성|녹음|받아쓰|마이크|보이스|voice).*(캡션|글|입력|문구)?/.test(q)) {
       if (typeof window.openVoiceCaption === 'function') { _runSheetShortcut(input, () => window.openVoiceCaption()); return true; }
     }
-    if (/(결제|플랜|구독|업그레이드|pro|premium)\\s*(변경|선택|보|관리|업)?/.test(q)) return _tryPlanShortcut(input);
+    if (/(결제|플랜|구독|업그레이드|pro|premium)\s*(변경|선택|보|관리|업)?/.test(q)) return _tryPlanShortcut(input);
     return false;
   }
 
@@ -4233,7 +4411,15 @@
       body: JSON.stringify({ question: q, session_id: _sessionId || undefined, context_hint: _hint || undefined }),
       signal: ctrl.signal,
     });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    // [2026-07-22 보스] 서버가 사람 말로 이유를 줬으면(429 "AI 비서가 잠시 붐비고 있어요" 등)
+    //   그대로 답변 버블에 띄운다. 예전엔 'HTTP 429' 로 뭉개서 원장님은 원인을 모른 채 계속 다시 보냈고,
+    //   보낼 때마다 20~30초를 기다리며 쿼터를 더 갉아먹었다. 기계 문자열(500 등)은 기존대로 throw.
+    if (!res.ok) {
+      let _detail = '';
+      try { _detail = ((await res.clone().json()) || {}).detail || ''; } catch (_je) { _detail = ''; }
+      if (_detail && /[가-힣]/.test(_detail)) return { answer: _detail, actions: [], _serverNotice: true };
+      throw new Error('HTTP ' + res.status);
+    }
     // [robust] Gemini 지연/타임아웃 시 서버가 200+빈 바디를 줄 수 있음 → res.json()이 터져 빈 화면/에러가 되던 것 방지.
     const _txt = await res.text();
     if (!_txt || !_txt.trim()) return { answer: '응답이 잠깐 지연됐어요. 다시 한 번 말씀해 주세요 🙏', actions: [] };
@@ -4511,9 +4697,13 @@
   }
 
   // [activeCard P0] 편집기 시트가 열려있나(닫혀도 display!=='none' 이면 채팅 뒤에 떠 있는 것).
+  // [2026-07-22] 옛 #photoEditorSheet 기준 → 현재 작업실/편집기 기준.
+  //   옛 시트는 이제 안 열려 항상 false 였고, 그 탓에 '그거 저장'이 저장 대신 재오픈으로 새던 버그.
   function _isEditorOpen() {
-    try { const s = document.getElementById('photoEditorSheet'); return !!s && getComputedStyle(s).display !== 'none'; }
-    catch (_e) { return false; }
+    try {
+      if (window.ItdEditor && typeof window.ItdEditor.isOpen === 'function' && window.ItdEditor.isOpen()) return true;
+      return !!(window.WorkspaceFlow && typeof window.WorkspaceFlow.isOpen === 'function' && window.WorkspaceFlow.isOpen());
+    } catch (_e) { return false; }
   }
   async function _ensurePhotoGroup() {
     try { if (window.AppLoader && !window.AppLoader.loaded('photo')) await window.AppLoader.ensure('photo'); } catch (_e) { void _e; }
@@ -4566,8 +4756,8 @@
         reply = name + '는 아직 안 만들어져서 ' + (ref.verb === 'save' ? '저장할' : '보여드릴') + ' 게 없어요. 가격표·후기·전후 카드는 바로 만들 수 있어요 — 만들어드릴까요?';
       } else if (ref.verb === 'save') {
         if (card.slotId != null) { _openWorkshopHighlightSlot(card.slotId); reply = '"' + name + '"는 이미 작업실에 저장돼 있어요. 작업실에 띄워뒀어요.'; }
-        else if (editorOpen && window.PhotoEditor && typeof window.PhotoEditor.save === 'function') {
-          try { await window.PhotoEditor.save(); reply = '방금 만든 "' + name + '"를 작업실에 저장했어요. "그거 수정"이라고 하면 다시 열어드려요.'; }
+        else if (editorOpen && window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+          try { await window.WorkspaceFlow.command({ type: 'save' }); reply = '방금 만든 "' + name + '"를 작업실에 저장했어요. "그거 수정"이라고 하면 다시 열어드려요.'; }
           catch (_s) { reply = '저장 중에 문제가 있었어요. 편집기에서 저장 버튼을 한 번 눌러봐 주세요.'; }
         } else { _reopenTemplateForActive(card); reply = '"' + name + "\" 편집기를 다시 열었어요. 마무리하고 '그거 저장'이라고 해주세요."; }
       } else if (ref.verb === 'edit') {
@@ -4645,14 +4835,20 @@
   // [§1 qa-E] 이벤트 카드 적용 — 편집기를 열면서 해당 이벤트 템플릿 적용(저장→작업실). _apply(편집기 필요)와 달리 무반응 없음.
   let _eventApplyInFlight = false;
   function _openEventTemplate(tplId, label) {
-    const PE = window.PhotoEditor, TV = window.PhotoEditorTemplatesV2;
-    if (!PE || typeof PE.open !== 'function') { try { if (window.showToast) window.showToast('편집기를 열 수 없어요. 잠시 후 다시 시도해 주세요.'); } catch (_t) { void _t; } return; }
     if (_eventApplyInFlight) return;   // 중복 클릭 방지
     _eventApplyInFlight = true; setTimeout(() => { _eventApplyInFlight = false; }, 1200);
     let source = '';
     try { const src = window.ItdasySourceImage && window.ItdasySourceImage.resolve(); source = (src && src.dataUrl) ? src.dataUrl : ''; } catch (_e) { source = ''; }
-    PE.open({ src: source, initial_tab: 'template', source: 'assistant', onSave: _assistantTemplateOnSave({ purpose: 'event', label: label || '이벤트 카드' }) });
-    if (tplId && TV && typeof TV.apply === 'function') { try { TV.apply(tplId); } catch (_a) { void _a; } }
+    // [2026-07-22] 옛 편집기 대신 headless + 문구 편집 시트.
+    const _h = _headlessTemplate(tplId, source, 'event', label || '이벤트 카드');
+    if (!_h) { try { if (window.showToast) window.showToast('작업실을 여는 중이에요. 잠시 후 다시 시도해 주세요.'); } catch (_t) { void _t; } return; }
+    try {
+      const ES = window.PhotoEditorTemplateEditSheet;
+      const TA = window.ItdasyTemplateAutoApply;
+      if (ES && typeof ES.open === 'function') {
+        ES.open({ templateId: tplId, templateData: (TA && TA.tplData && TA.tplData(tplId)) || null, state: _h.state, helpers: _h.helpers, onChange: function () {} });
+      }
+    } catch (_e) { void _e; }
     try { if (window.ItbiActiveCard) window.ItbiActiveCard.set({ purpose: 'event', label: label || '이벤트 카드', templateId: tplId, available: true, origin: 'create' }); } catch (_ac) { void _ac; }
     _focusEditorCloseAssistant();
   }
@@ -4663,13 +4859,19 @@
     return /이벤트/.test(t);
   }
   function _openCreateTemplate(purpose) {
-    const PE = window.PhotoEditor, TV = window.PhotoEditorTemplatesV2;
-    if (!PE || typeof PE.open !== 'function') return false;
     let source = '';
     try { const src = window.ItdasySourceImage && window.ItdasySourceImage.resolve(); source = (src && src.dataUrl) ? src.dataUrl : ''; } catch (_e) { source = ''; }
-    PE.open({ src: source, initial_tab: 'template', source: 'assistant', onSave: _assistantTemplateOnSave({ purpose: purpose, label: _CREATE_LABEL[purpose] || '카드' }) });   // [§13] 닫으면 잇비 복귀
     const tplId = _CREATE_DEFAULT_TPL[purpose];
-    if (tplId && TV && typeof TV.apply === 'function') { try { TV.apply(tplId); } catch (_a) { void _a; } }
+    // [2026-07-22] 옛 편집기 대신 headless + 문구 편집 시트.
+    const _h = _headlessTemplate(tplId, source, purpose, _CREATE_LABEL[purpose] || '카드');
+    if (!_h) return false;
+    try {
+      const ES = window.PhotoEditorTemplateEditSheet;
+      const TA = window.ItdasyTemplateAutoApply;
+      if (ES && typeof ES.open === 'function') {
+        ES.open({ templateId: tplId, templateData: (TA && TA.tplData && TA.tplData(tplId)) || null, state: _h.state, helpers: _h.helpers, onChange: function () {} });
+      }
+    } catch (_e) { void _e; }
     // [activeCard P0] 방금 만든(편집 중) 카드 기억 — 저장 전에도 "그거 저장/수정/다시 보여줘" 가 가리킬 수 있게.
     try { if (window.ItbiActiveCard) window.ItbiActiveCard.set({ purpose: purpose, label: _CREATE_LABEL[purpose] || '카드', templateId: tplId, available: true, origin: 'create' }); } catch (_ac) { void _ac; }
     _focusEditorCloseAssistant();
@@ -4691,29 +4893,15 @@
         await _pushEventCardChoices(q);
         return true;
       }
-      if (p === 'before_after') {
-        const PM = window.ItdasyPhotoMode;
-        if (PM) {
-          const photos = _lastUserPhotos();
-          const msg = photos.length ? await PM.handlePhotos(photos, q, null) : await PM.handleText(q, null);
-          _history.push(Object.assign({ role: 'assistant' }, msg || { text: '전후 카드는 사진편집 모드에서 이어갈게요. 사진을 보내주세요.' }, { local_only: true }));
-          _pmForceRender();
+      if (p === 'before_after' || p === 'review') {
+        // [2026-07-21 Phase2] 옛 photo-mode 대신 현재 작업실의 전후/후기 모드로 진입.
+        const photos = _lastUserPhotos();
+        if (photos.length) {
+          const _ok = await _wsOpenFromChat(p === 'review' ? 'review' : 'ba', photos);
+          if (!_ok) { _history.push({ role: 'assistant', text: '작업실을 여는 데 문제가 있었어요. 잠시 후 다시 시도해 주세요.' }); _renderHistory(); }
           return true;
         }
-        _history.push({ role: 'assistant', text: '전후 카드는 사진 2장이 필요해요. 사진편집 모드에서 사진을 보내주세요.' });
-        _renderHistory();
-        return true;
-      }
-      if (p === 'review') {
-        const PM = window.ItdasyPhotoMode;
-        if (PM) {
-          const photos = _lastUserPhotos();
-          const msg = photos.length ? await PM.handlePhotos(photos, q, null) : await PM.handleText(q, null);
-          _history.push(Object.assign({ role: 'assistant' }, msg || { text: '후기 카드는 사진편집 모드에서 이어갈게요. 사진을 보내주세요.' }, { local_only: true }));
-          _pmForceRender();
-          return true;
-        }
-        _history.push({ role: 'assistant', text: '후기 카드는 사진편집 모드에서 만들 수 있어요. 사진을 보내주세요.' });
+        _history.push({ role: 'assistant', text: (p === 'review' ? '후기 카드' : '전후 카드') + '를 만들 사진을 먼저 보내주세요. 사진을 올리면 작업실에서 이어서 만들어요.' });
         _renderHistory();
         return true;
       }
@@ -4816,8 +5004,8 @@
       let reply;
       if (card && card.slotId != null) {
         reply = '이미 작업실에 저장돼 있어요. 작업실에서 바로 확인할 수 있어요.';
-      } else if (editorOpen && window.PhotoEditor && typeof window.PhotoEditor.save === 'function') {
-        try { await window.PhotoEditor.save(); reply = '작업실에 저장했어요. 작업실에서 바로 확인할 수 있어요.'; }
+      } else if (editorOpen && window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+        try { await window.WorkspaceFlow.command({ type: 'save' }); reply = '작업실에 저장했어요. 작업실에서 바로 확인할 수 있어요.'; }
         catch (_s) { reply = '저장 중 문제가 있었어요 — 편집기에서 저장 버튼을 한 번 눌러봐 주세요.'; }
       } else if (card) {
         _reopenTemplateForActive(card);
@@ -4835,7 +5023,9 @@
   }
 
   async function _send() {
-    if (_sendInFlight) return;
+    if (_sendInFlight || _sendActive) return;   // [카오스 P1] 연타 중복 전송(LLM 2배 호출·카드 중복) 차단
+    _sendActive = true;
+    try {
     const input = document.getElementById('asstInput');
     const pendingFiles = _takePendingPhotoFiles();
     if (pendingFiles) { _uploadPhotos(pendingFiles); return; }
@@ -4852,38 +5042,21 @@
     if (window.ItdasyWorkspaceNL?.tryOpen?.(input, q, { clearInput: _clearAssistantInput })) return;
     // [모드 P1] 잇비 사진편집 모드 — 활성이거나 시작 발화면 photo-mode 가 우선 처리(메시지 객체 push).
     {
-      const _PM = window.ItdasyPhotoMode;
-      // [M2] 활성 캡션 대화(생성된 캡션 last 또는 시술 service 보유)에서 말투/톤 변경 발화면 사진모드로 넘기지 않는다.
+      // [2026-07-21 Phase2] 텍스트 사진편집 발화("이 사진 보정해줘")도 옛 photo-mode 대신 현재 작업실로.
+      //   감지는 photo-mode-support(ItdasyPhotoModeSupport.shouldStart) 재사용 — 캡션 재작성 발화는 제외.
+      const _S = window.ItdasyPhotoModeSupport;
       const _capRewriteActive = !!(_capCtx && (_capCtx.last || _capCtx.service) && _looksCaptionRewrite(q));
-      const _pmStart = !_capRewriteActive && _PM && (
-        _PM.isActive() || (_PM.shouldStart ? _PM.shouldStart(q, { hasPhoto: false }) : (_PM.START_RE && _PM.START_RE.test(q)))
-      );
+      const _pmStart = !_capRewriteActive && _S && typeof _S.shouldStart === 'function' && _S.shouldStart(q, { hasPhoto: false });
       if (_pmStart) {
-        const _wasActive = _PM.isActive();
-        _sendInFlight = true;   // await 동안 중복 전송 차단
-        let _pmMsg = null;
-        try { _pmMsg = await _PM.handleText(q, null); } catch (_e) { _pmMsg = null; }
-        // [§4] 작업실 등으로 네비게이션만 한 경우 — 채팅 push/재렌더 생략(닫히는 중 캡션 카드 깜빡임 방지).
-        if (_pmMsg && _pmMsg.pm_navigated) {
-          _clearAssistantInput(input);
-          _sendInFlight = false; _inflightCtrl = null;
-          return;
-        }
-        if (_pmMsg) {
-          _clearAssistantInput(input);
-          // local_only: 서버 미저장 → _mergeServerHistory 에서 보존(드롭 방지).
-          _history.push({ role: 'user', text: q, local_only: true });
-          _history.push(Object.assign({ role: 'assistant' }, _pmMsg, { local_only: true }));
-          _pmDbg('send.push', { len: _history.length, keys: Object.keys(_pmMsg), text: (_pmMsg.text || '').slice(0, 24) });
-          _pmForceRender();
-          _pmDbg('send.render', _pmSheetState());
-          _sendInFlight = false; _inflightCtrl = null;
-          return;
-        }
-        _sendInFlight = false;   // 미처리(null) → 기존 파이프라인 계속
-        // 무관 질문 → 통과시키고, 백엔드 응답 뒤 "하던 거 이어가요" 재안내 예약.
-        // [핫픽스F #5-6] 단, 예약/고객/매출 같은 명시 운영 인텐트엔 재안내(사진 받기)를 붙이지 않는다(photo 흐름 양보).
-        if (_wasActive && !_looksExplicitOpsIntent(q)) _photoModeReannounce = (_PM.stepLabel && _PM.stepLabel()) || '';
+        _clearAssistantInput(input);
+        const _photos = _lastUserPhotos();
+        const _ok = await _wsOpenFromChat(null, _photos, _photos.length ? 'edit' : null);
+        if (_ok) { _sendInFlight = false; _inflightCtrl = null; return; }
+        _history.push({ role: 'user', text: q, local_only: true });
+        _history.push({ role: 'assistant', text: '작업실에서 편집할게요. 편집할 사진을 먼저 보내주세요.', local_only: true });
+        _renderHistory();
+        _sendInFlight = false; _inflightCtrl = null;
+        return;
       }
     }
     // [Phase3 §12 최우선] 연락처 자연어(전화번호 패턴 포함) — 가격표/템플릿/사진/백업으로 새지 않게 _send 앞단에서 가로챈다.
@@ -4942,6 +5115,7 @@
       try { _history.push({ role: 'assistant', text: '하던 거 이어가요: ' + _photoModeReannounce }); _renderHistory(); } catch (_e) { void _e; }
       _photoModeReannounce = '';
     }
+    } finally { _sendActive = false; }   // [카오스 P1] _send 전체 구간 재진입 락 해제
   }
 
   // [2026-04-26] 멀티 디바이스 동기화 — 서버에서 최근 세션 messages 로드.

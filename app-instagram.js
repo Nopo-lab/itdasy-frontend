@@ -1,5 +1,20 @@
 // Itdasy Studio - Instagram 연동 & 말투분석
 
+// [보안감사 H-7 준비 2026-07-27] 인스타 OAuth 시작을 (네이티브에서) 인앱 웹뷰 이동 대신
+//   Browser 플러그인(SFSafariViewController)으로 열기 위한 플래그. 기본 OFF.
+//   ▶ 켜야 iOS App-Bound Domains(H-7)를 걸어도 인스타 로그인이 안 깨진다(웹뷰가 우리 도메인 밖으로 안 나감).
+//   ▶ 기본 OFF 이므로 웹·현재 모든 네이티브 설치본은 기존 window.location.href 경로 그대로(바이트 동일).
+//   ▶ 실제 ON 은 기기/시뮬 E2E 검증하는 별도 빌드 세션에서. 그 전엔 아무 동작 변화 없음.
+//   오버라이드(?securetoken 과 동일 패턴, 1회 쿼리→localStorage 고정):
+//     ?igbrowser=1 강제 ON(테스트) · ?igbrowser=0 강제 OFF(킬스위치) · 기본 null(OFF).
+const _IG_BROWSER = (function () {
+  try {
+    if (/[?&]igbrowser=1/.test(location.search)) { try { localStorage.setItem('itdasy_igbrowser', '1'); } catch (_p) { void _p; } return true; }  // 쿼리 1회 → 리로드에도 유지
+    if (/[?&]igbrowser=0/.test(location.search)) { try { localStorage.setItem('itdasy_igbrowser', '0'); } catch (_p) { void _p; } return false; }
+    return localStorage.getItem('itdasy_igbrowser') === '1';
+  } catch (_e) { return false; }
+})();
+
 // ===== 인스타 토큰 만료 배너 =====
 // Instagram Graph API 장기 토큰은 60일 만료. 7일 이내 또는 이미 만료 시 재연동 배너 노출.
 function _renderTokenExpiryBanner(expiresAtIso) {
@@ -23,8 +38,12 @@ function _renderTokenExpiryBanner(expiresAtIso) {
   banner.className = `banner ${isExpired ? 'banner--danger' : 'banner--warn'}`;
   banner.innerHTML = `<span style="flex:1;">${msg}</span>
     <button class="banner__cta" data-ig-reconnect>재연동</button>`;
+  // [보안감사 M-1 2026-07-26] 존재하지 않는 'connectInstaBtn'(실제 id 는 'instaBtn')을 클릭하려다
+  //   폴백 no-op 으로 삼켜져 재연동 버튼이 죽어 있었다(토큰 만료 = 재연동이 가장 필요한 순간).
+  //   홈 배너(app-home-customer-msgs)와 동일하게 connectInstagram() 을 직접 호출한다.
   banner.querySelector('[data-ig-reconnect]')?.addEventListener('click', () => {
-    (document.getElementById('connectInstaBtn') || { click: () => {} }).click();
+    if (typeof window.connectInstagram === 'function') window.connectInstagram();
+    else (document.getElementById('instaBtn') || { click: () => {} }).click();
   });
 
   const homePost = document.getElementById('homePostConnect');
@@ -116,9 +135,9 @@ async function checkInstaStatus(fromLogin = false) {
       updateHeaderProfile(_instaHandle, data.persona ? data.persona.tone : null, data.profile_picture_url || '');
       updateStep('stepInsta', true);
       _renderTokenExpiryBanner(data.expires_at);
-      if (window.KillerWidgets && typeof window.KillerWidgets.renderRow === 'function') {
-        window.KillerWidgets.renderRow('homeKillerWidgets').catch(() => {});
-      }
+      // [죽은코드 정리 2026-07-27] KillerWidgets.renderRow('homeKillerWidgets') 호출 제거 —
+      //   렌더 타깃 컨테이너 'homeKillerWidgets'/'dashKiller' 가 DOM 어디에도 없어(HomeV41 로 대체됨)
+      //   render 가 getElementById=null 로 즉시 return, 모든 위젯이 안 떴다. 매 부팅 헛로드도 제거.
       if (typeof window.renderHomeResume === 'function') {
         window.renderHomeResume().catch(() => {});
       }
@@ -131,6 +150,8 @@ async function checkInstaStatus(fromLogin = false) {
       else { const _pd = document.getElementById('personaDash'); if (_pd) _pd.style.display = 'none'; }
       // 첫 글 완성 여부는 generationLog 기반. 백엔드 지원 전까진 localStorage hint로
       updateStep('stepCaption', !!localStorage.getItem('_first_caption_done'));
+      // [A안] 연동되면 "사진으로 시작" 가이드는 항상 숨김
+      { const _sg = document.getElementById('homeStartGuide'); if (_sg) _sg.style.display = 'none'; }
     } else {
       // [2026-05-12 QA #1 CRITICAL] disconnect 직후 다른 화면 (내샵관리·캡션·갤러리) 이 아직 옛 IG 핸들·
       // 프로필 사진 들고 있던 문제. ig_connected_cache 만 지워서 캐시 분기들이 OLD value 노출.
@@ -167,6 +188,8 @@ async function checkInstaStatus(fromLogin = false) {
       updateStep('stepInsta', false);
       updateStep('stepPersona', false);
       updateStep('stepCaption', false);
+      // [A안] 인스타 건너뛴 상태면 "사진으로 시작" 가이드 노출 (연결/닫음이면 자동 숨김)
+      _syncStartGuide();
     }
     // [QA #8] single source-of-truth — 매 fetch 결과를 store 에 저장 + 변경 이벤트 dispatch.
     try {
@@ -830,8 +853,12 @@ async function connectInstagram() {
 
   const btn = document.getElementById('instaBtn');
 
-  // PWA(홈화면 추가) 모드인지 확인
-  const isPWA = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+  // PWA(홈화면 추가) 또는 네이티브 앱인지 확인
+  //   [2026-07-29 시뮬 검증] 네이티브 Capacitor 앱은 navigator.standalone/display-mode 로는 '설치됨'으로
+  //   안 잡혀서, 인스타 연동이 "홈 화면에 추가하세요" 안내에 막혀 OAuth 가 시작조차 안 됐다(실기기 iOS 앱도 동일).
+  //   네이티브면 이미 앱으로 설치된 것이므로 PWA 로 취급해 정상 진행시킨다.
+  const _isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const isPWA = _isNativeApp || window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   // 카톡 인앱브라우저: Safari로 열도록 안내
@@ -881,7 +908,16 @@ async function connectInstagram() {
     // [2026-06-12] OAuth 출발 표시 — 복귀 직후 SW controllerchange→reload 가 ?connected=success
     //   를 날리지 못하게 app-core 의 reload 가드가 이 플래그를 본다. 분석 오버레이 종료 시 remove.
     try { sessionStorage.setItem('itdasy_oauth_inflight', '1'); } catch (_e) { void _e; }
-    window.location.href = `${API}/instagram/go?token=${encodeURIComponent(token)}&origin=${origin}&return_to=${returnToEnc}`;
+    // [보안감사 H-7 준비 2026-07-27] 플래그 ON + 네이티브 + Browser 플러그인일 때만 SFSafariViewController 로 연다
+    //   (구글/카카오 _navigateOAuth 와 동일한 방식 — 웹뷰가 instagram.com 로 안 나가므로 App-Bound Domains 와 양립).
+    //   복귀는 기존과 동일하게 itdasy://oauth/callback 딥링크(app-oauth-return.js connected=success)로 돌아온다.
+    //   구글/카카오도 복귀 시 Browser.close() 를 명시 호출하지 않으므로 인스타도 별도 close 로직을 추가하지 않는다.
+    //   else 분기는 원본 그대로 — 웹·플래그OFF 네이티브(현재 전부)는 100% 기존 동작.
+    if (_IG_BROWSER && isNative && window.Capacitor?.Plugins?.Browser) {
+      window.Capacitor.Plugins.Browser.open({ url: `${API}/instagram/go?token=${encodeURIComponent(token)}&origin=${origin}&return_to=${returnToEnc}` });
+    } else {
+      window.location.href = `${API}/instagram/go?token=${encodeURIComponent(token)}&origin=${origin}&return_to=${returnToEnc}`;
+    }
 
   } catch(e) {
     showToast('연동 중 오류가 발생했습니다. 크롬/사파리에서 재시도해주세요');
@@ -941,11 +977,35 @@ function _dismissIpcCard() {
   // [2026-05-08 hotfix] 메인홈 상단에 작은 띠 표시 — 재진입 경로
   const bar = document.getElementById('ipcMiniBar');
   if (bar) bar.style.display = 'flex';
+  // [A안 2026-07-21] 인스타 건너뛰면 "사진으로 시작" 가이드 카드 노출 — 인스타 없이도 핵심가치 진입로.
+  _syncStartGuide();
   if (typeof showToast === 'function') {
     showToast('설정에서 다시 인스타 연결할 수 있어요');
   }
 }
 window._dismissIpcCard = _dismissIpcCard;
+
+// [A안 2026-07-21] "사진으로 시작" 가이드(#homeStartGuide) 노출 동기화 — 전부 sync 신호.
+//   조건: 인스타 건너뜀 + 미연동 + 안 닫음. 인스타 연결하거나 ✕ 닫으면 사라짐.
+function _syncStartGuide() {
+  const el = document.getElementById('homeStartGuide');
+  if (!el) return;
+  let connected = false, skipped = false, guideDismissed = false;
+  try {
+    connected = localStorage.getItem('itdasy:ig_connected_cache') === '1';
+    skipped = localStorage.getItem('itdasy_ipc_dismissed') === '1';
+    guideDismissed = localStorage.getItem('itdasy_home_guide_dismissed') === '1';
+  } catch (_e) { /* ignore */ }
+  el.style.display = (skipped && !connected && !guideDismissed) ? 'block' : 'none';
+}
+window._syncStartGuide = _syncStartGuide;
+
+function _dismissStartGuide() {
+  try { localStorage.setItem('itdasy_home_guide_dismissed', '1'); } catch (_e) { void _e; }
+  const el = document.getElementById('homeStartGuide');
+  if (el) el.style.display = 'none';
+}
+window._dismissStartGuide = _dismissStartGuide;
 
 // ═══════════════════════════════════════════════════════
 // [2026-05-18] 인스타 미리보기 — ratio 자동 매핑
@@ -1022,7 +1082,7 @@ function openInstagramPreview(opts) {
           <div style="width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,var(--accent,#D58A95),var(--accent2,#e26a85));display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:800;">${avatarLetter}</div>
         </div>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:700;line-height:1.2;">${shopName}</div>
+          <div style="font-size:13px;font-weight:700;line-height:1.2;">${window._esc ? window._esc(shopName) : shopName}</div>
           <div style="font-size:11px;color:var(--text-subtle,#888);">미리보기 ${ratioBadge}</div>
         </div>
         <button data-ig-preview-x style="background:transparent;border:none;font-size:20px;color:var(--text-subtle,#888);cursor:pointer;margin-left:8px;" aria-label="닫기">×</button>
@@ -1082,6 +1142,15 @@ function openInstagramPreview(opts) {
         if (!statusRes.ok) throw new Error(statusData.detail || 'status check 실패');
         if (!statusData.connected) {
           if (window.showToast) window.showToast('인스타 먼저 연동해주세요. 설정 → Instagram 연동');
+          upBtn.disabled = false;
+          upBtn.textContent = originalLabel;
+          return;
+        }
+        // [보안감사 M-2 2026-07-26] connected 는 '한 번이라도 연동했나'일 뿐 — 실제 게시 가능 여부는
+        //   token_valid 로 봐야 한다(만료·권한철회·Business→Personal 전환 후엔 connected=true 인데 죽은 토큰).
+        //   작업실 경로는 이미 tokenValid 를 게이트하는데 이 예전 발행 팝업만 빠져 있어 사후 에러로만 떴다.
+        if (statusData.token_valid === false) {
+          if (window.showToast) window.showToast('인스타 연동이 끊겼어요 — 설정에서 다시 연결해 주세요');
           upBtn.disabled = false;
           upBtn.textContent = originalLabel;
           return;

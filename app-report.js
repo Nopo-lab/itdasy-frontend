@@ -28,9 +28,9 @@
     sheet.innerHTML = `
       <div style="position:absolute;inset:auto 0 0 0;background:var(--bg,#fff);border-radius:20px 20px 0 0;max-height:94vh;display:flex;flex-direction:column;padding:16px;padding-bottom:max(16px,env(safe-area-inset-bottom));">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-          <span style="font-size:22px;">📊</span>
+          <svg width="20" height="20" style="color:var(--brand);flex-shrink:0;" aria-hidden="true"><use href="#ic-bar-chart-3"/></svg>
           <strong style="font-size:17px;">월간 리포트</strong>
-          <button data-report-close style="margin-left:auto;background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;">✕</button>
+          <button data-report-close aria-label="닫기" style="margin-left:auto;background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;">✕</button>
         </div>
         <div id="reportNav" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"></div>
         <div id="reportBody" style="flex:1;overflow-y:auto;"></div>
@@ -97,7 +97,7 @@
       <!-- 인기 시술 -->
       ${d.top_services?.length ? `
         <div style="margin-bottom:14px;padding:14px;background:#fff;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
-          <div style="font-size:12px;font-weight:800;margin-bottom:10px;">🏆 인기 시술 TOP ${d.top_services.length}</div>
+          <div style="font-size:12px;font-weight:800;margin-bottom:10px;display:flex;align-items:center;gap:5px;"><svg width="14" height="14" style="color:var(--brand);flex-shrink:0;" aria-hidden="true"><use href="#ic-trending-up"/></svg>인기 시술 TOP ${d.top_services.length}</div>
           ${d.top_services.map((s, i) => `
             <div style="display:flex;gap:10px;align-items:center;padding:6px 0;${i>0?'border-top:1px solid rgba(0,0,0,0.04);':''}">
               <div style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand-strong));display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;flex-shrink:0;">${i+1}</div>

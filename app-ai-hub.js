@@ -27,6 +27,15 @@
     try { localStorage.setItem(key, on ? 'true' : 'false'); } catch (_e) { void _e; }
   }
 
+  // [2026-07-13] 댓글 문의 응대 ON/OFF = 단일 진실원(app-comment-reply-queue.js 의 itdasy:crq_settings.enabled).
+  //   목록 토글과 설정창 상태 스트립이 이 값 하나를 공유 — 별도 boolean 키 만들지 않음.
+  function _getCommentOn() {
+    try { var s = JSON.parse(localStorage.getItem('itdasy:crq_settings') || 'null'); return !s || s.enabled !== false; } catch (_e) { return true; }
+  }
+  function _setCommentOn(on) {
+    try { var s = JSON.parse(localStorage.getItem('itdasy:crq_settings') || 'null') || {}; s.enabled = !!on; localStorage.setItem('itdasy:crq_settings', JSON.stringify(s)); } catch (_e) { void _e; }
+  }
+
   function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
 
   // ── 행 정의 ──────────────────────────────────────────────
@@ -36,9 +45,7 @@
       // [2026-06-11] 사진편집기 AI허브 노출 제거 — 작업실 내부 진입으로 통일
       // [2026-05-25] SNS 캡션 + AI 페르소나 통합 — 'AI 페르소나' 단일 진입점.
       //   클릭 시 바텀시트로 3개 옵션(SNS 캡션 / 말투 새로 분석 / 분석 리포트 보기).
-      { act: 'hashtag', icon: 'ph-hash', boxColor: 'teal',
-        name: '해시태그 매니저', meta: '업종별 추천 · 원터치 복사',
-        type: 'plain' },
+      // [2026-07-08] 해시태그 매니저 행 제거 — 캡션 생성(작업실)이 해시태그를 이미 포함, 역할 중복
       { act: 'persona', icon: 'ph-user-circle-gear', boxColor: 'pink',
         name: '내 말투', meta: 'SNS 캡션 · 말투 분석 · 리포트',
         type: 'tag', tagText: '학습됨' },
@@ -46,18 +53,17 @@
         name: 'DM 자동응답', meta: '인스타 DM → AI 자동 답장',
         type: 'toggle', toggleKey: KEY_DM },
       // [2026-07-10] 댓글 문의 응대 — DM 자동응답 바로 아래(나중에 DM 엔진에 통합 예정).
+      // [2026-07-13] DM 처럼 목록 토글로 승격 — ON/OFF 는 여기서만(설정창엔 토글 없음).
       { act: 'comment', icon: 'ph-chat-teardrop-text', boxColor: 'coral',
         name: '댓글 문의 응대', meta: '게시물 댓글 문의 → 답글 + DM 유도',
-        type: 'plain' },
+        type: 'toggle' },
       { act: 'dmmenu', icon: 'ph-list-checks', boxColor: 'teal',
         name: '빠른 안내', meta: '손님 탭 버튼(예약·영업시간·가격…)',
         type: 'toggle', toggleKey: KEY_DMMENU },
       { act: 'kakao', icon: 'ph-bell-ringing', boxColor: 'amber',
         name: '카카오 알림톡', meta: '예약확정 · 리마인드 · 생일',
         type: 'toggle', toggleKey: KEY_KAKAO },
-      { act: 'posts', icon: 'ph-squares-four', boxColor: 'teal',
-        name: '게시물 관리', meta: '완료 슬롯 · 마무리 탭',
-        type: 'plain' },
+      // [2026-07-08] 게시물 관리 행 제거 — 작업실(마무리 탭)과 중복. 홈 카드·드로어 진입은 유지.
       // [2026-05-25] AI 잇비 메모 / 스마트 캡처 행 제거 — 잇비 대화창 안에서 직접 호출.
       //   메모 = 잇비 채팅 헤더 메뉴, 카톡·명함·가격표 OCR = 잇비 채팅 + 버튼.
     ];
@@ -67,6 +73,7 @@
   function _onCount() {
     let n = 0;
     if (_getToggle(KEY_DM)) n++;
+    if (_getCommentOn()) n++;
     if (_getToggle(KEY_KAKAO)) n++;
     if (_getToggle(KEY_DMMENU)) n++;
     n += 1; // 페르소나 학습됨
@@ -77,7 +84,7 @@
   function _rightHtml(row) {
     const chev = `<svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-right"/></svg>`;
     if (row.type === 'toggle') {
-      const on = _getToggle(row.toggleKey);
+      const on = row.act === 'comment' ? _getCommentOn() : _getToggle(row.toggleKey);
       return `
         <div class="ms-aih__right">
           <button type="button" class="ms-toggle ${on ? 'is-on' : ''}" data-toggle="${_esc(row.act)}" aria-label="${_esc(row.name)} ${on ? '끄기' : '켜기'}" aria-pressed="${on ? 'true' : 'false'}">
@@ -214,11 +221,17 @@
   // ── 토글 클릭 처리 ────────────────────────────────────────────
   function _onToggleClick(btn, sheet) {
     const act = btn.dataset.toggle;
-    const key = act === 'dm' ? KEY_DM
-      : (act === 'kakao' ? KEY_KAKAO : (act === 'dmmenu' ? KEY_DMMENU : null));
-    if (!key) return;
-    const next = !_getToggle(key);
-    _setToggle(key, next);
+    let next;
+    if (act === 'comment') {
+      next = !_getCommentOn();
+      _setCommentOn(next);
+    } else {
+      const key = act === 'dm' ? KEY_DM
+        : (act === 'kakao' ? KEY_KAKAO : (act === 'dmmenu' ? KEY_DMMENU : null));
+      if (!key) return;
+      next = !_getToggle(key);
+      _setToggle(key, next);
+    }
     btn.classList.toggle('is-on', next);
     btn.setAttribute('aria-pressed', next ? 'true' : 'false');
     const sub = sheet.querySelector('#aihSub');
@@ -235,10 +248,13 @@
 
   // ── 빠른 안내 enabled 백엔드 반영 — 반드시 GET 먼저 → 그 객체에서 enabled 만 바꿔 PUT.
   //   (캐시를 PUT 소스로 쓰면 메뉴·인사멘트가 통째로 날아감. 동봉 소스 = GET 결과로 고정.) ──
+  let _dmMenuSyncSeq = 0; // [카오스] 빠른 안내 토글 연타 시 GET→PUT 레이스 방지 — 최신 토글만 서버 반영
   async function _syncDmMenuEnabled(on, btn, sheet) {
+    const seq = ++_dmMenuSyncSeq;
     try {
       const auth = window.authHeader ? window.authHeader() : {};
       const res = await window.apiFetch(window.apiUrl('/shop/dm-menu'), { headers: auth });
+      if (seq !== _dmMenuSyncSeq) return; // 더 최근 토글이 있었음 — 이 GET 결과 폐기(중복 PUT 방지)
       const menu = await res.json().catch(() => null);
       if (!menu || typeof menu !== 'object' || !Array.isArray(menu.items)) {
         throw new Error('메뉴를 불러오지 못했어요');
@@ -249,8 +265,10 @@
         headers: { 'Content-Type': 'application/json', ...auth },
         body: JSON.stringify(menu),
       });
+      if (seq !== _dmMenuSyncSeq) return; // PUT 도중 또 토글됨 — 최신 sync 가 정정하므로 이 결과 무시
       if (!put.ok) throw new Error('HTTP ' + put.status);
     } catch (e) {
+      if (seq !== _dmMenuSyncSeq) return; // stale — 최신 토글이 상태 소유, 롤백하지 않음
       // 실패 → UI/캐시 롤백
       _setToggle(KEY_DMMENU, !on);
       if (btn) {
@@ -287,8 +305,7 @@
     dmmenu:  'openDMMenuSettings',
     kakao:   'openKakaoHub',
     persona: '__personaHubOpen',   // [2026-05-25] SNS 캡션 + 페르소나 통합 시트
-    hashtag: '__snsHashtagOpen',
-    posts:   null,
+    // hashtag / posts 라우트 제거 (2026-07-08) — 작업실과 중복, 행 삭제됨
     // caption 단독 라우트는 persona 시트의 'SNS 캡션 만들기' 옵션으로 흡수 (2026-05-25)
     // memo / capture 라우트는 잇비 채팅에서 직접 호출 (행 자체 제거됨, 2026-05-25)
     photoEditor: '__photoEditorOpen',   // 함수 매핑 — 아래 _route에서 공통 편집기 진입점으로 분기
@@ -296,9 +313,7 @@
 
   function _canRoute(act) {
     if (act === 'comment') return true;   // extras lazy — _route 에서 로드 보장 후 진입
-    if (act === 'posts') return typeof window.openFinishTab === 'function' || typeof window.showTab === 'function';
-    if (act === 'photoEditor') return !!(window.PhotoEditor && typeof window.PhotoEditor.open === 'function');
-    if (act === 'hashtag') return !!(window.SNSHashtag && typeof window.SNSHashtag.open === 'function');
+    if (act === 'photoEditor') return !!(window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function');   // [2026-07-22] 현재 작업실 기준
     if (act === 'persona') return true;   // 항상 진입 가능 (옵션 가용성은 시트 안에서 분기)
     const fn = _ROUTE_MAP[act];
     return !!(fn && typeof window[fn] === 'function');
@@ -327,28 +342,8 @@
         window.openPhotoEditorFromAction({ initial_tab: 'auto' });
         return;
       }
-      try { window.PhotoEditor.open({}); }
-      catch (_e) { if (window.showToast) window.showToast('편집기를 여는 중 문제가 생겼어요'); }
-      return;
-    }
-    if (act === 'hashtag') {
-      try { window.SNSHashtag.open(); }
-      catch (err) {
-        console.warn('[AIHub] 해시태그 매니저 열기 실패', err);
-        if (window.showToast) window.showToast('해시태그 매니저를 여는 중 문제가 생겼어요');
-      }
-      return;
-    }
-    if (act === 'posts') {
-      try {
-        if (typeof window.openFinishTab === 'function') {
-          window.openFinishTab();
-        } else if (window.showToast) {
-          window.showToast('게시물 관리 화면을 찾을 수 없어요');
-        }
-      } catch (e) {
-        if (window.showToast) window.showToast('게시물 관리 진입 실패 — ' + (e && e.message || ''));
-      }
+      // [2026-07-22] 옛 PhotoEditor 폴백 제거 — 위 진입점이 현재 작업실로 보낸다.
+      if (window.showToast) window.showToast('작업실을 여는 중이에요. 잠시 후 다시 눌러주세요');
       return;
     }
     const fnName = map[act];

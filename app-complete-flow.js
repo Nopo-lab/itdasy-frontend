@@ -13,6 +13,7 @@
   'use strict';
 
   let _ctx = null;
+  let _busy = false; // [카오스 P1-3] 완료/노쇼/취소 종결액션 상호배제 (in-flight 중복 PATCH 방지)
 
   const METHODS = [
     { key: 'card',       label: '카드' },
@@ -443,6 +444,7 @@
   }
 
   async function _saveAll() {
+    if (_busy) return;
     if (_ctx.starts_at) {
       const bd = new Date(_ctx.starts_at); bd.setHours(0, 0, 0, 0);
       const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -455,45 +457,56 @@
       document.getElementById('cfAmtInput')?.focus();
       return;
     }
+    const ctx = _ctx; // [카오스 P1-2] 저장 중 다른 예약이 열려도 오염 방지 — 시작 시점 컨텍스트 고정
+    _busy = true;
     btn.disabled = true; btn.textContent = '저장 중…';
-    const payload = { status: 'completed', payment_method: _ctx.method || 'card' };
-    if (includeRev) payload.amount = _ctx.amount;
+    const payload = { status: 'completed', payment_method: ctx.method || 'card' };
+    if (includeRev) payload.amount = ctx.amount;
     else payload.skip_revenue = true;
-    if (_ctx.learnCycle === false) payload.skip_retouch = true;
+    if (ctx.learnCycle === false) payload.skip_retouch = true;
     try {
-      const res = await _patchBooking(_ctx.booking_id, payload);
+      const res = await _patchBooking(ctx.booking_id, payload);
+      if (_ctx !== ctx) return; // 저장 대기 중 다른 예약으로 교체됨 — 현 소유자 건드리지 않음
+      _busy = false;
       const eff = res?.completion_effects || {};
       _invalidateAllCaches();
-      _emitChange('update_booking', { booking_id: _ctx.booking_id, customer_id: _ctx.customer_id });
-      if (eff.revenue_created) _emitChange('create_revenue', { booking_id: _ctx.booking_id, customer_id: _ctx.customer_id, revenue_id: eff.revenue_id });
+      _emitChange('update_booking', { booking_id: ctx.booking_id, customer_id: ctx.customer_id });
+      if (eff.revenue_created) _emitChange('create_revenue', { booking_id: ctx.booking_id, customer_id: ctx.customer_id, revenue_id: eff.revenue_id });
       if (window.hapticSuccess) window.hapticSuccess();
       if (window.showToast) {
-        if (eff.revenue_created) window.showToast(`${_fmt(_ctx.amount)} 매출 자동 기록됨`);
+        if (eff.revenue_created) window.showToast(`${_fmt(ctx.amount)} 매출 자동 기록됨`);
         else window.showToast('예약 완료 (매출 미기록)');
       }
       _close();
       _refreshConnectedViews();
     } catch (e) {
+      if (_ctx !== ctx) return;
+      _busy = false;
       btn.disabled = false; btn.textContent = '시술 완료';
       if (window.showToast) window.showToast('실패: ' + (e.message || ''));
     }
   }
 
   async function _saveNoShow() {
+    if (_busy) return;
     if (!_ctx.booking_id) { _close(); return; }
     const btn = document.getElementById('cfSaveNoShow');
     const dep = _num(_ctx.deposit) || 0;
     const method = _ctx.depositMethod || 'cash';
+    const ctx = _ctx; // [카오스 P1-2] 처리 중 다른 예약 열려도 오염 방지
+    _busy = true;
     btn.disabled = true; btn.textContent = '처리 중…';
     try {
       const payload = (dep > 0 && method !== 'none')
         ? { status: 'no_show', deposit: dep, payment_method: method,
-            customer_name: _ctx.customer_name || null }
+            customer_name: ctx.customer_name || null }
         : { status: 'no_show', skip_revenue: true,
-            customer_name: _ctx.customer_name || null };
-      await _patchBooking(_ctx.booking_id, payload);
-      _emitChange('update_booking', { booking_id: _ctx.booking_id, customer_id: _ctx.customer_id });
-      if (dep > 0 && method !== 'none') _emitChange('create_revenue', { booking_id: _ctx.booking_id, customer_id: _ctx.customer_id });
+            customer_name: ctx.customer_name || null };
+      await _patchBooking(ctx.booking_id, payload);
+      if (_ctx !== ctx) return;
+      _busy = false;
+      _emitChange('update_booking', { booking_id: ctx.booking_id, customer_id: ctx.customer_id });
+      if (dep > 0 && method !== 'none') _emitChange('create_revenue', { booking_id: ctx.booking_id, customer_id: ctx.customer_id });
       _invalidateAllCaches();
       if (window.showToast) {
         window.showToast(dep > 0 && method !== 'none'
@@ -503,6 +516,8 @@
       _close();
       _refreshConnectedViews();
     } catch (e) {
+      if (_ctx !== ctx) return;
+      _busy = false;
       btn.disabled = false; btn.textContent = '노쇼로 기록';
       if (window.showToast) window.showToast('처리 실패: ' + (e.message || ''));
     }
@@ -517,28 +532,37 @@
   }
 
   async function _doCancelBooking() {
+    if (_busy) return;
     const btn = document.getElementById('cfCancel');
     if (btn) { btn.disabled = true; btn.textContent = '처리 중…'; }
+    const ctx = _ctx; // [카오스 P1-2] 취소 대기 중 다른 예약 열려도 오염 방지
+    _busy = true;
     try {
-      await _patchBooking(_ctx.booking_id, { status: 'cancelled' });
-      _emitChange('update_booking', { booking_id: _ctx.booking_id, customer_id: _ctx.customer_id });
+      await _patchBooking(ctx.booking_id, { status: 'cancelled' });
+      if (_ctx !== ctx) return;
+      _busy = false;
+      _emitChange('update_booking', { booking_id: ctx.booking_id, customer_id: ctx.customer_id });
       _invalidateAllCaches();
       if (window.showToast) window.showToast('예약이 취소됐어요');
       _close();
       _refreshConnectedViews();
     } catch (e) {
+      if (_ctx !== ctx) return;
+      _busy = false;
       if (btn) { btn.disabled = false; btn.textContent = '예약 취소'; }
       if (window.showToast) window.showToast('취소 실패: ' + (e.message || ''));
     }
   }
 
   function _close() {
+    _busy = false; // [카오스] 시트 닫으면 배제 해제 — 다음 시트 잠금 방지
     const sheet = document.getElementById('completeFlowSheet');
     if (sheet) sheet.style.display = 'none';
     document.body.style.overflow = '';
   }
 
   function _openWith(ctx) {
+    _busy = false; // [카오스] 새 예약 열면 이전 in-flight 배제 해제
     _ctx = Object.assign({
       mode: 'complete',
       includeRevenue: true,

@@ -122,6 +122,31 @@ const API = (window.location.hostname === 'localhost' || window.location.hostnam
   ? (_API_STAGING_OVERRIDE ? PROD_API : 'http://localhost:8000')
   : PROD_API;
 
+// [보안감사 H-3 2026-07-27] 토큰 저장소 보안 모드 — 기본 OFF, "빌드에 보안저장 플러그인이 실제로 포함됐을 때" 자동 ON.
+//   ▶ 웹(비네이티브): 원본 localStorage 경로 100% 불변. 감지·await 자체가 안 돎(부팅비용 0).
+//   ▶ 플러그인 없는 네이티브(현재 모든 설치본): 원본 localStorage 경로 100% 불변(감지 실패 → OFF 유지).
+//   ▶ 플러그인 있는 네이티브(향후 빌드): 부팅 때 자동 감지 → JWT 를 Keychain/Keystore 로 이관 + 평문 localStorage 제거.
+//   오버라이드(?api 와 동일하게 1회 쿼리→localStorage 고정): ?securetoken=1 강제 ON(테스트), ?securetoken=0 강제 OFF(킬스위치).
+//   ~26곳의 동기 getToken() 호출부를 async 로 바꾸지 않으려고, 부팅 때 1회 하이드레이션 후 in-memory 캐시로 서빙한다.
+const _secureForced = (function () {   // true=강제ON, false=강제OFF(킬스위치), null=자동감지
+  try {
+    if (/[?&]securetoken=1/.test(location.search)) { try { localStorage.setItem('itdasy_securetoken', '1'); } catch (_p) { void _p; } return true; }  // 쿼리 1회 → 리로드에도 유지
+    if (/[?&]securetoken=0/.test(location.search)) { try { localStorage.setItem('itdasy_securetoken', '0'); } catch (_p) { void _p; } return false; }
+    const v = localStorage.getItem('itdasy_securetoken');
+    if (v === '1') return true;
+    if (v === '0') return false;
+    return null;
+  } catch (_e) { return null; }
+})();
+// [보안감사 H-3] 런타임 가변 스위치. 기본 false → getToken/setToken 은 (감지 전까지) 원본 경로.
+//   강제 ON 이면 즉시 true. 자동감지(네이티브 + 플러그인 확인)는 부팅 게이트에서 true 로 승격한다.
+let _secureMode = (_secureForced === true);
+// [보안감사 H-3] 네이티브 여부 동기 체크(웹이면 false → 감지 로직 자체를 건너뜀).
+function _isNativePlatform() {
+  try { return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); }
+  catch (_e) { return false; }
+}
+
 function apiUrl(path) {
   const raw = String(path == null ? '' : path);
   if (/^https?:\/\//i.test(raw)) return raw;
@@ -140,6 +165,151 @@ function apiFetch(path, opts) {
 const _TOKEN_KEY = 'itdasy_token::' + (API.includes('staging') ? 'staging' : (API.includes('localhost') ? 'local' : 'prod'));
 const _LEGACY_TOKEN_KEY = 'itdasy_' + 'token';
 
+// ═══ [보안감사 H-3 2026-07-27] 토큰 저장소 추상화 (secure 모드 _secureMode ON 일 때만 사용) ═══
+//   in-memory 캐시. 부팅 때 _hydrateToken() 이 보안저장/localStorage 에서 1회 읽어 채운다.
+//   동기 getToken() 호출부(~26곳)는 캐시만 읽으므로 async 전환 불필요.
+let _tokenCache = null;
+let _tokenReady = false;
+
+// 만료 판정 + 부작용(만료 시 삭제·토스트·lockOverlay)을 한 곳으로. 기존 getToken() 인라인 로직을 그대로 옮겨
+//   OFF(인라인)/ON(이 헬퍼) 두 경로의 만료 동작이 100% 동일하도록 한다. 반환: 유효하면 t, 아니면 null.
+function _validateToken(t) {
+  if (!t) return null;
+  try {
+    const payload = JSON.parse(atob(t.split('.')[1]));
+    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+      localStorage.removeItem(_TOKEN_KEY);
+      // [A10] 토큰 만료 안내 + 로그인 화면
+      if (window.showToast) window.showToast('로그인이 만료되었어요. 다시 로그인해주세요');
+      setTimeout(() => {
+        const lock = document.getElementById('lockOverlay');
+        if (lock) lock.classList.remove('hidden');
+        try { _setAuthGateLocked(true); } catch (_) { /* ignore */ }
+      }, 1000);
+      return null;
+    }
+  } catch { return null; }
+  return t;
+}
+
+// 선택적 네이티브 보안저장 백엔드 — 있으면 {get,set,remove}, 없으면 null(→ 호출부 localStorage 폴백).
+//   [보안감사 H-3 2026-07-27] 실제 API: @aparajita/capacitor-secure-storage v6.
+//     · 등록 이름/익스포트 = SecureStorage (registerPlugin('SecureStorage'), export { proxy as SecureStorage }).
+//     · 저수준 문자열 API(그대로 JWT 문자열용): getItem(key)->Promise<string|null>, setItem(key,value)->Promise<void>,
+//       removeItem(key)->Promise<void>.  (get/set/remove 는 JSON 변환·Date 파싱이 붙어 문자열엔 부적합 → getItem 계열 사용)
+//     · getItem/setItem/removeItem 은 SecureStorageBase(JS 레이어) 메서드라 반드시 "모듈 익스포트 프록시"로 접근해야 한다.
+//       (window.Capacitor.Plugins.SecureStorage 브리지 프록시는 internal* 네이티브 메서드만 노출할 수 있어 getItem 이 없을 수 있음)
+let _secureStorePromise = null;
+function _secureTokenStore() {
+  if (_secureStorePromise) return _secureStorePromise;
+  _secureStorePromise = (async () => {
+    try {
+      // 네이티브가 아니면(웹) 즉시 null → localStorage 폴백 (감지 자체를 안 함)
+      if (!_isNativePlatform()) return null;
+      // 정본 = 모듈 익스포트(전체 JS API 보장). 실패 시에만 브리지 프록시 폴백(getItem 있을 때만 채택).
+      let plugin = null;
+      const mod = await import('@aparajita/capacitor-secure-storage').catch(() => null);
+      plugin = (mod && mod.SecureStorage) || null;
+      if (!plugin || typeof plugin.getItem !== 'function') {
+        const bridge = (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SecureStorage) || null;
+        if (bridge && typeof bridge.getItem === 'function') plugin = bridge;
+      }
+      if (!plugin || typeof plugin.getItem !== 'function' || typeof plugin.setItem !== 'function') return null;
+      const KEY = _TOKEN_KEY; // 백엔드별 키 격리 그대로
+      return {
+        async get() {
+          try { const v = await plugin.getItem(KEY); return (typeof v === 'string' && v) ? v : null; }
+          catch (_e) { return null; }
+        },
+        async set(v) {
+          try { await plugin.setItem(KEY, String(v)); } catch (_e) { void _e; }
+        },
+        async remove() {
+          try {
+            if (typeof plugin.removeItem === 'function') await plugin.removeItem(KEY);
+            else if (typeof plugin.remove === 'function') await plugin.remove(KEY);  // 하위호환(불리언 반환)
+          } catch (_e) { void _e; }
+        },
+      };
+    } catch (_e) { return null; }
+  })();
+  return _secureStorePromise;
+}
+
+// 부팅 1회 하이드레이션(ON 전용). 보안저장 → 없으면 localStorage(+레거시키) 순으로 읽어 _tokenCache 채움.
+//   localStorage 에서 왔고 보안저장이 가능하면 그쪽으로 이관(secure.set + 평문 제거). 플러그인 오류엔 localStorage 로 폴백.
+let _hydratePromise = null;
+function _hydrateToken() {
+  if (_hydratePromise) return _hydratePromise;
+  _hydratePromise = (async () => {
+    let token = null, fromLocal = false, secure = null;
+    try {
+      secure = await _secureTokenStore();
+      if (secure) { try { token = await secure.get(); } catch (_e) { token = null; } }
+      if (!token) {
+        try { token = localStorage.getItem(_TOKEN_KEY); } catch (_e) { token = null; }
+        if (!token) {  // 레거시 키 폴백 (기존 getToken 동작 보존)
+          try {
+            const legacy = localStorage.getItem(_LEGACY_TOKEN_KEY);
+            if (legacy) { token = legacy; try { localStorage.setItem(_TOKEN_KEY, legacy); } catch (_e2) { void _e2; } }
+          } catch (_e3) { void _e3; }
+        }
+        if (token) fromLocal = true;
+      }
+      // localStorage 에서 읽었는데 보안저장 가능 → 이관(평문 제거)
+      if (token && fromLocal && secure) {
+        try { await secure.set(token); localStorage.removeItem(_TOKEN_KEY); } catch (_e) { void _e; }
+      }
+    } catch (_e) { /* 무엇이 실패하든 아래에서 캐시 확정 */ }
+    _tokenCache = token || null;
+    _tokenReady = true;
+    return _tokenCache;
+  })();
+  return _hydratePromise;
+}
+window._hydrateToken = _hydrateToken;
+window._tokenReadyCheck = function () { return _tokenReady; };
+
+// 부팅 게이트 — [보안감사 H-3 2026-07-27] 정적 플래그 → 런타임 플러그인 감지.
+//   ▶ 강제 OFF(킬스위치): 즉시 반환 → 원본 경로(하이드레이션 없음).
+//   ▶ 감지: 네이티브에서만. 웹은 호출부에서 애초에 이 게이트를 부르지 않지만, 불려도 isNative=false 로 즉시 반환.
+//     네이티브면 플러그인 프로브(800ms 바운드) → 있으면 _secureMode=true 로 승격, 없으면 false 유지(원본 경로).
+//   ▶ secure 모드 진입 시: 하이드레이션(localStorage→Keychain 이관 포함)을 최대 800ms 만 기다린다(플러그인이 행 걸려도 부팅 안 막힘).
+async function _bootHydrateGate() {
+  if (_tokenReady) return;              // 이미 하이드레이션 완료(강제 ON 이 로드 때 착수한 경우 등)
+  if (_secureForced === false) return;  // 강제 OFF(킬스위치) → 원본 경로
+  if (!_secureMode) {
+    // 아직 secure 모드가 아니면 = 자동감지 대상. 웹이면 감지 안 함(원본 경로, 추가 async 비용 0).
+    if (!_isNativePlatform()) return;
+    let store = null;
+    try {
+      store = await Promise.race([
+        _secureTokenStore(),
+        new Promise((r) => setTimeout(() => r(null), 800)),  // 프로브도 바운드
+      ]);
+    } catch (_e) { store = null; }
+    if (!store) return;   // 네이티브지만 플러그인 없음 → 원본 localStorage 경로 유지
+    _secureMode = true;   // 플러그인 확인 → secure 모드 진입
+  }
+  try {
+    // [보안감사 H-3 2026-07-29 수정] secure 모드에선 평문 localStorage 에 폴백할 토큰이 없다
+    //   (Keychain 으로 이관하며 제거됨). 기존 800ms→localStorage(빈값)→_tokenCache=null 폴백은
+    //   "로그인했는데 토큰 없음"을 만들어 홈이 첫 로드에서 "연결이 불안정해요"를 띄웠다(재시도하면 복구).
+    //   Keychain 읽기는 빠른 네이티브 동기연산이라 실제로 기다린다. 만일의 행 대비 안전상한(4s)만 둔다.
+    await Promise.race([
+      _hydrateToken(),
+      new Promise((r) => setTimeout(r, 4000)),
+    ]);
+    _tokenReady = true;  // 안전상한 도달 시에도 부팅은 진행(캐시는 하이드레이션이 늦게라도 채움)
+  } catch (_e) { /* ignore */ }
+}
+window._bootHydrateGate = _bootHydrateGate;
+
+// [보안감사 H-3] 강제 ON 이면 모듈 로드 즉시 하이드레이션 착수 — load 이벤트 시점엔 대개 이미 완료돼 게이트가 즉시 통과.
+//   (자동감지 경로는 네이티브 여부·플러그인 확인이 필요하므로 로드 즉시가 아니라 부팅 게이트에서 착수.)
+if (_secureMode) { try { _hydrateToken(); } catch (_e) { void _e; } }
+// ═══ [보안감사 H-3] 끝 ═══
+
 let _instaHandle = '';  // checkInstaStatus에서 저장
 Object.defineProperty(window, '_instaHandle', {
   configurable: true,
@@ -151,49 +321,81 @@ Object.defineProperty(window, '_instaHandle', {
 const _toastQueue = [];
 let _toastActive = false;
 
+// 숨김·다음큐 타이머 핸들 전역 보관 — 재진입/타이머 중첩 시에도 토스트가 절대 잔류하지 않도록 (버그1 방어)
+let _toastHideTimer = null;
+let _toastNextTimer = null;
+const TOAST_MAX_DURATION = 5000; // duration 상한 캡
+
 function showToast(msg, opts) {
   const o = typeof opts === 'object' ? opts : { type: opts || 'info' };
-  _toastQueue.push({ msg, type: o.type || 'info', duration: o.duration || 2400 });
+  const d = Math.min(Number(o.duration) || 2400, TOAST_MAX_DURATION);
+  _toastQueue.push({ msg, type: o.type || 'info', duration: d });
   if (!_toastActive) _nextToast();
 }
 
+function _hideToastEl(el) {
+  if (!el) return;
+  el.style.opacity = '0';
+  el.style.transform = 'translateX(-50%) translateY(-120%)';
+  el.style.pointerEvents = 'none';
+}
+
 function _nextToast() {
+  // 진입 시 이전 타이머 전부 정리 — 스케줄이 중첩돼 숨김이 씹히는 상황 차단
+  if (_toastHideTimer) { clearTimeout(_toastHideTimer); _toastHideTimer = null; }
+  if (_toastNextTimer) { clearTimeout(_toastNextTimer); _toastNextTimer = null; }
+
   if (!_toastQueue.length) { _toastActive = false; return; }
   _toastActive = true;
   const { msg, type, duration } = _toastQueue.shift();
 
-  let el = document.getElementById('itdToast');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'itdToast';
-    el.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top,0px) + 16px);left:50%;transform:translateX(-50%) translateY(-120%);z-index:99999;padding:12px 20px;border-radius:var(--r-md,14px);font-size:14px;font-weight:600;box-shadow:var(--shadow-md);transition:transform .3s cubic-bezier(.4,0,.2,1),opacity .3s;opacity:0;pointer-events:none;max-width:calc(100vw - 32px);text-align:center;';
-    document.body.appendChild(el);
+  let el;
+  try {
+    el = document.getElementById('itdToast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'itdToast';
+      el.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top,0px) + 16px);left:50%;transform:translateX(-50%) translateY(-120%);z-index:99999;padding:12px 20px;border-radius:var(--r-md,14px);font-size:14px;font-weight:600;box-shadow:var(--shadow-md);transition:transform .3s cubic-bezier(.4,0,.2,1),opacity .3s;opacity:0;pointer-events:none;max-width:calc(100vw - 32px);text-align:center;';
+      document.body.appendChild(el);
+    }
+
+    const colors = {
+      info:    { bg: 'var(--surface)', color: 'var(--text)' },
+      success: { bg: '#E8F8EF', color: '#0F6E56' },
+      warning: { bg: '#FEF3E2', color: '#854F0B' },
+      error:   { bg: '#FEE8E8', color: '#A32D2D' },
+    };
+    const c = colors[type] || colors.info;
+    el.style.background = c.bg;
+    el.style.color = c.color;
+    el.textContent = msg;
+
+    requestAnimationFrame(() => {
+      el.style.opacity = '1';
+      el.style.transform = 'translateX(-50%) translateY(0)';
+      el.style.pointerEvents = 'auto';
+    });
+  } catch (_e) {
+    // 렌더 중 예외가 나도 상태를 절대 물고 있지 않게 — 다음 큐로 넘김
+    _toastActive = false;
+    _toastNextTimer = setTimeout(_nextToast, 0);
+    return;
   }
 
-  const colors = {
-    info:    { bg: 'var(--surface)', color: 'var(--text)' },
-    success: { bg: '#E8F8EF', color: '#0F6E56' },
-    warning: { bg: '#FEF3E2', color: '#854F0B' },
-    error:   { bg: '#FEE8E8', color: '#A32D2D' },
-  };
-  const c = colors[type] || colors.info;
-  el.style.background = c.bg;
-  el.style.color = c.color;
-  el.textContent = msg;
-
-  requestAnimationFrame(() => {
-    el.style.opacity = '1';
-    el.style.transform = 'translateX(-50%) translateY(0)';
-    el.style.pointerEvents = 'auto';
-  });
-
-  setTimeout(() => {
-    el.style.opacity = '0';
-    el.style.transform = 'translateX(-50%) translateY(-120%)';
-    el.style.pointerEvents = 'none';
-    setTimeout(_nextToast, 320);
+  _toastHideTimer = setTimeout(() => {
+    _toastHideTimer = null;
+    _hideToastEl(el);
+    _toastNextTimer = setTimeout(_nextToast, 320);
   }, duration);
 }
+
+// [버그5] 예약 메모 표시용 정리 — DB 원본은 운영 추적용으로 보존, 화면 표시만 정규식으로 정돈
+window.itdCleanMemo = function (s) {
+  let m = String(s == null ? '' : s);
+  m = m.replace(/\s*\(?sender=\w+\)?/g, '');                // "sender=7480" / "(sender=7480)" 제거
+  m = m.replace(/DM 자동 등록\s*\([^)]*\)/g, 'DM 자동 등록');   // "DM 자동 등록 (예약 시 NER, …)" → "DM 자동 등록"
+  return m.trim();
+};
 
 function isKakaoTalk() {
   return /KAKAOTALK/i.test(navigator.userAgent);
@@ -269,98 +471,85 @@ function updateHeaderProfile(handle, tone, picUrl) {
 // ───── 업종별 설정 ─────
 // [v192 2026-05-18] SHOP_CONFIG 13종 통합 — 온보딩 카드와 1:1 매핑.
 //   기존 2종(붙임머리/네일아트)만 정의 → 나머지 11종 추가.
-//   tagLabel/treatments/defaultTag/baGuide 일관 정의로 applyShopType() 폴백 제거.
+//   tagLabel/treatments/defaultTag 일관 정의로 applyShopType() 폴백 제거.
 const SHOP_CONFIG = {
   '붙임머리': {
     question:    '오늘 어떤 붙임머리 작업을 하셨나요?',
     tagLabel:    '인치 선택',
     treatments:  ['18인치','20인치','22인치','24인치','26인치','28인치','30인치','특수인치','옴브레','재시술'],
     defaultTag:  '24인치',
-    baGuide:     '시술 전후 머리 길이 변화를 극명하게 보여주세요. 옆모습 기준이 효과적이에요',
   },
   '헤어샵': {
     question:    '오늘 어떤 헤어 작업을 하셨나요?',
     tagLabel:    '시술 종류',
     treatments:  ['커트','펌','매직','염색','뿌리염색','클리닉','셋팅펌','C컬','S컬','발레아쥬','하이라이트','옴브레'],
     defaultTag:  '펌',
-    baGuide:     '시술 전후 모양·결·컬러 차이를 자연광 아래 정면·측면으로',
   },
   '두피탈모': {
     question:    '오늘 어떤 두피·탈모 관리 하셨나요?',
     tagLabel:    '관리 종류',
     treatments:  ['두피스케일링','두피세럼','LED','MTS','약물','클리닉','홈케어'],
     defaultTag:  '두피스케일링',
-    baGuide:     '두피 클로즈업 + 전체 헤어라인. 청결감·풍성함 강조',
   },
   '메이크업': {
     question:    '오늘 어떤 메이크업 하셨나요?',
     tagLabel:    '메이크업 종류',
     treatments:  ['데일리','웨딩','파티','촬영','SNS룩','브라이덜','내추럴','글로우'],
     defaultTag:  '데일리',
-    baGuide:     '눈/입/피부 클로즈업 + 전체 정면. 조명 정자세 권장',
   },
   '눈썹': {
     question:    '오늘 어떤 눈썹 작업을 하셨나요?',
     tagLabel:    '시술 종류',
     treatments:  ['셰이딩','왁싱','정리','다듬기','컬러','일자눈썹','아치형'],
     defaultTag:  '정리',
-    baGuide:     '눈썹 정면 + 측면. Before/After 라인 차이 강조',
   },
   '속눈썹': {
     question:    '오늘 어떤 속눈썹 작업을 하셨나요?',
     tagLabel:    '시술 종류',
     treatments:  ['속눈썹펌','래쉬리프트','속눈썹연장','클래식','볼륨','3D','5D','J컬','C컬','D컬','L컬','메가볼륨'],
     defaultTag:  '속눈썹펌',
-    baGuide:     '눈 close-up + 옆모습 컬 라인. 자연광',
   },
   '네일아트': {
     question:    '오늘 어떤 네일 작업을 하셨나요?',
     tagLabel:    '시술 종류',
     treatments:  ['젤네일','아트네일','아크릴','스컬프처','네일케어','오프','재시술','페디큐어','그라데이션','프렌치'],
     defaultTag:  '젤네일',
-    baGuide:     '손톱 클로즈업으로 Before/After 변화를 선명하게',
   },
   '패디': {
     question:    '오늘 어떤 패디·풋케어 작업을 하셨나요?',
     tagLabel:    '시술 종류',
     treatments:  ['페디큐어','풋케어','각질제거','발마사지','젤페디','아트페디','홈케어'],
     defaultTag:  '페디큐어',
-    baGuide:     '발 전체 + 발톱 클로즈업. 깔끔한 배경에서',
   },
   '왁싱': {
     question:    '오늘 어떤 왁싱 작업을 하셨나요?',
     tagLabel:    '부위 선택',
     treatments:  ['브라질리언','하이바이','로우바이','얼굴','풀바디','다리','팔','겨드랑이','등','눈썹'],
     defaultTag:  '브라질리언',
-    baGuide:     '시술 부위 깔끔하게. 위생감·청결감 우선',
   },
   '바디': {
     question:    '오늘 어떤 바디관리 하셨나요?',
     tagLabel:    '관리 종류',
     treatments:  ['전신마사지','부분마사지','셀룰라이트','림프','스크럽','보디팩','홈케어'],
     defaultTag:  '전신마사지',
-    baGuide:     '시술 부위 + 관리 도구. 자연 보정 위주',
   },
   '피부': {
     question:    '오늘 어떤 피부관리 하셨나요?',
     tagLabel:    '관리 종류',
     treatments:  ['딥클렌징','수분관리','모공관리','MTS','LED','필링','각질','홈케어'],
     defaultTag:  '수분관리',
-    baGuide:     '얼굴 정면 close-up. 자극 부위 자연 보정',
   },
   '반영구': {
     question:    '오늘 어떤 반영구 작업을 하셨나요?',
     tagLabel:    '시술 종류',
     treatments:  ['눈썹','아이라인','입술','헤어라인','MTS','리터치','SMP'],
     defaultTag:  '눈썹',
-    baGuide:     '시술 부위 close-up + 정면. 발색·라인 강조',
   },
   '기타': {
     question:    '오늘 어떤 작업을 하셨나요?',
     tagLabel:    '시술 종류',
     treatments:  ['시술A','시술B','시술C','상담','홈케어'],
     defaultTag:  '시술A',
-    baGuide:     '시술 부위 + 전체 컷. 자연광 권장',
   },
 };
 
@@ -368,24 +557,24 @@ const SHOP_CONFIG = {
 try { window.SHOP_CONFIG = SHOP_CONFIG; } catch (_e) { void _e; }
 
 // [v192 2026-05-18] shop_type 정규화 헬퍼 — 5개 분산 호출 곳 통합.
-//   raw shop_type (localStorage 값) → 내부 카테고리 8종 + label·api_category.
+//   raw shop_type (localStorage 값) → 내부 카테고리 8종 + 한글 label.
 //   사진편집기, 캡션, 페르소나 API 등에서 일관되게 사용.
 window.itdasyNormalizeShopType = function (raw) {
   const t = String(raw || '').toLowerCase();
-  // 카테고리 매핑 (내부 8종) + persona API category + 한글 label
-  if (/(붙임머리|extension)/.test(t))       return { cat: 'hair',   apiCat: 'extension', label: '붙임머리' };
-  if (/(헤어샵|미용|hair)/.test(t))          return { cat: 'hair',   apiCat: 'extension', label: '헤어샵' };
-  if (/(두피|탈모|scalp)/.test(t))           return { cat: 'scalp',  apiCat: 'extension', label: '두피탈모' };
-  if (/(메이크업|makeup)/.test(t))           return { cat: 'makeup', apiCat: 'extension', label: '메이크업' };
-  if (/(속눈썹|lash)/.test(t))               return { cat: 'lash',   apiCat: 'extension', label: '속눈썹' };
-  if (/(눈썹|brow)/.test(t))                 return { cat: 'makeup', apiCat: 'extension', label: '눈썹' };
-  if (/(네일아트|네일|nail)/.test(t))        return { cat: 'nail',   apiCat: 'nail',      label: '네일아트' };
-  if (/(패디|풋케어|pedi|foot)/.test(t))     return { cat: 'nail',   apiCat: 'nail',      label: '패디' };
-  if (/(왁싱|wax)/.test(t))                  return { cat: 'wax',    apiCat: 'extension', label: '왁싱' };
-  if (/(바디|body)/.test(t))                 return { cat: 'wax',    apiCat: 'extension', label: '바디' };
-  if (/(피부|skin)/.test(t))                 return { cat: 'skin',   apiCat: 'extension', label: '피부' };
-  if (/(반영구|문신|tattoo)/.test(t))        return { cat: 'skin',   apiCat: 'extension', label: '반영구' };
-  return { cat: 'general', apiCat: 'extension', label: '기타' };
+  // 카테고리 매핑 (내부 8종) + 한글 label
+  if (/(붙임머리|extension)/.test(t))       return { cat: 'hair',   label: '붙임머리' };
+  if (/(헤어샵|미용|hair)/.test(t))          return { cat: 'hair',   label: '헤어샵' };
+  if (/(두피|탈모|scalp)/.test(t))           return { cat: 'scalp',  label: '두피탈모' };
+  if (/(메이크업|makeup)/.test(t))           return { cat: 'makeup', label: '메이크업' };
+  if (/(속눈썹|lash)/.test(t))               return { cat: 'lash',   label: '속눈썹' };
+  if (/(눈썹|brow)/.test(t))                 return { cat: 'makeup', label: '눈썹' };
+  if (/(네일아트|네일|nail)/.test(t))        return { cat: 'nail',   label: '네일아트' };
+  if (/(패디|풋케어|pedi|foot)/.test(t))     return { cat: 'nail',   label: '패디' };
+  if (/(왁싱|wax)/.test(t))                  return { cat: 'wax',    label: '왁싱' };
+  if (/(바디|body)/.test(t))                 return { cat: 'wax',    label: '바디' };
+  if (/(피부|skin)/.test(t))                 return { cat: 'skin',   label: '피부' };
+  if (/(반영구|문신|tattoo)/.test(t))        return { cat: 'skin',   label: '반영구' };
+  return { cat: 'general', label: '기타' };
 };
 
 function applyShopType(type) {
@@ -409,10 +598,6 @@ function applyShopType(type) {
     });
     initSingle('typeTags');
   }
-
-  // BA 가이드 텍스트
-  const baGuide = document.getElementById('baGuideText');
-  if (baGuide) baGuide.textContent = cfg.baGuide;
 }
 
 // ───── 온보딩 ─────
@@ -510,10 +695,14 @@ function obSkipShopType() {
 }
 
 function _obFinish() {
-  const name = document.getElementById('obShopNameInput').value.trim();
+  const _nameInput = document.getElementById('obShopNameInput');
+  const name = _nameInput.value.trim();
   if (!name) {
-    document.getElementById('obShopNameInput').style.borderBottomColor = '#E05555';
-    setTimeout(() => document.getElementById('obShopNameInput').style.borderBottomColor = '', 1200);
+    // [O1] 빨간 밑줄만으론 왜 안 넘어가는지 몰라 신규 유저가 멈추던 문제 — 이유를 토스트로 명확히.
+    _nameInput.style.borderBottomColor = '#E05555';
+    setTimeout(() => _nameInput.style.borderBottomColor = '', 1200);
+    showToast('샵 이름을 입력해주세요');
+    _nameInput.focus();
     return;
   }
   localStorage.setItem('onboarding_done', '1');
@@ -562,32 +751,38 @@ document.getElementById('obShopNameInput').addEventListener('keydown', e => {
 });
 
 function getToken() {
-  try {
-    let t = localStorage.getItem(_TOKEN_KEY);
-    if (!t) {
-      const legacy = localStorage.getItem(_LEGACY_TOKEN_KEY);
-      if (legacy) {
-        t = legacy;
-        try { localStorage.setItem(_TOKEN_KEY, legacy); } catch (e) { console.warn('[auth] 토큰 이전 저장 실패', e); }
-      }
-    }
-    if (!t) return null;
+  // [보안감사 H-3 2026-07-27] secure 모드 OFF → 아래 블록은 원본 그대로(byte-for-byte). 웹·플러그인없는네이티브는 항상 여기.
+  if (!_secureMode) {
     try {
-      const payload = JSON.parse(atob(t.split('.')[1]));
-      if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
-        localStorage.removeItem(_TOKEN_KEY);
-        // [A10] 토큰 만료 안내 + 로그인 화면
-        if (window.showToast) window.showToast('로그인이 만료되었어요. 다시 로그인해주세요');
-        setTimeout(() => {
-          const lock = document.getElementById('lockOverlay');
-          if (lock) lock.classList.remove('hidden');
-          try { _setAuthGateLocked(true); } catch (_) { /* ignore */ }
-        }, 1000);
-        return null;
+      let t = localStorage.getItem(_TOKEN_KEY);
+      if (!t) {
+        const legacy = localStorage.getItem(_LEGACY_TOKEN_KEY);
+        if (legacy) {
+          t = legacy;
+          try { localStorage.setItem(_TOKEN_KEY, legacy); } catch (e) { console.warn('[auth] 토큰 이전 저장 실패', e); }
+        }
       }
-    } catch { return null; }
-    return t;
-  } catch (_) { return null; }  // iOS Private 모드 SecurityError 방어
+      if (!t) return null;
+      try {
+        const payload = JSON.parse(atob(t.split('.')[1]));
+        if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+          localStorage.removeItem(_TOKEN_KEY);
+          // [A10] 토큰 만료 안내 + 로그인 화면
+          if (window.showToast) window.showToast('로그인이 만료되었어요. 다시 로그인해주세요');
+          setTimeout(() => {
+            const lock = document.getElementById('lockOverlay');
+            if (lock) lock.classList.remove('hidden');
+            try { _setAuthGateLocked(true); } catch (_) { /* ignore */ }
+          }, 1000);
+          return null;
+        }
+      } catch { return null; }
+      return t;
+    } catch (_) { return null; }  // iOS Private 모드 SecurityError 방어
+  }
+  // [보안감사 H-3] secure 모드 ON → in-memory 캐시(_hydrateToken 이 부팅 때 보안저장/localStorage 에서 채움).
+  //   만료 판정·부작용은 _validateToken 으로 OFF 경로와 동일 처리.
+  return _validateToken(_tokenCache);
 }
 // [2026-04-24] 디바이스 간 데이터 불일치 방어 — 토큰 변경 감지 시 SWR 캐시 일괄 클리어.
 // 폰·노트북·태블릿 같은 계정으로 들어왔을 때 다른 디바이스의 stale 스냅샷이 보이는 문제 해결.
@@ -673,6 +868,25 @@ function _purgeUserScopedStorage() {
 }
 window._purgeUserScopedStorage = _purgeUserScopedStorage;
 
+// [H1 2026-07-16] 계정 전환 시 IndexedDB 까지 비운다.
+//   _purgeUserScopedStorage 는 localStorage/sessionStorage 만 지운다. 그래서 로그아웃 없이
+//   다른 계정으로 로그인하면 이전 원장의 작업실 초안(itdasy-gallery/slots)과 sync 메타
+//   (migratedAt·lastPulledAt·tombstones)가 그대로 남아 있었다:
+//     · 새 원장이 남의 초안을 봄(프라이버시 유출)
+//     · 그 슬롯이 dirty 로 마킹되면 새 계정 서버로 업로드됨(계정 오염)
+//     · 남의 lastPulledAt 을 커서로 써서 내 슬롯이 delta 에서 누락됨
+//   [주의] 전환 시엔 이전 계정의 미동기화분을 push 하지 않는다 — 새 토큰으로 올리면 그게 바로
+//     계정 오염이다. 버리는 게 맞다(로그아웃 경로는 토큰 살아있을 때 push 하고 지운다).
+async function _purgeUserScopedDB() {
+  try { if (typeof clearGalleryDB === 'function') await clearGalleryDB(); } catch (_e) { void _e; }
+  try {
+    if (window.WorkspaceSync && typeof window.WorkspaceSync.clearLocal === 'function') {
+      await window.WorkspaceSync.clearLocal();
+    }
+  } catch (_e) { void _e; }
+}
+window._purgeUserScopedDB = _purgeUserScopedDB;
+
 // 토큰에서 user_id 추출 (JWT payload.sub)
 function _userIdFromToken(t) {
   try {
@@ -691,10 +905,14 @@ async function applyNewSession(newToken, opts) {
   const newUserId = _userIdFromToken(newToken);
 
   // user 가 바뀌면 사용자 범위 데이터 전부 정리
+  // [H1 2026-07-16] IndexedDB(작업실 슬롯 + sync 메타)도 반드시 같이 — storage 만 지우면
+  //   이전 원장 초안이 남아 새 계정에 노출·오염된다. await 로 다음 진입 전에 확실히 비운다.
   if (newUserId && prevUserId && newUserId !== prevUserId) {
     _purgeUserScopedStorage();
+    await _purgeUserScopedDB();
   } else if (opts.forcePurge) {
     _purgeUserScopedStorage();
+    await _purgeUserScopedDB();
   }
 
   if (newUserId) {
@@ -754,11 +972,16 @@ function _isIOSAppSurface() {
 }
 
 function applyStoreReviewLoginGuard() {
-  const hideSocial = _isIOSAppSurface();
+  // T-320: iOS 에서 Apple 로그인 플러그인이 있으면 소셜 로그인 노출 가능
+  // (Apple 심사 규정 — 타사 로그인 제공 시 Apple 로그인 필수. 플러그인 없으면 기존처럼 전부 숨김)
+  const hasApple = !!(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SignInWithApple);
+  const hideSocial = _isIOSAppSurface() && !hasApple;
   const divider = document.getElementById('loginSocialDivider');
   const wrap = document.getElementById('socialLoginWrap');
   if (divider) divider.style.display = hideSocial ? 'none' : '';
   if (wrap) wrap.style.display = hideSocial ? 'none' : '';
+  const appleBtn = document.getElementById('loginAppleBtn');
+  if (appleBtn) appleBtn.style.display = hasApple ? '' : 'none';
 }
 window.applyStoreReviewLoginGuard = applyStoreReviewLoginGuard;
 
@@ -778,22 +1001,64 @@ function _bindLoginSocialButtons() {
     naver._itdasyBound = true;
     naver.addEventListener('click', () => window.startNaverLogin && window.startNaverLogin());
   }
+  const apple = document.getElementById('loginAppleBtn');
+  if (apple && !apple._itdasyBound) {
+    apple._itdasyBound = true;
+    apple.addEventListener('click', () => window.startAppleLogin && window.startAppleLogin());
+  }
 }
 
 function setToken(t) {
+  // [보안감사 H-3 2026-07-27] secure 모드 OFF → 아래 블록은 원본 그대로(byte-for-byte). 웹·플러그인없는네이티브는 항상 여기.
+  if (!_secureMode) {
+    try {
+      // 토큰 값이 바뀌면 (다른 계정·재로그인·로그아웃) 모든 SWR 캐시 무효화.
+      let prev = null;
+      try { prev = localStorage.getItem(_TOKEN_KEY); } catch (_e) { void _e; }
+      if (prev !== t) {
+        _clearAllSWRCache();
+      }
+      if (t === null || t === undefined) {
+        localStorage.removeItem(_TOKEN_KEY);
+      } else {
+        localStorage.setItem(_TOKEN_KEY, t);
+      }
+    } catch (_) { /* 용량 초과/시크릿 모드 조용히 무시 */ }
+    return;
+  }
+  // [보안감사 H-3] secure 모드 ON → 캐시 갱신 + (변경 시)SWR 무효화 + 영속화.
   try {
-    // 토큰 값이 바뀌면 (다른 계정·재로그인·로그아웃) 모든 SWR 캐시 무효화.
-    let prev = null;
-    try { prev = localStorage.getItem(_TOKEN_KEY); } catch (_e) { void _e; }
-    if (prev !== t) {
-      _clearAllSWRCache();
+    const next = (t === null || t === undefined) ? null : t;
+    const prev = _tokenCache;
+    if (prev !== next) { _clearAllSWRCache(); }  // 이전 캐시와 비교(OFF 경로의 prev !== t 와 동일 취지)
+    _tokenCache = next;
+    _tokenReady = true;
+    // 웹(비네이티브)에서는 동기 localStorage 로 즉시 반영 — 리로드 즉시 견디게(기존 sync 의미 보존).
+    const maybeNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    if (!maybeNative) {
+      try {
+        if (next === null) { localStorage.removeItem(_TOKEN_KEY); }
+        else { localStorage.setItem(_TOKEN_KEY, next); }
+      } catch (_e) { void _e; }
+      return;
     }
-    if (t === null || t === undefined) {
-      localStorage.removeItem(_TOKEN_KEY);
-    } else {
-      localStorage.setItem(_TOKEN_KEY, t);
-    }
-  } catch (_) { /* 용량 초과/시크릿 모드 조용히 무시 */ }
+    // 네이티브 → 보안저장(있으면). 넣었으면 평문 복사본 제거. 없으면 localStorage 폴백.
+    (async () => {
+      try {
+        const secure = await _secureTokenStore();
+        if (secure) {
+          if (next === null) { await secure.remove(); }
+          else { await secure.set(next); }
+          try { localStorage.removeItem(_TOKEN_KEY); } catch (_e) { void _e; }  // 평문 복사본 제거
+        } else {
+          try {
+            if (next === null) { localStorage.removeItem(_TOKEN_KEY); }
+            else { localStorage.setItem(_TOKEN_KEY, next); }
+          } catch (_e) { void _e; }
+        }
+      } catch (_e) { void _e; }
+    })();
+  } catch (_) { /* 조용히 무시 */ }
 }
 function authHeader() {
   // [2026-04-28 진짜 fix] ngrok-skip-browser-warning 헤더 제거.
@@ -822,6 +1087,22 @@ function authHeader() {
   const FETCH_TIMEOUT_FIRST_MS = 20000;
   const FETCH_TIMEOUT_RETRY_MS = 12000;
 
+  // [2026-07-22 보스] AI(LLM) 호출은 20초로 끊으면 안 된다 — 잇비 답변·캡션 생성은 15~60초가 정상이다.
+  //   기존 동작: 20초에 abort → 12초짜리 재시도 3회(재시도마다 서버에서 '진짜 LLM 호출'이 새로 돌아 돈이 나감)
+  //   → 60초쯤 뒤 "실패했어요". 원장 눈엔 '잇비도 캡션도 아무것도 안 됨'. 백엔드는 멀쩡했다.
+  //   고침: ① LLM 경로는 120초까지 기다린다(Cloud Run 요청 상한 300초 안쪽)
+  //         ② 타임아웃/네트워크 끊김으로는 재시도하지 않는다(서버는 아직 생성 중 → 재시도는 중복 과금).
+  //         ③ 단, 5xx(콜드스타트 등 서버가 실제로 실패한 경우)는 기존대로 재시도한다.
+  const LLM_TIMEOUT_MS = 120000;
+  // 느린 게 정상인 생성형 엔드포인트. 경로 조각으로 판정(절대 URL·상대 경로 둘 다 매칭).
+  const LLM_PATH_RE = /\/(assistant|caption|persona)\/|\/image\/(enhance|remove-bg|remove-object|generate-bg|detect-face|blur-face)/;
+  function _isLlmCall(input) {
+    try {
+      const u = typeof input === 'string' ? input : (input && input.url) || '';
+      return LLM_PATH_RE.test(u);
+    } catch (_) { return false; }
+  }
+
   // 호출자 signal 보존하면서 timeout 까지 보호하는 fetch 헬퍼.
   // timeout 으로 abort 된 경우는 wrapper 의 retry 분기가 받아서 재시도하도록
   // 호출자의 init.signal 은 건드리지 않는다 (catch 에서 caller-abort 판단 그대로 유지).
@@ -843,6 +1124,41 @@ function authHeader() {
     });
   }
 
+  // [2026-07-23] 재시도하면 '손님에게 두 번 나가는' 경로. body 가 재사용 가능해도 절대 재시도 금지.
+  //   사고 경로: 서버가 인스타 Graph 에 공개 답글을 이미 성공적으로 게시했는데 응답이 돌아오는 길에
+  //   끊기거나 20초 타임아웃(Cloud Run 콜드스타트 + Graph 왕복이면 충분히 난다) → 래퍼가 같은 POST 를
+  //   다시 쏨 → 같은 댓글에 답글 2개. 원장 피드에 그대로 남고 앱에서 지울 방법도 없다.
+  //   서버에도 멱등성 방어를 넣었지만(CommentReplyLog 선조회) 클라도 안 쏘는 게 맞다.
+  //   경로는 실제 라우트를 보고 적었다. 헷갈리기 쉬운 두 곳:
+  //     · comment-reply-settings 는 설정 저장이라 재시도해도 안전 → 제외(negative lookahead).
+  //     · send_edit 은 '_' 가 단어문자라 /send\b/ 로는 안 걸린다. 명시적으로 나열한다.
+  const NO_RETRY_PATH_RE = new RegExp(
+    '/(' + [
+      'instagram/comment-reply(?!-settings)',                          // 공개 답글
+      'instagram/publish',                                             // 인스타 발행(+ -file/-carousel-file/-story-file)
+      'scheduled-posts',                                               // 예약 발행 등록
+      'dm-confirm-queue/[^/]+/(send|send_edit|send-form|confirm-deposit|decline-with-alternatives)',
+    ].join('|') + ')'
+  );
+  function _isNoRetryPath(input) {
+    try {
+      const u = typeof input === 'string' ? input : (input && input.url) || '';
+      return NO_RETRY_PATH_RE.test(String(u));
+    } catch (_) { return false; }
+  }
+  // [보안감사 C-4 2026-07-26] 예약·매출·고객 '생성' POST 는 재시도 금지.
+  //   서버가 이미 커밋했는데 응답이 돌아오는 길에 끊기면(WiFi↔LTE 핸드오프·지하철) 래퍼가
+  //   같은 POST 를 다시 쏴서 같은 예약/매출이 2건 생긴다(멱등키 없음 → 돈 숫자·이중예약 사고).
+  //   GET(?쿼리)·PATCH/{id}·DELETE/{id} 는 읽기/멱등이라 안전 → 재시도 유지. 컬렉션 POST 만 막는다.
+  const CREATE_NO_RETRY_RE = /\/(bookings|revenue|customers)(\?|$)/;
+  function _isNonIdempotentCreate(input, init) {
+    try {
+      const m = (init && init.method ? String(init.method).toUpperCase() : 'GET');
+      if (m !== 'POST') return false;
+      const u = typeof input === 'string' ? input : (input && input.url) || '';
+      return CREATE_NO_RETRY_RE.test(String(u));
+    } catch (_) { return false; }
+  }
   function _isRetryableMethod(init) {
     const m = (init && init.method ? String(init.method).toUpperCase() : 'GET');
     if (m === 'GET' || m === 'HEAD') return true;
@@ -860,7 +1176,17 @@ function authHeader() {
   function _sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
   let _reconnectToastTimer = null;
+  // [버그2 2026-07-25] 단발 실패로는 안 띄움 — 20초 안에 최종 실패 2건 이상일 때만 토스트.
+  //   로그인 직후 병렬 호출 여러 개 중 1건이 일시 삐끗(콜드스타트 등)해도 "연결 불안정"이
+  //   너무 자주 뜨던 것 방지. 성공 응답이 오면 카운터 리셋(아래 fetch 래퍼).
+  let _connFailCount = 0;
+  let _connFailFirstAt = 0;
+  function _resetConnFail() { _connFailCount = 0; _connFailFirstAt = 0; }
   function _showReconnectToast() {
+    const _now = Date.now();
+    if (!_connFailFirstAt || _now - _connFailFirstAt > 20000) { _connFailFirstAt = _now; _connFailCount = 0; }
+    _connFailCount++;
+    if (_connFailCount < 2) return;
     if (window.__itdasyReconnectShown) return;
     window.__itdasyReconnectShown = true;
     try {
@@ -918,17 +1244,31 @@ function authHeader() {
     _setAuthGateLocked(true);
   }
 
+  // [보안감사 H-6 2026-07-27] 401 자동 리프레시/재첨부는 우리 API 오리진에만.
+  //   전역 fetch 패치라 Supabase·R2·인스타·공격자 URL 등 아무 호스트가 401 을 주면
+  //   원장 JWT 가 그 호스트로 재첨부돼 유출됐다(cross-origin 토큰 유출). 오리진 대조로 차단.
+  function _isApiOrigin(input) {
+    try {
+      const url = typeof input === 'string' ? input : (input && input.url) || '';
+      if (!window.API) return false;
+      return new URL(url, location.href).origin === new URL(window.API, location.href).origin;
+    } catch (_e) { void _e; return false; }
+  }
+
   window.fetch = async function(input, init) {
-    const retryable = _isRetryableMethod(init) && _bodyReusable(init);
+    const retryable = _isRetryableMethod(init) && _bodyReusable(init) && !_isNoRetryPath(input) && !_isNonIdempotentCreate(input, init);
+    const isLlm = _isLlmCall(input);   // [2026-07-22] 생성형 호출 — 오래 기다리되 타임아웃 재시도는 안 함
     let attempt = 0;
     // eslint-disable-next-line no-constant-condition
     while (true) {
       // [fix] 캐러셀(여러장) 인스타 발행은 컨테이너 순차 폴링으로 25~50초+ → 호출부가 itdasyTimeoutMs 로 타임아웃 상향 가능(기본 20초는 abort됨)
       const _customTmo = init && init.itdasyTimeoutMs;
-      const _tmo = _customTmo || (attempt === 0 ? FETCH_TIMEOUT_FIRST_MS : FETCH_TIMEOUT_RETRY_MS);
+      const _tmo = _customTmo
+        || (isLlm ? LLM_TIMEOUT_MS : (attempt === 0 ? FETCH_TIMEOUT_FIRST_MS : FETCH_TIMEOUT_RETRY_MS));
       try {
         const res = await _fetchWithTimeout(input, init, _tmo);
-        if (res.status === 401 && getToken()) {
+        if (res.ok) _resetConnFail();   // [버그2] 성공 응답 = 연결 정상 — 실패 카운터 리셋
+        if (res.status === 401 && getToken() && _isApiOrigin(input)) {
           // /auth/refresh 자체가 401이면 무한루프 방지
           const url = typeof input === 'string' ? input : (input.url || '');
           if (url.includes('/auth/refresh') || url.includes('/auth/login')) {
@@ -945,10 +1285,23 @@ function authHeader() {
             return res;
           }
         }
+        // [2026-07-22 보스] 서버가 Retry-After 로 "지금 다시 때리지 마"라고 하면 재시도하지 않는다.
+        //   실제 사고: AI 쿼터가 마르면 잇비가 한 번 실패에 23~29초를 태우는데(백엔드가 Gemini 를
+        //   3회 재시도), 그게 5xx 라 프론트가 4번 더 때려서 "야" 한마디에 1분 넘게 걸렸다.
+        //   재시도해도 쿼터가 빈 건 그대로고, 매 재시도가 쿼터를 더 갉아먹는다.
+        //   콜드스타트 같은 '진짜 일시적' 5xx 는 Retry-After 를 안 붙이므로 기존대로 재시도된다.
+        var _retryAfter = '';
+        try { _retryAfter = (res.headers && res.headers.get) ? (res.headers.get('Retry-After') || '') : ''; } catch (_) { _retryAfter = ''; }
+        if (_retryAfter) return res;
         // 5xx 게이트웨이성 에러: retryable 이면 재시도.
         // [핫픽스F #5-9] 토스트는 "재시도까지 모두 실패한 최종 실패"에서만. 재시도로 회복되면 무noise →
         //   예약 추가/변경이 retry 로 성공한 뒤 "서버 불안정" 문구가 뜨던 버그 차단(성공/실패 상태 분리).
-        if (retryable && RETRY_STATUSES.has(res.status)) {
+        // [보안감사 C-4] LLM 은 500(핸들러 내부 실패 = 이미 모델이 돌아 과금됨) 재시도 금지.
+        //   502/503/504(게이트웨이·콜드스타트 = 과금 전) 만 재시도해 이중 과금을 막는다.
+        const _retryStatusOk = isLlm
+          ? (res.status === 502 || res.status === 503 || res.status === 504)
+          : RETRY_STATUSES.has(res.status);
+        if (retryable && _retryStatusOk) {
           if (attempt < MAX_RETRIES) {
             await _sleep(BACKOFF_MS[attempt] || 1500);
             attempt++;
@@ -964,7 +1317,9 @@ function authHeader() {
           throw err;
         }
         // 네트워크 에러 (DNS·오프라인·CORS·abort) — retryable 한정으로 재시도.
-        if (retryable && attempt < MAX_RETRIES) {
+        // [2026-07-22] LLM 호출은 여기서 재시도하지 않는다. 타임아웃 시점에 서버는 아직 답을 만들고 있어서,
+        //   재시도 = 같은 질문을 한 번 더 생성시키는 중복 과금이고 사용자 체감 시간만 3배로 늘었다.
+        if (retryable && !isLlm && attempt < MAX_RETRIES) {
           await _sleep(BACKOFF_MS[attempt] || 1500);
           attempt++;
           continue;
@@ -1180,6 +1535,33 @@ async function logout(opts) {
   // [2026-05-08 28차 [J]] skipConfirm — disconnectInstagram 등 다른 흐름에서 이중 컨펌 방지
   if (!opts.skipConfirm && !(await nativeConfirm("확인", "로그아웃 하시겠습니까? 세션과 캐시가 모두 초기화됩니다."))) return;
 
+  // [H2 2026-07-16] 토큰을 지우기 전에 미동기화분을 서버로 올린다.
+  //   기존 순서는 setToken(null) → ... → clearGalleryDB/clearLocal 이라, 아직 push 안 된 편집과
+  //   아직 못 보낸 삭제(tombstone)가 그대로 삭제됐다:
+  //     · 편집 직후(1.2s debounce 안에) 로그아웃 → 그 편집은 서버에도 없고 로컬에서도 사라짐(영구 손실)
+  //     · 오프라인 삭제 후 로그아웃 → tombstone 소멸 → 서버 DELETE 가 영영 안 나가 다음 로그인에 부활
+  //   settleSlot() = pushAll(dirty 업로드) + flushTombstones(삭제 전송). 토큰이 살아있는 지금만 가능.
+  //   [주의] 네트워크가 죽었으면 로그아웃이 막히면 안 되므로 타임아웃으로 끊고 진행한다.
+  try {
+    if (window.WorkspaceSync && typeof window.WorkspaceSync.settleSlot === 'function') {
+      await Promise.race([
+        Promise.resolve(window.WorkspaceSync.settleSlot()).catch(() => {}),
+        new Promise((res) => setTimeout(res, 4000)),
+      ]);
+    }
+  } catch (_e) { void _e; }
+
+  // [보안감사 H-4 2026-07-27] 서버측 세션 무효화 — 토큰을 지우기 전에 호출.
+  //   로컬 토큰만 지우면 탈취된 JWT 는 24h 만료까지 살아있고 /auth/refresh 로 무한 갱신됨.
+  //   /auth/logout 이 users.min_valid_iat 를 올려 그 이전 발급 토큰을 전부 거부시킨다.
+  //   네트워크 실패해도 로컬 로그아웃은 진행돼야 하므로 best-effort(타임아웃 포함) 로 감싼다.
+  try {
+    await Promise.race([
+      apiFetch('/auth/logout', { method: 'POST', headers: authHeader() }).catch(() => {}),
+      new Promise((res) => setTimeout(res, 3000)),
+    ]);
+  } catch (_e) { void _e; }
+
   // 1. 토큰 및 사용자 범위 스토리지 광범위 삭제
   setToken(null);
   // [2026-05-07 26차] 메모리 변수도 명시 클리어 — _purgeUserScopedStorage 는 storage 만 청소함.
@@ -1270,7 +1652,12 @@ async function login() {
       body: JSON.stringify({ email, password })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || '로그인 실패');
+    if (!res.ok) {
+      // [버그1 2026-07-25] 401(비번 틀림)뿐 아니라 422(이메일 형식 검증 실패 — pydantic EmailStr)도
+      //   "요청 형식이 올바르지 않습니다" 같은 기술 문구 대신 사용자 언어로. detail 이 배열(422)이면 노출 금지.
+      if (res.status === 401 || res.status === 422) throw new Error('아이디 또는 비밀번호가 달라요. 다시 확인해 주세요.');
+      throw new Error((typeof data.detail === 'string' && data.detail) || '로그인 실패');
+    }
     setToken(data.access_token);
     // 계정이 다를 때 이전 사용자 데이터 정리 + /me 로 가입방법 동기화
     try {
@@ -1304,6 +1691,74 @@ async function login() {
   } finally {
     btn.textContent = '로그인'; btn.disabled = false;
     _loginInFlight = false;
+  }
+}
+
+// [2026-07-20 v780] 비밀번호 찾기 — 로그인 화면 인라인 (화면 이동/팝업 없음)
+// 흐름: 링크 한 번(확인 단계) → 한 번 더(발송) → 60초 쿨다운. confirm() 금지 규칙 준수.
+let _forgotState = 'idle'; // idle | confirm | sending | cooldown
+let _forgotTimer = null;
+function _forgotMsg(text, ok) {
+  const el = document.getElementById('forgotPwMsg');
+  if (!el) return;
+  if (!text) { el.style.display = 'none'; el.textContent = ''; el.classList.remove('is-ok'); return; }
+  el.textContent = text;
+  el.classList.toggle('is-ok', !!ok);
+  el.style.display = 'block';
+}
+function _forgotReset() {
+  _forgotState = 'idle';
+  const btn = document.getElementById('forgotPwLink');
+  if (btn) { btn.disabled = false; btn.textContent = '비밀번호를 잊으셨나요?'; btn.classList.remove('is-confirm'); }
+}
+async function forgotPassword() {
+  const btn = document.getElementById('forgotPwLink');
+  if (!btn || _forgotState === 'sending' || _forgotState === 'cooldown') return;
+  const emailEl = document.getElementById('loginEmail');
+  const email = (emailEl && emailEl.value || '').trim();
+
+  // 1단계 — 인라인 확인 (같은 자리에서 버튼 라벨만 바뀜)
+  if (_forgotState === 'idle') {
+    if (!email) {
+      _forgotMsg('이메일을 먼저 입력해주세요.');
+      if (emailEl) emailEl.focus();
+      return;
+    }
+    _forgotState = 'confirm';
+    btn.classList.add('is-confirm');
+    btn.textContent = '이 주소로 메일 보내기';
+    _forgotMsg(email + ' 주소로 비밀번호 재설정 메일을 보낼까요?');
+    return;
+  }
+
+  // 2단계 — 발송 (이메일은 발송 시점 값으로 다시 읽음)
+  if (!email) { _forgotReset(); _forgotMsg('이메일을 먼저 입력해주세요.'); return; }
+  _forgotState = 'sending';
+  btn.disabled = true;
+  btn.textContent = '보내는 중...';
+  try {
+    const res = await apiFetch('/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    _forgotMsg('재설정 메일을 보냈어요. 메일함을 확인해주세요. (30분 안에)', true);
+    // 연타 방지 — 60초 쿨다운 후 재발송 가능
+    _forgotState = 'cooldown';
+    btn.classList.remove('is-confirm');
+    let left = 60;
+    btn.textContent = '다시 보내기 (' + left + '초)';
+    clearInterval(_forgotTimer);
+    _forgotTimer = setInterval(() => {
+      left -= 1;
+      if (left <= 0) { clearInterval(_forgotTimer); _forgotReset(); return; }
+      const b = document.getElementById('forgotPwLink');
+      if (b) b.textContent = '다시 보내기 (' + left + '초)';
+    }, 1000);
+  } catch (e) {
+    _forgotReset();
+    _forgotMsg('메일을 보내지 못했어요. 잠시 후 다시 시도해주세요.');
   }
 }
 
@@ -1478,6 +1933,33 @@ function _isAllowedOAuthUrl(url) {
     return false;
   }
 }
+// [보안감사 C-2/C-3 2026-07-27] OAuth PKCE 시작.
+// 로그인 시작 시 code_verifier 를 생성·로컬저장하고 code_challenge 를 백엔드에 넘긴다.
+// 콜백은 JWT 대신 1회용 code 를 돌려주고, 복귀 핸들러(app-oauth-return / oauth-return.html)가
+// verifier 로 POST /auth/oauth/exchange 해서 JWT 를 받는다.
+// → 딥링크를 가로챈 악성 앱은 verifier 없어 교환 불가(C-3), 공격자 code 는 challenge 불일치로 실패(C-2).
+function _oauthB64url(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+async function _oauthPkceStart() {
+  try {
+    const vb = new Uint8Array(32);
+    crypto.getRandomValues(vb);
+    const verifier = _oauthB64url(vb);
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+    const challenge = _oauthB64url(new Uint8Array(digest));
+    localStorage.setItem('itdasy_oauth_pkce', JSON.stringify({ v: verifier, t: Date.now() }));
+    return challenge;
+  } catch (_e) {
+    // crypto 미지원 등 — challenge 없이 진행하면 백엔드가 레거시 token 방식으로 폴백
+    void _e;
+    return '';
+  }
+}
+window._oauthPkceStart = _oauthPkceStart;
+
 function _navigateOAuth(url) {
   if (!_isAllowedOAuthUrl(url)) {
     showToast('로그인 서버 응답이 유효하지 않아요. 잠시 후 다시 시도해주세요.', 'error');
@@ -1497,8 +1979,10 @@ window.startGoogleLogin = async function () {
   try {
     // GitHub Pages 서브패스 (/itdasy-frontend-test-yeunjun/) 대응 — 현재 URL 기준 상대 경로
     const returnTo = new URL('oauth-return.html', window.location.href).href;
+    const _cc = await _oauthPkceStart();
     const res = await fetch(
-      `${window.API}/auth/google/authorize?return_to=${encodeURIComponent(returnTo)}`
+      `${window.API}/auth/google/authorize?return_to=${encodeURIComponent(returnTo)}` +
+      (_cc ? `&code_challenge=${encodeURIComponent(_cc)}` : '')
     );
     if (!res.ok) throw new Error('Google 로그인 준비 실패');
     const { url } = await res.json();
@@ -1514,8 +1998,10 @@ window.startKakaoLogin = async function () {
   try {
     // GitHub Pages 서브패스 (/itdasy-frontend-test-yeunjun/) 대응 — 현재 URL 기준 상대 경로
     const returnTo = new URL('oauth-return.html', window.location.href).href;
+    const _cc = await _oauthPkceStart();
     const res = await fetch(
-      `${window.API}/auth/kakao/authorize?return_to=${encodeURIComponent(returnTo)}`
+      `${window.API}/auth/kakao/authorize?return_to=${encodeURIComponent(returnTo)}` +
+      (_cc ? `&code_challenge=${encodeURIComponent(_cc)}` : '')
     );
     if (!res.ok) throw new Error('카카오 로그인 준비 실패');
     const { url } = await res.json();
@@ -1530,8 +2016,10 @@ window.startKakaoLogin = async function () {
 window.startNaverLogin = async function () {
   try {
     const returnTo = new URL('oauth-return.html', window.location.href).href;
+    const _cc = await _oauthPkceStart();
     const res = await fetch(
-      `${window.API}/auth/naver/authorize?return_to=${encodeURIComponent(returnTo)}`
+      `${window.API}/auth/naver/authorize?return_to=${encodeURIComponent(returnTo)}` +
+      (_cc ? `&code_challenge=${encodeURIComponent(_cc)}` : '')
     );
     if (!res.ok) throw new Error('네이버 로그인 준비 실패');
     const data = await res.json();
@@ -1543,6 +2031,43 @@ window.startNaverLogin = async function () {
   } catch (e) {
     const msg = window._humanError ? window._humanError(e) : (e.message || '네이버 로그인 오류');
     showToast(msg || '네이버 로그인을 시작할 수 없어요', 'error');
+  }
+};
+
+// ───── T-320 Sign in with Apple (iOS 네이티브 전용) ─────
+// Capacitor 플러그인(@capacitor-community/apple-sign-in)이 identity_token 을 받아오면
+// BE POST /auth/apple 로 검증 → JWT 발급. 웹에는 버튼 자체가 숨겨져 있음.
+let _appleLoginBusy = false;
+window.startAppleLogin = async function () {
+  if (_appleLoginBusy) return;
+  const plug = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SignInWithApple;
+  if (!plug) {
+    if (window.showToast) window.showToast('Apple 로그인은 아이폰 앱에서 쓸 수 있어요');
+    return;
+  }
+  _appleLoginBusy = true;
+  try {
+    const r = await plug.authorize({ scopes: 'email name' });
+    const resp = (r && r.response) || {};
+    const idToken = resp.identityToken;
+    if (!idToken) throw new Error('Apple 인증이 취소됐어요');
+    // 이름은 최초 로그인 1회만 옴 — 없으면 null (BE가 "Apple 사용자"로 처리)
+    const fullName = [resp.familyName, resp.givenName].filter(Boolean).join('').trim() || null;
+    const res = await fetch(`${window.API}/auth/apple`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identity_token: idToken, name: fullName }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || 'Apple 로그인 실패');
+    setToken(data.access_token);
+    try { await applyNewSession(data.access_token, { forcePurge: true }); } catch (_) { void 0; }
+    window.location.reload(); // oauth-return 과 동일하게 재부팅 경로로 세션 반영
+  } catch (e) {
+    const msg = window._humanError ? window._humanError(e) : (e.message || 'Apple 로그인 오류');
+    showToast(msg, 'error');
+  } finally {
+    _appleLoginBusy = false;
   }
 };
 
@@ -1614,7 +2139,11 @@ window.startNaverLogin = async function () {
 })();
 
 // ===== 앱 초기화 (모든 모듈 로드 후 실행) =====
-window.addEventListener('load', function() {
+window.addEventListener('load', async function() {
+  // [보안감사 H-3 2026-07-27] 부팅 게이트 — 인증 판단(#register/생체/getToken 자동로그인) 전에 토큰 하이드레이션 완료.
+  //   ▶ 웹(비네이티브) 또는 강제 OFF → 이 if 가 false → await 자체가 실행되지 않아 아래 부팅 코드는 기존과 100% 동기적으로 동일.
+  //   ▶ 강제 ON(_secureMode=true) 또는 (네이티브 && 강제OFF 아님)일 때만 게이트로 들어가 감지·하이드레이션.
+  if (_secureMode || (_secureForced !== false && _isNativePlatform())) { await _bootHydrateGate(); }
   _bindLoginSocialButtons();
   applyStoreReviewLoginGuard();
 
@@ -1916,6 +2445,11 @@ function showTab(id, btn) {
       if (window.TodayBrief && typeof window.TodayBrief.render === 'function') {
         try { window.TodayBrief.render('home-today-brief'); } catch (_e) { /* ignore */ }
       }
+      // [2026-07-24] 홈 탭 복귀 시 강제 새로고침 — 예전엔 최초 마운트 1회 후 재렌더가 없어
+      //   DM/댓글 카운트가 얼어붙었다(옛 값 표시). refresh()=force 라 60초 SWR 도 우회.
+      if (window.HomeV41 && typeof window.HomeV41.refresh === 'function') {
+        try { window.HomeV41.refresh(); } catch (_e) { /* ignore */ }
+      }
     }
     // 내샵관리 탭 활성화 시 대시보드 렌더 (Task 6: 이번달 브리핑 흡수)
     if (id === 'dashboard') {
@@ -2079,6 +2613,12 @@ if ('serviceWorker' in navigator && !_isCapacitor) {
       navigator.serviceWorker.addEventListener('controllerchange', askVersion);
       // 1시간마다 자동 update 시도 (사용자 앱 안 닫고 오래 쓰는 케이스)
       setInterval(() => _safeSwUpdate(reg), 60 * 60 * 1000);
+      // [v779] iOS PWA 를 백그라운드에서 다시 켜면 페이지가 리로드 안 돼 업데이트 체크가 없었다
+      //   ("앱 다시 켰는데 옛 버전 그대로"). 포그라운드 복귀 시마다 sw.js 재확인 → 새 버전이면
+      //   위 controllerchange 리스너가 자동 reload 한다.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') _safeSwUpdate(reg);
+      });
     })
     .catch(err => {
       console.warn('[SW] 등록 실패:', {
@@ -2095,6 +2635,51 @@ if ('serviceWorker' in navigator && !_isCapacitor) {
   });
 } else if (_isCapacitor) {
   console.warn('[SW] Capacitor 네이티브 — SW 미사용 (WebView 자체 캐시)');
+}
+
+// [2026-07-25] 부팅 정합성 자가복구 워치독.
+//   배포 직후 SW 파일캐시가 반쪽만 갱신되면 '옛 코드 + 새 lazy 모듈' 이 섞여 홈 렌더가 터지고
+//   '빈 화면 + 네비게이션만' 이 뜬다(controllerchange 가 안 걸리는, 이미-불일치로 로드된 케이스 —
+//    위 controllerchange 리스너는 '로드 중 SW 교체' 만 잡는다). 원장은 이걸 '앱 고장' 으로 느끼고
+//   직접 설정→데이터 새로고침을 해야만 풀렸다. → 부팅 창(상호작용 전) 안에서 스크립트/CSS 로드 실패나
+//   버전 미스매치 예외가 나면, **세션당 한 번만** SW 파일캐시를 비우고 리로드해 정합 버전으로 자가복구.
+//   가드: 세션 1회(무한루프 차단) · 부팅 25초 창 · 입력 중이면 스킵(유실 방지) · OAuth 복귀 중 스킵.
+if (!_isCapacitor && 'caches' in window) {
+  (function _bootCacheWatchdog() {
+    var KEY = 'itdasy_cache_recovered';
+    try { if (sessionStorage.getItem(KEY)) return; } catch (_e) { return; }  // 이 세션에 이미 복구함 → 루프 차단
+    var armed = true;
+    setTimeout(function () { armed = false; }, 25000);   // 부팅 창만 감시 — 이후 에러는 정상 운영 에러
+    function _shouldRecover() {
+      if (!armed) return false;
+      var ae = document.activeElement;   // 입력 중이면 유실 방지 — 복구 안 함
+      if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return false;
+      try { if (sessionStorage.getItem('itdasy_oauth_inflight')) return false; } catch (_e) { void _e; }
+      return true;
+    }
+    function _recover(reason) {
+      armed = false;
+      try { sessionStorage.setItem(KEY, '1'); } catch (_e) { void _e; }
+      console.warn('[cache-recover] 부팅 에러 → SW 파일캐시 비우고 1회 리로드:', reason);
+      (async function () {
+        try { var ks = await caches.keys(); await Promise.all(ks.map(function (k) { return caches.delete(k); })); } catch (_e) { void _e; }
+        try { location.reload(); } catch (_e) { void _e; }
+      })();
+    }
+    window.addEventListener('error', function (e) {
+      var t = e && e.target;
+      // (a) JS/CSS 파일 로드 실패 — 배포 후 옛 ?v= 파일이 새 캐시에 없어 404 나는 전형적 캐시 미스매치 신호(강함)
+      if (t && (t.tagName === 'SCRIPT' || t.tagName === 'LINK')) {
+        if (_shouldRecover()) _recover('asset-load-fail: ' + (t.src || t.href || ''));
+        return;
+      }
+      // (b) 런타임 미처리 예외 — 버전 미스매치로 옛 코드가 새 모듈 심볼을 못 찾는 부류만(일반 버그로 리로드 남발 방지)
+      var msg = String((e && e.message) || (e && e.error && e.error.message) || '');
+      if (e && e.error && /is not defined|is not a function|Unexpected token|dynamically imported|Importing a module|Failed to fetch/i.test(msg)) {
+        if (_shouldRecover()) _recover('version-mismatch: ' + msg);
+      }
+    }, true);
+  })();
 }
 
 // ───── Pull-to-Refresh (iOS PWA 전용) ─────
@@ -2299,6 +2884,7 @@ Object.assign(window, {
   resetShopSetup,
   localReset,
   handle401,
+  openDeleteAccountModal,
   closeDeleteAccountModal,
   confirmDeleteAccount,
   expandSmartMenu,
@@ -2317,6 +2903,7 @@ Object.assign(window, {
   }
   const ready = () => {
     on('loginBtn', () => typeof login === 'function' && login());
+    on('forgotPwLink', () => typeof forgotPassword === 'function' && forgotPassword());
     on('logoutBtn', () => {
       if (typeof closeSettings === 'function') closeSettings();
       if (typeof logout === 'function') logout();
@@ -2688,12 +3275,20 @@ window.refreshLastSyncBadges = function () {
 (function _initSheetBackRegistry() {
   if (window._sheetBackRegistry) return;
   const registry = new Map();   // hash -> { close, open }
-  const stack = [];              // 현재 열려있는 시트 hash 스택
+  const stack = [];              // 현재 열려있는 시트 hash 스택 (문자열 배열 — 외부 소비처가 lastIndexOf/length 를 씀)
   window._sheetBackRegistry = registry;
   window._sheetBackStack = stack;
 
+  // [2026-07-22 보스] stack 과 1:1 로 따라다니는 '내가 history 엔트리를 실제로 push 했는가' 플래그.
+  //   push 안 한 시트를 닫으면서 history.back() 을 하면 남의 엔트리를 훔쳐서 화면이 두 칸 뒤로 간다.
+  const pushed = [];
+  // 프로그램적 history.back() 이 만들어낼 popstate 를 무시할 횟수(닫기 버튼으로 닫을 때).
+  let _progBack = 0;
+
   // 단일 popstate 리스너 — 모든 시트 통합
   window.addEventListener('popstate', () => {
+    // 내가 부른 back → 이미 close 처리까지 끝난 상태라 다시 닫으면 안 된다.
+    if (_progBack > 0) { _progBack--; return; }
     if (!stack.length) return;
     const top = stack[stack.length - 1];
     const meta = registry.get(top);
@@ -2704,7 +3299,7 @@ window.refreshLastSyncBadges = function () {
       try { meta.close && meta.close(); } catch (_e) { void _e; }
       // 스택에서 pop (close 함수가 이미 _markSheetClosed 호출했으면 중복 pop 안됨)
       const idx = stack.lastIndexOf(top);
-      if (idx >= 0) stack.splice(idx, 1);
+      if (idx >= 0) { stack.splice(idx, 1); pushed.splice(idx, 1); }
     }
   });
 
@@ -2713,21 +3308,44 @@ window.refreshLastSyncBadges = function () {
     try {
       const hash = '#' + name;
       // 이미 같은 hash 면 push 안 함 (중복 방지)
+      let didPush = false;
       if (window.location.hash !== hash) {
         history.pushState({ sheet: name }, '', hash);
+        didPush = true;
       }
       stack.push(name);
+      pushed.push(didPush);
     } catch (_e) { void _e; }
   };
 
-  // 시트 close 시 호출 — history.back (현재 hash 가 자기 hash 인 경우만)
+  // 시트 close 시 호출 — 열 때 쌓은 history 엔트리를 되돌린다.
+  // [2026-07-22 보스] 예전엔 replaceState 로 hash 만 지웠다. 그러면 엔트리는 그대로 남아서,
+  //   시트를 열었다 닫을 때마다 "눌러도 아무 일 없는 뒤로가기"가 한 칸씩 쌓였다(닫고 나서 back 을
+  //   눌러도 화면이 안 바뀌다가, 몇 번 더 누르면 앱이 꺼지던 증상의 절반). 실제로 back() 으로 뺀다.
+  // [2026-07-23] 중첩 시트 처리. 부모를 닫으면 그 위에 쌓인 자식들의 엔트리까지 한 번에 뺀다.
+  //   예전엔 자기 것 한 칸만 봐서, 자식이 열린 채 부모를 닫으면 hash 가 남았다
+  //   (댓글 큐에서 사진 확대를 열어둔 채 큐를 닫으면 주소에 #crq 가 그대로 붙어 있었다).
+  //   부모의 close 는 자식 DOM 만 치우고 _markSheetClosed 는 부르지 않아야 한다 — 여기서 같이 뺀다.
   window._markSheetClosed = function (name) {
     try {
       const hash = (window.location.hash || '').replace(/^#/, '');
       const idx = stack.lastIndexOf(name);
-      if (idx >= 0) stack.splice(idx, 1);
-      if (hash === name) {
-        // popstate 가 다시 _markSheetClosed 호출 안 하도록 그냥 replaceState 로 hash 제거
+      if (idx < 0) return;                       // 이미 정리됨
+      const names = stack.splice(idx);           // [name, ...그 위에 쌓인 자식들]
+      const flags = pushed.splice(idx);
+      let n = flags.filter(Boolean).length;      // 실제로 push 한 엔트리 수
+      // 현재 hash 가 지금 빼는 것들 중 하나가 아니면 = 사용자 back 으로 닫히는 중 →
+      // 그 한 칸은 브라우저가 이미 뺐다.
+      if (names.indexOf(hash) === -1) n -= 1;
+      if (n > 0) {
+        _progBack++;                             // go(-n) 은 popstate 를 1번만 낸다
+        try { history.go(-n); } catch (_e) {
+          _progBack--;
+          history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+      } else if (names.indexOf(hash) !== -1) {
+        // push 는 안 했는데 hash 가 내 것 → 흔적만 지운다.
+        // (사용자 back 으로 닫히는 중이면 여기 안 온다 — 부모 hash 를 지워버리면 안 되므로)
         history.replaceState(null, '', window.location.pathname + window.location.search);
       }
     } catch (_e) { void _e; }

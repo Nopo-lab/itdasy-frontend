@@ -1,0 +1,229 @@
+# 잇데이 앱 기능 인덱스 (SSOT)
+
+> **세션마다 자동 로드됨.** 파일/기능 찾을 땐 **여기부터** 확인 — "이 기능 없나?" 추측 금지.
+> **갱신 규칙:** 기능 파일(`js/**`, `app-*.js`, 백엔드 `routers/services/models`)을 추가·삭제·의미변경하면 **해당 항목 이 문서에서 같이 고칠 것.** (PostToolUse 훅이 리마인드함)
+>
+> 최종 전수분석: 2026-07-10 (4영역 병렬). 규모: **프론트 ~250파일 + 백엔드 라우터 60 · 서비스 70 · 모델 56테이블.**
+> 상태 마커: ✅ 구현·라이브 / 🟡 부분(스텁·심사대기·플래그off) / ❌ 불가(정책·권한)
+
+---
+
+## 🗺️ 도메인 맵 (어디를 봐야 하나)
+
+| 하고 싶은 것 | 프론트 | 백엔드 |
+|---|---|---|
+| 앱 부팅·API·인증·라우팅 | `app-core.js`, `js/loader.js`, `js/load-groups.js`, `sw.js` | `main.py`, `auth.py` |
+| 홈 화면·브리핑 | `app-home-v41.js`, `js/home/*`, `app-today-*.js` | `today.py`, `morning_brief.py` |
+| 매출 | `app-revenue*.js`, `js/revenue/*` | `revenue.py`, `revenue_*.py` |
+| 예약·캘린더 | `app-calendar-view.js`, `app-booking-api.js`, `app-complete-flow.js` | `bookings.py`, `bookings_confirm.py`, `reminder_scheduler.py` |
+| 고객 CRM | `app-customer*.js`, `app-retention-ai.js`, `app-birthday.js` | `customers.py`, `customer_memos.py`, `retention.py`, `treatments.py` |
+| **DM 자동응답·통합 인박스** | `app-dm-*.js`, `js/assistant/*` | `dm_autoreply.py`, `dm_confirm_queue.py`, `dm_manual_replies.py`, `services/dm_*`, `services/channels/*` |
+| 채널 연동(인스타·네이버·카카오) | `app-integrations-hub.js`, `app-naver-*.js`, `app-kakao-hub.js` | `integrations.py`, `talktalk.py`, `services/kakao_alimtalk.py`, `*_oauth.py` |
+| AI 비서(잇비) 챗봇 | `app-assistant.js`, `assistant-intent-router.js`, `js/assistant/**` | `assistant.py`, `assistant_facts.py`, `nl_query.py` |
+| 캡션 생성·페르소나 학습 | `app-caption*.js`, `app-instant-caption.js`, `app-persona-survey.js` | `persona.py`, `caption.py`, `services/caption_generator.py`, `fingerprint_*` |
+| 인스타 발행·인사이트 | `app-instagram.js`, `js/workspace/workspace-adapter.js` | `instagram.py`, `instagram_insights.py`, `scheduled_publisher.py` |
+| 사진 편집·누끼·보정 | `app-photo-editor*.js`(60), `js/photo-editor/**`, `js/itd-editor/**` | `image.py`, `photo_editor_ai.py`, `photo_editor_generative.py` |
+| **작업실**(사진→레이아웃→캡션→발행) | `js/workspace/**`, `js/workspace/flow/**` | `workspace_sync.py` |
+| 템플릿·가격표·후기·전후 | `js/photo-editor/template-*`, `js/assistant/core/template-*` | `templates.py`, `services/*_ocr.py` |
+| 임포트·OCR(명함·영수증·가격표) | `app-import*.js`, `app-receipt-scan.js`, `app-smart-capture.js` | `imports.py`, `smart_import.py`, `services/*_ocr.py` |
+| 재고·회원권 | `app-inventory*.js`, `app-membership.js` | `inventory.py`, `memberships.py`, `services.py` |
+| 자동화 규칙·리포트 | `app-ai-hub.js`, `app-report.js`, `app-killer-widgets.js` | `automation.py`, `reports.py`, `campaigns.py` |
+| 결제·구독 | `app-billing.js`, `app-plan.js` | `subscription.py`, `billing.py`, `iap.py` |
+| 알림·푸시 | `app-notifications.js`, `app-push.js` | `notifications.py`, `push.py`, `push_sender.py` |
+| 심사·컴플라이언스 | `app-content-report.js`, `app-cookie-consent.js`, `app-data-export.js` | `moderation.py`, `data_export.py`, `medical_ad_guard.py` |
+
+---
+
+## 📡 채널 / DM / 연동 — 실제 구현 상태 (자주 헷갈림)
+
+| 기능 | 상태 | 근거 |
+|---|---|---|
+| 카카오 **로그인** | ✅ | `kakao_oauth.py` |
+| 네이버 **로그인** | ✅ | `naver_oauth.py` |
+| 구글 **로그인** | ✅ | `google_oauth.py`, 애플 로그인 `auth.py` |
+| **인스타 DM 자동응답** (봇) | 🟡 코드완성, **Meta Advanced 심사통과 후 활성**(env off) | `dm_autoreply.py`(6411줄) |
+| 인스타 DM **원장 confirm 큐** (AI초안→검토→발송) | ✅ 엔진 구현 | `dm_confirm_queue.py`, `dm_manual_replies.py`, `services/dm_*` |
+| **네이버 톡톡** (문의 통합 인박스 + AI 답장) | ✅ **실전송 구현**(무료, Meta 무관) | `talktalk.py` + `services/channels/naver_talk.py`(httpx send) |
+| **카카오 알림톡** (예약확정·리마인드·노쇼·빈슬롯·생일) | 🟡 **BE 발송서비스 실구현(Aligo API)** / FE 관리화면 `app-kakao-hub.js`는 스텁 | `services/kakao_alimtalk.py`(httpx) |
+| **네이버 예약(스마트플레이스) 양방향 동기화** | 🟡 스텁 — 사업장ID 저장만, Phase1 예정 | `integrations.py /naver/link`, `app-naver-link.js` |
+| **인스타 발행**(피드·스토리·캐러셀) | 🟡 코드완성, `content_publish` **Meta 심사대기** | `instagram.py /publish-file` |
+| 인스타 **게시물 댓글 답글 자동화** | 🟡 **스테이징 ON** — `INSTAGRAM_FULL_SCOPE=1`(Cloud Run env, 코드 아님)이라 개발모드/테스터는 App Review 전에도 `manage_comments` 획득 가능. **운영은 env 없음 → basic scope**. 스코프는 동의 시점에 토큰에 박히므로 **기존 연동자는 인스타 재연결 필요**(refresh-token 으론 안 바뀜) | `instagram.py:74,710`, `/instagram/comment-queue`(:799) · FE 큐 UI `app-comment-reply-queue.js` **[2026-07-20 v785 리디자인]** 게시물칩+미리보기팝업·채널별 토글(답글만/DM만)·DM접기 + 홈 "AI 잇비가 챙겼어요" 진입줄(`app-home-v41.js _fetchCommentQueueCount`) **[2026-07-21]** 분류 인텐트 확장 = price·booking·location·hours·service·**duration(소요시간·지속력, 유실복구)·event(이벤트)·membership(회원권)·eligibility(건강여부→항상 사람)**·complaint(`instagram.py _classify_comment` + LLM 재판정 `comment_intent_llm.py`) · **응답 시간대(방해금지)** 설정 = `itdasy:crq_settings.active_hours`+`quiet_outside`, 운영시간 밖엔 홈 넛지 뮤트(`window.crqQuietNow`)+큐 배너, 발송은 언제든 가능 · autoreply_gate `within_hours`(DM 운영시간 재사용, 자동발송 켜질 때만 유효·shadow) **[2026-07-22 v790]** 설정 **서버 보관** = `GET/PUT /instagram/comment-reply-settings` → `dm_auto_reply_settings.crq_settings_json`(예전엔 localStorage 뿐이라 폰 교체·캐시 삭제로 소실). 헤더 **저장 버튼**(DM 자동응답과 같은 자리) + 세부설정 2종 = `default_dm`(새 문의의 'DM 같이 보내기' 기본값)·`exclude_words`(이 말 든 댓글은 큐에서 제외, 쉼표 구분) |
+| 네이버 플레이스 **리뷰 답글 자동화** | ❌ **불가** — 공식 답글 API 없음 | — |
+| **리뷰 요청** 관리(손님에게 리뷰 요청·상태추적) | ✅ | `customer_reviews.py`, `app-review.js` |
+| 인스타 **인사이트**(도달·저장·최적시간) | ✅ | `instagram_insights.py` |
+| **게시물별 성과 + "무엇이 먹혔나" 학습** | ✅ **[2026-07-18]** 표본 부족 축은 축마다 "3건 올려야" 박스를 그려 다닥다닥했음(축 5개면 최대 5줄) → 데이터 있는 축만 막대, **부족 축들은 이름만 모아 한 줄로 통합**(`_compareHtml` 의 `pending`, CSS `.wsp-axis__pending`, 은/는 조사 자동). **[2026-07-15]** 발행 게시물을 레이아웃 프리셋(`wsl-*`)·말투·사진장수 축으로 묶어 반응 비교. 표본 3건 미만은 순위 안 매김. 게시물별 미응대 문의 댓글도 표시 | `js/workspace/workspace-perf.js`, `__tests__/workspace-perf.test.js` |
+| 성과 화면 **DM 유입 귀속** | ❌ **데이터 없음**(심사 문제 아님) — `/dm/conversations`는 '마지막 대화 시각'만, `DMMessageLog`에 게시물 참조 컬럼 없음. `messaging_referral` 웹훅은 구독만 하고 파싱 없이 버려짐 | `dm_autoreply.py:3100`(버리는 곳), `:5200`(구독) |
+
+> **DM 응대 구조 핵심:** DM/문의 답장은 별도 "인박스 파일" 하나가 아니라 — 수신 채널(인스타/톡톡) → `services/channels/*` 어댑터 → 코어 DM 엔진(`services/dm_intent`·`dm_context_builder`·`dm_free_reply`) → `dm_confirm_queue`(원장 검토) 로 흐른다. 잇비 챗봇 쪽 발화는 `reply_dm`/`draft_message` kind로 백엔드 LLM이 초안, FE `js/assistant/marketing-safety-labels.js`·`marketing-draft-policy.js`가 톤·안전 라벨만 입힘.
+
+---
+
+## 🖥️ 프론트엔드
+
+### 코어 인프라 (부팅·API·인증·로더·SW)
+- **app-core.js** (2805) — 앱 부팅. `PROD_API`(staging Cloud Run)+`window.apiUrl/apiFetch`, 격리 토큰키 `itdasy_token::staging|prod|local`, `getToken/login/logout`, `showTab()` 라우팅, XSS `_esc`, SW 등록·버전배지.
+  - 🚨 **전역 fetch 래퍼 타임아웃** — 일반 20초(재시도 12초·최대 4회). **[2026-07-22 v790]** `LLM_PATH_RE`(`/assistant/`·`/caption/`·`/persona/`·`/image/enhance|remove-bg|…`) 매칭 시 **120초 + 타임아웃 재시도 금지**(5xx 재시도는 유지). 이걸 안 하면 잇비 답변·캡션 생성이 20초에 강제중단되고 12초짜리로 3번 더 재호출돼 **LLM 중복 과금 + 60초 뒤 '실패했어요'** — '백엔드가 고장난 것 같다'의 실제 정체였다. 느린 신규 API 는 `itdasyTimeoutMs` 로 개별 상향.
+  - **시트 뒤로가기 레지스트리** `_registerSheet/_markSheetOpen/_markSheetClosed`(:2888~). 풀스크린 오버레이는 **반드시 open 에서 등록**해야 안드로이드 back/스와이프에 앱이 안 꺼진다. **[2026-07-22]** 미등록 7화면(내샵정보·작업실설정·DM메뉴·네이버연동·톡톡·카카오·백업) 전부 등록 + close 가 replaceState 대신 실제 `history.back()` 으로 엔트리를 뺀다(안 그러면 '눌러도 아무 일 없는 뒤로가기'가 쌓임).
+- **sw.js** (238) — 서비스워커. `CACHE_VERSION` 캐시버전, `/api·/auth` network-first / 정적 cache-first, 읽기전용 GET 오프라인 폴백, 지연그룹 프리캐시 제외.
+- **js/loader.js** (92) — 분할 로더 `AppLoader.ensure(group)`. 순서보장 동적로드 + idle 선로딩.
+- **js/load-groups.js** (217) — 로드 매니페스트 `APP_LOAD_GROUPS`(photo/assistant/extras). **여기 `?v=` 안 올리면 SW가 옛파일 캐시 → 라이브 반영 안 됨.**
+- **js/channel-mark.js** (58) — 인박스 채널 배지 `ChannelMark.norm/mark`(인스타/카카오/네이버톡톡).
+- **js/heic-convert.js** (63) — 아이폰 HEIC→JPEG 클라 변환.
+- **app-perf-recovery.js** (601) — 3초 체감 성능복구·프리로드·워치독.
+- **app-side-nav-unifier.js** (131) — PC 사이드바 활성 동기화.
+- **app-drawer.js** (146) — 좌측 슬라이드 드로어. **app-theme.js**(107) 테마. **app-haptic.js**(180) 햅틱. **app-gestures.js**(281) 터치제스처. **app-push.js**(114) 푸시초기화. **app-biometric.js**(80) 생체재로그인. **app-oauth-return.js**(143) OAuth 복귀. **app-secure-storage.js**(89) 암호화 로컬스토리지.
+- **app-cookie-consent.js**(155)·**app-data-export.js**(116)·**app-content-report.js**(133)·**app-spec-validator.js**(153)·**app-debug-panel.js**(173) — 동의/내보내기/신고/스펙검증/디버그.
+- **app-sheet-anim.js**(54)·**app-generic-sheet.js**(68)·**app-empty-state.js**(50)·**app-fun.js**(178)·**format-money.js**(91)·**app-phase9-ux.js**(188) — 공용 UI 유틸.
+
+### 홈 화면
+- **app-home-v41.js** (474) — 홈 v4.1 메인. SWR 캐시(`hv41_cache::brief`)→백그라운드 `/assistant/brief`, 헤더/캐러셀/오늘예약/운영3카드.
+- **js/home/v41-renderers.js**(618)·**v41-actions.js**(117)·**v41-styles.js**(4)·**app-home-v41-config.js**(29) — 홈 렌더/액션/스타일/설정.
+- **app-home-customer-msgs.js** (346) — 홈 "고객 메시지" 카드줄. `/dm-confirm-queue`(pending) 소스, 탭→DM 포커스.
+- **app-today-brief.js**(353)·**app-today-morning.js**(280)·**app-ai-suggestions.js**(85) — 오늘 집중/모닝브리핑/할일3개.
+- **app-myshop-v3.js**(608)·**app-dashboard.js**(564)·**app-insights.js**(485) — 내샵관리 v3 / 대시보드 / AI 인사이트.
+
+### 매출
+- **app-revenue.js** (1183) — 매출관리 v5 메인 + period 디스패처. `openRevenue/window.Revenue`, CRUD·빠른추가·도넛.
+- **app-revenue-hub.js**(541)·**app-revenue-today.js**(243)·**app-revenue-month.js**(630)·**app-revenue-calendar.js**(188)·**app-revenue-report.js**(156) — 허브/오늘·주/월/캘린더칩/리포트.
+- **js/revenue/booking-revenue-overlay.js** (248) — 예약금(deposit)을 매출 요약/브리핑에 합산.
+- **app-report.js** (157) — 주말 자동 리포트.
+
+### 예약·캘린더
+- **app-calendar-view.js** (2541) — 예약관리 v4(월/주/일, 모바일·PC) `CalendarView`.
+- **app-booking-api.js** (273) — 예약 CRUD + 오프라인 폴백 `Booking`.
+- **app-complete-flow.js** (585) — 시술 완료 시트(예약→매출 전환).
+- **app-reminder.js** (113) — 예약 리마인더 컨트롤.
+
+### 고객 CRM
+- **app-customer.js** (1066) — 경량 CRM `openCustomers`. **app-customer-dashboard.js**(522)·**app-customer-ai-brief.js**(496)·**app-customer-chips.js**(206)·**app-customer-memo.js**(419)·**app-customer-cache.js**(74)·**app-customer-sync.js**(53) — 대시보드/AI브리핑/추천칩/메모/캐시/예약시 자동등록.
+- **app-birthday.js** (164) — 생일/기념일 자동감지. **app-photo-match.js**(162) EXIF 고객매핑. **app-retention-ai.js**(340) 이탈위험 고객. **app-review.js**(199) 리뷰요청. **app-waitlist.js**(149) 대기자.
+
+### DM·SNS·연동 (FE)
+- **app-instagram.js** (1153) — 인스타 연동 & 말투분석. **app-dm-autoreply.js**(1541) AI DM 자동응답 v3. **app-dm-conversations.js**(650) DM 채팅방. **app-dm-confirm-queue.js**(821) 원장 confirm 큐. **app-dm-manual-replies.js**(479) 매뉴얼 멘트. **app-dm-menu.js**(489) 빠른안내(Quick Replies+Ice Breakers). **app-dm-booking-form.js**(185) DM 예약양식. **app-dm-settings-cache.js**(55).
+- **app-naver-link.js**(207) 네이버 예약연동. **app-naver-talk-link.js**(219) 네이버 톡톡연동. **app-sns-hashtag.js**(198) 해시태그 매니저. **app-notifications.js**(551) 인앱 알림.
+
+### AI 비서(잇비) — FE
+> **[Phase 0 · 2026-07-20 잇비 만능화]** 실행 배관(`assistant.py:_execute_action_impl`)은 26 kind 지원했지만 Gemini `RESPONSE_SCHEMA` enum이 ~10개만 허용해 나머지가 잠겨 있었음. **7 kind 해제**(refund_revenue·charge_membership·use_membership·mark_booking_no_show·mark_booking_completed·create_treatment_record·update_service_price) — 두 enum+payload+SYSTEM_PROMPT 트리거 확장으로 자유발화 실행 가능. FE는 `kind-core.js` CATEGORY에 create_treatment_record만 추가(나머지 기존 메타·RISKY 재사용). 발송정책=항상 confirm. 남은 로드맵(P1조회~P4작업실)=memory `project_itbi_omni_upgrade`.
+- **app-assistant.js** (5230) — 챗봇 메인 `openAssistant`. **assistant-intent-router.js**(1170) FE intent pre-parser. **app-assistant-actions-marketing.js**(118)·**app-assistant-facts.js**(146)·**app-assistant-undo.js**(265)·**app-chat-auto-edit.js**(277)·**app-ai.js**(311)·**app-persona-survey.js**(381).
+- **js/assistant/core/** — 잇비 두뇌(순수 로직):
+  - 라우팅: **action-hub.js**(378, 다음행동 버튼+안전분류), **context-resolver.js**(125), **active-card.js**(58), **create-intent.js**(60), **memory-intent.js**(182), **saved-cards-intent.js**(159), **unsupported-intent.js**(37), **source-image.js**(131).
+  - 예약: **booking-context.js**(365), **booking-draft.js**(189). 고객: **customer-status-card.js**(261), **customer-insight.js**(71), **customer-add-guard.js**(219), **customer-phone-intent.js**(147).
+  - DM/발송 안전: **marketing-safety-labels.js**(85, send/reply_dm 발송위험 라벨), **marketing-draft-policy.js**(111, 초안 톤·금지어 sanitize).
+  - 브리핑: **daily-briefing.js**(322), **briefing-priority.js**(105), **closing-report.js**(116).
+  - 템플릿: **template-sample-matcher.js**(291), **template-autoapply.js**(400), **assistant-template-save.js**(124), **assistant-template-restore.js**(74), **template-sample-catalog*.js**(price/review/ba/event 데이터).
+  - 사진모드: **photo-mode.js**(982, 잇비 사진편집 상태머신), **photo-mode-support.js**(110), **photo-session.js**(128), **promo-result-builder.js**(67).
+- **js/assistant/** (UI·핸들러): **card-renderers.js**(390), **single-action-controls.js**(173), **group-action-controls.js**(263), **suggestion-controls.js**(154), **kind-core.js**(364, RISKY_ACTION_KINDS), **cache-invalidation.js**(76), **promo-result-card.js**(99), **pending-photos.js**(168), **photo-actions.js**(170), **photo-local-handlers.js**(143), **photo-kind-classifier.js**(54), **photo-workflow-commands.js**(131), **workspace-nl-commands.js**(168, 자연어→작업실 명령), **treatment-link.js**(124), **lightbox.js**(108), **voice-input.js**(160).
+
+### 캡션·갤러리·포트폴리오·서비스
+- **app-caption.js** (984) — 캡션 생성(슬롯머신·톤·해시태그). **app-caption-prefill.js**(166)·**app-instant-caption.js**(433, 시술후 1초)·**app-voice-caption.js**(600, 음성)·**app-sample-captions.js**(117).
+- **app-portfolio.js** (698)·**app-portfolio-tags.js**(162) — 포트폴리오. **app-service-templates.js**(402)·**app-pricelist.js**(162) — 시술 프리셋/가격표.
+- **app-gallery-*.js** (10개) — 갤러리/작업실 레거시 파이프라인: utils(45)·db(171, IndexedDB `loadSlotsFromDB`)·workshop(757)·write(463)·finish(693)·assign(196)·slot-editor(629)·bg(383)·element(384)·review(377).
+- **app-emoji-storage.js**(222)·**app-brand-kit.js**(282) — 이모지창고/브랜드킷.
+
+### 사진 편집기 (js/photo-editor/** + app-photo-editor*.js 60개)
+- **beauty-engine.js** (773) — 뷰티 픽셀 엔진(네일광택·헤어볼륨/윤기·피부톤·눈빛, 마스크 ROI 게이트). **renderer.js**(360) WebGL+2D 폴백. **basic-panels.js**(509) 기본 패널. **history.js**(53) undo/redo. **studio-presets.js**(146) 살롱 빠른보정. **price-menu.js**(36) 가격표 자동채움.
+- **[#11 2026-07-17 배경엔 기본보정 제외]** `PhotoEditorBgCompose.compose()` 가 **`personMaskDataUrl`(합성본 정렬 사람 알파)** 을 추가 반환 → `basic-panels` 이 `state.bgFgMaskDataUrl` 로 보관 → `renderer._keepBgUnadjusted()` 가 보정 체인 **끝난 뒤** 사람만 오려내고(`destination-in`) 보정 전 원본을 뒤에 깔아(`destination-over`) **배경 색을 되돌린다**. CPU필터·WebGL톤·워커샤픈 어느 경로든 결과만 손대므로 파이프라인 무변경. ⚠️ **`removedBgDataUrl` 로 마스킹하면 안 됨** — 그건 누끼 PNG 자기 좌표계라 `place.dx/dy` 로 배치·크롭된 합성본과 안 맞는다. 마스크 async 로드 시 **`_fxCache` 를 버려야 함**(hash 가 같아 안 버리면 배경까지 보정된 캐시가 계속 나옴). 마스크 없으면(구 슬롯) 예전 동작 폴백. **[#11 나머지 2026-07-18 v775 ItdEditor 적용]** 누끼(`doCutout`)가 `compose` 의 `personMaskDataUrl` 을 `S.fgMask[i]`(세션 전용, 매트처럼)로 보관 → 기본 보정을 사람에만. **미리보기**: 단일 = `refs.photofx` 오버레이(같은 사진 + 보정 + `-webkit-mask`=사람마스크, `photowrap` 안이라 pz 변형 상속, base `photo` 는 필터 없음=배경 원래색) / 콜라주 = 셀마다 base `img`(보정X) + `.itcellfx` **background-image div**(보정+마스크, `background-size` 가 `object-fit` 과 같은 방식 크롭이라 정렬 — img+mask 는 어긋남). **export**: 오프스크린에 보정본 그려 `destination-in` 사람마스크 → 본 캔버스엔 보정 전(배경) 위에 보정된 사람. `_fgActive(i)` = 누끼+실보정일 때만(항등 보정은 예전 경로). `_adjIsId` 로 항등 판정(`filterStr` 기본값이 `brightness(1.00)…` 라 `'none'` 아님). **검증**: 단일 export 배경`[48,80,191]` 유지·사람 `[255,89,89]` 밝아짐 + 미리보기 2겹 정렬 + 비-누끼 회귀 없음 확인. 🚧 **콜라주+누끼+보정 E2E는 헤드리스 미검증**(레일에 layout 도구 없어 구동 불가) — 코드는 단일과 동일 패턴, 비-누끼 셀은 원본과 동일 HTML(회귀 없음). 누끼 매트는 서버 호출이라 실검증은 합성 데이터로만.
+- 누끼/마스크: **region-mask-provider.js**(720, dispatcher Tier1~3) + **mask-application.js**(317)·**mask-refine.js**(301)·**mask-confidence.js**(63)·**mask-strict-policy.js**(57)·**mask-status-ui.js**(147)·**mask-debug-overlay.js**(169)·**mask-qa-tool.js**(251). 부위 어댑터 7종: hair·hand(nail)·brow·eyelash·sclera(+application).
+- AI 추천/생성형: **reco-region.js**(71)·**reco-map.js**(68)·**reco-cards-ui.js**(288)·**reco-vision-client.js**(78)·**reco-consent.js**(81) / **generative-client.js**(87)·**generative-consent.js**(83).
+- 템플릿 렌더: **premium-templates.js**(713, 30종 렌더러) + **template-renderer-beauty-pack.js**(345)·**-draws.js**(718, id별 드로)·**template-renderer-wm-pack-draws.js**(380) + **template-overlay.js**(378)·**template-slots.js**(166)·**template-fit-text.js**(195, 자동줄바꿈·폰트축소)·**template-thumb.js**(122)·**template-market-data.js**(292)·**template-pack-beauty-data.js**(445)·**template-pack-v3-*.js**(데이터/preview, 앱 미연결).
+- 검증도구: **photo-effect-debug.js**(287)·**photo-effect-manual-debug.js**(470). **app-mediapipe-loader.js**(334)·**app-photo-enhance.js**(328).
+- **app-photo-editor*.js** (60) — 편집기 엔진 서브모듈: entry/nav/pro-tab, WebGL(gl-bridge·pipeline·shaders), 마스킹·힐링(face-mask·smart-mask·heal-v2·beauty-ai·relight·cuticle), 배경(bg-compose·bg-blur·bg-cache), 자연어편집(intent-parser·nl-apply·nl-modify·edit-plan), 템플릿·프리셋·B&A슬라이더·콜라주·스티커·내보내기·워커필터. `loader.js` photo 그룹 지연로드.
+
+### 작업실 (js/workspace/**)
+- **js/workspace/workspace-v2-flow.js** (3881) — **작업실 전체 오케스트레이터.** 업로드→레이아웃→편집→게시글(캡션+미리보기 통합)→고객연결. 화면전환/CTA/상태(d)/네비스택, flow/*·ItdEditor·PhotoEditor·adapter 조립 허브. **[2026-07-13] 캡션 결과 화면에 발행+피드 미리보기 흡수(구 preview 스텝은 플러밍만 보존, 진입 없음). 진행바 4단계(upload·layout·caption·connect).** **[2026-07-15] 캡션 = 질문 3개 한 화면(스크롤 없이). '직접' 선택 시 인라인 입력 토글 복구, 시술 칩 단일선택 + 특이사항 분리. 원문 verbatim 강제 로직 삭제(욕설·하소연 원문 복붙 버그 → 사용자 텍스트는 재료로만).**
+  - **[2026-07-17 v771 근본원인 4건]** ① `_displayItems()` 가 `d.templateOutput`(=첫 카드 미러)에서 조기 리턴해 **T-116 다중 카드를 통째로 가림** → 캡션·결과 화면이 늘 1장(캐러셀은 `items.length<2` 로 도달 불가였음). 이제 `templateOutputs<2` 일 때만 리턴. ② **`_syncOutputForEdit()` 신설** — 편집기 `onDone` 이 `templateOutput` 미러만 갱신하고 `templateOutputs[]` 엔 편집 전 합성본을 남겨 **꾸미기 전 사진이 발행됨**. ③ **발행 판단 기준 = `d.wsLayout` → `templateOutputs`** — `wsLayout` 은 레이아웃 화면이 세션 중에만 채우고 `open()` 이 복원 안 함 → 재오픈 초안 발행 시 원본 여러 장이 캐러셀로 나가 **레이아웃 소실 + 30초**(서버가 child 마다 2초 순차 폴링). ④ **세션 가드(`_stale`)가 발행 사실까지 삼킴** → 업로드 중 닫으면 인스타엔 올라갔는데 로컬은 영원히 draft. 이제 화면·전역 `d` 는 두고 `myD`/`slot` 에만 기록(P1#1 오염방지 의도는 유지).
+  - **[2026-07-17] `_autoComposeTemplate()` 부활** (구 no-op) — 시술명·해시태그·로고가 편집기 안에서만 살아서 "사진편집 눌러야 텍스트가 보임"이었음. **편집기와 같은 렌더러(`ItdEditor.compose`)** 로 같은 레이어·비율로 굽는다(2026-07-12 에 지운 이유였던 '다른 경로 → 미리보기 어긋남'을 피함). **겹쳐 굽기 3중 방어**: `storyEdited` 카드 skip(원장 편집 우선) / `o.autoSig` 같으면 skip(재렌더 무한루프도 차단) / 원판 `o._autoBase` 없으면 skip(재오픈 시 구운 것 위에 또 굽기 금지). ⚠️ **`_autoBase` 는 메모리 전용** — `buildSlot()` 이 떼어냄(저장하면 같은 dataURL 2벌 = sync 100KB 컷). **`storyEdited` 는 저장·복원 추가**(메모리에만 있어 재오픈 시 방어①이 무력화됐음).
+- **[2026-07-17 v774 3차]** **#1** 성과의 '고객·매출 인사이트 보기' 버튼 삭제(AI 인사이트 진입점은 5곳 더 있어 고아 안 됨: `app-dashboard.js:221`·`app-assistant.js:4147`·`app-today-brief.js:215`·`js/home/v41-actions.js:79`·홈 성과버튼 폴백). **#5** 시술 칩 **중복선택**(최대 5) — `d.service` 는 **쉼표 조인 문자열 유지**(소비처 20곳이 이미 쉼표를 다룸: `_svcTitle`='첫시술 외 N개', `_makeName`=첫 조각). `_svcList()/_svcSet()` 로 편집만 다중화, `_saveRecentService` 는 쉼표로 쪼개 **하나씩** 저장(조인문자열이 칩으로 박제되는 것 방지), 다중이면 프롬프트 문구도 '유일한 시술'→'N가지 전부 반영'. **최근 시술 6→5**. **#6** 특이사항 placeholder **업종별**(`_NOTE_EG`, 키=`_SVC_TYPES` 라벨 → `itdasyNormalizeShopType` 폴백 → 무난한 기본). **#14** 성과 = ⋯ 메뉴 → **홈 필터 줄**(`data-wsv2-perf`, `.wf-perf`), ⋯ 에선 제거. **#16** 작업 기억 정렬 `lastUsedAt` → **`createdAt`**(최근 만든 게 위).
+- **workspace-v2-home.js**(634) 홈 렌더러. **[2026-07-15] 헤더 = @인스타핸들 + 샵이름(구 '내 작업실' 대체). 할일/이번달 발행/성과/피드 정렬 카드 제거, 설정·선택은 ⋯ 메뉴로 이동. 발행 타일 무배지(진행 중만 '작성 중' 칩). 이어서 카드 제목 키메라 수정('첫시술 외 N개').** **workspace-adapter.js**(554) 기존기능 연결 어댑터(보정/누끼/캡션/고객/저장/인스타업로드/`recentMedia`). **workspace-sync.js**(425) 기기간 draft slot 동기화. **[2026-07-15 버그수정]** `buildMeta(slot)`→`buildMeta(c)`: 원본 slot 의 `templateOutputs[].outputUrl` 이 구운 dataURL 이라 100KB 컷에 걸려 레이아웃 프리셋 id 가 서버에 안 올라가고 기기 바꾸면 성과 학습이 리셋됐음. **workspace-perf.js**(성과·학습 화면 — 레이아웃/말투/사진장수 축 비교, 미응대 문의). **workspace-crop.js**(239)·**workspace-tpl-edit.js**(239)·**shop-style.js**(188, 브랜드자산)·**workspace-state.js**(78).
+- **workspace-settings.js** — 섹션 3개: ①원장 작업 기억 ②매장 정보(+**샵 정보 반영하기** 토글) ③캡션 고정 멘트. **[#15 2026-07-17]** '내 레이아웃' 섹션 삭제 — **이미 죽어 있었다**(`getMyLayouts()`=photoSlots 있는 ShopStyle 만 거르는데 그걸 만드는 코드가 main 에 없음 → 항상 빈 목록). ⚠️ **ShopStyle 저장소 자체는 삭제 금지** — `_buildShopStyleLayers`(로고·워터마크·role 텍스트)와 `_learnShopStyle` 의 '지운 역할 기억(`enabled:false`)' 이 같은 키를 씀. 샵정보 토글은 '캡션 고정 멘트'→'매장 정보'로 위치만 이동(키 `itdasy:caption_shopinfo` 동일, 읽는 곳은 `_shopCTA()` 하나뿐 = 캡션 꼬리 `📅 예약 →`·`☎`).
+- **js/workspace/work-memory.js**(263, `window.WorkMemory`) — **[2026-07-14 T-115 P1] 원장 작업 기억.** 원장이 편집기에서 만든 꾸밈(글씨·스티커·선/도형)을 **작업실 저장·인스타 발행 성공 시점**에 붙잡아 최대 **10개** 보관 + 로컬 규칙으로 이름 자동생성("속눈썹 전후비교, 글씨 아래 왼쪽정렬") + ★기본 지정. 저장 `itdasy:work_memory:list`/`:default`(localStorage).
+  - 담는 값 = `ItdEditor._exportState()`(editState)에서 **그 사진 전용값 제거**(`photos`·`photoDraw`·`adj`·`pz`·`cellCrop`) 후 재사용분(`layers`·`ratio`·`layoutIdx`·`collage*`)만. ⚠️ **붓 그림은 기억 못 함** — `photoDraw`는 벡터가 아니라 그 사진에 구워진 PNG.
+  - ShopStyle 재사용 안 함(=`list()`가 이미 '내 레이아웃'·'우리샵 스타일' 두 용도로 혼재 + `makeLayer`가 텍스트 4 role 전용이라 스티커/도형 불가).
+  - 같은 작업은 지문(`_sig`)으로 dedup → useCount만 증가. 10개 초과 시 `lastUsedAt` 오래된 것부터 제거(**★기본은 보호**). quota 실패 시 밀어내고 재시도.
+  - 훅 4곳(호출 1줄씩, 로직 없음): `workspace-v2-flow.js` `save()`·`publish()` 성공·`_markPublishedNow()`(붙잡기) + `_openStoryEditor()`(다시 쓰기). UI = `workspace-settings.js` '원장 작업 기억' 섹션 + 발행 직후 `.wm-cap` 카드(3.5초). CSS `css/screens/sub-screens.css` `wm-*`.
+  - **[P2] 다시 쓰기 — `defaultEditState()` → ★기본 기억을 `ItdEditor.open({editState})` 로 주입.** 🚩 **플래그 기본 ON**(`index.html:76` 이 `!== false` 로 켬). 롤백 `?wsmem=0` · 강제 `?wsmem=1`.
+    - **[2026-07-17 v772 버그수정]** 주입 조건이 `!_restore && !_wsEd` 였다 — `_wsEd` 는 **작업실 레이아웃이 켜지면 늘 채워지는데 기본 흐름이 업로드→레이아웃→캡션이라 사실상 항상 꺼져 있었다**(★기본을 지정해도 새 글에 아무것도 안 올라옴). 이제 레이아웃이 있어도 `defaultEditState({layersOnly:true})` 로 **꾸밈(layers)만** 가져오고 **칸 배치(`layoutIdx`·`collageBg`·`fitMode`)는 레이아웃이 소유**(안 그러면 반대로 레이아웃이 기억에 덮임). 콜라주는 `_mergeWmLayers(_wsEd.editState, _wmEd)` 로 합침 — **같은 role 은 레이아웃 것 유지**(지난 글 문구 되살아남 방지). 잠금 = `__tests__/work-memory-layout.test.js`(7건).
+    - 이어서편집(`p0.editState`)은 여전히 우선.
+    - **같은 role 텍스트는 이번 글 문구로 갈아끼움** — 자리·크기·폰트만 기억. (안 그러면 지난 글 문구가 되살아남)
+    - **기억 레이아웃 칸 수 ≠ 지금 사진 수면 `layoutIdx` 생략**(글씨·꾸밈만 얹음). 예: '전후 2칸' 기억 + 사진 1장 → 빈 칸 방지.
+    - `photos`·`photoDraw`·`adj`·`pz` 는 안 넘김 — 넘기면 지금 사진을 지난 사진으로 덮어씀(`itd-editor.js:1648`).
+    - 적용 시 `markUsed()` → `useCount`↑ = 자주 쓰는 기억은 10칸 밀어내기에서 보호됨.
+    - 없는 role 의 시술 텍스트는 편집기 `_renderMissingIncoming` 이 추가(중복 안 됨).
+  - **[P3] `_learnShopStyle`(flow.js) 과 소유권 분리 — 삭제가 아니라 '둘 중 하나만'.** 이 함수는 두 일을 한다:
+    - ① **배치 학습**(위치·크기·폰트·외곽선 → 활성 ShopStyle 덮어쓰기) → **기억이 소유**. `WorkMemory.flagOn()` 이면 여기선 안 배움(같은 걸 두 곳에 저장하면 '왜 내 스타일이 저절로 바뀌지?' 가 됨). **기억 OFF(기본)면 예전 그대로 배움** — 안 그러면 대체재 없이 기능만 잃는다.
+    - ② **지운 역할 기억**(`enabled:false`, v590) → **flow 가 계속 소유. 절대 지우면 안 됨.** 기억엔 대응물이 없고, 이게 빠지면 `_buildShopStyleLayers`(`L.enabled === false` 체크)가 지운 레이어를 다시 올리고 편집기 `_renderMissingIncoming` 도 '빠진 역할'로 보고 되살린다. **기억 ON 에서도 필요.**
+    - `window.WorkMemory` 자체가 없으면(모듈 로드 실패) 예전 동작으로 폴백.
+- flow 클러스터: **util.js**(96, `WSFlowUtil`)·**caption-text.js**(94)·**connect.js**(80)·**brand.js**(217)·**harmony-presets.js**(16)·**layout.js**(392)·**publish-progress.js**(42)·**thumbs.js**(47).
+  - **[2026-07-15 T-116] layout.js = 결과물 여러 장(`d.wsCards`).** 카드 1개 = 올라갈 사진 1장 = `templateOutputs` 1개. 진입하면 사진 순서대로 **2장씩 자동 묶음**(첫=전·둘째=후, `reassignRoles` 와 같은 규칙) → 5장이면 2+2+낱장 = 결과물 3장. 화면=카드 좌우 캐러셀 + **하단 도크**(메뉴 전체/전후/자랑/붙이기/후기/팁/가격 = `kind` 매핑, 썸네일 좌우 슬라이드). **레이아웃을 고르고(=든다) 카드를 누르면 적용** — 사진 수가 맞는 카드만 눌림(빈 칸/사진증발 차단). 합치기(옆 카드와, 최대 4장)·나누기(낱장으로). 안 들고 있을 땐 미리보기가 곧 `slot-stage`(드래그=위치·핀치=확대). **[2026-07-15 개편] 장수 정확일치 거절 폐지 → 구성 3종 제시(그대로 / 표지+모아보기 / 전·후 합치기). 사진 1장은 구성 없이 확인만. 카드 캐러셀 → 번호 나열로 변경.**
+  - `d.wsLayout`/`d._wsAssign` 은 **첫 카드 별칭**으로 유지 — 편집기 브리지(`_wsLayoutEditState`)·발행 kind 등 기존 소비처 무변경. 카드 목록/사진이 바뀌면 `_reconcile()` 이 **슬롯 수=사진 수** 불변식을 맞춘다.
+  - 발행: 결과물 2장 이상이면 `_publishKind()`=carousel 이고 **캐러셀에 합성본(`templateOutputs[].outputUrl`)을 보낸다** — 원본 사진을 보내면 레이아웃이 조용히 사라짐.
+- layout: **layout-model.js**(`WorkspaceLayout` 합성기)·**slot-stage.js**(92, 드래그focal·핀치zoom). 프리셋 6종: `wsl-ba-lr`(전후)·`wsl-collage-2`(좌우)·`wsl-collage-2-tb`(상하)·`wsl-strip-3`(3분할)·`wsl-grid-4`(2×2)·**`wsl-cover-1l2`(3장 크게+2, #3 신규 2026-07-18)**.
+  - **[#3 2026-07-18 v776]** 3·4장 '한 컷에 모으기' 구성 추가 — 원장 요청("나머지 3장도 레이아웃, 딸깍딸깍 몇 개 더, 썸네일 직관적"). `_compOptions(n)`: **3장 = flat·cover·grid(나란히)·grid2(크게+2)·ba** / **4장 = flat·cover·grid(2×2)·ba** (5장+ 는 한 프리셋에 안 맞아 cover 로). `_buildCards` 가 comp==='grid'/'grid2' 면 전체 사진을 **한 콜라주 카드**(strip-3/grid-4/cover-1l2)로. 미니 썸네일 `_miniHtml` + CSS `.wsc-mini--g4`·`--1l2`. 검증: 세 프리셋 composeLayout 각 구역에 다른 사진(육안 스크린샷).
+
+### 편집기 (js/itd-editor/**)
+- **itd-editor.js** (1773) — 인스타식 편집기 `ItdEditor`(텍스트·스티커·반달레이아웃·그리기, 12폰트, HSV 색상). **safe-zone.js**(81, 얼굴위 텍스트 회피). **data/itd-decos.js**(104, 스티커 51종).
+  - **[2026-07-23 아이콘 스티커]** `data/itd-icon-stickers.js`(~100KB) — 공개 아이콘 세트 96개를 **빌드 시점에 data URL 로 인라인**(런타임 CDN 무·오프라인 OK·CSP 안전). 스티커 탭 3개 추가: **아이콘**(`mingcute`, Apache 2.0, 단색이라 앱 스킨색으로 치환해 구움)·**컬러**(`fluent-emoji-flat`, MIT)·**라인**(`streamline-color`, **CC BY 4.0 → 귀속 표기 의무**). `STK_TABS` 가 `ItdIconStickers.tabs` 를 읽어 탭을 만들고(목록 이중관리 X), 삽입은 도형 데코와 같은 `addImageSticker` 경로. ⚠️ **로드 순서**: `itd-icon-stickers.js` 가 `itd-editor.js` 보다 앞이어야 탭이 생긴다. 🚨 **미완**: CC BY 귀속 표기 화면 없음(`ItdIconStickers.CREDITS` 데이터만 준비) — 심사 전 노출하거나 라인 탭 제거. 세트 추가·교체 절차와 라이선스 판단표는 **`.ai/ICON_SETS.md`**.
+  - **[#9·#10 2026-07-18 v776]** **선·도형 비균등 늘리기** — 도형 레이어에 `L.w`/`L.h`(box px) 추가. `.itl__rs` 핸들이 **도형이면** 포인터 이동량을 회전 역보정해 box w/h 조절(중심 고정, 선은 가로=길이만·두께는 굵기슬라이더), 텍스트·스티커·이미지는 **예전대로 균등 `scale`**(`_fgActive`처럼 `L.type==='shape' && L.w!=null`일 때만 분기 → 회귀 0). `styleShape` inner=`width/height:100%`, `drawShape`/export 는 `offsetWidth`(=box)라 자동 반영, `_serLayer`는 회전 도형 AABB 오류 피하려 **`L.w/L.h` 직접 저장**(bounding rect 아님). **되돌리기(↩) 확장**: `move`(레이어 이동)·`cellcrop`(콜라주 칸 사진 위치)·`resize`(도형 늘리기) op 추가 — 실수로 옮긴 것 ↩로 원위치(예전엔 add/del/photo만). `addShape` 에 빠져 있던 `_pushOp` 도 복구. 검증: 선 180→420(두께 유지)·사각형 가로만 늘리기·↩ 복원·왕복(340×120 상대값 저장/복원)·스티커 균등 scale 회귀X.
+  - **[2026-07-17 도형 왕복 버그수정]** `_serLayer` 가 shape 의 **`fill`·`strokeW` 를 안 내보내고** `addShopRect` 가 **`circle`→`round` 로 뭉개고 `fill=true` 를 강제**해서, 원장이 만든 '테두리 원'이 재편집·작업기억 복원 시 **'꽉 채운 둥근 사각형'**이 됐다. 굽기(`drawShape`)는 셋 다 이미 존중했으므로 **결과물은 맞고 왕복만 틀렸던 것**. `addShopLine` 도 `role` 을 무조건 `'rule'` 로 박아 원장이 직접 그린 선까지 자동 재배치(`:800`·`:822` 가 `role==='rule'` shape 를 옮김) 대상이 됐음 → `spec.role` 존중. ⚠️ `addShopRect` 의 `role` 기본값 `'panel'` 은 자동 재배치 대상이 아니라 그대로 둠.
+
+### 임포트·OCR·성장
+- **app-import.js**(475)·**app-import-wizard.js**(539)·**app-template-import.js**(269)·**app-smart-capture.js**(286, 카톡캡처+명함)·**app-receipt-scan.js**(674, 영수증/주문 OCR).
+- **app-inventory.js**(605)·**app-inventory-hub.js**(594) 재고. **app-growth-story.js**(189) 월간성장. **app-killer-widgets.js**(602) AI 킬러위젯. **app-auto-ba.js**(160)·**app-ba-auto-trigger.js**(169) 전후 자동감지.
+
+### 허브·결제·설정
+- 허브: **app-ai-hub.js**(366, 자동화)·**app-customer-hub.js**(30)·**app-integrations-hub.js**(126)·**app-inventory-hub.js**(594)·**app-kakao-hub.js**(137, 알림톡 UI 스텁)·**app-settings-hub.js**(321). **js/hubs/prototype-render.js**(187).
+- 결제: **app-billing.js**(150, PortOne)·**app-plan.js**(284, 월6,900원 단일멤버십)·**app-membership.js**(259, 회원권).
+- 설정: **app-shop-settings.js**(397)·**app-backup.js**(224)·**app-support.js**(258)·**app-autocomplete.js**(58).
+
+### index.html
+- 메인 탭: `#tab-home`·`#tab-workshop`(작업실)·`#tab-caption`·`#tab-dashboard`(내샵관리)·`#tab-finish`·`#tab-portfolio` → 하단 `nav.tab-bar`+FAB, `showTab()` 라우팅.
+- Lucide `<symbol>` 스프라이트 77개(`<use href="#ic-*">`). **UI 아이콘은 이 스프라이트만 — 이모지 금지.**
+- 로드순서: 인라인 부트 → `app-core.js` → app-*.js defer → Sentry → 말미 debug-panel·side-nav-unifier. photo/assistant/extras는 `loader.js` idle 분할로드.
+
+---
+
+## ⚙️ 백엔드 (FastAPI · Cloud Run staging asia-northeast3)
+
+### 부트스트랩·cron
+- **main.py** — 앱 진입점. `create_all`+런타임 스키마 진화(자동 ALTER), CORS/GZip/JWT, 라우터 60여개 마운트, `/static·/promo` 정적. **APScheduler cron**: 예약리마인드(5분)·자동화엔진(5분)·리터치due(매일15:05)·라이프사이클(1h)·DM배치(3s)·workspace GC(04:20). asyncio: 인스타 토큰 자동갱신(12h)·예약발행 워커.
+
+### 라우터
+- 인증/OAuth: **auth.py**(513, 회원/애플/JWT/탈퇴)·**google_oauth.py**(264)·**kakao_oauth.py**(188)·**naver_oauth.py**(165).
+- 샵/페르소나/캡션: **shop.py**(127)·**persona.py**(1252, 지문·정체성·서명·few-shot·`/persona/generate`)·**caption.py**(293)·**stories.py**(51).
+- 이미지/사진AI: **image.py**(566, 누끼·보정·객체제거·배경생성·얼굴블러)·**photo_editor_ai.py**(330, Vision 분석)·**photo_editor_generative.py**(190, L3)·**background.py**(93)·**portfolio.py**(259).
+- 인스타/DM: **instagram.py**(2223, OAuth·recent-media·발행 publish-file/story/carousel·토큰·분석)·**instagram_insights.py**(203)·**dm_autoreply.py**(6411, DM봇 webhook)·**talktalk.py**(41, 네이버톡톡 webhook)·**dm_confirm_queue.py**(1951, 원장 confirm 큐)·**dm_manual_replies.py**(190).
+- 잇비/NL: **assistant.py**(6964, ask/stream/execute_chain/브리핑)·**assistant_facts.py**(156)·**assistant_undo.py**(289)·**nl_query.py**(203, NL→SQL read-only)·**user_docs.py**(131, RAG).
+- 고객/예약/시술: **customers.py**(716)·**customer_memos.py**(411)·**customer_reviews.py**(132, 리뷰요청)·**bookings.py**(445)·**bookings_confirm.py**(461, 노쇼감지)·**treatments.py**(357)·**waitlist.py**(132).
+- 매출/재고/회원권/시술템플릿: **revenue.py**(687, 예측·OCR임포트)·**inventory.py**(108)·**memberships.py**(484)·**services.py**(354, 가격표임포트).
+- 리포트/리텐션/추천/자동화: **reports.py**(295)·**today.py**(339, 브리핑)·**retention.py**(347, 이탈위험·초안)·**retouch.py**(188, 리터치DM초안)·**recommendations.py**(379, 시술추천)·**campaigns.py**(81, A/B)·**automation.py**(356, 규칙CRUD).
+- 임포트/OCR/음성: **imports.py**(351)·**smart_import.py**(674)·**templates.py**(75, OCR)·**voice.py**(133).
+- 발행/동기화/알림: **scheduled_posts.py**(162, **[2026-07-22] 여러 장 예약=`image_urls`** 개행구분 절대URL, `image_url`=커버·옛 행 호환)·**workspace_sync.py**(275)·**notifications.py**(141)·**push.py**(73).
+- 결제: **subscription.py**(220)·**billing.py**(351, PortOne)·**iap.py**(552, Apple/Google).
+- 연동/브릿지: **integrations.py**(212, 네이버예약/톡톡 링크)·**platform_bridge.py**(85).
+- 운영/컴플라이언스: **support.py**(432)·**moderation.py**(596, 콘텐츠신고)·**data_export.py**(315, GDPR)·**admin.py**(1613)·**admin_ws.py**(128, WebSocket).
+
+### 서비스 (services/)
+- AI 게이트웨이: **generation.py**(376, Gemini 단일진입). 캡션: **caption_generator.py**(1337)·**caption_grounding.py**(245)·**service_hashtags.py**(308)·**signature_detector/injector.py**·**text_cleanup.py**·**fingerprint_extractor.py**(144)·**style_extractor.py**(144)·**identity_validator.py**·**fewshot_bank/builder.py**·**instagram_fetcher.py**(100)·**scheduled_publisher.py**(137, **[2026-07-22] 2장 이상이면 캐러셀 발행**: child `is_carousel_item` → `CAROUSEL` 부모 → FINISHED 폴링 → publish)·**story_generator.py**·**portfolio_tagger.py**.
+- DM 엔진: **dm_intent.py**(426)·**dm_context_builder.py**(470)·**dm_tone_analyzer.py**(261)·**dm_thread.py**·**dm_batching.py**·**dm_menu.py**(227)·**dm_menu_icebreakers.py**·**dm_manual_matcher.py**·**dm_free_reply.py**·**dm_customer_extractor.py**·**customer_memo_extractor.py**.
+- 채널 어댑터: **channels/base.py**(공통 인터페이스)·**channels/instagram.py**(229)·**channels/naver_talk.py**(157, 무료 양방향 send).
+- 예약/리마인드: **booking_form_parser.py**(355)·**calendar_slots.py**·**reschedule_resolve.py**(314)·**waiting_matcher.py**·**gap_filler.py**(253)·**reminder_scheduler.py**(292)·**retouch_reminder/schedule.py**·**sprint_e.py**(219).
+- 고객/리텐션/매출: **customer_lifecycle.py**(358)·**customer_tier.py**·**chip_scorer.py**(444)·**ai_brief.py**·**morning_brief.py**(356)·**retention_predictor.py**(329)·**revenue_analysis.py**·**revenue_forecaster.py**·**membership_stats.py**.
+- 자동화/임포트/OCR: **automation_engine.py**·**automation_retry.py**·**importer.py**·**smart_import(er).py**·**receipt_ocr.py**·**business_card_ocr.py**·**pricelist_ocr.py**·**template_ocr.py**(377)·**voice_parser.py**.
+- 발송/가드/기타: **kakao_alimtalk.py**(152, Aligo 실발송)·**push_sender.py**(163, FCM)·**support_intent.py**·**sample_seeder.py**(473)·**medical_ad_guard.py**(198)·**sensitive_content_guard.py**·**workspace_gc.py**. 생성형: **photo_generative/**(policy·mock·replicate).
+
+### 모델 (models.py · 56 테이블)
+- 계정/샵: User·ShopSettings·Persona·Portfolio·BackgroundAsset·ApiUsageLog.
+- 페르소나/학습: PastPost·GenerationLog·UserSignatureBlock·UserIdentity·UserConsent·UserStyleFingerprint·PersonaFeedback·UserFewshot·UserCorrection.
+- 결제/알림: Subscription·PaymentHistory·NotificationItem·PushToken·ScheduledPost.
+- 고객/예약/시술: Customer·Booking·Staff·Treatment·WaitingList·ServiceTemplate·ServiceConsumption·CustomerMemo·CustomerReview.
+- 매출/재고: RevenueRecord·ExpenseRecord·InventoryItem·ImportJob.
+- DM/채널: IntegrationSetting·DMAutoReplySetting·DMMessageLog·DMLifecycleLog·DmBookingLink·DMConversationContext·DMManualReply·DMOwnerReplySample.
+- 잇비/자동화: AssistantSession·AssistantActionLog·AssistantUserFact·AutomationRule·AutomationFailure·MessageCampaign·UserDoc·ContentReport.
+- OCR/작업실: ImageOcrCache·PhotoAiCache·WorkspaceSlot·WorkspaceSlotPhoto·WorkspaceAsset·SupportMessage·UserDeletion.
+
+### 스키마 (schemas/)
+auth·customer·booking·treatment·services·revenue·inventory·shop·**persona**(328, 최대)·caption·import_job·__init__(집약).
+
+---
+
+_이 문서 = 앱 기능의 단일 진실원(SSOT). 기능 바꾸면 여기부터 고친다._

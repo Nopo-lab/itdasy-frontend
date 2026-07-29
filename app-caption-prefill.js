@@ -1,11 +1,9 @@
 /* app-caption-prefill.js — 사진 편집기 → 캡션 자동 prefill (§10 P2-10)
- * 의존: window.PhotoEditor (외부 비침투), window.openCaptionScenarioPopup
+ * 의존: window.openCaptionScenarioPopup (2026-07-22: 옛 PhotoEditor 의존 제거)
  *
  * 동작:
- *  1) PhotoEditor.open / openFromAction 호출을 wrapping → 시술명·가격·샵명 stash
- *  2) #peNextStepsModal 의 "캡션 만들기" 버튼 (data-pe-ns="caption") 클릭을 capture 단계에서 감지
- *      → localStorage 'caption_prefill' 키에 prefill 텍스트 저장
- *  3) captionText 가 채워질 때 (MutationObserver + 입력 이벤트) prefill 을 첫 줄에 한 번 prepend
+ *  1) 잇비·인스타 등이 CaptionPrefill.set(text) 로 prefill 을 localStorage 에 저장
+ *  2) captionText 가 채워질 때 (MutationObserver + 입력 이벤트) prefill 을 첫 줄에 한 번 prepend
  *
  * CLAUDE.md "시나리오 팝업 본문 불가침" — 시나리오 팝업의 흐름은 그대로. 결과 textarea 만 prepend.
  *
@@ -38,72 +36,11 @@
     return v;
   }
 
-  function _fmtPrice(n) {
-    const num = Number(n);
-    if (!isFinite(num) || num <= 0) return '';
-    if (num >= 10000) {
-      const man = num / 10000;
-      return (man % 1 === 0 ? man.toFixed(0) : man.toFixed(1)) + '만원';
-    }
-    return num.toLocaleString('ko-KR') + '원';
-  }
-
-  // ── PhotoEditor.open wrapping — 시술명·가격 stash ────
-  let _lastOpenOpts = null;
-
-  function _wrapPhotoEditor() {
-    const PE = window.PhotoEditor;
-    if (!PE || PE.__captionPrefillWrapped) return false;
-    PE.__captionPrefillWrapped = true;
-
-    const origOpen = PE.open;
-    const origOpenFromAction = PE.openFromAction;
-    if (typeof origOpen === 'function') {
-      PE.open = function (opts) {
-        try { _lastOpenOpts = opts || null; } catch (_e) { void _e; }
-        return origOpen.apply(this, arguments);
-      };
-    }
-    if (typeof origOpenFromAction === 'function') {
-      PE.openFromAction = function (payload) {
-        try {
-          _lastOpenOpts = {
-            serviceName: payload && (payload.service_name || payload.serviceName) || '',
-            price: payload && +payload.price || 0,
-          };
-        } catch (_e) { void _e; }
-        return origOpenFromAction.apply(this, arguments);
-      };
-    }
-    return true;
-  }
-
-  // PhotoEditor 가 늦게 로드될 수도 있어서 폴링.
-  (function _waitForPe() {
-    if (_wrapPhotoEditor()) return;
-    let tries = 0;
-    const iv = setInterval(() => {
-      if (_wrapPhotoEditor() || ++tries > 60) clearInterval(iv);
-    }, 100);
-  })();
-
-  // ── 다음스텝 모달 "캡션 만들기" 버튼 capture ──────────
-  // photo-editor.js 가 modified 인 상태라 직접 수정 안 함.
-  // document 레벨 capture 단계 클릭 핸들러로 가로채서 prefill 만 set 한 뒤
-  // photo-editor 의 자체 핸들러(모달 제거 + openCaptionScenarioPopup 호출) 가 그대로 진행되게 둠.
-  document.addEventListener('click', function (e) {
-    const btn = e.target.closest('#peNextStepsModal [data-pe-ns="caption"]');
-    if (!btn) return;
-    // prefill 후보 만들기
-    const opts = _lastOpenOpts || {};
-    const service = (opts.serviceName || opts.service_name || '').trim();
-    const priceTxt = _fmtPrice(opts.price || 0);
-    const parts = [];
-    if (service) parts.push(service);
-    if (priceTxt) parts.push(priceTxt);
-    const prefill = parts.join(' · ');
-    if (prefill) _set(prefill);
-  }, true); // capture
+  // [2026-07-22] 옛 PhotoEditor 배선 제거 — PE.open 래핑(_wrapPhotoEditor)·로드 폴링·
+  //   옛 편집기 다음스텝 모달(#peNextStepsModal [data-pe-ns="caption"]) 클릭 감지는
+  //   옛 편집기가 더 이상 열리지 않아 전부 死코드였다.
+  //   현재 작업실은 시술명·가격을 자체 캡션 흐름에서 채우고,
+  //   CaptionPrefill.set/get/clear 공개 API 는 잇비·인스타가 그대로 쓴다(유지).
 
   // ── captionText 채워질 때 한 번 prepend ──────────────
   // caption.js 가 textarea.value 를 직접 할당하므로 input/change 이벤트가 안 뜸 →

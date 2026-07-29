@@ -10,7 +10,6 @@
 (function () {
   'use strict';
 
-  const LS_OUTSIDE_HOURS = 'itdasy:dm:outside_hours';
   let _overlay = null;          // 시트 overlay
   let _sheet = null;            // 카드 노드
   let _settings = null;         // settings 캐시
@@ -139,22 +138,26 @@
   }
 
   // 디바운스 저장 (POST /settings)
-  function _saveSettings(partial) {
+  // [카오스] onResult(ok) — 저장 성공/실패를 호출부에 알려 낙관적 UI 롤백에 사용(하위호환: 미전달 시 기존대로 조용히).
+  function _saveSettings(partial, onResult) {
     if (!_settings) return;
     Object.assign(_settings, partial);
     clearTimeout(_saveTimer);
     _saveTimer = setTimeout(async () => {
+      let ok = false;
       try {
         const safe = _sanitizeForSave(_settings);
-        if (window.DmSettingsCache?.save) await window.DmSettingsCache.save(safe);
+        if (window.DmSettingsCache?.save) { await window.DmSettingsCache.save(safe); ok = true; }
         else {
-          await _rawFetch(apiUrl('/instagram/dm-reply/settings'), {
+          const r = await _rawFetch(apiUrl('/instagram/dm-reply/settings'), {
             method: 'POST',
             headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
             body: JSON.stringify(safe),
           }, 25000);
+          ok = !!(r && r.ok); // _rawFetch 는 4xx/5xx 에 throw 안 함 — .ok 로 실제 성공 판정
         }
-      } catch (_) { /* 조용히 실패 — 다음 저장 때 재시도 */ }
+      } catch (_) { ok = false; /* 네트워크·타임아웃 */ }
+      if (onResult) { try { onResult(ok); } catch (_e) { void _e; } }
     }, 400);
   }
 
@@ -201,10 +204,12 @@
       ? (on ? 'DM 자동응답 켜짐' : 'DM 자동응답 꺼짐')
       : '인스타그램 연결 필요';
     // 설명: 자동응답 범위(톤·시간·금지어 기준 자동 답장, 예약·위험은 검토)
+    // [보안감사 M-15 2026-07-26] 실제 메커니즘은 '초안 → 확인 큐 → 원장이 발송'이다(완전자동 아님).
+    //   "자동으로 답장해요" 카피는 원장이 켜두면 알아서 나가는 줄 알게 해 응대 누락 인상을 준다 → 정정.
     const desc = igConnected
       ? (on
-        ? '손님 DM에 AI가 자동으로 답장해요. 톤·응답 시간·금지어를 아래에서 조절하세요.'
-        : '켜면 손님 DM에 AI가 자동 답장해요. 톤·시간·금지어를 설정할 수 있어요.')
+        ? '손님 DM에 AI가 답장 초안을 만들어 드려요. 확인 후 보내면 됩니다. 톤·응답 시간·금지어를 아래에서 조절하세요.'
+        : '켜면 손님 DM 답장 초안을 AI가 만들어 드려요(확인 후 발송). 톤·시간·금지어를 설정할 수 있어요.')
       : '인스타 연동 후 사용할 수 있어요.';
     return `
       <div class="dm-activate" data-dm-activate>
@@ -301,8 +306,9 @@
     const start = _esc(settings.auto_reply_start || '09:00');
     const end = _esc(settings.auto_reply_end || '22:00');
     const tz = _esc(settings.timezone_name || 'Asia/Seoul');
-    // TODO[v1.5]: settings에 auto_reply_outside_hours 추가될 때까지 localStorage 폴백
-    const outsideOn = (localStorage.getItem(LS_OUTSIDE_HOURS) ?? '1') === '1';
+    // [죽은토글 실구현 2026-07-27] 백엔드 auto_reply_outside_hours 신설 → 서버값으로 hydrate.
+    //   예전엔 localStorage 에만 저장돼 백엔드가 아무 것도 안 하던 죽은 토글이었다. 기본 OFF(안전).
+    const outsideOn = !!settings.auto_reply_outside_hours;
     return `
       <div class="dm-section">
         <div class="dm-section__title">자동 응답 시간</div>
@@ -1127,8 +1133,8 @@
       const next = !btn.classList.contains('is-on');
       btn.classList.toggle('is-on', next);
       btn.setAttribute('aria-pressed', String(next));
-      // TODO[v1.5]: settings.auto_reply_outside_hours 저장
-      localStorage.setItem(LS_OUTSIDE_HOURS, next ? '1' : '0');
+      // [죽은토글 실구현 2026-07-27] 이제 백엔드에 저장 → 운영시간 밖 DM 에 자리비움 멘트 자동발송.
+      _saveSettings({ auto_reply_outside_hours: next });
       _haptic();
     });
   }
@@ -1262,14 +1268,25 @@
       btn.classList.toggle('is-on', next);
       btn.setAttribute('aria-pressed', String(next));
       const card = sheet.querySelector('[data-dm-activate]');
-      if (card) {
+      const _paintCard = (isOn) => {
+        if (!card) return;
         const dot = card.querySelector('.dm-activate__dot');
         const text = card.querySelector('.dm-activate__status-text');
-        if (dot) dot.className = next ? 'dm-activate__dot' : 'dm-activate__dot dm-activate__dot--off';
-        if (text) text.textContent = next ? '자동응답 켜짐' : '자동응답 꺼짐';
-      }
-      _saveSettings({ enabled: next });
-      _toast(next ? '자동응답 켜짐' : '자동응답 꺼짐');
+        if (dot) dot.className = isOn ? 'dm-activate__dot' : 'dm-activate__dot dm-activate__dot--off';
+        if (text) text.textContent = isOn ? '자동응답 켜짐' : '자동응답 꺼짐';
+      };
+      _paintCard(next);
+      // [카오스] 저장 확인 후 토스트 · 실패 시 롤백 — 콜드스타트/네트워크 순단에서
+      //   "토스트만 켜짐, 서버는 안 켜짐 → 손님 자동응답 실제 안 됨" 오인식 방지.
+      _saveSettings({ enabled: next }, (ok) => {
+        if (ok) { _toast(next ? '자동응답 켜짐' : '자동응답 꺼짐'); return; }
+        // 실패 → UI/_settings 롤백
+        if (_settings) _settings.enabled = !next;
+        btn.classList.toggle('is-on', !next);
+        btn.setAttribute('aria-pressed', String(!next));
+        _paintCard(!next);
+        _toast('저장 실패 — ' + (next ? '켜기' : '끄기') + ' 다시 시도해주세요');
+      });
       _haptic();
     });
   }
@@ -1409,6 +1426,9 @@
     _overlay = null;
     _sheet = null;
     _opening = false;
+    // 스택 정리는 overlay 유무와 무관하게 — DOM 이 이미 사라진 stuck 케이스에서도
+    // history 엔트리가 남으면 "눌러도 아무 일 없는 뒤로가기"가 쌓인다.
+    if (typeof window._markSheetClosed === 'function') window._markSheetClosed('dmAutoreply');
     if (!overlay) return;
     let closed = false;
     const _hardRemove = () => {
@@ -1482,6 +1502,10 @@
     _sheet = sheet;
 
     _bindEvents(sheet);
+    // [2026-07-23] 안드로이드 하드웨어 뒤로가기 등록 — 없으면 뒤로가기에 앱이 그냥 꺼진다.
+    //   드로어·대화목록·검토큐 3곳에서 열리는 주요 화면인데 등록이 빠져 있었음.
+    if (typeof window._registerSheet === 'function') window._registerSheet('dmAutoreply', closeDMAutoreplySettings);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('dmAutoreply');
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeDMAutoreplySettings(); });
 
     if (window.SheetAnim?.open) window.SheetAnim.open(overlay, sheet);

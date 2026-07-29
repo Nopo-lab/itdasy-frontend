@@ -137,6 +137,11 @@
   }
 
   async function _scanAndShow() {
+    // [죽은기능 정리 2026-07-27] 이 프로액티브 칩의 유일한 CTA(_openBa)는 ReelsCover/openVideo 가
+    //   코드베이스에 없어 항상 "영상 만들기 화면을 준비 중이에요" 토스트로만 끝난다(죽은 CTA).
+    //   손님을 능동적으로 유도해놓고 눌러도 안 되는 건 나쁜 UX라, 릴스/영상 기능이 실제로 붙기 전엔
+    //   칩 자체를 띄우지 않는다. (되살리려면 아래 early-return 을 제거하고 _openBa 를 실동작에 연결.)
+    if (typeof window.ReelsCover !== 'object' && typeof window.openVideo !== 'function') return;
     if (!window.AutoBA || typeof window.AutoBA.scanAndSuggest !== 'function') return;
     try {
       const res = await window.AutoBA.scanAndSuggest();

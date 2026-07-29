@@ -1,0 +1,35 @@
+{
+  "checkedAt": "2026-06-24",
+  "build": "20260624-v549-eye-roi-nail-isolation-publish-ux",
+  "runtime": {
+    "faceModel": "ready",
+    "faceError": null,
+    "handModel": "ready",
+    "hairModel": "failed",
+    "hairErrorSummary": "MediaPipe hair segmenter could not create its WebGL/GPU service and failed to start."
+  },
+  "extraChecks": [
+    {
+      "id": "G-eyeMask-close",
+      "badge": "눈 인식됨 · 0.7%",
+      "sourceMaskBBox": [168, 560, 624, 641],
+      "sourceImageSize": [1024, 1280],
+      "verdict": "FAIL",
+      "reason": "The mask is above the actual eye area and misses the right-side eye."
+    },
+    {
+      "id": "G-eyeMask-front",
+      "badge": "눈 인식됨 · 1.1%",
+      "sourceMaskBBox": [313, 476, 748, 545],
+      "sourceImageSize": [1024, 1280],
+      "verdict": "FAIL_UI",
+      "reason": "Source coordinates are plausible, but the visible overlay uses a different fit mode and appears on the forehead/temples."
+    },
+    {
+      "id": "G-brow-close",
+      "badge": "눈썹 인식 중…",
+      "helper": "눈썹 영역 자동 인식이 어려워 기본 영역으로 보정 중이에요",
+      "verdict": "FAIL"
+    }
+  ]
+}

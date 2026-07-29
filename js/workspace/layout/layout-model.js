@@ -1,6 +1,8 @@
 /* 작업실 초고도화 — 레이아웃 모델 + 합성기 (ITDASY_WS_HYPER)
    레이아웃 = 재사용 홍보 틀: photoSlots(사진 자리 geometry+focal/zoom) + layers(텍스트).
-   - 스타터 A~H (전후 비교 우선) 내장. '내 레이아웃'은 ShopStyle.list() 확장(Phase 2 동기화).
+   - [2026-07-15 구성 3종 재설계] STARTERS 는 flow/layout.js 가 장수(n)에 맞춰 조합하는 '재료'만:
+     전·후 좌우(wsl-ba-lr) · 2장 좌우/상하 콜라주 · 3분할 · 4컷 그리드. 화면에 직접 나열되지 않는다.
+   - '내 레이아웃'은 ShopStyle.list() 확장 유지(getMyLayouts) — 텍스트 레이어(review/price 등)도 그대로 합성 가능.
    - composeLayout(layout, photos): 사진을 슬롯에 cover-crop 배치해 미리보기 dataURL 생성.
    flow/편집기와 분리 — window.WorkspaceLayout 로만 노출. 플래그 OFF면 아무도 안 부름. */
 (function () {
@@ -16,79 +18,28 @@
     return { type: 'text', role: role, text: text, x: x, y: y, w: w, size: opts.size || 0.045, weight: opts.weight || 800, color: opts.color || '#fff', align: opts.align || 'center', bg: opts.bg || null, shadow: opts.shadow !== false };
   }
 
-  // ── 스타터 (다양성 팩, 2026-07-12) ─────────────────────────────
-  //   전후(before_after)는 2~3개로 리밸런스, 나머지는 그리드·스토리·후기·가격·과정·폴라로이드로 폭 확장.
-  //   text 롤(headline/caption_bar/sub2)은 flow/layout.js _fillLayoutText 가 시술명으로 자동 채움.
+  // ── 구성 재료 (2026-07-15 구성 3종 재설계) ─────────────────────────────
+  //   flow/layout.js 가 사진 장수에 맞춰 조합: 전·후 합치기=wsl-ba-lr ·
+  //   한 장으로 합치기(2장)=wsl-collage-2 / wsl-collage-2-tb · 모아보기 나머지 묶음=strip-3/grid-4.
   var STARTERS = [
-    // ── 전후 비교 (3) ──
+    // 전·후 합치기 (1·2번 = 전/후, 뱃지 포함)
     { id: 'wsl-ba-lr', name: '전후 · 좌우', kind: 'before_after', ratio: '1:1',
       photoSlots: [slot('before', 'before', 0, 0, 0.5, 1), slot('after', 'after', 0.5, 0, 0.5, 1)],
       layers: [label('badge_before', 'BEFORE', 0.02, 0.03, 0.46, { size: 0.032, align: 'left', bg: 'rgba(0,0,0,.42)' }),
                label('badge_after', 'AFTER', 0.52, 0.03, 0.46, { size: 0.032, align: 'left', bg: 'rgba(188,102,117,.85)' })] },
-    { id: 'wsl-ba-tb', name: '전후 · 상하', kind: 'before_after', ratio: '4:5',
-      photoSlots: [slot('before', 'before', 0, 0, 1, 0.5), slot('after', 'after', 0, 0.5, 1, 0.5)],
-      layers: [label('badge_before', 'BEFORE', 0.03, 0.02, 0.5, { size: 0.03, align: 'left', bg: 'rgba(0,0,0,.42)' }),
-               label('badge_after', 'AFTER', 0.03, 0.52, 0.5, { size: 0.03, align: 'left', bg: 'rgba(188,102,117,.85)' })] },
-    { id: 'wsl-ba-frame', name: '전후 · 인셋', kind: 'before_after', ratio: '4:5',
-      photoSlots: [slot('after', 'after', 0, 0, 1, 1), slot('before', 'before', 0.63, 0.66, 0.33, 0.29)],
-      layers: [label('badge_before', 'BEFORE', 0.63, 0.615, 0.33, { size: 0.024, align: 'center', bg: 'rgba(0,0,0,.5)' })] },
-    // ── 과정 3컷 (전/중/후 · 왁싱·펌 과정) ──
-    { id: 'wsl-process-3', name: '과정 · 전·중·후', kind: 'before_after', ratio: '1:1',
-      photoSlots: [slot('before', 'before', 0, 0, 1 / 3, 1), slot('mid', 'mid', 1 / 3, 0, 1 / 3, 1), slot('after', 'after', 2 / 3, 0, 1 / 3, 1)],
-      layers: [label('badge_before', 'BEFORE', 0.01, 0.03, 0.31, { size: 0.026, align: 'left', bg: 'rgba(0,0,0,.42)' }),
-               label('badge_mid', '과정', 0.35, 0.03, 0.30, { size: 0.026, align: 'left', bg: 'rgba(0,0,0,.42)' }),
-               label('badge_after', 'AFTER', 0.68, 0.03, 0.31, { size: 0.026, align: 'left', bg: 'rgba(188,102,117,.85)' })] },
-    // ── 그리드/스트립 ──
-    { id: 'wsl-grid-4', name: '4컷 · 그리드', kind: 'collage', ratio: '1:1',
-      photoSlots: [slot('a', 'a', 0, 0, 0.5, 0.5), slot('b', 'b', 0.5, 0, 0.5, 0.5), slot('c', 'c', 0, 0.5, 0.5, 0.5), slot('d', 'd', 0.5, 0.5, 0.5, 0.5)], layers: [] },
-    { id: 'wsl-strip-3', name: '3분할 · 스트립', kind: 'collage', ratio: '1:1',
-      photoSlots: [slot('a', 'a', 0, 0, 1 / 3, 1), slot('b', 'b', 1 / 3, 0, 1 / 3, 1), slot('c', 'c', 2 / 3, 0, 1 / 3, 1)], layers: [] },
+    // 한 장으로 합치기 (2장, 중립 — 뱃지 없음)
     { id: 'wsl-collage-2', name: '2장 · 좌우', kind: 'collage', ratio: '1:1',
       photoSlots: [slot('a', 'a', 0, 0, 0.5, 1), slot('b', 'b', 0.5, 0, 0.5, 1)], layers: [] },
-    { id: 'wsl-collage-3', name: '3장 · 1+2', kind: 'collage', ratio: '4:5',
-      photoSlots: [slot('main', 'main', 0, 0, 1, 0.62), slot('a', 'a', 0, 0.62, 0.5, 0.38), slot('b', 'b', 0.5, 0.62, 0.5, 0.38)], layers: [] },
-    // ── 한 장 ──
-    { id: 'wsl-single', name: '한 장 · 꽉', kind: 'single', ratio: '4:5',
-      photoSlots: [slot('main', 'main', 0, 0, 1, 1)], layers: [] },
-    { id: 'wsl-story', name: '스토리 · 세로', kind: 'single', ratio: '9:16',
-      photoSlots: [slot('main', 'main', 0, 0, 1, 1)], layers: [] },
-    { id: 'wsl-hero-caption', name: '히어로 · 자막바', kind: 'headline', ratio: '4:5',
-      photoSlots: [slot('main', 'main', 0, 0, 1, 0.86, { fy: 0.42 })],
-      layers: [label('panel', '', 0, 0.86, 1, { size: 0.001, bg: '#15181D' }),
-               label('caption_bar', '', 0.06, 0.895, 0.88, { size: 0.046, weight: 800, color: '#fff', align: 'center', shadow: false })] },
-    { id: 'wsl-polaroid', name: '폴라로이드', kind: 'headline', ratio: '4:5',
-      photoSlots: [slot('main', 'main', 0.07, 0.06, 0.86, 0.72)],
-      layers: [label('caption_bar', '', 0.07, 0.83, 0.86, { size: 0.05, weight: 700, color: '#3A2A22', align: 'center', shadow: false })] },
-    // ── 후기 ──
-    { id: 'wsl-review', name: '후기 · 사진+글', kind: 'review', ratio: '4:5',
-      photoSlots: [slot('main', 'main', 0, 0, 1, 0.66)],
-      layers: [label('panel', '', 0, 0.66, 1, { size: 0.001, bg: '#fff' }),
-               label('title', '고객 후기', 0.08, 0.71, 0.84, { size: 0.05, weight: 800, color: '#191F28', align: 'left', shadow: false }),
-               label('body', '', 0.08, 0.79, 0.84, { size: 0.032, weight: 500, color: '#4E5968', align: 'left', shadow: false })] },
-    { id: 'wsl-review-star', name: '후기 · 별점 카드', kind: 'review', ratio: '4:5',
-      photoSlots: [slot('main', 'main', 0, 0, 1, 0.55)],
-      layers: [label('panel', '', 0, 0.55, 1, { size: 0.001, bg: '#FBF7F5' }),
-               label('quote', '“', 0.05, 0.55, 0.3, { size: 0.11, weight: 800, color: '#E6C9D2', align: 'left', shadow: false }),
-               label('stars', '★★★★★', 0.08, 0.635, 0.84, { size: 0.042, weight: 800, color: '#F5A623', align: 'left', shadow: false }),
-               label('title', '고객 후기', 0.08, 0.70, 0.84, { size: 0.044, weight: 800, color: '#191F28', align: 'left', shadow: false }),
-               label('body', '', 0.08, 0.77, 0.84, { size: 0.032, weight: 500, color: '#4E5968', align: 'left', shadow: false })] },
-    // ── 번호 스텝(홈케어 팁) ──
-    { id: 'wsl-steps', name: '홈케어 · 번호 팁', kind: 'steps', ratio: '4:5',
-      photoSlots: [slot('main', 'main', 0, 0, 1, 0.44)],
-      layers: [label('panel', '', 0, 0.44, 1, { size: 0.001, bg: '#fff' }),
-               label('title', '홈케어 팁', 0.08, 0.48, 0.84, { size: 0.046, weight: 800, color: '#191F28', align: 'left', shadow: false }),
-               label('step_1', '1  깨끗한 손으로 관리해요', 0.08, 0.58, 0.84, { size: 0.03, weight: 600, color: '#4E5968', align: 'left', shadow: false }),
-               label('step_2', '2  전용 제품으로 결을 정돈해요', 0.08, 0.66, 0.84, { size: 0.03, weight: 600, color: '#4E5968', align: 'left', shadow: false }),
-               label('step_3', '3  2~3주마다 리터치 받아요', 0.08, 0.74, 0.84, { size: 0.03, weight: 600, color: '#4E5968', align: 'left', shadow: false })] },
-    // ── 가격 ──
-    { id: 'wsl-price', name: '가격 · 사진+표', kind: 'price', ratio: '4:5',
-      photoSlots: [slot('main', 'main', 0, 0, 1, 0.5)],
-      layers: [label('panel', '', 0, 0.5, 1, { size: 0.001, bg: '#fff' }),
-               label('title', '시술 안내', 0.08, 0.55, 0.84, { size: 0.05, weight: 800, color: '#191F28', align: 'left', shadow: false })] },
-    { id: 'wsl-price-split', name: '가격 · 좌우 메뉴', kind: 'price', ratio: '4:5',
-      photoSlots: [slot('main', 'main', 0, 0, 0.5, 1)],
-      layers: [label('panel', '', 0.5, 0, 0.5, { size: 0.001, bg: '#fff' }),
-               label('title', '시술 안내', 0.55, 0.07, 0.42, { size: 0.042, weight: 800, color: '#191F28', align: 'left', shadow: false })] },
+    { id: 'wsl-collage-2-tb', name: '2장 · 상하', kind: 'collage', ratio: '1:1',
+      photoSlots: [slot('a', 'a', 0, 0, 1, 0.5), slot('b', 'b', 0, 0.5, 1, 0.5)], layers: [] },
+    // 모아보기 묶음 (나머지 3장=3분할 · 4장=2×2)
+    { id: 'wsl-strip-3', name: '3분할 · 스트립', kind: 'collage', ratio: '1:1',
+      photoSlots: [slot('a', 'a', 0, 0, 1 / 3, 1), slot('b', 'b', 1 / 3, 0, 1 / 3, 1), slot('c', 'c', 2 / 3, 0, 1 / 3, 1)], layers: [] },
+    { id: 'wsl-grid-4', name: '4컷 · 그리드', kind: 'collage', ratio: '1:1',
+      photoSlots: [slot('a', 'a', 0, 0, 0.5, 0.5), slot('b', 'b', 0.5, 0, 0.5, 0.5), slot('c', 'c', 0, 0.5, 0.5, 0.5), slot('d', 'd', 0.5, 0.5, 0.5, 0.5)], layers: [] },
+    // [#3 2026-07-18] 3장 '크게+2' — 1번 왼쪽 크게, 2·3번 오른쪽 위아래. 잡지 표지 느낌.
+    { id: 'wsl-cover-1l2', name: '3장 · 크게+2', kind: 'collage', ratio: '1:1',
+      photoSlots: [slot('a', 'a', 0, 0, 0.62, 1), slot('b', 'b', 0.62, 0, 0.38, 0.5), slot('c', 'c', 0.62, 0.5, 0.38, 0.5)], layers: [] },
   ];
 
   function getStarters() { return STARTERS.map(function (s) { return clone(s); }); }
@@ -201,7 +152,7 @@
   }
 
   // 레이아웃 + 사진 → 미리보기 dataURL. assign(옵션)=슬롯별 photo 지정, 없으면 autoAssign.
-  function composeLayout(layout, photos, assign) {
+  function composeLayout(layout, photos, assign, meta) {
     if (!layout) return Promise.resolve(null);
     var dim = ratioWH(layout.ratio || (layout.frame && layout.frame.ratio) || '4:5');
     var map = assign || autoAssign(photos, layout);
@@ -210,6 +161,8 @@
       var cv = document.createElement('canvas'); cv.width = dim.w; cv.height = dim.h;
       var ctx = cv.getContext('2d');
       ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, dim.w, dim.h);
+      // [v779] 못 불러온 슬롯(회색칸) 수를 호출부에 알린다 — 부분 손상 콜라주가 무경고로 발행되던 것 방지.
+      if (meta) { var _m = 0; for (var _k = 0; _k < imgs.length; _k++) { if (!imgs[_k]) _m++; } meta.missing = _m; }
       slots.forEach(function (sl, i) {
         var r = sl.rect, dx = r.x * dim.w, dy = r.y * dim.h, dw = r.w * dim.w, dh = r.h * dim.h;
         if (imgs[i]) _drawCover(ctx, imgs[i], dx, dy, dw, dh, sl.focal, sl.zoom);

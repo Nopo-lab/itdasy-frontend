@@ -69,7 +69,7 @@
     container.innerHTML = '<div style="font-size:12px;color:#888;text-align:center;padding:8px;">최근 내역 불러오는 중…</div>';
     try {
       const r = await _fetch('GET', `/memberships/${customerId}/history?limit=8`);
-      const items = r.items || [];
+      const items = r.history || r.items || [];   // [2026-07-22 fix] BE는 {history:[]} 반환 — 키 불일치로 항상 빈칸이던 버그
       if (!items.length) {
         container.innerHTML = '<div style="font-size:12px;color:#888;text-align:center;padding:10px;">아직 내역이 없어요.</div>';
         return;
@@ -135,13 +135,16 @@
       });
     });
     _loadHistory(customerId, sheet.querySelector('#msHistoryWrap'));
-    sheet.querySelector('#msConfirm').addEventListener('click', async () => {
+    sheet.querySelector('#msConfirm').addEventListener('click', async (ev) => {
+      const btn = ev.currentTarget;
+      if (btn.disabled) return; // [2026-07-14 QA] 연타 중복 충전 방지
       const amount = parseInt(sheet.querySelector('#msAmount').value, 10);
       const method = sheet.querySelector('#msMethod').value;
       if (!amount || amount < 1000) {
         _toast('충전 금액을 입력해주세요 (1,000원 이상)', { error: true });
         return;
       }
+      btn.disabled = true;
       try {
         const r = await _fetch('POST', '/memberships/topup', {
           customer_id: customerId,
@@ -161,6 +164,8 @@
         try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'membership_topup' } })); } catch (_) { void 0; }
       } catch (e) {
         _toast('충전 실패: ' + e.message, { error: true });
+      } finally {
+        btn.disabled = false;
       }
     });
   }
@@ -182,13 +187,16 @@
     _open('회원권 사용', html, `${customerName || '고객'}님${balanceTxt ? ' · ' + balanceTxt : ''}`);
     const sheet = document.getElementById('membershipSheet');
     _loadHistory(customerId, sheet.querySelector('#msHistoryWrap'));
-    sheet.querySelector('#msUseConfirm').addEventListener('click', async () => {
+    sheet.querySelector('#msUseConfirm').addEventListener('click', async (ev) => {
+      const btn = ev.currentTarget;
+      if (btn.disabled) return; // [2026-07-14 QA] 연타 중복 차감 방지
       const amount = parseInt(sheet.querySelector('#msUseAmount').value, 10);
       const svc = sheet.querySelector('#msUseService').value.trim();
       if (!amount || amount < 1000) {
         _toast('차감 금액을 입력해주세요', { error: true });
         return;
       }
+      btn.disabled = true;
       try {
         const r = await _fetch('POST', '/memberships/use', {
           customer_id: customerId,
@@ -204,6 +212,7 @@
         try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'membership_use' } })); } catch (_) { void 0; }
       } catch (e) {
         _toast('차감 실패: ' + e.message, { error: true });
+        btn.disabled = false;   // [2026-07-22 fix] 실패 시 재활성화 — 안 하면 버튼 영구 잠김(충전 시트엔 있던 로직)
       }
     });
   }

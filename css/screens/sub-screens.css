@@ -312,3 +312,275 @@
 .wss-fromshop__tx { flex: 1; font-size: 12.5px; line-height: 1.5; color: var(--text-sub, #4E5968); }
 .wss-fromshop__tx b { color: var(--text, #191F28); }
 .wss-fromshop__btn { flex: 0 0 auto; height: 34px; padding: 0 12px; border: 0; border-radius: 9px; background: #BC6675; color: #fff; font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+
+/* ── [성과 v760 리디자인] 게시물별 성과 화면 (workspace-perf.js) ──────────────
+   방향: Restrained. 로즈 틴트 도배 제거 → 중립 표면 + 잉크 타이포 + 단일 액센트(--brand-strong).
+   색은 '상태'에만(예약=green·문의=amber), 나머지는 잉크/그레이. Apple SD Gothic(한국어 SF) 스택.
+   라이트 기준(다크 정비 보류). 토큰: css/tokens.css. --wsp-* 로 지역 스케일 고정. */
+#wsPerfOverlay {
+  --wsp-ink: var(--text, #191F28);
+  --wsp-mut: var(--text-muted, #4E5968);
+  --wsp-sub: var(--text-subtle, #6B7684);
+  --wsp-line: var(--border, rgba(0,0,0,.07));
+  --wsp-accent: var(--brand-strong, #BC6675);
+  --wsp-ok: #1E7A53;
+  --wsp-wait: #9A6410;
+
+  font-family: -apple-system, "Apple SD Gothic Neo", "Pretendard", BlinkMacSystemFont, system-ui, sans-serif;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+}
+#wsPerfOverlay .ss-body { padding: 12px 16px 96px; }
+
+/* 합계 — 색 박스 없이 잉크 숫자 5칸. Apple식: 데이터가 주인공, 장식 최소. 아래 hairline 만. */
+.wsp-sum { padding: 4px 2px 16px; margin-bottom: 16px; border-bottom: 1px solid var(--wsp-line); }
+.wsp-sum__tt { font-size: 12px; color: var(--wsp-sub); margin-bottom: 12px; }
+.wsp-sum__row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.wsp-sum__c { text-align: center; min-width: 0; }
+.wsp-sum__c b { display: block; font-size: 22px; font-weight: 600; color: var(--wsp-ink); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1.15; }
+.wsp-sum__c span { display: block; font-size: 11px; color: var(--wsp-sub); margin-top: 3px; letter-spacing: 0; }
+
+.wsp-lead { font-size: 15px; line-height: 1.55; color: var(--wsp-ink); margin: 0 2px 18px; }
+.wsp-lead b { font-weight: 600; color: var(--wsp-accent); }
+.wsp-lead span { font-size: 12px; color: var(--wsp-sub); }
+.wsp-lead--thin { color: var(--wsp-sub); font-size: 13.5px; line-height: 1.6; }
+
+/* 축 비교 — 박스 대신 hairline 구분. 여백이 구조를 만든다. */
+.wsp-axis { padding: 14px 2px; border-top: 1px solid var(--wsp-line); }
+.wsp-axis:first-of-type { border-top: none; padding-top: 4px; }
+.wsp-axis__k { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--wsp-mut); margin-bottom: 12px; }
+.wsp-axis__k i { font-size: 14px; color: var(--wsp-sub); }
+.wsp-axis__none { font-size: 12.5px; line-height: 1.6; color: var(--wsp-sub); }
+.wsp-axis__thin { font-size: 11px; color: var(--wsp-sub); margin-top: 10px; }
+/* [2026-07-18] 표본 부족 축 통합 한 줄 — 축마다 박스 그리던 걸 대체(다닥다닥 방지) */
+.wsp-axis__pending { margin-top: 12px; padding: 10px 12px; background: var(--surface-2, #F7F8FA); border-radius: 10px; line-height: 1.5; }
+
+/* 막대 — 중립 트랙 + 그레이 채움, 1등만 액센트. 로즈-온-로즈 제거. */
+.wsp-bar { display: grid; grid-template-columns: minmax(64px, 88px) 1fr auto; grid-template-rows: auto auto; column-gap: 10px; align-items: center; margin-bottom: 11px; }
+.wsp-bar:last-child { margin-bottom: 0; }
+.wsp-bar__k { font-size: 13px; color: var(--wsp-mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wsp-bar.is-top .wsp-bar__k { font-weight: 600; color: var(--wsp-ink); }
+.wsp-bar__t { height: 6px; border-radius: 999px; background: #EEF0F2; overflow: hidden; }
+.wsp-bar__t span { display: block; height: 100%; border-radius: 999px; background: #D0D4DA; transition: width .5s cubic-bezier(.22,1,.36,1); }
+.wsp-bar.is-top .wsp-bar__t span { background: var(--wsp-accent); }
+.wsp-bar__v { font-size: 13px; font-weight: 600; color: var(--wsp-ink); font-variant-numeric: tabular-nums; }
+.wsp-bar__s { grid-column: 2 / -1; font-size: 11px; color: var(--wsp-sub); margin-top: 4px; }
+
+.wsp-legend { font-size: 11px; color: var(--wsp-sub); margin: 8px 2px 22px; line-height: 1.55; }
+
+/* 다음 글 추천 — 결론. 초록 박스 대신 흰 카드 + hairline. 강조는 CTA 하나로. */
+.wsp-reco { padding: 16px; border-radius: 16px; background: var(--surface, #fff); border: 1px solid var(--wsp-line); margin-bottom: 18px; }
+.wsp-reco__h { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--wsp-ink); margin-bottom: 12px; }
+.wsp-reco__h i { font-size: 16px; color: var(--wsp-accent); }
+.wsp-reco__l { list-style: none; margin: 0; padding: 0; }
+.wsp-reco__l li { display: flex; align-items: baseline; gap: 8px; padding: 7px 0; font-size: 14px; color: var(--wsp-ink); border-top: 1px solid var(--wsp-line); }
+.wsp-reco__l li:first-child { border-top: none; }
+.wsp-reco__l li b { font-weight: 600; }
+.wsp-reco__k { flex: 0 0 66px; font-size: 12px; color: var(--wsp-sub); }
+.wsp-reco__s { margin-left: auto; font-size: 11px; color: var(--wsp-sub); font-variant-numeric: tabular-nums; }
+.wsp-reco__d { font-size: 11.5px; color: var(--wsp-sub); line-height: 1.6; margin-top: 10px; }
+
+.wsp-sect { font-size: 12px; font-weight: 600; color: var(--wsp-mut); margin: 4px 2px 12px; }
+.wsp-sect__s { font-size: 11px; font-weight: 400; color: var(--wsp-sub); }
+
+/* Apple식 1차 CTA — 잉크 필, 흰 글씨, 넉넉한 라운드. 초록 버튼 폐기. */
+.wsp-reco__cta { width: 100%; height: 46px; margin-top: 14px; border: none; border-radius: 13px; background: var(--wsp-ink); color: #fff; font-size: 14px; font-weight: 600; letter-spacing: -0.01em; cursor: pointer; transition: opacity .18s ease, transform .12s ease; }
+.wsp-reco__cta:active { opacity: .82; transform: scale(.99); }
+
+/* 카드 상태 배지 — 도트 + 텍스트. 낮은 채도, 작게. */
+.wsp-card__hd { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.wsp-card__hd .wsp-card__tt { flex: 1; min-width: 0; margin-bottom: 0; }
+.wsp-badge { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: var(--wsp-mut); }
+.wsp-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.wsp-badge--ok { color: var(--wsp-ok); }
+.wsp-badge--wait { color: var(--wsp-wait); }
+.wsp-badge--good { color: var(--wsp-accent); }
+.wsp-badge--dim { color: var(--wsp-sub); }
+.wsp-card--dim { opacity: .58; }
+
+/* 2차 액션 — hairline 아웃라인, 잉크 글씨. */
+.wsp-again { width: 100%; height: 42px; margin-top: 10px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--wsp-line); border-radius: 12px; background: var(--surface, #fff); font-size: 13px; font-weight: 600; color: var(--wsp-ink); cursor: pointer; transition: background .18s ease, transform .12s ease; }
+.wsp-again i { font-size: 15px; color: var(--wsp-sub); }
+.wsp-again:active { background: var(--surface-2, #F7F8FA); transform: scale(.99); }
+
+.wsp-card { border: 1px solid var(--wsp-line); border-radius: 16px; padding: 14px; margin-bottom: 12px; background: var(--surface, #fff); }
+.wsp-card__top { display: flex; gap: 12px; }
+.wsp-card__im { width: 58px; height: 58px; border-radius: 12px; object-fit: cover; flex: 0 0 auto; background: #EEF0F2; }
+.wsp-card__im--none { display: flex; align-items: center; justify-content: center; color: #C4C9CF; font-size: 20px; }
+.wsp-card__meta { min-width: 0; flex: 1; }
+.wsp-card__tt { font-size: 15px; font-weight: 600; color: var(--wsp-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wsp-card__dt { font-size: 12px; color: var(--wsp-sub); }
+.wsp-chips { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 6px; }
+.wsp-chip { font-size: 11px; color: var(--wsp-mut); background: var(--surface-2, #F5F6F8); border-radius: 6px; padding: 2px 7px; }
+.wsp-chip--dim { color: var(--wsp-sub); }
+/* 지표 5칸 — 0은 흐리게, 반응 있는 칸만 잉크로. */
+.wsp-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin: 14px 0 12px; padding: 12px 0; border-top: 1px solid var(--wsp-line); border-bottom: 1px solid var(--wsp-line); }
+.wsp-stat { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; color: #C4C9CF; }
+.wsp-stat.is-on { color: var(--wsp-sub); }
+.wsp-stat i { font-size: 16px; }
+.wsp-stat b { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.wsp-stat.is-on b { color: var(--wsp-ink); }
+.wsp-stat span { font-size: 10px; letter-spacing: 0; }
+
+/* 답 안 한 문의 — 지금 할 일. 색 채움 대신 앰버 도트 + 잉크 텍스트 + 셰브런. */
+.wsp-inq { display: flex; align-items: center; gap: 10px; border-radius: 12px; padding: 11px 12px; margin-bottom: 8px; background: var(--surface-2, #F7F8FA); font-size: 13px; color: var(--wsp-ink); cursor: pointer; transition: background .18s ease; }
+.wsp-inq:active { background: #EEF0F2; }
+.wsp-inq > i:first-child { font-size: 17px; color: var(--wsp-wait); }
+.wsp-inq span { flex: 1; min-width: 0; }
+.wsp-inq b { font-weight: 600; }
+.wsp-inq em { display: block; font-style: normal; font-size: 11px; color: var(--wsp-sub); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wsp-inq > i:last-child { color: var(--wsp-sub); font-size: 13px; }
+
+/* [2026-07-22] 이 글이 왜 잘됐나 — 평소보다 반응 좋은 글에만 뜨는 한 줄.
+   따뜻한 노랑 톤으로 '칭찬/힌트'처럼 보이게(경고 회색인 wsp-inq 와 구분). */
+.wsp-why { display: flex; align-items: flex-start; gap: 9px; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; background: #FFF8E7; border: .5px solid #F4E3B8; font-size: 13px; color: var(--wsp-ink); }
+.wsp-why > i { font-size: 16px; color: #C8912B; flex-shrink: 0; margin-top: 1px; }
+.wsp-why span { flex: 1; min-width: 0; }
+.wsp-why b { font-weight: 700; }
+.wsp-why em { display: block; font-style: normal; font-size: 11.5px; color: var(--wsp-sub); margin-top: 3px; line-height: 1.45; }
+
+/* 이 글 보고 DM까지 온 사람 — green 도트 + 잉크. */
+.wsp-dmlink { display: flex; align-items: center; gap: 9px; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; background: var(--surface-2, #F7F8FA); font-size: 13px; color: var(--wsp-ink); }
+.wsp-dmlink i { font-size: 16px; color: var(--wsp-ok); }
+.wsp-dmlink b { font-weight: 600; }
+
+.wsp-conv { border-radius: 12px; padding: 11px 12px; background: var(--surface-2, #F7F8FA); }
+.wsp-conv.is-hit { background: rgba(30,122,83,.07); }
+.wsp-conv__t { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--wsp-mut); }
+.wsp-conv__t i { font-size: 16px; }
+.wsp-conv.is-hit .wsp-conv__t { color: var(--wsp-ok); }
+.wsp-conv__t b { font-weight: 600; }
+.wsp-conv__s { font-size: 11.5px; color: var(--wsp-sub); margin-top: 5px; line-height: 1.5; }
+.wsp-conv.is-hit .wsp-conv__s { color: var(--wsp-ok); }
+
+.wsp-lock { border: 1px solid var(--wsp-line); border-radius: 16px; padding: 16px; background: var(--surface, #fff); margin-top: 18px; }
+.wsp-lock__h { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--wsp-ink); margin-bottom: 8px; }
+.wsp-lock__h i { font-size: 17px; color: var(--wsp-sub); }
+.wsp-lock--hit .wsp-lock__h i { color: var(--wsp-ok); }
+.wsp-lock__b { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--wsp-sub); background: var(--surface-2, #F1F3F5); border-radius: 999px; padding: 3px 9px; }
+.wsp-lock__b--on { color: var(--wsp-ok); background: rgba(30,122,83,.10); }
+.wsp-lock__b--lurk { color: var(--wsp-accent); background: rgba(188,102,117,.12); }
+.wsp-lock--lurk .wsp-lock__h i { color: var(--wsp-accent); }
+.wsp-lock--lurk .wsp-again { margin-top: 12px; }
+.wsp-lock__d b { color: var(--wsp-ink); font-weight: 600; }
+.wsp-lock__d { font-size: 12.5px; color: var(--wsp-sub); line-height: 1.6; }
+
+.wsp-empty { padding: 40px 20px; text-align: center; font-size: 13.5px; line-height: 1.65; color: var(--wsp-sub); }
+.wsp-empty b { color: var(--wsp-ink); font-weight: 600; }
+.wsp-empty__s { display: inline-block; margin-top: 10px; font-size: 11.5px; }
+@media (prefers-reduced-motion: reduce) { .wsp-bar__t span { transition: none; } }
+
+/* ───────────────────────────────────────────────────────────
+   [T-115] 원장 작업 기억 (work-memory.js · workspace-settings.js)
+   + 설정 섹션 헤더 리뉴얼(아이콘 + 제목 + 카운트).
+   라이트 기준만 — 다크 정비 보류 중(레포 CLAUDE.md 2026-05-28).
+   ─────────────────────────────────────────────────────────── */
+.subscreen-overlay .ss-hd {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+}
+.subscreen-overlay .ss-hd__ic {
+  width: 26px; height: 26px; border-radius: 8px;
+  background: var(--brand-bg, #F7EFF0); color: var(--brand-strong, #BC6675);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.subscreen-overlay .ss-hd__t {
+  font-size: 15px; font-weight: 800; letter-spacing: -0.3px; flex: 1; min-width: 0;
+  color: var(--text, #191F28);
+}
+.subscreen-overlay .ss-hd__n {
+  font-size: 11px; font-weight: 700; color: var(--text-subtle, #6B7684);
+  background: var(--surface-2, #F7F8FA); border: 1px solid var(--border, rgba(0,0,0,.07));
+  padding: 3px 8px; border-radius: 999px; flex-shrink: 0;
+}
+
+/* 기억 목록 — 이름이 주인공이라 가로 행(2열 그리드는 이름이 깨짐) */
+.wm-list { display: flex; flex-direction: column; gap: 8px; margin-top: 13px; }
+.wm {
+  display: flex; gap: 11px; align-items: center; padding: 9px;
+  border: 1px solid var(--border, rgba(0,0,0,.07)); border-radius: 14px;
+  background: var(--surface, #fff); cursor: pointer;
+  transition: border-color .16s, background .16s;
+}
+.wm.is-default { border-color: var(--brand, #D58A95); background: var(--brand-bg, #F7EFF0); }
+.wm.is-sel { border-color: var(--border-strong, rgba(0,0,0,.14)); }
+.wm__th {
+  width: 50px; height: 63px; border-radius: 8px; flex-shrink: 0; overflow: hidden;
+  background: var(--surface-2, #F7F8FA); border: 1px solid var(--border, rgba(0,0,0,.07));
+}
+.wm__th img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wm__c { flex: 1; min-width: 0; }
+.wm__name { font-size: 13px; font-weight: 800; letter-spacing: -0.35px; line-height: 1.4; color: var(--text, #191F28); }
+.wm__chips { font-size: 10.5px; color: var(--text-subtle, #6B7684); margin-top: 4px; line-height: 1.45; }
+.wm__when { font-size: 10px; color: var(--text-subtle, #6B7684); opacity: .8; margin-top: 2px; }
+.wm__star {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; border: none; cursor: pointer;
+  background: var(--surface-2, #F7F8FA); color: #C8CDD4;
+  display: flex; align-items: center; justify-content: center; transition: transform .1s;
+}
+.wm__star:active { transform: scale(0.88); }
+/* #ic-star 심볼은 fill/stroke 를 안 갖고 있어 쓰는 쪽이 정해줘야 한다(index.html:1571 과 같은 이유).
+   기본 아님=빈 별(윤곽) · 기본=꽉 찬 별. */
+.wm__star svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
+.wm__star.on svg { fill: currentColor; stroke: none; }
+.wm__star.on {
+  background: var(--brand, #D58A95); color: #fff;
+  box-shadow: 0 10px 24px rgba(213,138,149,.30);
+}
+.wm-btn--pri svg { fill: currentColor; stroke: none; }
+.wm-empty {
+  border: 1.5px dashed var(--border-strong, rgba(0,0,0,.14)); border-radius: 14px;
+  display: flex; align-items: center; justify-content: center; gap: 7px; padding: 14px;
+  color: var(--text-subtle, #6B7684); background: var(--surface-2, #F7F8FA);
+}
+.wm-empty span { font-size: 11.5px; font-weight: 600; text-align: center; }
+
+/* 인라인 액션 — 팝업 대신 카드 아래로 펼침 */
+.wm-acts {
+  background: var(--surface-2, #F7F8FA); border: 1px solid var(--border, rgba(0,0,0,.07));
+  border-radius: 14px; padding: 11px;
+}
+.wm-acts__t { font-size: 11.5px; font-weight: 800; color: var(--text-muted, #4E5968); margin-bottom: 9px; }
+.wm-acts__row { display: flex; gap: 7px; }
+.wm-btn {
+  flex: 1; border: 1px solid var(--border, rgba(0,0,0,.07)); background: var(--surface, #fff);
+  color: var(--text, #191F28); font-size: 11.5px; font-weight: 700; padding: 9px 6px;
+  border-radius: 10px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 4px; transition: transform .1s;
+}
+.wm-btn:active { transform: scale(0.95); }
+.wm-btn--pri { background: var(--brand, #D58A95); border-color: var(--brand, #D58A95); color: #fff; }
+.wm-btn--del { color: var(--danger, #EF4444); }
+
+/* 기억됐다고 알리는 카드 — 발행/저장 순간. 팝업 아님, 3.5초 뒤 사라짐.
+   토스트(z 9999 대)보다 살짝 아래에 깔되 safe-area 위로. */
+.wm-cap {
+  position: fixed; left: 12px; right: 12px;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  z-index: 9500;
+  background: var(--surface, #fff); border: 1px solid var(--border, rgba(0,0,0,.07));
+  border-radius: 20px; box-shadow: 0 14px 40px rgba(0,0,0,.22);
+  padding: 13px; display: flex; gap: 11px; align-items: flex-start; cursor: pointer;
+  transform: translateY(18px); opacity: 0;
+  transition: transform .32s cubic-bezier(.32,.72,0,1), opacity .32s;
+}
+.wm-cap.is-on { transform: translateY(0); opacity: 1; }
+.wm-cap__th {
+  width: 46px; height: 58px; border-radius: 8px; flex-shrink: 0; overflow: hidden;
+  background: var(--surface-2, #F7F8FA); border: 1px solid var(--border, rgba(0,0,0,.07));
+}
+.wm-cap__th img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wm-cap__c { flex: 1; min-width: 0; }
+.wm-cap__k {
+  font-size: 10.5px; font-weight: 800; color: var(--brand-strong, #BC6675);
+  display: flex; align-items: center; gap: 4px;
+}
+.wm-cap__n {
+  font-size: 14.5px; font-weight: 800; letter-spacing: -0.4px; margin-top: 4px; line-height: 1.3;
+  color: var(--text, #191F28);
+}
+.wm-cap__m { font-size: 11px; color: var(--text-subtle, #6B7684); margin-top: 4px; }
+
+@media (width >= 768px) {
+  /* PC: 고정 사이드바(--side-nav-width)에 안 가리게 — 반복 사고 방지(레포 CLAUDE.md) */
+  .wm-cap { left: calc(var(--side-nav-width, 232px) + 16px); right: auto; width: 360px; }
+}

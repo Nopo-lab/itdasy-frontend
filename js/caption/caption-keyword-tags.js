@@ -8,13 +8,13 @@
 // [다양성 팩 2026-07-12] SSOT = window.ItdasyServiceVocab(js/data/service-vocab.js) 로 이관. 8버티컬(반영구·메이크업·태닝·두피·에스테틱 추가).
 //   아래는 모듈 미로드 대비 인라인 폴백(회귀 방지). _shopKeywordsMap() 이 모듈 KEYWORDS 를 위에 병합해 실사용.
 const _BASE_SHOP_KEYWORDS = {
-  '붙임머리': ['붙임머리','비드붙임','링붙임','테이프붙임','클립인','옴브레','볼륨업','자연스러운','롱헤어','재시술','14인치','20인치','26인치'],
+  '붙임머리': ['붙임머리','18인치','20인치','22인치','24인치','26인치','비드붙임','링붙임','테이프붙임','팁붙임','클립인','컬러붙임','옴브레'],   // [2026-07-26 원영] 인치 나열이 실제 주문 단위 — 앞으로
   '네일아트': ['젤네일','손케어','이달의아트','프렌치','원톤','그라데이션','글리터','스톤','자개','시럽네일','연장','매트'],
   '네일': ['젤네일','손케어','이달의아트','프렌치','원톤','그라데이션','글리터','스톤','자개','시럽네일','연장','매트'],
   '헤어': ['커트','레이어드','펌','볼륨매직','아이롱펌','염색','뿌리염색','탈색','클리닉','앞머리펌','베이비펌','히피펌'],
   '미용실': ['커트','레이어드','다운펌','펌','볼륨매직','염색','뿌리염색','갈색염색','클리닉','셋팅','남성컷','앞머리펌'],
-  '속눈썹': ['볼륨','클래식','내추럴','C컬','D컬','CC컬','브라운','속눈썹펌','래쉬리프트','아이라인','리터치'],
-  '왁싱': ['브라질리언','바디왁싱','페이스왁싱','겨드랑이','팔다리','인모왁싱','슈가링','수염왁싱','재방문'],
+  '속눈썹': ['볼륨래쉬','클래식래쉬','내추럴래쉬','C컬','D컬','CC컬','브라운래쉬','속눈썹펌','래쉬리프트','아이라인','리터치'],
+  '왁싱': ['브라질리언','바디왁싱','페이스왁싱','겨드랑이','팔다리','인모왁싱','슈가링','수염왁싱','입술왁싱'],
   '피부': ['수분관리','여드름관리','모공관리','미백','탄력','스케일링','아쿠아필','리프팅','진정관리','LED관리'],
 };
 // 실사용 맵 — 공유 모듈 KEYWORDS 를 인라인 위에 병합(호출 시점 lazy → 로드 순서 무관).
@@ -68,14 +68,31 @@ function _shopKeywordBase() {
   }
   return null;
 }
-// 현재 업종에 맞는 키워드 목록 반환 (기본 - 삭제 + 커스텀)
+// [등록시술 연결 2026-07-20] 가격표 사진 업로드(/services/import-pricelist)·설정에서 등록한
+//   우리샵 시술(ServiceTemplate)을 캡션 칩 기본으로. 예전엔 업종 하드코딩 vocab 만 써서 '가격표 올려도
+//   캡션 칩엔 안 들어오던' 단절이 있었다. 등록 시술이 있으면 그게 우리샵 실제 메뉴 → 기본으로 쓴다.
+//   _serviceTemplatesCache(app-service-templates.js) 우선, 없으면 localStorage 캐시(즉시 표시용).
+function _loadRegisteredServices() {
+  try {
+    let c = (window._serviceTemplatesCache && window._serviceTemplatesCache.length)
+      ? window._serviceTemplatesCache
+      : JSON.parse(localStorage.getItem('itdasy_service_templates_cache') || '[]');
+    if (!Array.isArray(c)) return [];
+    return c.map(t => t && String(t.name || t.service_name || '').trim()).filter(Boolean);
+  } catch (_e) { return []; }
+}
+// 캡션 칩 키워드 목록 = (업종 vocab 앞 + 등록 시술 뒤 병합) − 삭제 + 커스텀.
 // [fix] 업종 미설정/미매핑(beauty·general 등)이면 '붙임머리'로 폴백하지 않는다 — 미용실인데 인치태그 쏟아지던 버그.
+// [2026-07-26 원영] 예전엔 등록 시술이 있으면 업종 vocab 을 통째로 무시 → 테스트로 등록된 타업종 시술(펌·젤네일)이
+//   붙임머리샵 칩을 덮어버렸다. 원장이 고른 업종이 항상 이기고, 등록 시술은 뒤에 병합(가격표 연결은 유지).
 function getShopKeywords() {
-  const base = _shopKeywordBase();
   const custom = _loadCustomKeywords();
-  if (!base) return [...new Set(custom)];   // 업종 미확정 → 커스텀만(자동 인치태그 금지)
   const deleted = _loadDeletedKeywords();
-  const filtered = base.filter(k => !deleted.includes(k));
+  const registered = _loadRegisteredServices();
+  const base = _shopKeywordBase();
+  const merged = base ? [...base, ...registered] : registered;
+  if (!merged.length) return [...new Set(custom)];   // 업종 미확정 + 등록 시술 없음 → 커스텀만(자동 인치태그 금지)
+  const filtered = merged.filter(k => !deleted.includes(k));
   return [...new Set([...filtered, ...custom])];
 }
 
@@ -109,19 +126,19 @@ function toggleCaptionTag(el) {
 }
 
 function deleteCaptionKeyword(keyword, e) {
-  e.stopPropagation();
-  const base = _shopKeywordBase() || [];   // [fix] '붙임머리' 폴백 제거 — 정규화 기반
-  if (base.includes(keyword)) {
-    // 기본 키워드는 삭제 목록에 추가
+  if (e && e.stopPropagation) e.stopPropagation();
+  // [2026-07-26 원영] 예전엔 '업종 기본칩'만 deleted 에 기록 — 등록 시술 칩은 어느 분기에도 안 걸려
+  //   ×를 눌러도 리렌더 때 되살아났다(삭제가 안 되는 것처럼 보임). 커스텀이면 커스텀에서 빼고,
+  //   그 외(업종 기본 + 등록 시술)는 전부 deleted 목록에 기록해 다시 안 뜨게.
+  const custom = _loadCustomKeywords();
+  if (custom.includes(keyword)) {
+    _saveCustomKeywords(custom.filter(k => k !== keyword));
+  } else {
     const deleted = _loadDeletedKeywords();
     if (!deleted.includes(keyword)) {
       deleted.push(keyword);
       _saveDeletedKeywords(deleted);
     }
-  } else {
-    // 커스텀 키워드는 직접 삭제
-    const custom = _loadCustomKeywords();
-    _saveCustomKeywords(custom.filter(k => k !== keyword));
   }
   renderCaptionKeywordTags();
 }

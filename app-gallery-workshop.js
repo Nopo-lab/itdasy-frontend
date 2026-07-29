@@ -1,5 +1,5 @@
-/* exported goWorkshopUpload, togglePhotoSelect */
-// Itdasy Studio — 작업실 탭 핵심 (상태·업로드·슬롯카드·드래그)
+/* exported togglePhotoSelect */
+// Itdasy Studio — 작업실 탭 핵심 (상태·업로드·슬롯카드)
 // 의존: app-gallery-utils.js, app-gallery-db.js (먼저 로드)
 // slot-editor / assign 이 읽는 setter 함수도 여기에 정의.
 
@@ -9,8 +9,6 @@ let _slots          = [];
 let _selectedIds    = new Set();
 let _popupSelIds    = new Set();
 let _wsInited       = false;
-let _dragPhotoId    = null;
-let _dragSrcEl      = null;
 let _popupSlotId    = null;
 let _popupUsage     = null;
 let _captionSlotId  = null;
@@ -100,60 +98,38 @@ async function renderHomeResume() {
 
 window.renderHomeResume = renderHomeResume;
 
-// ── 홈 탭 퀵액션 ───────────────────────────────────────────────
-function goWorkshopUpload() {
-  showTab('workshop', document.querySelector('.tab-bar__btn[data-tab="workshop"]'));
-  initWorkshopTab();
-  setTimeout(() => {
-    const zone = document.getElementById('wsDropZone');
-    if (zone) {
-      zone.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      zone.style.borderColor = 'var(--accent)';
-      zone.style.background = 'rgba(213,138,149,0.06)';
-      setTimeout(() => { zone.style.borderColor = ''; zone.style.background = ''; }, 1500);
-    }
-  }, 300);
-}
-
 // ── 작업실 탭 초기화 ───────────────────────────────────────────
+//   [2026-07-14] Workspace V2 가 작업실의 유일한 셸이다. 기존 셸로 되돌아가는 폴백 + ITDASY_WORKSPACE_V2
+//   플래그 제거 — 플래그는 true 하드코딩이라 분기가 죽어 있었고, 폴백은 V2 렌더가 throw 할 때만 도달하는데
+//   console.warn 뿐이라 발화해도 아무도 몰랐다. 게다가 그 안에서 이미 죽은 드래그 초기화를 부르고 있었다
+//   = 테스트되지 않아 썩은 안전망. 실패는 조용히 감추는 대신 소리나게 알린다.
+//   (아래 레거시 셸 함수들은 이제 호출자가 없다 — highlightWorkshopSlot 의 .ws-slot-card 셀렉터를
+//    V2 타일로 고치는 작업과 함께 별도 정리 예정.)
 async function initWorkshopTab() {
   const root = document.getElementById('workshopRoot');
   if (!root) return;
 
-  // [v501 Phase1] Workspace V2 — 작업실 첫 화면 교체.
-  //   휴면 폴백: window.ITDASY_WORKSPACE_V2 = false 또는 렌더 실패 시 아래 기존 렌더로 복귀.
-  if (window.ITDASY_WORKSPACE_V2 !== false &&
-      window.WorkspaceV2 && typeof window.WorkspaceV2.render === 'function') {
-    try {
-      let slots;
-      try { slots = await loadSlotsFromDB(); }
-      catch (_e) { console.warn('[workshop] V2 슬롯 로드 실패', _e); slots = []; }
-      _slots = slots || [];
-      window.WorkspaceV2.render(root, { slots: _slots });
-      return;
-    } catch (e) {
-      console.warn('[workshop] V2 렌더 실패 — 기존 작업실로 폴백', e);
-      _wsInited = false;                 // 기존 셸 강제 재구성
-      root.removeAttribute('data-ws-shell-bound');
-      root.innerHTML = '';
-    }
-  }
-
-  if (!_wsInited) {
-    _wsInited = true;
-    root.innerHTML = _buildWorkshopHTML();
-    _bindWorkshopShell(root);
-    _initDragEvents();
-  }
-
-  try { _slots = await loadSlotsFromDB(); }
+  let slots;
+  try { slots = await loadSlotsFromDB(); }
   catch (e) {
     // [2026-06-10] 침묵 실패 픽스 — 슬롯이 있는데 빈 화면으로 보이던 문제
     console.warn('[workshop] 슬롯 불러오기 실패', e);
-    _slots = [];
+    slots = [];
     if (window.showToast) window.showToast('작업 내역을 불러오지 못했어요 — 새로고침해 주세요');
   }
-  _scheduleBatchRender({ photoGrid: true, slotCards: true, banner: true });
+  _slots = slots || [];
+
+  if (!(window.WorkspaceV2 && typeof window.WorkspaceV2.render === 'function')) {
+    console.error('[workshop] WorkspaceV2 미로드');
+    if (window.showToast) window.showToast('작업실을 불러오지 못했어요 — 새로고침해 주세요');
+    return;
+  }
+  try {
+    window.WorkspaceV2.render(root, { slots: _slots });
+  } catch (e) {
+    console.error('[workshop] V2 렌더 실패', e);
+    if (window.showToast) window.showToast('작업실을 여는 중 문제가 생겼어요 — 새로고침해 주세요');
+  }
 }
 
 function _buildWorkshopHTML() {
@@ -333,7 +309,7 @@ async function _doResetWorkshop() {
   _selectedIds.clear(); _popupSelIds.clear();
   _wsInited = false;
   const root = document.getElementById('workshopRoot');
-  if (root) { root.innerHTML = _buildWorkshopHTML(); _bindWorkshopShell(root); _initDragEvents(); }
+  if (root) { root.innerHTML = _buildWorkshopHTML(); _bindWorkshopShell(root); }
   showToast('초기화 완료 ✅');
 }
 
@@ -654,7 +630,12 @@ window.highlightWorkshopSlot = async function (slotId) {
       window.ItbiActiveCard.set({ purpose: (_s.templateMeta && _s.templateMeta.purpose) || 'generic', label: _s.label || '카드', templateId: (_s.templateMeta && _s.templateMeta.templateId) || null, slotId: _s.id, available: true, origin: 'workshop' });
     }
   } catch (_e) { void _e; }
-  const card = document.querySelector('.ws-slot-card[data-slot-id="' + String(slotId).replace(/"/g, '') + '"]');
+  // [2026-07-14] 작업실 타일은 V2(`[data-wsv2-slot]`)가 그린다. 예전엔 레거시 셸이 그리던
+  //   `.ws-slot-card[data-slot-id]` 를 찾고 있어서 V2 전환 이후 늘 못 찾고 false 만 반환했다
+  //   (= 잇비 "그거 보여줘" 가 조용히 아무 일도 안 함). 셀렉터만 V2 타일로 교체.
+  //   위 initWorkshopTab 이 렌더까지 await 했고 V2.render 는 동기라 여기서 바로 조회된다.
+  const sel = '[data-wsv2-slot="' + (window.CSS && CSS.escape ? CSS.escape(String(slotId)) : String(slotId).replace(/"/g, '')) + '"]';
+  const card = document.querySelector(sel);
   if (!card) return false;
   card.scrollIntoView({ behavior: 'smooth', block: 'center' });
   card.style.transition = 'box-shadow 0.3s';
@@ -702,56 +683,4 @@ function _assignToSlot(photoId, slotId) {
   saveSlotToDB(slot).catch(() => { /* ignore */ });
 }
 
-// ── 드래그 (Touch + Mouse) ─────────────────────────────────────
-let _dragEventsInited = false;
-function _initDragEvents() {
-  // 중복 부착 방지 — 워크숍 탭 재진입마다 document 리스너가 쌓이면 렉 발생
-  if (_dragEventsInited) return;
-  _dragEventsInited = true;
-  document.addEventListener('touchmove',  _moveDragInd,       { passive: true });
-  document.addEventListener('mousemove',  _moveDragIndMouse);
-  document.addEventListener('touchend',   _onDragEnd,         { passive: false });
-  document.addEventListener('mouseup',    _onDragEnd);
-}
-
-function _showDragIndicator(dataUrl) {
-  let ind = document.getElementById('_gDragInd');
-  if (!ind) {
-    ind = document.createElement('div');
-    ind.id = '_gDragInd';
-    ind.style.cssText = 'position:fixed;width:60px;height:60px;border-radius:10px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.25);pointer-events:none;z-index:9999;opacity:0.85;display:none;transition:none;';
-    ind.innerHTML = '<img style="width:100%;height:100%;object-fit:cover;">';
-    document.body.appendChild(ind);
-  }
-  ind.querySelector('img').src = dataUrl;
-  ind.style.display = 'block';
-}
-
-function _moveDragInd(e) {
-  if (!_dragPhotoId) return;
-  const ind = document.getElementById('_gDragInd');
-  if (!ind) return;
-  const t = e.touches[0];
-  ind.style.left = (t.clientX - 30) + 'px';
-  ind.style.top  = (t.clientY - 30) + 'px';
-}
-
-function _moveDragIndMouse(e) {
-  if (!_dragPhotoId) return;
-  const ind = document.getElementById('_gDragInd');
-  if (!ind) return;
-  ind.style.left = (e.clientX - 30) + 'px';
-  ind.style.top  = (e.clientY - 30) + 'px';
-}
-
-function _hideDragIndicator() {
-  const ind = document.getElementById('_gDragInd');
-  if (ind) ind.style.display = 'none';
-}
-
-function _onDragEnd() {
-  if (_dragPhotoId) { _hideDragIndicator(); _dragPhotoId = null; _dragSrcEl = null; }
-}
-
-window.goWorkshopUpload = goWorkshopUpload;
 window.togglePhotoSelect = togglePhotoSelect;

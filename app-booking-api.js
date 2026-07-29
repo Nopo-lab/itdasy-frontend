@@ -60,8 +60,13 @@
 
   // [P2] 백그라운드 fresh fetch — stale-while-revalidate 의 fresh 단계
   // 절대 dispatch('itdasy:data-changed') 하지 말 것 — listener 가 cache invalidate + 재호출 → 무한 루프 (사용량 폭발).
-  async function _fetchFreshBookings(fromISO, toISO, key) {
-    const fetchId = ++_lastFetchId;  // [BUG-1] 이 요청의 고유 ID
+  async function _fetchFreshBookings(fromISO, toISO, key, opts) {
+    // [2026-07-25 예약QA #1] prefetch(이웃 달 미리불러오기)는 화면용 _items 소유권 경쟁에서 뺀다.
+    //   예전엔 prefetch 도 _lastFetchId 를 올리고 마지막 완료가 _items 를 덮어써서, 앱 진입/월이동
+    //   직후 _items = '다음 달' 예약이 됐다. findConflict 가 그 _items 를 봐서 표시월의 겹침을
+    //   못 잡고 이중예약이 무경고로 생성됐다(충돌검사 상시 무력화). prefetch 는 캐시만 채운다.
+    const prefetch = !!(opts && opts.prefetch);
+    const fetchId = prefetch ? -1 : (++_lastFetchId);  // prefetch 는 _items 를 세팅하지 않음
     const qs = new URLSearchParams();
     if (fromISO) qs.set('from', fromISO);
     if (toISO)   qs.set('to',   toISO);
@@ -70,8 +75,8 @@
       _isOffline = false;
       const items = d.items || [];
       _cache[key] = { t: Date.now(), items };
-      // [BUG-1] 백그라운드 fetch 완료 시, 더 새로운 요청이 이미 _items를 갱신했으면 덮어쓰지 않음
-      if (fetchId === _lastFetchId) {
+      // 실(prefetch 아님) fetch 중 더 새로운 요청이 없을 때만 _items 갱신(월 연타 이동 stale 방지).
+      if (!prefetch && fetchId === _lastFetchId) {
         _items = items;
       }
       return items;
@@ -85,27 +90,28 @@
         if (toISO   && t > new Date(toISO).getTime())   return false;
         return !b.deleted_at;
       });
-      if (fetchId === _lastFetchId) {
+      if (!prefetch && fetchId === _lastFetchId) {
         _items = filtered;
       }
       return filtered;
     }
   }
 
-  async function list(fromISO, toISO) {
+  async function list(fromISO, toISO, opts) {
+    const prefetch = !!(opts && opts.prefetch);
     const key = (fromISO || '') + '|' + (toISO || '');
     const hit = _cache[key];
     // [P2 SWR] 캐시 있으면 즉시 반환 — TTL 만료면 백그라운드에서 fresh fetch
     if (hit) {
-      _items = hit.items;
+      if (!prefetch) _items = hit.items;   // [#1] prefetch 는 화면용 _items(충돌검사 대상)를 건드리지 않는다
       if (Date.now() - hit.t >= CACHE_TTL) {
         // stale — 백그라운드 갱신 (await X)
-        _fetchFreshBookings(fromISO, toISO, key).catch(() => {});
+        _fetchFreshBookings(fromISO, toISO, key, opts).catch(() => {});
       }
-      return _items;
+      return prefetch ? hit.items : _items;
     }
     // 캐시 없으면 await
-    return _fetchFreshBookings(fromISO, toISO, key);
+    return _fetchFreshBookings(fromISO, toISO, key, opts);
   }
 
   // [2026-06-14 QA] 충돌 예약 객체를 반환 → 안내문에 고객명 노출 가능. 없으면 null.
@@ -126,6 +132,29 @@
   }
   function hasConflict(startsAt, endsAt, excludeId) {
     return findConflict(startsAt, endsAt, excludeId) != null;
+  }
+
+  // [보안감사 M-4 2026-07-26] findConflict 는 현재 로드된 달(_items)만 본다. 폼에서 '다른 달' 날짜를
+  //   고르면 그 달의 겹침을 못 잡아 무경고 이중예약이 생긴다. 이 함수는 해당 '날짜'의 예약만
+  //   prefetch(_items 는 안 건드림)해서 겹침을 확인한다. 실패/오류 시 null → 저장을 막지는 않는다.
+  async function dayConflict(startsAt, endsAt, excludeId) {
+    try {
+      const sv = new Date(startsAt).getTime(), ev = new Date(endsAt).getTime();
+      if (!Number.isFinite(sv) || !Number.isFinite(ev)) return null;
+      const dayStart = new Date(startsAt); dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(endsAt); dayEnd.setHours(23, 59, 59, 999);
+      const items = await list(dayStart.toISOString(), dayEnd.toISOString(), { prefetch: true });
+      if (!Array.isArray(items)) return null;
+      return items.find(b => {
+        if (excludeId && b.id === excludeId) return false;
+        if (b.status === 'cancelled' || b.status === 'no_show') return false;
+        const bs = new Date(b.starts_at).getTime();
+        if (!Number.isFinite(bs)) return false;
+        let be = new Date(b.ends_at).getTime();
+        if (!Number.isFinite(be)) be = bs + _DEFAULT_DUR_MS;
+        return !(ev <= bs || sv >= be);
+      }) || null;
+    } catch (_e) { return null; }
   }
 
   async function create(payload) {
@@ -185,6 +214,50 @@
     _items = _items.filter(b => b.id !== id);
     _invalidateCache();
     return { ok: true };
+  }
+
+  // [보안감사 C-5 2026-07-26] 오프라인(endpoint-missing·no-token)에 만든 예약을 재접속 시 서버로 올린다.
+  //   예전엔 OFFLINE_KEY 에 쓰고 성공만 반환할 뿐 flush 경로가 없어서, 온라인 복귀 후 캐시가
+  //   서버값으로 덮이면 그 예약이 서버에도 화면에도 없이 영구 소실됐다(노쇼·매출 누락).
+  //   생성분만 재전송한다(오프라인 수정/삭제 replay 는 위험해 범위 밖). 성공한 건만 로컬에서 제거.
+  let _flushing = false;
+  async function _flushOffline() {
+    if (_flushing) return;
+    if (!window.API || !window.authHeader) return;
+    const auth = window.authHeader();
+    if (!auth || !auth.Authorization) return; // 토큰 아직 없으면 다음 기회에
+    const pending = _loadOffline().filter(b => b && !b.deleted_at);
+    if (!pending.length) return;
+    _flushing = true;
+    let changed = false;
+    try {
+      for (const rec of pending) {
+        const data = {
+          starts_at: rec.starts_at, ends_at: rec.ends_at,
+          customer_id: rec.customer_id || null, customer_name: rec.customer_name || null,
+          service_name: rec.service_name || null, memo: rec.memo || null,
+          status: rec.status || 'confirmed',
+          amount: (rec.amount != null) ? rec.amount : null,
+          deposit: (rec.deposit != null) ? rec.deposit : null,
+        };
+        try {
+          await _api('POST', '/bookings', data);
+        } catch (e) {
+          // 엔드포인트 여전히 없거나 토큰 문제면 통째로 중단(다음 online 이벤트에 재시도).
+          if (e.message === 'endpoint-missing' || e.message === 'no-token') break;
+          continue; // 개별 실패(중복·검증 등)는 스킵해 나머지 진행
+        }
+        _saveOffline(_loadOffline().filter(b => b.id !== rec.id)); // 성공분 제거
+        changed = true;
+      }
+    } finally {
+      _flushing = false;
+    }
+    if (changed) {
+      _isOffline = false;
+      _invalidateCache();
+      try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'booking' } })); } catch (_e) { void _e; }
+    }
   }
 
   // [2026-04-26] 메모리 캐시 무효화 — 챗봇 등 외부 mutation 발생 시 호출
@@ -253,7 +326,7 @@
   }
 
   window.Booking = {
-    list, create, update, remove, hasConflict, findConflict,
+    list, create, update, remove, hasConflict, findConflict, dayConflict,
     shopHours: _shopHours,
     getCustomerLearning,
     _invalidateCache,
@@ -267,7 +340,11 @@
     window.addEventListener('itdasy:data-changed', (e) => {
       const kind = e && e.detail && e.detail.kind;
       if (kind && !/(booking|force_sync|focus_sync|online_restore)/.test(kind)) return;
+      // [보안감사 C-5] 복귀/동기화 신호엔 오프라인 생성분부터 서버로 flush (덮이기 전에).
+      if (kind && /(force_sync|focus_sync|online_restore)/.test(kind)) { _flushOffline(); }
       _invalidateCache();
     });
+    // [보안감사 C-5] 네트워크 복귀 시 오프라인 예약 재전송.
+    window.addEventListener('online', () => { _flushOffline(); });
   }
 })();

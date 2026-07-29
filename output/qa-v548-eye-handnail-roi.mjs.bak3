@@ -1,0 +1,49 @@
+// v548 QA — 눈맑게 neutral whitening(no blue) + 손/네일 휴리스틱 ROI + nailShape
+import { chromium } from 'playwright'; import fs from 'fs';
+const r=[]; const ck=(n,c,d)=>r.push({n,p:!!c,d:d||''});
+const PORT=process.env.QA_PORT||'8091'; const b=await chromium.launch();
+const html=`<!doctype html><html><body><script src="/app-photo-editor-smart-mask.js"></script><script src="/js/photo-editor/beauty-engine.js"></script></body></html>`;
+fs.writeFileSync('output/_v548qa.html',html);
+const p=await b.newPage(); const fe=[]; p.on('pageerror',e=>fe.push(String(e)));
+await p.goto('http://localhost:'+PORT+'/output/_v548qa.html',{waitUntil:'load'});
+const out=await p.evaluate(()=>{
+  const eng=window.PhotoEditorBeautyEngine, SM=window.PhotoEditorSmartMask;
+  // ── 눈맑게: 충혈 흰자 픽셀 ──
+  const W=120,H=120;
+  function eye(){const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d',{willReadFrequently:true});x.fillStyle='#ebc8b0';x.fillRect(0,0,W,H);x.fillStyle='#f0dede';x.fillRect(40,50,50,18);return x;}
+  function fm(rx,ry,rw,rh){const m=new Float32Array(W*H);for(let y=ry;y<ry+rh;y++)for(let x=rx;x<rx+rw;x++)m[y*W+x]=1;return m;}
+  const em={useMasks:{scleraMask:fm(40,50,50,18),eyeMask:fm(40,50,50,18)},_scale:{scleraMask:1},maskW:W,maskH:H};
+  function samp(c){const d=c.getImageData(60,58,1,1).data;return {r:d[0],g:d[1],b:d[2]};}
+  const e0=samp(eye()); let c=eye();eng.apply(c,W,H,{eyeRedness:100},false,em);const e100=samp(c);
+  // 손/네일 SmartMask 분류 + 효과
+  const HW=160,HH=200;
+  function hand(){const c=document.createElement('canvas');c.width=HW;c.height=HH;const x=c.getContext('2d',{willReadFrequently:true});x.fillStyle='#b9bcc2';x.fillRect(0,0,HW,HH);x.fillStyle='#e0b89a';x.fillRect(45,40,70,140);x.fillStyle='#d98aa0';x.fillRect(55,40,12,22);x.fillStyle='#dd92a6';x.fillRect(72,38,12,20);x.fillStyle='#d98aa0';x.fillRect(89,40,12,22);return x;}
+  function cls(px,py){const c=hand();const d=c.getImageData(px,py,1,1).data;const rr=d[0],g=d[1],bl=d[2];const lum=rr*.299+g*.587+bl*.114;return SM.classify({r:rr,g:g,b:bl,lum,maxCh:Math.max(rr,g,bl),minCh:Math.min(rr,g,bl),x:px,y:py,w:HW,h:HH});}
+  function mean(a,bd,rx,ry,rw,rh){let s=0,n=0;for(let y=ry;y<ry+rh;y++)for(let x=rx;x<rx+rw;x++){const i=(y*HW+x)*4;s+=Math.abs(a[i]-bd[i])+Math.abs(a[i+1]-bd[i+1])+Math.abs(a[i+2]-bd[i+2]);n+=3;}return +(s/n).toFixed(2);}
+  function eff(k,v,rx,ry,rw,rh){const c=hand();const bef=c.getImageData(0,0,HW,HH).data.slice();eng.apply(c,HW,HH,{[k]:v},false,null);const af=c.getImageData(0,0,HW,HH).data;return mean(bef,af,rx,ry,rw,rh);}
+  return {
+    e0, e100,
+    handSkinClass:+(cls(70,120).skin||0).toFixed(2), nailScore:+(cls(61,50).nail||0).toFixed(2),
+    handSkin100: eff('handSkin',100,45,90,70,80),
+    nailGloss100: eff('nailGloss',100,55,40,46,22),
+    nailShape100: eff('nailShape',100,55,40,46,22),
+    bgPollute: eff('nailGloss',100,2,2,30,30),
+  };
+});
+// #3 눈맑게
+ck('E-1 눈맑게 100 붉은기 완화(R↓)', out.e100.r < out.e0.r, 'R '+out.e0.r+'→'+out.e100.r);
+ck('E-2 눈맑게 100 파란색 아님(B ≤ R)', out.e100.b <= out.e100.r, 'B='+out.e100.b+' R='+out.e100.r);
+ck('E-3 눈맑게 100 파란색 아님(B 최댓값 아님)', out.e100.b <= Math.max(out.e100.r,out.e100.g), 'B='+out.e100.b);
+// #1/#2 손·네일
+ck('H-1 SmartMask 손=skin 분류(>0.3)', out.handSkinClass > 0.3, 'skin='+out.handSkinClass);
+ck('H-2 SmartMask 손톱=nail 분류(>0.3)', out.nailScore > 0.3, 'nail='+out.nailScore);
+ck('H-3 손 피부톤 무마스크에도 손영역 적용(>1)', out.handSkin100 > 1, 'd='+out.handSkin100);
+ck('H-4 네일 광택 손톱 적용(>2)', out.nailGloss100 > 2, 'd='+out.nailGloss100);
+ck('H-5 네일 경계 적용(>1)', out.nailShape100 > 1, 'd='+out.nailShape100);
+ck('H-6 배경 오염 낮음(<1)', out.bgPollute < 1, 'bg='+out.bgPollute);
+ck('H-7 휴리스틱 ROI overlay wiring', /_heuristicRoi/.test(fs.readFileSync('js/workspace/workspace-v2-flow.js','utf8')), '');
+ck('X-1 engine error 0', fe.length===0, fe.slice(0,2).join(' | '));
+const pass=r.filter(x=>x.p).length;
+console.log('V548 QA: '+pass+'/'+r.length+' '+(pass===r.length?'PASS':'FAIL'));
+r.forEach(x=>console.log('  '+(x.p?'PASS':'FAIL')+' '+x.n+(x.d?'  — '+x.d:'')));
+await b.close(); process.exit(pass===r.length?0:1);

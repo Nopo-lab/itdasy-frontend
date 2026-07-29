@@ -113,7 +113,10 @@
       const t = _itemTitle(r);
       const nm = _esc(t.main) + (t.sub ? `<span class="sub">${_esc(t.sub)}</span>` : '');
       const pm = TAG_LABEL[_normMethod(r.method)];
-      return `<div class="rvcal-li"><span class="nm">${nm}</span><span class="pm">${pm}</span><span class="am">${_money(r.amount)}</span></div>`;
+      // [버그2] 실제 매출 행만 인라인 편집 가능 — 예약금 합성 엔트리(_booking_deposit)는 예약에서 관리하므로 제외
+      const editable = !r._booking_deposit && r.id != null;
+      const attrs = editable ? ` data-rev-id="${_esc(String(r.id))}" style="cursor:pointer"` : '';
+      return `<div class="rvcal-li${editable ? ' is-editable' : ''}"${attrs}><span class="nm">${nm}</span><span class="pm">${pm}</span><span class="am">${_money(r.amount)}</span></div>`;
     }).join('');
     detailEl.className = 'rvcal-detail';
     detailEl.innerHTML = `
@@ -125,7 +128,15 @@
 
   function renderInto(gridEl, detailEl, opts) {
     opts = opts || {};
-    if (!gridEl || !window.CalendarView || !window.CalendarView.buildMonthGridHTML) return;
+    if (!gridEl) return;
+    // [P0-2] CalendarView(월 그리드 렌더러)는 이제 lazy 'features' 그룹. 아직 로드 전이면
+    //   그룹 로드 후 재렌더 — 빈 그리드로 남지 않게 브리지.
+    if (!window.CalendarView || !window.CalendarView.buildMonthGridHTML) {
+      if (window.AppLoader && typeof window.AppLoader.ensure === 'function' && !window.AppLoader.loaded('features')) {
+        window.AppLoader.ensure('features').then(() => renderInto(gridEl, detailEl, opts));
+      }
+      return;
+    }
     _ensureStyles();
     const byDay = _groupByDay(opts.items);
     const totals = {};
@@ -176,6 +187,14 @@
       detailEl._rvcalBound = true;
       detailEl.addEventListener('click', (e) => {
         if (e.target.closest('[data-rvcal-close]')) { deselect(); return; }
+        // [버그2] 매출 행 탭 → 그 행 아래로 인라인 편집(금액·결제수단 수정 + 삭제) 펼침
+        const li = e.target.closest('.rvcal-li[data-rev-id]');
+        if (li && window.RevenueEdit) {
+          const id = li.getAttribute('data-rev-id');
+          const rec = (byDay[selected] || []).find(r => String(r.id) === String(id));
+          if (rec) window.RevenueEdit.toggle(li, rec);
+          return;
+        }
         const btn = e.target.closest('[data-rvcal-add]');
         if (!btn) return;
         try { window._revenueHubPrefillDate = btn.getAttribute('data-rvcal-add') || ''; } catch (_e) { void _e; }

@@ -26,11 +26,8 @@
     if (typeof window.openPhotoEditorFromAction === 'function') {
       return window.openPhotoEditorFromAction(opts);
     }
-    if (window.PhotoEditor && typeof window.PhotoEditor.openFromAction === 'function') {
-      window.PhotoEditor.openFromAction(opts);
-      return true;
-    }
-    _toast('사진 편집기를 불러오는 중이에요. 잠시 후 다시 눌러주세요');
+    // [2026-07-22] 옛 PhotoEditor 폴백 제거 — 위 중앙 초크포인트가 현재 작업실로 보낸다.
+    _toast('작업실을 불러오는 중이에요. 잠시 후 다시 눌러주세요');
     return false;
   }
 

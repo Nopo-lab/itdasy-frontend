@@ -75,30 +75,10 @@
           <button type="button" class="ss-cta" data-nt-connect>연결하기</button>
         </div>
 
-        <div class="ss-card">
-          <div class="ss-card-tt">수신 옵션</div>
-          <div class="ss-toggle">
-            <div>
-              <div class="ss-toggle-lbl">잇비 답장 초안 준비</div>
-              <div class="ss-toggle-sub">새 문의가 오면 잇비가 답장 초안을 미리 작성</div>
-            </div>
-            <div class="ss-switch is-on" role="switch" aria-checked="true" tabindex="0" data-nt-toggle="draft"></div>
-          </div>
-          <div class="ss-toggle">
-            <div>
-              <div class="ss-toggle-lbl">새 문의 알림</div>
-              <div class="ss-toggle-sub">톡톡 문의가 들어오면 알려드려요</div>
-            </div>
-            <div class="ss-switch is-on" role="switch" aria-checked="true" tabindex="0" data-nt-toggle="notify"></div>
-          </div>
-          <div class="ss-toggle">
-            <div>
-              <div class="ss-toggle-lbl">자동 발송</div>
-              <div class="ss-toggle-sub">원장님 확인 없이 바로 전송 · 권장 안 함</div>
-            </div>
-            <div class="ss-switch" role="switch" aria-checked="false" tabindex="0" data-nt-toggle="autosend"></div>
-          </div>
-        </div>
+        <!-- [죽은동작 정리 2026-07-27] '수신 옵션' 3토글(초안준비·새문의알림·자동발송) 제거.
+             localStorage 에만 저장되고 백엔드 DM 코어가 안 읽어 켜든 끄든 무동작이었다. 특히
+             '자동 발송 · 원장님 확인 없이 바로 전송'은 켜도 아무 일 없었다(실 발송은 항상 확인 큐 경유).
+             톡톡 문의의 초안/알림/발송은 공유 DM 자동응답 설정(내샵관리>잇비 자동화)이 관장한다. -->
       </div>
     `;
     document.body.appendChild(el);
@@ -199,11 +179,32 @@
     }
   }
 
+  // [죽은동작 정리 2026-07-27] 연결 상태를 서버(GET /integrations/naver_talk)에서 재조회.
+  //   예전엔 localStorage('itdasy_nt_linked')만 봐서, 다른 기기에서 연결했거나 로컬을 지우면
+  //   실제 연결돼 있어도 '미연결'로 잘못 표시됐다.
+  function _refreshStatusFromServer() {
+    try {
+      fetch(_api() + '/integrations/naver_talk', { headers: _auth() })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (!d) return;
+          const linked = !!d.is_linked;
+          try { localStorage.setItem('itdasy_nt_linked', linked ? '1' : '0'); } catch (_e) { void _e; }
+          _setStatus(linked);
+        })
+        .catch(() => {});
+    } catch (_e) { void _e; }
+  }
+
   function openNaverTalkLink() {
     const el = _ensureMounted();
     _hydrate();
+    _refreshStatusFromServer();
     requestAnimationFrame(() => el.classList.add('is-open'));
     el.setAttribute('aria-hidden', 'false');
+    // [2026-07-22 보스] 뒤로가기 등록 — 안 하면 안드로이드 back/스와이프에서 이 화면 대신 앱이 그대로 꺼진다.
+    if (typeof window._registerSheet === 'function') window._registerSheet('naverTalkLink', closeNaverTalkLink);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('naverTalkLink');
     _haptic();
   }
   function closeNaverTalkLink() {
@@ -211,6 +212,7 @@
     if (!el) return;
     el.classList.remove('is-open');
     el.setAttribute('aria-hidden', 'true');
+    if (typeof window._markSheetClosed === 'function') window._markSheetClosed('naverTalkLink');
     _haptic();
   }
 

@@ -280,7 +280,7 @@
         </label>
 
         <div id="_icPreviewPhoto" style="margin-top:12px; display:none;">
-          <img id="_icPhoto" style="width:100%; border-radius:14px; max-height:220px; object-fit:cover; border:1px solid #eee;">
+          <img id="_icPhoto" alt="선택한 사진 미리보기" style="width:100%; border-radius:14px; max-height:220px; object-fit:cover; border:1px solid #eee;">
         </div>
 
         <div id="_icProgress" style="display:none; margin-top:18px;">
@@ -300,7 +300,7 @@
           <button id="_icCopyTags" style="margin-top:6px; padding:8px 12px; border:1px solid #e0e0e0; border-radius:8px; background:#fff; font-size:12px; cursor:pointer; min-height:36px;">해시태그 복사</button>
 
           <div style="font-size:13px; font-weight:700; margin:14px 0 6px;">9:16 스토리 미리보기</div>
-          <img id="_icStory" style="width:60%; max-width:240px; border-radius:14px; border:1px solid #eee; display:block; margin:0 auto;">
+          <img id="_icStory" alt="9:16 스토리 미리보기" style="width:60%; max-width:240px; border-radius:14px; border:1px solid #eee; display:block; margin:0 auto;">
           <div style="display:flex; gap:8px; margin-top:12px;">
             <a id="_icStoryDownload" download="itdasy-story.png" style="flex:1; text-align:center; padding:12px; border-radius:12px; background:#4caf50; color:#fff; text-decoration:none; font-weight:700; font-size:13px; min-height:44px; display:flex; align-items:center; justify-content:center;">💾 스토리 저장</a>
             <button id="_icAgain" style="flex:1; padding:12px; border-radius:12px; border:none; background:var(--brand); color:#fff; font-weight:700; font-size:13px; min-height:44px; cursor:pointer;">🔁 다른 사진</button>

@@ -117,6 +117,17 @@
   //   기존 getMasksForBeautySync 는 캐시 hit 일 때만 반환 → 작업실은 재호출 루프가 없어 항상 null → 피부/헤어 무반응.
   //   maskKey(사진별)로 1회만 계산해 캐시 → 슬라이더 놓을 때마다 재계산하던 느림도 제거.
   var _maskCache = {};
+  // [v779 성능] 마스크(대형 ImageData)가 사진 수만큼 무제한 쌓이던 누수 방어 — LRU 8개 캡.
+  var _maskKeys = [];
+  var _MASK_CAP = 8;
+  function _maskSet(key, val) {
+    if (!key) return;
+    if (!Object.prototype.hasOwnProperty.call(_maskCache, key)) {
+      _maskKeys.push(key);
+      while (_maskKeys.length > _MASK_CAP) { var ev = _maskKeys.shift(); delete _maskCache[ev]; }
+    }
+    _maskCache[key] = val;
+  }
   var MASK_TIMEOUT = 2500;   // 모델 첫 로딩 등으로 마스크가 늦으면 이번 패스는 전역 보정으로(행 방지). 다음 슬라이더에서 캐시 사용.
   function _finishMasks(base, img, b) {
     var m = base ? { useMasks: Object.assign({}, base.useMasks), _scale: Object.assign({}, base._scale), meta: base.meta, maskW: base.maskW, maskH: base.maskH } : null;
@@ -139,7 +150,7 @@
     }
     // 계산 시작 — 완료되면 캐시에 저장(타임아웃돼도 백그라운드로 채워져 다음 호출에서 사용).
     var compute;
-    if (has(MA.getMasksForBeauty)) compute = Promise.resolve(MA.getMasksForBeauty(img)).catch(function () { return null; }).then(function (m) { if (key) _maskCache[key] = m || null; return m; });
+    if (has(MA.getMasksForBeauty)) compute = Promise.resolve(MA.getMasksForBeauty(img)).catch(function () { return null; }).then(function (m) { if (key) _maskSet(key, m || null); return m; });
     else compute = Promise.resolve(has(MA.getMasksForBeautySync) ? MA.getMasksForBeautySync(img) : null);
     var timed = new Promise(function (res) { setTimeout(function () { res('__t__'); }, MASK_TIMEOUT); });
     return Promise.all([Promise.race([compute, timed]), strict]).then(function (all) {
@@ -213,7 +224,11 @@
 	  function _templateSize(tpl) {
 	    var cats = (window.PhotoEditorTemplateMarketData && window.PhotoEditorTemplateMarketData.CATS) || (window.PhotoEditorTemplatesV2 && window.PhotoEditorTemplatesV2.CATS) || [];
 	    var cat = cats.filter(function (c) { return c.id === tpl.cat; })[0] || {};
-	    return cat.size ? { w: cat.size[0], h: cat.size[1] } : { w: 1080, h: 1350 };
+	    // [#18] 스토리/릴스(9:16)만 카테고리 크기 유지 — 피드형은 사용자 '게시 크기' 선택(4:5/1:1)이 우선.
+	    //   템플릿은 상대좌표 렌더라 캔버스 크기 오버라이드가 안전(premium-templates.js w*0.07 식).
+	    if (cat.ratio === '9:16') return { w: cat.size[0], h: cat.size[1] };
+	    var sq = false; try { sq = localStorage.getItem('itdasy:ws_format') === '11'; } catch (_e) { void _e; }
+	    return sq ? { w: 1080, h: 1080 } : { w: 1080, h: 1350 };
 	  }
 	  function _pickPhoto(photos, role, fallbackIdx) {
 	    photos = photos || [];
@@ -379,10 +394,21 @@
         return Promise.resolve({ ok: false, reason: 'need_service', toast: '시술 내역을 먼저 입력해 주세요' });
       }
       return window.CaptionEngine.generate(opts).then(function (r) {
+        // [보안감사 M-13 2026-07-26] r 이 null/undefined 면 r.caption 이 TypeError 를 던지고,
+        //   그 메시지엔 'TypeError' 단어가 없어 아래 human 필터를 통과 → 개발자 에러문자열이 토스트에 노출됐다.
+        r = r || {};
+        if (!r.caption) return { ok: false, reason: 'empty', toast: '캡션을 만들지 못했어요 — 잠시 후 다시 시도해 주세요' };
         return { ok: true, caption: r.caption, hashtags: r.hashtags, hashtagsText: r.hashtagsText, log_id: r.log_id };
       }).catch(function (e) {
         console.warn('[wsadapter] caption', e);
-        return { ok: false, reason: 'api', toast: '캡션 생성에 실패했어요 — 잠시 후 다시' };
+        // [2026-07-22 보스] 서버가 사람 말로 이유를 줬으면 그걸 그대로 보여준다.
+        //   실제 사고: Vertex AI 쿼터 소진(429)인데 화면엔 "캡션 생성에 실패했어요"만 떠서
+        //   원장님이 원인을 모른 채 계속 다시 눌렀다(누를 때마다 30초 대기 + 쿼터 더 소모).
+        //   _personaFetch 가 detail 을 Error.message 로 실어 보낸다. 'HTTP 500' 같은 기계 문자열만 거른다.
+        var msg = String((e && e.message) || '');
+        var _isJsErr = e && (e.name === 'TypeError' || e.name === 'RangeError' || e.name === 'ReferenceError');
+        var human = msg && !_isJsErr && !/^HTTP\s|^\d{3}$|^401$|TypeError|NetworkError|Failed to fetch/i.test(msg);
+        return { ok: false, reason: 'api', toast: human ? msg : '캡션 생성에 실패했어요 — 잠시 후 다시' };
       });
     },
 
@@ -395,6 +421,105 @@
       return fetch(url, { method: 'PUT', headers: headers, body: JSON.stringify({ caption_template: String(text == null ? '' : text) }) })
         .then(function (res) { return res.ok ? { ok: true } : res.json().catch(function () { return {}; }).then(function (j) { return { ok: false, toast: j.detail || ('저장 실패 (' + res.status + ')') }; }); })
         .catch(function () { return { ok: false, toast: '네트워크 오류로 저장하지 못했어요' }; });
+    },
+
+    /* [2026-07-24] AI 가 자동감지한 서명(고정 문구) — 원장님이 보고/고치고/끄게.
+       백엔드엔 /persona/signature 가 있었는데 프론트가 한 번도 안 불러서, 원장님이
+       자동감지 서명을 볼 수도 끌 수도 없었다(조용히 생성돼 조용히 캡션에 붙었다). */
+    listSignatures: function () {
+      var h = window.authHeader ? window.authHeader() : {};
+      if (!h.Authorization) return Promise.resolve([]);
+      var u = (typeof window.apiUrl === 'function') ? window.apiUrl('/persona/signature') : ((window.API || '') + '/persona/signature');
+      return fetch(u, { headers: h })
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (arr) { return Array.isArray(arr) ? arr : []; })
+        .catch(function () { return []; });
+    },
+    // 편집하면 백엔드가 source=manual 로 바꿔 재분석이 안 덮는다(update_signature_block).
+    updateSignature: function (id, content) {
+      var h = window.authHeader ? window.authHeader() : {};
+      if (!h.Authorization || id == null) return Promise.resolve({ ok: false });
+      h['Content-Type'] = 'application/json';
+      var p = '/persona/signature/' + encodeURIComponent(id);
+      var u = (typeof window.apiUrl === 'function') ? window.apiUrl(p) : ((window.API || '') + p);
+      return fetch(u, { method: 'PUT', headers: h, body: JSON.stringify({ content: String(content == null ? '' : content) }) })
+        .then(function (r) { return { ok: !!(r && r.ok) }; })
+        .catch(function () { return { ok: false }; });
+    },
+    // 끄기 — soft delete(active=false). 다음 재분석에 다시 안 살아난다.
+    deleteSignature: function (id) {
+      var h = window.authHeader ? window.authHeader() : {};
+      if (!h.Authorization || id == null) return Promise.resolve({ ok: false });
+      var p = '/persona/signature/' + encodeURIComponent(id);
+      var u = (typeof window.apiUrl === 'function') ? window.apiUrl(p) : ((window.API || '') + p);
+      return fetch(u, { method: 'DELETE', headers: h })
+        .then(function (r) { return { ok: !!(r && r.ok) }; })
+        .catch(function () { return { ok: false }; });
+    },
+
+    // [v779] 예약 발행 — 백엔드 /scheduled-posts. 서버가 예약시각에 content_publish 로 발행(새 Meta 권한 불필요).
+    //   즉시발행(multipart)과 달리 예약 업로드는 JSON {image_data: dataURL} → 서버가 절대 URL 반환 → 예약 생성.
+    // [2026-07-22 보스] 여러 장(캐러셀) 예약 지원. o.imageUrls(배열) 를 받아 한 장씩 업로드한 뒤
+    //   image_urls 로 예약을 만든다. 예약 시각에 워커가 캐러셀로 올린다.
+    //   o.imageUrl(단일) 도 계속 받는다 — 예전 호출부 호환.
+    /* [2026-07-23 보스] 예약 목록 / 취소 — 백엔드엔 있는데 프론트가 안 쓰고 있었다.
+       그래서 원장이 예약을 걸면 **막을 방법이 없었다.** 발행은 되돌릴 수 없는데 취소가 없는 건
+       그 자체로 사고다. 목록도 없어서 실패한 예약을 볼 수도 없었다. */
+    listScheduled: function () {
+      var h = window.authHeader ? window.authHeader() : {};
+      if (!h.Authorization) return Promise.resolve([]);
+      var u = (typeof window.apiUrl === 'function') ? window.apiUrl('/scheduled-posts') : ((window.API || '') + '/scheduled-posts');
+      return fetch(u, { headers: h })
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .catch(function () { return []; });
+    },
+    cancelScheduled: function (id) {
+      var h = window.authHeader ? window.authHeader() : {};
+      if (!h.Authorization || id == null) return Promise.resolve({ ok: false });
+      var p = '/scheduled-posts/' + encodeURIComponent(id);
+      var u = (typeof window.apiUrl === 'function') ? window.apiUrl(p) : ((window.API || '') + p);
+      return fetch(u, { method: 'DELETE', headers: h })
+        .then(function (r) { return { ok: !!(r && r.ok) }; })
+        .catch(function () { return { ok: false }; });
+    },
+
+    scheduleInstagramV2: function (o) {
+      o = o || {};
+      var H = function () { var h = window.authHeader ? window.authHeader() : {}; h['Content-Type'] = 'application/json'; return h; };
+      var U = function (p) { return (typeof window.apiUrl === 'function') ? window.apiUrl(p) : ((window.API || '') + p); };
+      var srcs = (o.imageUrls && o.imageUrls.length) ? o.imageUrls.slice(0, 10) : [o.imageUrl].filter(Boolean);
+      if (!srcs.length) return Promise.resolve({ ok: false, toast: '이미지를 준비하지 못했어요' });
+
+      // 한 장 → JPEG dataURL → 서버 업로드 → 절대 URL
+      function _uploadOne(src, idx) {
+        return _toJpegBlob(src, 1440, 0.86).then(function (blob) {
+          if (!blob) throw { toast: (srcs.length > 1 ? (idx + 1) + '번째 ' : '') + '이미지를 준비하지 못했어요' };
+          return new Promise(function (res) {
+            var fr = new FileReader();
+            fr.onload = function () { res(fr.result); };
+            fr.onerror = function () { res(null); };
+            fr.readAsDataURL(blob);
+          });
+        }).then(function (dataUrl) {
+          if (!dataUrl || typeof dataUrl !== 'string') throw { toast: (srcs.length > 1 ? (idx + 1) + '번째 ' : '') + '이미지 변환에 실패했어요' };
+          return fetch(U('/scheduled-posts/upload'), { method: 'POST', headers: H(), body: JSON.stringify({ image_data: dataUrl }) })
+            .then(function (r) { return r.ok ? r.json() : r.json().catch(function () { return {}; }).then(function (j) { throw { toast: j.detail || ('이미지 업로드 실패 (' + r.status + ')') }; }); })
+            .then(function (up) { return up.url; });
+        });
+      }
+
+      // 순차 업로드 — 여러 장을 동시에 올리면 모바일 회선에서 서로 잡아먹어 더 잘 실패한다.
+      var urls = [];
+      var chain = srcs.reduce(function (p, src, idx) {
+        return p.then(function () { return _uploadOne(src, idx); }).then(function (u) { urls.push(u); });
+      }, Promise.resolve());
+
+      return chain.then(function () {
+        return fetch(U('/scheduled-posts'), { method: 'POST', headers: H(), body: JSON.stringify({
+          image_url: urls[0], image_urls: urls, caption: String(o.caption || ''),
+          hashtags: (o.hashtags || []).join(','), scheduled_at: o.scheduledAt,
+        }) }).then(function (r2) { return r2.ok ? { ok: true, count: urls.length } : r2.json().catch(function () { return {}; }).then(function (j) { return { ok: false, toast: j.detail || ('예약 저장 실패 (' + r2.status + ')') }; }); });
+      }).catch(function (e) { return { ok: false, toast: (e && e.toast) || '예약에 실패했어요 — 잠시 후 다시' }; });
     },
 
     // [P1 학습 루프 2026-07-10] 발행한 최종 캡션을 학습에 반영 — PATCH /persona/generation_logs/{id}
@@ -445,7 +570,8 @@
       }
       return Promise.resolve(window.Customer.pick({ selectedId: selectedId || null })).then(function (picked) {
         if (!picked || picked.id == null) return { ok: false, reason: 'cancel' };
-        return { ok: true, id: picked.id, name: picked.name };
+        // [v779] 방문횟수 전달 — 없으면 connect 가 항상 '첫 방문/0회'로 오표시했다(재방문 고객인데).
+        return { ok: true, id: picked.id, name: picked.name, vc: picked.visit_count || picked.vc || 0 };
       });
     },
 
@@ -507,6 +633,11 @@
             var fd = new FormData();
             blobs.forEach(function (b, i) { fd.append('images', b, 'itdasy_carousel_' + i + '.jpg'); });
             fd.append('caption', opts.caption || '');
+            // [계정 태그 2026-07-14] 캐러셀도 태그 전송 — 기존엔 여기서 안 보내서(그리고 flow 도 feed 일 때만 만들어서)
+            //   여러 장 발행 시 계정 태그가 에러 없이 조용히 사라졌다. 백엔드가 커버(첫 장) child 에 적용.
+            if (opts.userTags && opts.userTags.length) { try { fd.append('user_tags', JSON.stringify(opts.userTags)); } catch (_e) { void _e; } }
+            // [P2-H1] 재시도해도 같은 키 → 서버가 재발행 안 하고 이전 결과를 준다(공개 중복 게시 방지).
+            if (opts.idempotencyKey) fd.append('idempotency_key', opts.idempotencyKey);
             return _post('/instagram/publish-carousel-file', fd);
           });
       }
@@ -514,20 +645,35 @@
       if (!opts.imageUrl) return Promise.resolve({ ok: false, reason: 'blob' });
       var _isStory = kind === 'story';   // 스토리=캡션 없음, media_type=STORIES
       var _endpoint = _isStory ? '/instagram/publish-story-file' : '/instagram/publish-file';
-      return Promise.resolve(fetch(opts.imageUrl).then(function (r) { return r.blob(); }).catch(function () { return null; }))
+      // [속도 2026-07-14] 캐러셀과 동일하게 JPEG 변환 후 전송.
+      //   기존 단일 경로만 원본 blob 을 그대로 올려, 편집/합성본이 PNG 로 나오는 경로(flow:2734·3106)에선
+      //   1080x1350 PNG = 수 MB 를 업로드해 30초~1분씩 걸렸다. (캐러셀은 [#3] 에서 이미 _toJpegBlob 적용)
+      //   인스타는 어차피 투명도를 버리고 JPEG 로 재인코딩하므로 화질 손실 없이 용량만 줄어든다.
+      return Promise.resolve(_toJpegBlob(opts.imageUrl))
         .then(function (blob) {
           if (!blob) return { ok: false, reason: 'blob' };
           var fd = new FormData();
-          fd.append('image', blob, _isStory ? 'itdasy_story.png' : 'itdasy_v2.png');
+          fd.append('image', blob, _isStory ? 'itdasy_story.jpg' : 'itdasy_v2.jpg');
           if (!_isStory) fd.append('caption', opts.caption || '');
           // [계정 태그] 피드에서만 — user_tags: [{username,x,y}]
           if (!_isStory && opts.userTags && opts.userTags.length) { try { fd.append('user_tags', JSON.stringify(opts.userTags)); } catch (_e) { void _e; } }
+          // [P2-H1] 피드만 — 스토리는 24h 휘발이라 백엔드에 키를 안 받는다.
+          if (!_isStory && opts.idempotencyKey) fd.append('idempotency_key', opts.idempotencyKey);
           return _post(_endpoint, fd);
         });
     },
     connectInstagram: function () { if (has(window.connectInstagram)) { window.connectInstagram(); return { ok: true }; } return { ok: false, reason: 'no_fn' }; },
     copyText: function (text) {
-      try { if (navigator.clipboard) { navigator.clipboard.writeText(text || ''); toast('캡션을 복사했어요'); return { ok: true }; } } catch (_e) { /* ignore */ }
+      // [보안감사 L-9 2026-07-26] writeText 를 await 안 하고 성공 토스트를 선표시 → 권한 거부 시 오안내였다.
+      //   실제 결과(성공/실패)에 맞춰 토스트를 띄운다.
+      try {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(text || '')
+            .then(function () { toast('캡션을 복사했어요'); })
+            .catch(function () { toast('복사에 실패했어요 — 길게 눌러 복사해 주세요'); });
+          return { ok: true };
+        }
+      } catch (_e) { /* ignore */ }
       return { ok: false, reason: 'no_clipboard' };
     },
     saveImage: function (dataUrl, name) {

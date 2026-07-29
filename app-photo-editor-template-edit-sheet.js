@@ -100,8 +100,9 @@
       return;
     }
     close();
+    // [2026-07-22] 옛 편집기 EntryV6.goto('export') 폴백 제거 — 편집기가 사라져 도달 불가.
+    //   현재 호출부(잇비 headless)는 항상 state.onSave 를 주므로 위 임베드 분기로만 간다.
     if (typeof _ctx.helpers.applyStatePatch === 'function') _ctx.helpers.applyStatePatch({ activeTab: 'export' });
-    else if (window.PhotoEditorEntryV6 && typeof window.PhotoEditorEntryV6.goto === 'function') window.PhotoEditorEntryV6.goto('export', 'save');
     _toast('저장 화면을 열었어요');
   }
 

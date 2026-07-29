@@ -43,11 +43,36 @@
   function _cached() { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (_) { return []; } }
   function _setCache(items) { try { localStorage.setItem(KEY, JSON.stringify(items)); } catch (_) { void _; } }
 
+  // [죽은동작 정리 2026-07-27] 오프라인에서 만든 리뷰요청(tmp_ id)을 서버로 재전송.
+  //   예전엔 _loadFromServer 가 _items 를 서버목록으로 통째 교체해 tmp_ 가 소실됐고,
+  //   PATCH/DELETE 도 tmp_ 를 스킵해 영영 미동기화였다. 성공분만 실 항목으로 교체.
+  async function _flushTmp() {
+    const tmps = _items.filter((r) => String(r.id).startsWith('tmp_'));
+    if (!tmps.length) return;
+    for (const t of tmps) {
+      try {
+        const real = await _api('POST', '/customer-reviews', {
+          customer_id: t.customer_id || null,
+          customer_name: t.customer_name,
+          review_link: t.review_link || '',
+        });
+        const idx = _items.findIndex((r) => r.id === t.id);
+        if (idx >= 0) _items[idx] = real; else _items.unshift(real);
+      } catch (_e) { break; }  // 여전히 오프라인 → 다음 기회에 재시도(보존)
+    }
+    _setCache(_items);
+    try { _render(); } catch (_e) { void _e; }
+  }
+
   async function _loadFromServer() {
     try {
       const data = await _api('GET', '/customer-reviews');
-      _items = (data && data.items) ? data.items : [];
+      const server = (data && data.items) ? data.items : [];
+      // 오프라인 생성분(tmp_)은 서버에 없어 덮이면 사라진다 → 앞에 보존 후 flush.
+      const pendingTmp = _cached().filter((r) => String(r.id).startsWith('tmp_'));
+      _items = pendingTmp.length ? pendingTmp.concat(server) : server;
       _setCache(_items);
+      if (pendingTmp.length) _flushTmp();
     } catch (_e) {
       _items = _cached();
     }

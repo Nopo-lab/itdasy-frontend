@@ -9,6 +9,14 @@
 
   // cmd 는 객체 또는 (text)=>객체. WorkspaceFlow.command(cmd) 스키마를 그대로 사용.
   var COMMANDS = [
+    // ── 꾸미기(스티커·텍스트·그리기·누끼) → 현재 인스타식 편집기(ItdEditor). [2026-07-22] ──
+    //   '붙여줘'가 고객연결 규칙에 먼저 잡히지 않게 맨 위에 둔다.
+    { test: /(스티커|이모지|데코|꾸며|꾸미|예쁘게\s*꾸)/, cmd: { type: 'storyedit' }, label: '편집기를 열었어요 — 스티커·꾸미기를 넣어보세요' },
+    { test: /(글씨|글자|텍스트|타이포)\s*(넣|써|추가|올)|문구\s*이미지/, cmd: { type: 'storyedit' }, label: '편집기를 열었어요 — 텍스트를 넣어보세요' },
+    { test: /(그리기|그려|낙서|펜으로|손글씨)/, cmd: { type: 'storyedit' }, label: '편집기를 열었어요 — 그리기를 해보세요' },
+    { test: /(누끼|배경)\s*(제거|지워|따|빼|없애|흐림|흐리게|블러|바꿔|바꾸)|누끼/, cmd: { type: 'storyedit' }, label: '편집기를 열었어요 — 배경·누끼를 조정하세요' },
+    { test: /(사진\s*편집|편집기|꾸미기\s*열|이미지\s*편집)/, cmd: { type: 'storyedit' }, label: '편집기를 열었어요' },
+
     // ── 고객 연결(이름 추출) ──
     { test: /(고객|손님|님).*(연결|연동|붙여)|(연결|붙여)\s*(해|줘)/, cmd: function (q) {
       var m = q.match(/([가-힣A-Za-z]{2,12})\s*(손님|고객|님)?\s*(이?랑|와|과|에게|을|를|한테)?\s*(연결|연동|붙여)/);
@@ -16,7 +24,7 @@
       if (/^(고객|손님|연결|연동)$/.test(name)) name = '';
       return name ? { type: 'customer', name: name } : { type: 'goto', screen: 'connect' };
     }, label: null },
-    { test: /(미리보기|인스타.*미리|preview)/, cmd: { type: 'goto', screen: 'preview' }, label: '미리보기로 이동했어요' },
+    { test: /(미리보기|인스타.*미리|preview)/, cmd: { type: 'goto', screen: 'caption' }, label: '미리보기로 이동했어요' },   // [요청6] 미리보기=캡션 화면에 통합 → caption 으로
     // [버그수정 2026-07-06] "사진 올려줘"·"블로그에 올려줘"가 인스타 발행으로 오발동하던 것 —
     //   발행 대상(인스타/sns/피드/스토리) 또는 명확한 '발행해'만 매칭.
     { test: /(인스타|sns|피드|스토리).*(올려|게시|발행|업로드)|(발행)\s*(해|줘|할래|해줘)/, cmd: { type: 'publish' }, label: '인스타에 올릴게요' },
@@ -24,17 +32,9 @@
     //   '작업실 저장' 또는 앞에 다른 대상 없는 '저장해'만 매칭(^ 앵커).
     { test: /작업실.*저장|^\s*(?:이거|이것|이걸|현재|지금|여기)?\s*저장\s*(?:해|할래|해줘)$/, cmd: { type: 'save' }, label: '작업실에 저장했어요' },
 
-    // ── 배경/누끼 ──
-    { test: /(누끼|배경)\s*(제거|지워|따|빼|없애)|누끼/, cmd: { type: 'bg', action: 'removeBg' }, label: '배경(누끼)을 제거할게요' },
-    { test: /(배경)\s*(흐림|흐리게|블러)/, cmd: { type: 'bg', action: 'blur' }, label: '배경을 흐리게 할게요' },
-
-    // ── 템플릿 ──
-    { test: /(전후|비포\s*애프터|before\s*after)\s*(템플릿|카드|만들|적용)?/, cmd: { type: 'template', key: 'ba' }, label: '전후 비교 템플릿을 적용할게요' },
-    { test: /(시술\s*자랑|완성컷|자랑)\s*(템플릿|카드|만들|적용)?/, cmd: { type: 'template', key: 'showcase' }, label: '시술 자랑 템플릿을 적용할게요' },
-    { test: /(후기|리뷰)\s*(템플릿|카드|만들|적용)?/, cmd: { type: 'template', key: 'review' }, label: '고객 후기 템플릿을 적용할게요' },
-    { test: /(이벤트|할인|혜택)\s*(템플릿|카드|안내|만들|적용)?/, cmd: { type: 'template', key: 'event' }, label: '이벤트 템플릿을 적용할게요' },
-    { test: /(스토리)\s*(템플릿|홍보|만들|적용)?/, cmd: { type: 'template', key: 'story' }, label: '스토리 템플릿을 적용할게요' },
-    { test: /(피드)\s*(템플릿|안내|만들|적용)?/, cmd: { type: 'template', key: 'feed' }, label: '인스타 피드 템플릿을 적용할게요' },
+    // ── 레이아웃/템플릿 → 현재 워크플로의 레이아웃 고르기 화면(옛 템플릿 적용 아님) ──
+    //   '후기 게시글'처럼 캡션 요청을 삼키지 않게, 뒤에 템플릿/카드/레이아웃 키워드가 있을 때만 매칭.
+    { test: /(레이아웃|배치|구도)\s*(고르|골라|바꿔|바꾸|선택|열)|(전후|비포\s*애프터|before\s*after|시술\s*자랑|완성컷|후기|리뷰|이벤트|스토리|피드)\s*(템플릿|카드|레이아웃)/, cmd: { type: 'goto', screen: 'layout' }, label: '레이아웃 고르기로 이동했어요' },
 
     // ── 정밀(부위) 보정 ──
     { test: /(피부|잡티|붉은기|피부톤)\s*(보정|정리|매끈|살려|좋게)?/, cmd: { type: 'adjust', beauty: { skin: 35, blemish: 40, textureSmooth: 28 } }, label: '피부를 자연스럽게 정리했어요' },
@@ -54,11 +54,10 @@
     { test: /(따뜻|웜톤|노란빛|따숩)/, cmd: { type: 'adjust', delta: { color: 25 } }, label: '따뜻한 톤으로 맞췄어요' },
     { test: /(차갑|쿨톤|시원|푸른빛)/, cmd: { type: 'adjust', delta: { color: -25 } }, label: '시원한 톤으로 맞췄어요' },
 
-    // ── 편집 되돌리기/비교/초기화 ──
-    { test: /(되돌려|이전으로|편집\s*취소|언두)/, cmd: { type: 'edit', action: '되돌리기' }, label: '한 단계 되돌렸어요' },
+    // ── 보정 되돌리기/초기화 (즉석 보정용, headless) ──
+    { test: /(되돌려|이전으로|보정\s*취소|언두)/, cmd: { type: 'edit', action: '되돌리기' }, label: '한 단계 되돌렸어요' },
     { test: /(다시\s*실행|리두)/, cmd: { type: 'edit', action: '다시실행' }, label: '다시 실행했어요' },
-    { test: /(원본\s*(보기|비교)|비교해)/, cmd: { type: 'edit', action: '비교' }, label: '원본과 비교 중이에요' },
-    { test: /(보정\s*(초기화|지워|리셋)|편집\s*초기화)/, cmd: { type: 'edit', action: '초기화' }, label: '보정을 초기화했어요' },
+    { test: /(보정\s*(초기화|지워|리셋))/, cmd: { type: 'edit', action: '초기화' }, label: '보정을 초기화했어요' },
 
     // ── 캡션(게시글) ──
     { test: /(게시글|캡션|문구).*(초기화|지워|리셋)/, cmd: { type: 'capvar', variant: 'reset' }, label: '게시글을 초기화했어요' },
@@ -90,12 +89,17 @@
   // [구조 통합 P2] 작업실이 "닫혀 있을 때" 자연어로 여는 명령 — 명시 발화만(작업실/게시글만)이라
   //   기존 잇비 사진모드(photo-mode, "사진 편집해줘"류)와 충돌 안 함.
   var OPEN_COMMANDS = [
+    // [Phase 4 2026-07-20] "오늘 사진으로 게시글" — 오늘 로컬 갤러리 저장분을 모아 작업실에 주입(업로드 스킵).
+    //   _collectToday 플래그는 tryOpen 이 async 로 처리(loadGalleryItems). flow.js 무수정, 공개 open 만 사용.
+    { test: /오늘.*(사진|찍은|시술|작업).*(게시글|올려|만들|글\b|홍보)|오늘.*(거|것|한\s*거).*(게시글|올려|만들)/, cmd: { type: 'open', _collectToday: true }, label: null },
     { test: /작업실.*(전후|비포\s*애프터)|전후.*작업실/, cmd: { type: 'open', cat: 'ba' }, label: '작업실에서 전후 만들기를 열었어요' },
     { test: /작업실.*(후기|리뷰)|후기.*작업실/, cmd: { type: 'open', cat: 'review' }, label: '작업실에서 고객 후기 만들기를 열었어요' },
     { test: /작업실.*(이벤트|할인|혜택)/, cmd: { type: 'open', cat: 'event' }, label: '작업실에서 이벤트 만들기를 열었어요' },
     { test: /작업실.*(시술\s*자랑|자랑|완성컷|피드)/, cmd: { type: 'open', cat: 'flex' }, label: '작업실에서 시술 자랑 만들기를 열었어요' },
     // [버그수정 2026-07-06] "작업실 게시글 지워/삭제/보여줘"가 쓰기 화면으로 열리던 것 — 삭제·조회 동사면 미매칭.
     { test: /^(?=[\s\S]*작업실)(?=[\s\S]*(?:게시글|글|캡션|문구))(?![\s\S]*(?:지워|지울|삭제|없애|취소|초기화|리셋|보여\s*줘|알려\s*줘))[\s\S]*/, cmd: { type: 'open', textOnly: true, screen: 'caption' }, label: '작업실에서 게시글 쓰기를 열었어요' },
+    // [2026-07-22] 닫힌 상태에서 꾸미기/누끼/편집 발화 → 현재 인스타식 편집기(ItdEditor)로 (채팅 사진 함께 투입).
+    { test: /(스티커|이모지|데코|꾸며|꾸미|글씨\s*넣|글자\s*넣|텍스트\s*넣|그리기|그려|낙서|누끼|사진\s*편집|이미지\s*편집|편집기\s*열)/, cmd: { type: 'storyedit' }, label: '편집기를 열었어요' },
     { test: /작업실\s*(열어?\s*줘?|열기|시작|보여\s*줘?|들어가|가자|가\s*줘|이동|켜\s*줘?|만들|편집)/, cmd: { type: 'open' }, label: '작업실을 열었어요' },
     { test: /^작업실(로|에|좀)?\s*$/, cmd: { type: 'open' }, label: '작업실을 열었어요' },
     { test: /(게시글만|글만|문구만|캡션만)\s*(써|쓰|작성|만들|생성)/, cmd: { type: 'open', textOnly: true, screen: 'caption' }, label: '게시글 쓰기를 열었어요' },
@@ -105,6 +109,39 @@
   function _flowOpen() {
     try { return !!(window.WorkspaceFlow && window.WorkspaceFlow.isOpen && window.WorkspaceFlow.isOpen()); }
     catch (_e) { return false; }
+  }
+
+  // [Phase 4] 오늘(자정 이후) 로컬 갤러리에 저장된 시술 사진들의 dataUrl 을 최대 max 장 수집.
+  //   daily-briefing.js 의 loadGalleryItems + savedAt 컷오프 패턴과 동일. 없으면 [].
+  function _collectTodayPhotos(max) {
+    try {
+      if (typeof window.loadGalleryItems !== 'function') return Promise.resolve([]);
+      var s = new Date(); s.setHours(0, 0, 0, 0);
+      var cutoff = s.getTime();
+      return window.loadGalleryItems().then(function (all) {
+        var urls = [];
+        (all || []).forEach(function (it) {
+          if (!it || (it.savedAt || 0) < cutoff) return;   // savedAt desc 정렬이지만 전량 필터(안전)
+          (it.photos || []).forEach(function (p) { if (p && p.dataUrl) urls.push(p.dataUrl); });
+        });
+        return urls.slice(0, max || 10);   // open 의 photoUrls 는 10장 상한(flow.js:4143)
+      }).catch(function () { return []; });
+    } catch (_e) { return Promise.resolve([]); }
+  }
+
+  // [Phase 4] "오늘 사진" 명령 — async 수집 후 open. tryOpen 은 이미 true 를 돌려주고 여기서 뒤늦게 연다.
+  function _openWithTodayPhotos(baseCmd) {
+    var base = Object.assign({}, baseCmd);
+    delete base._collectToday;               // 내부 플래그는 flow 로 넘기지 않음
+    _collectTodayPhotos(10).then(function (urls) {
+      if (urls && urls.length) {
+        base.photoUrls = urls;
+        _toast('오늘 사진 ' + urls.length + '장으로 작업실을 열었어요');
+      } else {
+        _toast('오늘 저장된 사진이 없어요. 사진을 올려 시작해 주세요.');
+      }
+      try { window.WorkspaceFlow.command(base); } catch (_e) { void _e; }
+    });
   }
   // 닫힌 작업실을 자연어로 연다. 명시 발화만 처리, 아니면 false(기존 파이프라인으로 통과).
   function tryOpen(input, q, deps) {
@@ -122,6 +159,13 @@
     for (var i = 0; i < OPEN_COMMANDS.length; i++) {
       var c = OPEN_COMMANDS[i];
       if (!c.test.test(text)) continue;
+      // [Phase 4] "오늘 사진" 은 async 수집 후 열기 — 입력창은 비우고 즉시 handled 반환.
+      if (c.cmd && c.cmd._collectToday) {
+        _openWithTodayPhotos(c.cmd);
+        if (deps && typeof deps.clearInput === 'function') deps.clearInput(input);
+        else if (input) input.value = '';
+        return true;
+      }
       var ocmd = Object.assign({}, c.cmd);
       if (photoUrls && !ocmd.textOnly) ocmd.photoUrls = photoUrls;
       try { window.WorkspaceFlow.command(ocmd); }

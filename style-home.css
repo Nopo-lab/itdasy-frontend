@@ -350,6 +350,8 @@ body.itdasy-locked > :not(#lockOverlay, #signupOverlay, script, style, svg) {
 .ob-step.active { display: block; }
 
 .ob-emoji { font-size: 52px; margin-bottom: 20px; line-height: 1; }
+/* [O2] 온보딩 히어로 이모지(📸/🏪) → Lucide 심볼로 교체 (OS별 렌더 편차 제거) */
+.ob-emoji svg { width: 56px; height: 56px; color: var(--brand-strong); vertical-align: middle; }
 
 .ob-title {
   font-size: 24px; font-weight: 700; color: var(--text);
@@ -460,71 +462,81 @@ body.itdasy-locked > :not(#lockOverlay, #signupOverlay, script, style, svg) {
 }
 .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
-/* ───── 캡션 로딩 팝업 (슬롯머신) ───── */
+/* ───── 캡션 로딩 팝업 (차분한 프리미엄형 · v778) ───── */
 #captionLoadingPopup {
   position: fixed; inset: 0; z-index: 5000;
-  background: rgba(var(--bg-rgb,255,255,255),0.97);
-  display: none; align-items: center; justify-content: center; padding: 20px;
+  background: rgba(var(--bg-rgb,255,255,255),0.72);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  display: none; align-items: center; justify-content: center; padding: 24px;
 }
 
 #captionLoadingPopup .cl-card {
-  background: #fff; border-radius: 28px;
-  padding: 32px 24px 28px; max-width: 320px; width: 100%; text-align: center;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.08); border: 1px solid rgba(213,138,149,0.15);
+  background: linear-gradient(180deg, #fffdfb 0%, #fdf5f2 100%);
+  border-radius: 26px; padding: 34px 26px 26px; max-width: 300px; width: 100%;
+  text-align: center; box-shadow: 0 24px 60px rgba(148,86,96,0.16);
+  border: 1px solid rgba(213,138,149,0.14);
+  animation: clCardIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes clCardIn { from { transform: translateY(14px) scale(0.97); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* 부드러운 로딩 링 — 회전 그라데이션 + 은은한 코어 */
+.cl-ring {
+  width: 46px; height: 46px; margin: 0 auto 16px; border-radius: 50%;
+  background: conic-gradient(from 0deg, rgba(213,138,149,0) 0deg, rgba(213,138,149,0.85) 300deg, rgba(213,138,149,0) 360deg);
+  animation: clSpin 1s linear infinite; position: relative;
+  -webkit-mask: radial-gradient(circle 15px at 50% 50%, transparent 98%, #000 100%);
+          mask: radial-gradient(circle 15px at 50% 50%, transparent 98%, #000 100%);
+}
+.cl-ring__core {
+  position: absolute; inset: 15px; border-radius: 50%;
+  background: var(--accent2, #d58a95); opacity: .9;
+  animation: clPulse 1.6s ease-in-out infinite;
+}
+@keyframes clSpin { to { transform: rotate(360deg); } }
+@keyframes clPulse { 0%,100% { transform: scale(.72); opacity: .5; } 50% { transform: scale(1); opacity: .95; } }
+
+.cl-msg {
+  font-size: 15px; font-weight: 800; letter-spacing: -0.02em;
+  color: var(--text, #2c2528); margin-bottom: 4px;
+  transition: opacity .3s;
+}
+.cl-hint {
+  font-size: 11.5px; font-weight: 600; color: var(--text3, #a89aa0);
+  margin-top: 14px; letter-spacing: -0.01em;
 }
 
-/* [2026-04-27] 슬롯머신만 보이게 — clMsg/clHint 텍스트가 슬롯을 가려서 hide */
-#clMsg { display: none; }
-
-/* 슬롯머신 */
-.slot-machine {
-  display: flex; gap: 6px; justify-content: center; margin-bottom: 0;
+/* 페르소나 칩 — 말투 / 길이 / 이모지가 하나씩 차오른다 */
+.cl-chips { display: flex; gap: 7px; justify-content: center; margin-top: 18px; }
+.cl-chip {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 9px 4px 8px; border-radius: 13px;
+  background: rgba(213,138,149,0.05); border: 1.5px solid rgba(213,138,149,0.14);
+  transition: background .35s, border-color .35s, transform .35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.slot-reel { flex: 1; position: relative; }
-
-.slot-window {
-  height: 44px; overflow: hidden;
-  background: rgba(213,138,149,0.06);
-  border: 1.5px solid rgba(213,138,149,0.2);
-  border-radius: 12px; position: relative;
+.cl-chip__k { font-size: 9.5px; font-weight: 700; color: var(--text3, #b6a7ac); letter-spacing: -0.01em; }
+.cl-chip__v {
+  font-size: 12.5px; font-weight: 800; color: rgba(213,138,149,0.55); letter-spacing: -0.02em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
-
-.slot-window::before, .slot-window::after {
-  content: ''; position: absolute; left: 0; right: 0; height: 14px; z-index: 2; pointer-events: none;
+/* 아직 안 정해진 칸 — 은은한 shimmer */
+.cl-chip:not(.filled) .cl-chip__v {
+  color: transparent; min-width: 26px; height: 13px; border-radius: 6px;
+  background: linear-gradient(100deg, rgba(213,138,149,0.10) 30%, rgba(213,138,149,0.24) 50%, rgba(213,138,149,0.10) 70%);
+  background-size: 220% 100%; animation: clShimmer 1.3s ease-in-out infinite;
 }
-.slot-window::before { top: 0; background: linear-gradient(to bottom, rgba(255,255,255,0.95), transparent); }
-.slot-window::after  { bottom: 0; background: linear-gradient(to top, rgba(255,255,255,0.95), transparent); }
-
-.slot-strip {
-  display: flex; flex-direction: column; align-items: center;
+@keyframes clShimmer { from { background-position: 180% 0; } to { background-position: -60% 0; } }
+/* 정해진 칸 — 로즈로 차오르며 pop */
+.cl-chip.filled {
+  background: linear-gradient(135deg, rgba(213,138,149,0.16), rgba(213,138,149,0.07));
+  border-color: rgba(213,138,149,0.42);
+  animation: clChipPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
+.cl-chip.filled .cl-chip__v { color: var(--accent2, #d58a95); }
+@keyframes clChipPop { from { transform: scale(0.9); } to { transform: scale(1); } }
 
-.slot-item {
-  height: 44px; display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 700; color: var(--accent2);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  padding: 0 6px; letter-spacing: -0.02em; flex-shrink: 0;
-  max-width: 100%; box-sizing: border-box;
+@media (prefers-reduced-motion: reduce) {
+  .cl-ring, .cl-ring__core, .cl-chip:not(.filled) .cl-chip__v, .cl-chip.filled, .cl-card { animation: none; }
 }
-
-.slot-locked {
-  display: none; position: absolute; inset: 0; z-index: 3;
-  background: linear-gradient(135deg, rgba(213,138,149,0.15), rgba(213,138,149,0.06));
-  border: 1.5px solid rgba(213,138,149,0.45);
-  border-radius: 12px;
-  align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 800; color: var(--accent2);
-  padding: 0 4px; text-align: center;
-  animation: slotLockPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-@keyframes slotLockPop {
-  from { transform: scale(0.6); opacity: 0; }
-  to   { transform: scale(1);   opacity: 1; }
-}
-.slot-locked.active { display: flex; }
-
-#clHint { display: none; }
 
 /* ───── T-200 P2 · 홈 리프레시 신규 클래스 ───── */
 

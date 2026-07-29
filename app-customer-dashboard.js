@@ -476,9 +476,16 @@
     wrap.querySelector('#custEditClose').addEventListener('click', close);
     wrap.querySelector('#custEditCancel').addEventListener('click', close);
     wrap.querySelector('#cedName').focus();
-    wrap.querySelector('#custEditSave').addEventListener('click', async () => {
+    wrap.querySelector('#custEditSave').addEventListener('click', async (ev) => {
+      // [보안감사 M-6 2026-07-26] 저장 버튼 연타 이중제출 가드 — 예전엔 pick 경로만 방어돼 이 모달은
+      //   연타 시 Customer.create/update 가 2회 나가 옵티미스틱 2건·"추가 실패" 오인 토스트가 났다.
+      const _btn = ev.currentTarget;
+      if (_btn.dataset.busy === '1') return;
       const payload = _readCustomerEditPayload(wrap);
-      if (payload) await _saveCustomerEdit(c, isNew, payload, close);
+      if (!payload) return;
+      _btn.dataset.busy = '1'; _btn.disabled = true;
+      try { await _saveCustomerEdit(c, isNew, payload, close); }
+      finally { _btn.dataset.busy = '0'; _btn.disabled = false; }
     });
   }
 
@@ -508,6 +515,19 @@
       if (!_currentCustomerId) return;
       const k = (e && e.detail && e.detail.kind) || '';
       if (!k) return;
+      // [보안감사 M-8 2026-07-26] 현재 보고 있는 고객이 삭제되면(모바일 풀시트) 시트를 닫는다.
+      //   예전엔 affects 에 delete_customer 가 없어 삭제된 고객 상세가 그대로 남아 유령 id 로 후속 액션 위험.
+      if (k === 'delete_customer') {
+        const _delId = e && e.detail && e.detail.customer_id;
+        if (_delId == null || String(_delId) === String(_currentCustomerId)) {
+          const _sh = document.getElementById('customerDashSheet');
+          if (_sh && _sh.style.display !== 'none') {
+            if (typeof window.closeCustomerDashboard === 'function') window.closeCustomerDashboard();
+            else _sh.style.display = 'none';
+          }
+        }
+        return;
+      }
       const affects = ['update_customer', 'create_revenue', 'update_revenue', 'create_booking',
                        'update_booking', 'delete_booking', 'cancel_booking', 'reschedule_booking'];
       if (!affects.includes(k)) return;

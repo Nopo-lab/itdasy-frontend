@@ -138,12 +138,6 @@
     return s;
   }
 
-  function _checkpoint(s) {
-    if (s.isRetouchDue) return '리터치 안내를 보내기 좋은 시점이에요.';
-    if (s.noNext && s.isAtRisk) return '한동안 방문이 없어 재방문 안내가 좋아요.';
-    if (s.noNext) return '다음 예약을 잡아두면 좋아요.';
-    return '특별히 급한 항목은 없어요.';
-  }
 
   function buildCustomerStatusMessage(s) {
     var lastTxt = (s.lastVisitDays != null) ? (s.lastVisitDays + '일 전') : '확인된 방문 기록 없음';

@@ -1,0 +1,22 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch();
+const p = await b.newPage();
+const errs = [];
+p.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
+p.on('pageerror', e => errs.push('PAGEERR: ' + e.message));
+await p.goto('http://localhost:8091/index.html', { waitUntil: 'load' });
+await p.waitForTimeout(3500);
+const swver = await p.evaluate(() => window.APP_BUILD || null);
+const latest = await p.evaluate(() => window.__LATEST_BUILD__ || null);
+const flowReady = await p.evaluate(() => !!(window.WorkspaceFlow && window.WorkspaceFlow.open));
+const refineMorph = await p.evaluate(() => !!(window.MaskRefine && window.MaskRefine.closeMask && window.MaskRefine.openMask));
+await b.close();
+// 백엔드/네트워크/외부 CDN 관련 에러는 분리(우리 코드 에러만 본다)
+const codeErrs = errs.filter(e => !/Failed to load resource|net::|404|Supabase|fetch|CORS|mediapipe|storage\.googleapis|gemini|favicon/i.test(e));
+console.log('APP_BUILD:', swver);
+console.log('__LATEST_BUILD__:', latest);
+console.log('WorkspaceFlow.open ready:', flowReady);
+console.log('MaskRefine.openMask/closeMask:', refineMorph);
+console.log('총 콘솔에러:', errs.length, ' / 코드에러(네트워크 제외):', codeErrs.length);
+if (codeErrs.length) console.log('코드에러:\n' + codeErrs.slice(0,8).join('\n'));
+process.exit(codeErrs.length ? 1 : 0);

@@ -13,19 +13,8 @@
   'use strict';
   if (window.restoreAssistantTemplate) return;
 
-  // meta.secondImg(before) dataURL → state.secondImg 비동기 로드(ba 전용). app-photo-editor _loadBeforeIntoState 와 동일 효과.
-  function _loadSecond(PE, helpers, src) {
-    try {
-      var img = new Image();
-      img.onload = function () {
-        try {
-          var st = PE._internal.getState && PE._internal.getState();
-          if (st) { st.secondImg = img; if (helpers.scheduleRedraw) helpers.scheduleRedraw(); if (helpers.pushHistory) helpers.pushHistory(); }
-        } catch (_e) { void _e; }
-      };
-      img.src = src;
-    } catch (_e) { void _e; }
-  }
+  // [2026-07-22] _loadSecond 제거 — 옛 편집기 state 에 before 를 사후 주입하던 헬퍼.
+  //   headless 복원에서는 state._beforeUrl 을 넘기면 composeCard 가 렌더 '전에' secondImg 를 채운다.
 
   function _tplData(id) {
     try {
@@ -37,34 +26,42 @@
   // slot.templateMeta 기반 복원. onSave(dataUrl): 재편집 저장 콜백(호출측이 슬롯 갱신).
   //   onSave 를 쓰면 편집기가 임베드 모드 → 저장이 _saveViaCallback(onSave) 으로 라우팅(다운로드 아님).
   //   성공 true / 복원 불가(메타·모듈 부재) false → 호출측 baked 폴백.
+  // [2026-07-22] 옛 PhotoEditor(PE.open + TV.apply + _internal) 경로 폐지 →
+  //   template-autoapply 와 같은 headless 파이프라인으로 재구축.
+  //   상태를 meta 에서 직접 복원하고, 문구 편집 시트는 그대로, 저장 시 현재 작업실 편집기로.
   window.restoreAssistantTemplate = function (slot, photo, onSave) {
-    var PE = window.PhotoEditor, TV = window.PhotoEditorTemplatesV2, ES = window.PhotoEditorTemplateEditSheet;
+    var TA = window.ItdasyTemplateAutoApply;
+    var ES = window.PhotoEditorTemplateEditSheet;
+    var PT = window.PhotoEditorPremiumTemplates;
     var meta = slot && slot.templateMeta;
     if (!meta || !meta.templateId) return false;
-    if (!PE || !PE.open || !PE._internal || !TV || typeof TV.apply !== 'function') return false;
+    if (!TA || typeof TA.composeAndHandOff !== 'function' || !PT || typeof PT.renderHook !== 'function') return false;
     try {
       var src = meta.baseSrc || (photo && (photo.editedDataUrl || photo.dataUrl)) || '';
-      PE.open({
-        src: src,
-        initial_tab: 'template',
-        inline: true,
-        onSave: (typeof onSave === 'function') ? onSave : undefined,
-      });
-      TV.apply(meta.templateId);
-      var st = PE._internal.getState && PE._internal.getState();
-      if (!st || !st.tplV2) return false;
-      // 슬롯값/이미지슬롯/비율 복원
-      st.tplV2.slotValues = Object.assign({}, st.tplV2.slotValues || {}, meta.slotValues || {});
-      if (meta.imageSlots) st.tplV2.imageSlots = meta.imageSlots;
+      var st = {
+        tplV2: {
+          id: meta.templateId,
+          slotValues: Object.assign({}, meta.slotValues || {}),
+          imageSlots: meta.imageSlots || { main_photo: { src: src } },
+        },
+        _beforeUrl: meta.secondImg || '',   // 전후 before — 합성 전에 secondImg 로 주입
+        onSave: (typeof onSave === 'function') ? onSave : null,
+      };
+      if (!st.tplV2.imageSlots.main_photo) st.tplV2.imageSlots.main_photo = { src: src };
       if (meta.ratio) st.ratio = meta.ratio;
-      var helpers = PE._internal.helpers || {};
-      if (helpers.renderPanel) { try { helpers.renderPanel(); } catch (_e) { void _e; } }
-      if (helpers.scheduleRedraw) { try { helpers.scheduleRedraw(); } catch (_e) { void _e; } }
-      if (helpers.pushHistory) { try { helpers.pushHistory(); } catch (_e) { void _e; } }
-      // 전후(before) 사진 복원
-      if (meta.secondImg) _loadSecond(PE, helpers, meta.secondImg);
-      // 문구 편집 시트 오픈
-      try { if (ES && typeof ES.open === 'function') ES.open({ templateId: meta.templateId, templateData: _tplData(meta.templateId), state: st, helpers: helpers, onChange: function () { return undefined; } }); } catch (_e) { void _e; }
+      if (typeof TA.setActiveState === 'function') TA.setActiveState(st);
+
+      var helpers = {
+        scheduleRedraw: function () {},
+        renderPanel: function () {},
+        pushHistory: function () {},
+        applyStatePatch: function () {},
+        save: function () { return TA.composeAndHandOff(st, onSave); },
+      };
+      // ⚠️ 작업실 편집기는 여기서 열지 않는다 — 시트 DOM 이 날아간다(template-autoapply 주석 참조).
+      if (ES && typeof ES.open === 'function') {
+        ES.open({ templateId: meta.templateId, templateData: _tplData(meta.templateId), state: st, helpers: helpers, onChange: function () { return undefined; } });
+      }
       return true;
     } catch (e) {
       try { console.warn('[asst-restore] 복원 실패', e && e.message); } catch (_l) { void _l; }

@@ -11,6 +11,12 @@
 #cal-overlay {
   animation: bk-fade-in 0.08s ease-out !important;
 }
+/* [2026-07-20 v786] 새 캘린더가 구 바텀시트 클래스(.cal-sheet, calendar.css max-width:520px)를
+   재사용하면서 넓은 창에서 콘텐츠만 520px에 갇혀 왼쪽 붙음 + FAB(right:18px)만 창 끝에 떠 보임.
+   새 캘린더 오버레이 안에서만 캡 해제 — 구 시트는 그대로. */
+#cal-overlay .cal-sheet {
+  max-width: none;
+}
 
 /* ============================================================
    §0 로컬 변수 — time grid 높이 + spring easing

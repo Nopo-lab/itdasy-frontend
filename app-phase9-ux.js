@@ -100,6 +100,10 @@
   }
 
   function openQuickRevenue() {
+    // [P0-2] Revenue 엔진은 lazy 'revenue' 그룹. 폼 여는 순간 미리 로드해 저장(Revenue.create) 시 준비되게.
+    if (window.AppLoader && typeof window.AppLoader.ensure === 'function' && !window.AppLoader.loaded('revenue')) {
+      window.AppLoader.ensure('revenue');
+    }
     const el = _ensureRevenueSheet();
     el.style.display = 'flex';
     setTimeout(() => el.querySelector('#p9RevAmount')?.focus(), 60);
@@ -134,19 +138,6 @@
     return msg || '잠시 후 다시 시도해 주세요';
   }
 
-  function _dockHTML() {
-    return `
-      <div class="p9-quick-dock" id="p9QuickDock">
-        <button type="button" class="p9-quick-dock__btn is-primary" data-p9-act="booking">예약 추가</button>
-        <button type="button" class="p9-quick-dock__btn is-primary" data-p9-act="revenue">매출 기록</button>
-        <button type="button" class="p9-quick-dock__btn" data-p9-act="waitlist">대기자</button>
-        <button type="button" class="p9-quick-dock__btn" data-p9-act="retention">위험 고객</button>
-        <button type="button" class="p9-quick-dock__btn" data-p9-act="reminder">리마인더</button>
-        <button type="button" class="p9-quick-dock__btn" data-p9-act="review">리뷰 요청</button>
-        <button type="button" class="p9-quick-dock__btn" data-p9-act="membership">회원권</button>
-        <button type="button" class="p9-quick-dock__btn" data-p9-act="booklink">예약 링크</button>
-      </div>`;
-  }
 
   // 2026-05-08: 사용자 요청으로 홈 상단 8개 퀵탭(p9-quick-dock) 제거.
   // 동일 기능은 햄버거 사이드바 / 탭바 / 챗봇으로 접근 가능.
@@ -157,23 +148,6 @@
     return; // 더 이상 새로 만들지 않음
   }
 
-  function _onDockClick(e) {
-    const act = e.target.closest('[data-p9-act]')?.dataset.p9Act;
-    if (!act) return;
-    const map = {
-      booking: openQuickBooking,
-      revenue: openQuickRevenue,
-      waitlist: window.openWaitlist,
-      retention: window.openRetentionAI,
-      reminder: window.openReminderSettings,
-      review: window.openReviewRequests,
-      membership: () => window.openMembershipExpiring ? window.openMembershipExpiring(30) : _toast('회원권 화면을 불러오는 중이에요'),
-      booklink: window.openPublicBookingSettings,
-    };
-    const fn = map[act];
-    if (typeof fn === 'function') fn();
-    else _toast('화면을 불러오는 중이에요');
-  }
 
   window.openQuickBooking = openQuickBooking;
   window.openQuickRevenue = openQuickRevenue;

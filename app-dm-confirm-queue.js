@@ -115,11 +115,15 @@
     }
     if (window.SheetAnim) window.SheetAnim.open(sheet, card);
     else sheet.style.display = 'flex';
+    // [2026-07-23] 뒤로가기 등록 — 없으면 안드로이드 back 에 앱이 그냥 꺼진다.
+    if (typeof window._registerSheet === 'function') window._registerSheet('dmConfirmQueue', close);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('dmConfirmQueue');
     await _refresh();
     _startQueuePoll();
   }
   function close() {
     _stopQueuePoll();
+    if (typeof window._markSheetClosed === 'function') window._markSheetClosed('dmConfirmQueue');
     const sheet = document.getElementById('dmConfirmQueueSheet');
     if (!sheet) return;
     const card = sheet.querySelector('#dcqCard');
@@ -136,9 +140,6 @@
   const _AVATAR_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2.2c-4.5 0-8 2.6-8 5.9V21h16v-.9c0-3.3-3.5-5.9-8-5.9Z"/></svg>';
   function _gradeBadge(grade) {
     return `<span style="font-size:11px;font-weight:700;color:#BC6675;background:#F7EFF0;padding:2px 8px;border-radius:99px;flex-shrink:0;">${_esc(grade || '신규')}</span>`;
-  }
-  function _depositSignal(text) {
-    return /입금|송금|이체|보냈|결제했|입금했/.test(text || '');
   }
   // [2026-06-08] 캘린더 확인 한 줄 — calendar_checked 인 카드만. 그레이/로즈 톤만(초록·노랑 X).
   function _bookingLine(am) {
@@ -186,12 +187,17 @@
     // [2026-07-03] 입금확정 카드(추천답장 박스가 숨겨진 경우)에서만 노출.
     //   변경·취소·예약 카드는 '잇비 추천 답장'이 곧 손님 멘트라 이 박스를 또 띄우면 완전 중복.
     if (!am.deposit_sent) return '';
+    // [2026-07-14 #31] 확정 멘트 수정 가능 — 연필 누르면 textarea 로 전환, 확정 시 그 문구로 발송.
     return `<div style="margin-top:10px;padding:10px 12px;border:1px solid #E5E8EB;border-radius:12px;background:#FAFBFC;">
       <div style="display:flex;align-items:center;gap:5px;font-size:10.5px;color:#8B95A1;font-weight:700;margin-bottom:5px;">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z"/></svg>
         확정 시 손님에게 갈 멘트
+        <button type="button" class="dcq-cpv-edit" style="margin-left:auto;display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border:1px solid #E5E8EB;background:#fff;color:#4E5968;font-weight:600;font-size:10.5px;border-radius:8px;cursor:pointer;">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>수정
+        </button>
       </div>
-      <div style="font-size:13px;color:#191F28;line-height:1.5;white-space:pre-wrap;word-break:break-word;">${_esc(String(msg))}</div>
+      <div class="dcq-cpv-text" style="font-size:13px;color:#191F28;line-height:1.5;white-space:pre-wrap;word-break:break-word;">${_esc(String(msg))}</div>
+      <textarea class="dcq-cpv-ta" rows="3" style="display:none;width:100%;padding:9px 11px;border:1px solid #E5E8EB;border-radius:11px;font-size:13px;line-height:1.5;background:#fff;color:#191F28;resize:vertical;box-sizing:border-box;font-family:inherit;">${_esc(String(msg))}</textarea>
     </div>`;
   }
   // 무의미값 필터 — truthy 지만 표시 의미 없는 값
@@ -545,6 +551,7 @@
     if (!list) return;
     // [2026-06-08] 수정(인라인 textarea) 중이면 폴링 재렌더 스킵 — 입력 내용/카드 안 닫히게.
     const editing = Array.from(list.querySelectorAll('.dcq-edit')).some(t => t.style.display !== 'none')
+      || !!list.querySelector('.dcq-cpv-ta[data-touched="1"]')  // [#31] 확정 멘트 수정 중이면 스킵
       || !!list.querySelector('.dcq-dur[data-touched="1"]')  // 스테퍼 조정 중이면 재렌더 스킵
       || Array.from(list.querySelectorAll('.dcq-set-address')).some(i => (i.value || '').trim() || i === document.activeElement);  // 주소 입력 중이면 스킵
     if (editing) return;
@@ -610,6 +617,16 @@
       const edited = (ta && ta.style.display !== 'none') ? (ta.value || '').trim() : '';
       if (edited) _doAction(b, 'send_edit', edited);
       else _doAction(b, 'send');
+    }));
+    // [2026-07-14 #31] 확정 멘트 수정 — 미리보기 → textarea 전환 (touched 마킹으로 폴링 재렌더 방지)
+    list.querySelectorAll('.dcq-cpv-edit').forEach(b => b.addEventListener('click', () => {
+      const box = b.closest('div[style*="FAFBFC"]') || b.parentElement.parentElement;
+      const txt = box.querySelector('.dcq-cpv-text');
+      const ta = box.querySelector('.dcq-cpv-ta');
+      if (!ta) return;
+      ta.style.display = 'block'; ta.dataset.touched = '1'; ta.focus();
+      if (txt) txt.style.display = 'none';
+      b.style.display = 'none';
     }));
     // [2026-06-24 2a] 시술 시간 스테퍼 ±30분. touched 마킹 → 폴링 재렌더가 값 안 덮게.
     list.querySelectorAll('.dcq-dur-btn').forEach(b => b.addEventListener('click', () => {
@@ -682,6 +699,12 @@
         if (_durEl2 && _durEl2.dataset.dur) {
           const _d2 = parseInt(_durEl2.dataset.dur, 10);
           if (_d2 > 0) _cbody.duration_min = _d2;
+        }
+        // [2026-07-14 #31] 확정 멘트를 수정했으면(textarea 열림 + 내용 있음) 그 문구로 발송.
+        const _cpvTa = card.querySelector('.dcq-cpv-ta');
+        if (_cpvTa && _cpvTa.style.display !== 'none') {
+          const _ftxt = (_cpvTa.value || '').trim();
+          if (_ftxt) _cbody.final_text = _ftxt;
         }
         r = await _fetch('POST', `/dm-confirm-queue/${id}/confirm-deposit`, _cbody);
         if (window.showToast) window.showToast(r.ok ? '캘린더 추가 + 고객 등록했어요 ✓' : (r.message || '확정 실패'));

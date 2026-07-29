@@ -58,7 +58,7 @@
       <div class="rr-lbl">총매출</div>
       <div class="rr-total">${total.toLocaleString('ko-KR')}원</div>
       <div class="rr-sub">건수 ${count}건 · 평균티켓 ${avg.toLocaleString('ko-KR')}원</div>
-      ${delta != null ? `<span class="rr-delta ${delta >= 0 ? 'pos' : 'neg'}">${delta >= 0 ? '↑ +' : '↓ '}${Math.abs(delta)}% (전월 대비)</span>` : ''}
+      ${delta != null ? `<span class="rr-delta ${delta >= 0 ? 'pos' : 'neg'}">${delta >= 0 ? '↑ +' : '↓ '}${Math.abs(delta)}% (전 기간 대비)</span>` : ''}
     </div>`;
   }
 

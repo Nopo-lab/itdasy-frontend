@@ -14,7 +14,7 @@ const ROOT = path.resolve(__dirname, '..');
 const OUT = path.join(ROOT, 'output', 'playwright');
 const PAGES = process.env.BETA_URL || 'https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/';
 const EMAIL = process.env.DEMO_EMAIL || 'review@itdasy.com';
-const PW = process.env.DEMO_PW || 'review1234!';
+const PW = process.env.DEMO_PW || '';
 
 async function main() {
   fs.mkdirSync(OUT, { recursive: true });

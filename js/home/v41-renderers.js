@@ -196,7 +196,9 @@
     if (!n) return null;
     const name = brief.retouch_due_first_name || '손님';
     const hl = n === 1 ? `${name}님 리터치 시기예요` : `${name}님 외 ${n - 1}명 리터치 때예요`;
-    return { ok: 0, cat: '리터치 시기', dot: '#0D9488', hl, desc: '안내 DM 보낼 타이밍', btn: '안내 보내기', act: 'openCustomers', alert: true };
+    // [죽은동작 정리 2026-07-27] 버튼이 '안내 보내기'(발송 암시)인데 act 는 그냥 고객 허브만 연다(발송 플로우 없음).
+    //   실동작에 맞춰 '고객 보기'로 정직화(리터치 대상 확인 후 원장이 직접 DM/문자).
+    return { ok: 0, cat: '리터치 시기', dot: '#0D9488', hl, desc: '안내 보낼 타이밍이에요', btn: '고객 보기', act: 'openCustomers', alert: true };
   }
 
   function buildCarouselCards(brief) {
@@ -289,26 +291,7 @@
     return bk;
   }
 
-  function _monthCount(brief, completedCount) {
-    let count = Number(brief.this_month_count) || 0;
-    if (!count && window.Revenue && Array.isArray(window.Revenue._items)) {
-      try {
-        const now = new Date();
-        const ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-        count = window.Revenue._items.filter(r => String(r.recorded_at || r.created_at || '').slice(0, 7) === ym).length;
-      } catch (_e) { /* silent */ }
-    }
-    return count || Number(brief.completed_count) || completedCount;
-  }
 
-  function _todayExpected(bookings) {
-    return bookings
-      .filter(b => b && b.status === 'confirmed')
-      .reduce((sum, b) => {
-        const amount = Number(b.amount) || 0;
-        return sum + (amount > 0 ? amount : servicePrice(b.service_name));
-      }, 0);
-  }
 
   function _emptyStateMessage(brief) {
     const h = new Date().getHours();
@@ -414,6 +397,10 @@
   function alertItems(brief, dmQueueCount) {
     const items = [];
     // [F1] 홈 "답장 N건 써뒀어요" 항목 — 실시간 DM 카드와 중복 → 제거
+    // [2026-07-20 v785] 답 안 한 댓글 문의 — DM과 달리 홈에 다른 노출이 없어 중복 아님.
+    //   공개 방치라 오히려 DM보다 급함. 탭 → 댓글 응대 큐.
+    const cq = Number(brief && brief._commentQueueCount) || 0;
+    if (cq > 0) items.push({ tone: 'pink', title: '답 안 한 댓글 문의', desc: '잇비가 답장 써뒀어요 — 확인만 하면 발송', count: cq, act: 'openCommentQueue' });
     const overdue = overdueAlertContext(brief);
     if (overdue) items.push({ tone: 'pink', title: '미완료 예약 찾았어요', desc: overdue.desc, count: overdue.count, act: 'completePending' });
     setOverdueCache(brief, Boolean(overdue));

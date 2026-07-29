@@ -58,6 +58,14 @@
       mark_booking_completed:{ icon: 'ic-check-circle',    label: '시술 완료', color: '#15803D' },
       refund_revenue:        { icon: 'ic-corner-up-left',  label: '환불 처리', color: '#F97316' },
       update_service_price:  { icon: 'ic-dollar-sign',     label: '가격 변경', color: '#0EA5E9' },
+      // [Phase 0 · 2026-07-20] 잇비 해제 kind — 시술 기록(포트폴리오 1급 엔티티)
+      create_treatment_record:{ icon: 'ic-camera',         label: '시술 기록', color: '#7C6BB0' },
+      // [Phase 2 · 2026-07-20] CRM 깊이 — 고객 메모 / 리뷰 요청(초안 큐)
+      add_customer_memo:     { icon: 'ic-edit-3',          label: '고객 메모', color: '#4ECDC4' },
+      request_review:        { icon: 'ic-star',            label: '리뷰 요청', color: '#F59E0B' },
+      // [Phase 3 · 2026-07-20] 자동화 제어 토글 (설정 플래그, 발송 아님)
+      toggle_dm_autoreply:   { icon: 'ic-message-square',  label: 'DM 자동응답', color: '#8B5CF6' },
+      toggle_automation_rule:{ icon: 'ic-settings',        label: '자동화 설정', color: '#6366F1' },
     };
   }
 
@@ -74,6 +82,9 @@
       'delete_customer',
       'publish_instagram',
       'update_service_price',
+      // [Phase 3 · 2026-07-20] 지속 설정 변경 — 자동화 토글은 native confirm 한 번 더
+      'toggle_dm_autoreply',
+      'toggle_automation_rule',
     ]);
   }
 
@@ -199,6 +210,15 @@
     if (p.memo) parts.push(String(p.memo).slice(0, 20));
   }
 
+  function _pushToggleParts(parts, kind, p) {
+    parts.push(p.enabled === false ? '끄기' : '켜기');
+    if (kind === 'toggle_automation_rule' && p.rule_name) parts.push(String(p.rule_name).slice(0, 20));
+  }
+
+  function _pushReviewParts(parts, p) {
+    if (p.customer_name || p.name) parts.push(p.customer_name || p.name);
+  }
+
   function summarizeAction(action) {
     const p = (action && action.payload) || {};
     const kind = (action && action.kind) || '';
@@ -212,6 +232,8 @@
     else if (kind === 'mark_booking_no_show' || kind === 'mark_booking_completed') _pushBookingStatusParts(parts, kind, p);
     else if (kind === 'refund_revenue') _pushRefundParts(parts, p);
     else if (kind === 'update_service_price') _pushPriceParts(parts, p);
+    else if (kind === 'toggle_dm_autoreply' || kind === 'toggle_automation_rule') _pushToggleParts(parts, kind, p);
+    else if (kind === 'request_review') _pushReviewParts(parts, p);
     else _pushDefaultParts(parts, p);
     if (!parts.length && action && action.confirmation_text) return action.confirmation_text;
     return parts.join(' · ') || kind || '';

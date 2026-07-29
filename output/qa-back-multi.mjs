@@ -1,0 +1,24 @@
+// 다중 화면 뒤로가기 정밀 검증 — upload→edit→caption 이동 후 back 3회로 단계별 복귀+닫힘
+import { chromium } from 'playwright';
+const b = await chromium.launch(); const p = await b.newPage({viewport:{width:390,height:780}});
+const errs=[]; p.on('pageerror',e=>errs.push(String(e)));
+await p.goto('http://localhost:8099/index.html',{waitUntil:'load'});
+await new Promise(r=>setTimeout(r,2500)); await p.waitForLoadState('load').catch(()=>{});
+await p.waitForFunction(()=>window.WorkspaceFlow&&window.WorkspaceFlow.open,{timeout:20000});
+const title=()=>p.evaluate(()=>document.querySelector('[data-fl-title]')?.textContent||null);
+const open=()=>p.evaluate(()=>!!document.getElementById('wsv2Flow')?.classList.contains('is-open'));
+const back=()=>p.evaluate(()=>{const e=document.querySelector('[data-fl="back"]');if(e)e.click();return !!e;});
+const goto=(s)=>p.evaluate(scr=>window.WorkspaceFlow.command({type:'goto',screen:scr}),s);
+const log=[];
+await p.evaluate(()=>window.WorkspaceFlow.open({})); await p.waitForTimeout(150);
+log.push(['open', await title()]);
+await goto('edit'); await p.waitForTimeout(120); log.push(['goto edit', await title()]);
+await goto('caption'); await p.waitForTimeout(120); log.push(['goto caption', await title()]);
+await back(); await p.waitForTimeout(150); log.push(['back1→', await title()]);
+await back(); await p.waitForTimeout(150); log.push(['back2→', await title()]);
+await back(); await p.waitForTimeout(150); log.push(['back3→open?', await open()]);
+for(const [k,v] of log) console.log(k.padEnd(14), JSON.stringify(v));
+console.log('errors:', errs.slice(0,3));
+const ok = log[3][1]==='편집 및 템플릿' && log[4][1]==='사진 업로드' && log[5][1]===false;
+console.log(ok ? '\nBACK-MULTI: PASS' : '\nBACK-MULTI: FAIL');
+await b.close(); process.exit(ok?0:1);

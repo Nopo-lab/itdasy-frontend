@@ -67,7 +67,8 @@
     const img = cached || new Image();
     SLOT_IMAGE_CACHE[src] = img;
     img.onload = () => {
-      try { window.PhotoEditor?._internal?.helpers?.scheduleRedraw?.(); } catch (_e) { /* ignore */ }
+      /* [2026-07-22] 옛 PhotoEditor 캔버스 redraw 넛지 제거 — 편집기가 없어져 no-op 였다.
+         현재 작업실은 합성 시점에 직접 렌더하므로 필요 없음. */
     };
     img.onerror = () => { delete SLOT_IMAGE_CACHE[src]; };
     if (!cached) img.src = src;

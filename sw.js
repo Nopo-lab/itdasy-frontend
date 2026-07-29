@@ -7,7 +7,7 @@
 //    - /api/, /auth/, /data-export/  → network-first (항상 최신)
 //    - app-*.js, *.css, *.html       → cache-first + 백그라운드 revalidate
 // ─────────────────────────────────────────────
-const CACHE_VERSION = '20260705-v709-fillwide';
+const CACHE_VERSION = '20260728-editorbatch';
 const CACHE_NAME    = `itdasy-${CACHE_VERSION}`;
 const API_CACHE_NAME = `itdasy-api-${CACHE_VERSION}`;
 
@@ -54,6 +54,7 @@ const STATIC_ASSETS = [
   './app-home-v41.js',
   './app-perf-recovery.js',
   './app-instagram.js',
+  './js/service-categories.js',
   './app-caption.js',
   './app-portfolio.js',
   './app-portfolio-tags.js',
@@ -177,6 +178,23 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // [2026-07-23] HTML 캐시 폴백이 너무 쉽게 offline.html 로 떨어지던 것 수정.
+  //   원인 2개. 둘 다 "앱이 캐시에 멀쩡히 있는데 오프라인 화면"을 띄웠다.
+  //   ① 디렉토리 진입: 배포 주소가 `.../itdasy-frontend-test-yeunjun/` 라 요청 키가 './' 인데
+  //      프리캐시엔 './index.html' 만 있다 → 정확 매치 실패 → 바로 offline.
+  //   ② 쿼리: `?api=staging`·OAuth `?code=`·푸시 딥링크가 붙으면 caches.match 는 기본이
+  //      쿼리 포함 매칭이라 전부 미스 → 바로 offline.
+  //   그래서 네트워크가 한 번만 삐끗해도(잠금해제 직후·지하철·와이파이↔LTE 전환) 오프라인 화면이 떴다.
+  //   offline.html 은 앱 셸조차 없을 때만 쓰는 최후 수단이어야 한다.
+  async function matchAppShell(req) {
+    let c = await caches.match(req);
+    if (c) return c;
+    c = await caches.match(req, { ignoreSearch: true });   // ② 쿼리 무시
+    if (c) return c;
+    c = await caches.match('./index.html', { ignoreSearch: true });  // ① 앱 셸
+    return c || null;
+  }
+
   // [QA-r10b 2026-05-15] HTML / navigation 은 network-first 로 분리.
   //   배경: cache-first 로 처리하던 시절, 잘린 index.html 이 캐시에 박히면 새로고침해도
   //         같은 잘린 응답이 반복 재생 → "Uncaught SyntaxError @ index.html:2053" 부팅 깨짐.
@@ -199,13 +217,13 @@ self.addEventListener('fetch', event => {
           return fresh;
         }
         // 5xx → 캐시 폴백
-        const cached = await caches.match(event.request);
+        const cached = await matchAppShell(event.request);
         if (cached) return cached;
         const offline = await caches.match(OFFLINE_URL);
         if (offline) return offline;
         return fresh;  // 그 외 — 그대로 반환 (브라우저가 에러 처리)
       } catch (_e) {
-        const cached = await caches.match(event.request);
+        const cached = await matchAppShell(event.request);
         if (cached) return cached;
         const offline = await caches.match(OFFLINE_URL);
         if (offline) return offline;

@@ -10,7 +10,7 @@
   var WSU = window.WSFlowUtil || {};
   var uid = WSU.uid, toast = WSU.toast, esc = WSU.esc, fileToDataUrl = WSU.fileToDataUrl,
     _isRealShopName = WSU._isRealShopName, _thEsc = WSU._thEsc, barClass = WSU.barClass, _caret = WSU._caret,
-    _purposeCat = WSU._purposeCat, _containBlit = WSU._containBlit, clone = WSU.clone, _parseHashes = WSU._parseHashes,
+    _purposeCat = WSU._purposeCat, _containBlit = WSU._containBlit, clone = WSU.clone,   // [2026-07-26 원영] _parseHashes 사용처 소멸(해시태그=칩 UI) — import 제거
     filterCss = WSU.filterCss, _extractPalette = WSU._extractPalette;
   // [T-104 P1] 템플릿 썸네일 클러스터 → flow/thumbs.js
   var _tplThumb = (window.WSFlowThumbs || {})._tplThumb;
@@ -108,6 +108,7 @@
   // [버그수정] 캡션 재생성 중 뒤로가기 등으로 이탈 후 옛 응답이 도착하면 d.caption/오버레이가 새 상태와 뒤섞여 깨지던 문제.
   //   generateCaption() 호출마다 토큰을 발급하고, 응답 시 토큰이 최신이 아니면(그 사이 뒤로가기/재생성 발생) 결과를 버린다.
   var _genToken = 0;
+  var _genPending = 0; // [카오스 P2] in-flight 캡션 생성 개수 — stale 응답이 아직 대기 중인 fresh 스피너를 조기 해제하지 않게(내 응답이거나 대기 0일 때만 capLoading 해제)
   function _pushHist() {
     try { history.pushState({ wsv2: 'step' }, '', '#wsv2flow'); _histDepth++; } catch (_e) { void _e; }
   }
@@ -119,6 +120,20 @@
       if (_closingHist) return;
       _navBack();
     });
+  }
+  // [버그11 2026-07-14] '이어서하기'로 중간 단계(캡션 등)에 직행하면 navStack 이 비어 있어
+  //   뒤로가기 → _navBack() false → 전역 시트가 플로우를 닫아 곧장 작업실 홈으로 튀었다.
+  //   절충: 진행바 단계(VISIBLE_SCREENS) 중 '앞 단계'만 시드한다.
+  //   - edit/template 은 VISIBLE 이 아니라 indexOf=-1 → 시드 안 함 = v575('직행 진입은 편집이 베이스') 취지 유지.
+  //   - 사진이 없으면(글만 쓰기) 되돌아갈 단계가 없으므로 시드 안 함.
+  //   결과: 캡션 직행 → back → 레이아웃 → back → 업로드 → back → 홈.
+  function _seedNavStack(startScreen) {
+    var idx = VISIBLE_SCREENS.indexOf(startScreen);
+    if (idx <= 0) return;
+    if (!editablePhotos().length) return;
+    var seeded = VISIBLE_SCREENS.slice(0, idx);
+    navStack = seeded.slice();
+    seeded.forEach(function () { _pushHist(); });
   }
   // [v531] 한 단계 뒤로 — 시스템/브라우저/인앱 back 공통. 캡션 결과 화면이면 먼저 캡션 입력으로(편집으로 안 튐).
   function _navBack() {
@@ -176,6 +191,10 @@
   function switchEditPhoto(idx) {
     var p = editablePhotos();
     if (idx < 0 || idx >= p.length || idx === (d.editIdx || 0)) return;
+    // [카오스 P2] 전환 중 재진입 차단 — 연타 시 bakeEdit 가 겹쳐 돌면서 .then 이 이미 리셋된
+    //   d.adjust(=0)를 photo.adjustments 로 clone, 조정값 메타가 오염되던 문제. 한 번에 하나만 전환.
+    if (d._switching) return;
+    d._switching = true;
     // [이슈3] 즉시 시각 피드백 — 선택 테두리/aria 를 동기로 토글(무거운 bake/렌더를 기다리지 않음).
     if (el) {
       el.querySelectorAll('[data-fs="edit"] [data-fl-editsel]').forEach(function (b) {
@@ -199,9 +218,12 @@
       if (d.maskView) _renderMaskOverlay();   // [v539] 사진 전환 시 마스크 overlay 갱신
       if (d.maskPaint) { _ensurePaintDims(function () { _renderPaintOverlay(); }); }   // [v561] 칠하기 모드 유지 시 새 사진 기준 재렌더
       _warmEditMasks();
-    });
+    }).finally(function () { d._switching = false; });   // [카오스 P2] 전환 완료 → 재진입 락 해제
   }
   function photoUrl(p) { return p ? (p.editedDataUrl || p.dataUrl) : ''; }
+  // [P0-1] 표시용 URL 문자열 → blob URL (innerHTML 재파싱·재디코드 제거). 비-dataURL 은 그대로 통과.
+  //   ⚠️ dispUrl(p)(아래, photo→dataURL 접근자)과 다른 것 — 이건 URL 문자열 변환기(표시 전용).
+  function _blobDisp(u) { return (window.WSBlobUrl && window.WSBlobUrl.disp) ? window.WSBlobUrl.disp(u) : u; }
   // [이슈2/11] 게시 대표 이미지 — 전후 템플릿 "적용 결과물"(d.templateOutput)이 있으면 그것을, 없으면 대표 사진.
   //   합성 결과물은 별도 필드로만 관리한다. 편집화면 사진 스트립/썸네일은 절대 이 값을 쓰지 않으므로
   //   원본/후사진 슬롯이 합성본으로 오염되지 않는다(이슈2). 해제하면 d.templateOutput=null → 원본 복귀(이슈11).
@@ -225,7 +247,8 @@
   // [B-분할] 시술 텍스트 파싱 → js/workspace/flow/caption-text.js (window.WSCaptionText). 호출부 유지용 alias.
   var _extractCustomer = window.WSCaptionText.extractCustomer, _shopName = window.WSCaptionText.shopName,
       _stripShopName = window.WSCaptionText.stripShopName, _detectShopName = window.WSCaptionText.detectShopName,
-      _cleanService = window.WSCaptionText.cleanService, _splitServiceForLayers = window.WSCaptionText.splitServiceForLayers;
+      _cleanService = window.WSCaptionText.cleanService, _splitServiceForLayers = window.WSCaptionText.splitServiceForLayers,
+      _publicServiceKeywords = window.WSCaptionText.publicServiceKeywords;
   // [#1] 상호로 캡션에 브랜딩할 만한 '진짜 가게 이름'인지 — 'Dd','aa' 같은 짧은 라틴/계정 placeholder 는 제외.
   //   (등록만 되어 있고 실제 상호가 아니면 캡션에 억지로 안 박고 '저희 샵'으로만 칭하게 함)
   // [T-104 P0] _isRealShopName → flow/util.js
@@ -235,6 +258,27 @@
   //   예전엔 저장값 있으면 무조건 붙였는데("계속 알아서 하단에 놓지 말고") → 설정 토글로 opt-in 전환.
   function _shopInfoOn() { try { return localStorage.getItem('itdasy:caption_shopinfo') === '1'; } catch (_e) { return false; } }
   function _shopInfoSaved() { try { return !!(String(localStorage.getItem('itdasy:shop_book') || '').trim() || String(localStorage.getItem('itdasy:shop_phone') || '').trim()); } catch (_e) { return false; } }
+  // [#18] 게시 크기(피드 규격) 선택 — 4:5(세로로 크게, 기본) / 1:1(정사각). 마지막 선택 기억.
+  //   선택값이 편집기 캔버스→템플릿 출력→콜라주→IG 미리보기까지 관통. 스토리/릴스 9:16은 템플릿이 별도 처리.
+  function _wsFormat() { try { return localStorage.getItem('itdasy:ws_format') === '11' ? '11' : '45'; } catch (_e) { return '45'; } }
+  function _wsRatio() { return _wsFormat() === '11' ? '1:1' : '4:5'; }
+  function _setWsFormat(v) { try { localStorage.setItem('itdasy:ws_format', v === '11' ? '11' : '45'); } catch (_e) { void _e; } }
+  // [#18] 업로드 화면 하단 규격 세그먼트 — 사진 1장 이상 선택 시에만 노출.
+  function _formatSegHtml(n) {
+    if (!n) return '';
+    var f = _wsFormat();
+    return '<div class="up-fmt"><span class="up-fmt__label">게시 크기</span>' +
+      '<button type="button" class="up-fmt__b' + (f === '45' ? ' on' : '') + '" data-fl-format="45">세로로 크게 <small>4:5</small></button>' +
+      '<button type="button" class="up-fmt__b' + (f === '11' ? ' on' : '') + '" data-fl-format="11">정사각 <small>1:1</small></button>' +
+    '</div>';
+  }
+  // [#18] 크롭·배경 비율 — 피드형(전후/피드/리뷰/이벤트)은 사용자 선택, 스토리(9:16)/가격표(free)는 그대로.
+  function _cropRatio(fb) {
+    var r = CROP_RATIO[d.tplPurpose];
+    if (r === '9:16' || r === 'free') return r;
+    if (!r) return fb || _wsRatio();
+    return _wsRatio();
+  }
   // [#19] 캡션 입력 화면의 '샵정보 반영' 토글 — 설정에 예약/전화가 저장돼 있을 때만 노출(없으면 켤 대상이 없음).
   function _shopInfoToggleHtml() {
     if (!_shopInfoSaved()) return '';
@@ -256,27 +300,25 @@
   function _cleanBase(p) { return p ? (p.baseUrl || p.dataUrl) : ''; }
   // [v591·#6] 사진에서 대표 색 추출 — 클라이언트 canvas(서버/AI 비용 0). 28px 다운샘플 후
   //   근사 흰/검 제외하고 5비트 버킷 빈도순 상위색 반환. 폰트/로고 자동추출은 부정확해 미지원(수동).
-  // [T-104 P1] _extractPalette → flow/util.js
-  // [v591·#6] 추천 색 탭 → 활성 우리샵 스타일의 모든 텍스트 역할 글자색에 적용(저장 + 미리보기 재합성).
-  // [T-104 P5] 우리샵 스타일(브랜드킷·프리셋 A~G) 클러스터 → flow/brand.js (context 주입)
-  var _WSB = (window.WSFlowBrand && window.WSFlowBrand.create) ? window.WSFlowBrand.create({
-    d: function () { return d; }, setScreen: setScreen, curPhoto: curPhoto, cleanBase: _cleanBase, dispUrl: dispUrl
-  }) : {};
-  var _applyBrandColor = _WSB._applyBrandColor, _applyBrandFont = _WSB._applyBrandFont, _applyHarmony = _WSB._applyHarmony,
-    _autoPretty = _WSB._autoPretty, _setShopType = _WSB._setShopType, _setBrandLogo = _WSB._setBrandLogo,
-    _clearBrandLogo = _WSB._clearBrandLogo, _brandLogoFromFile = _WSB._brandLogoFromFile,
-    _renamePreset = _WSB._renamePreset, _applyPreset = _WSB._applyPreset, _copyPreset = _WSB._copyPreset;
-
   // [v587·C] 우리샵 스타일 레이어 빌더 — 편집기 진입과 헤드리스 자동합성이 공유.
   function _buildShopStyleLayers() {
     var ss = (window.ShopStyle && window.ShopStyle.getActive) ? window.ShopStyle.getActive() : null;
     var roleText = _splitServiceForLayers(d.service);   // [v583·A] 시술명/시술내용 분리
     var layers = [];
     var autoArranged = false;
-    if (ss && d.useShopStyle !== false) {
+    // [5차 opt-in] 원장이 스타일을 명시적으로 확정하기 전엔 자동 텍스트 오버레이(시술명·부제·본문·해시태그)를
+    //   박지 않는다. 로고·워터마크·라인·rect·고정 badge·작업기억(_orch)·사용자가 직접 넣는 텍스트는 영향 없음.
+    var _confirmed = !!(ss && window.ShopStyle && window.ShopStyle.isConfirmed && window.ShopStyle.isConfirmed(ss));
+    if (ss) {
       // [v587·B-3] 해시태그도 오버레이 레이어로 — 생성된 해시태그 상위 4개만(사진 위 과밀 방지).
+      /* [2026-07-23 보스] 시술명이 없으면 해시태그도 안 올린다.
+         원장 신고: "사진 편집 들어가도 해시태그만 있어." 시술 칩을 재탭하면 선택이 **해제**되는데
+         (_pickServiceTag 토글), 해시태그는 캡션 생성 응답으로 이미 채워져 있어 그 조합이 되면
+         사진에 해시태그만 덩그러니 박혔다. 시술명 없는 해시태그 오버레이는 게시물로 쓸 데가 없다.
+         → 둘 다 없거나 둘 다 있게. 원장이 해시태그만 원하면 편집기에서 직접 올리면 된다. */
       var hs = (d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : (d.hashtags || []));
-      var hashText = hs.slice(0, 4).join(' ');
+      var _svcOk = !!String(roleText.title || '').trim();
+      var hashText = _svcOk ? hs.slice(0, 4).join(' ') : '';
       ss.layers.forEach(function (L) {
         // [v590] 사용자가 이전에 편집기에서 제거한 레이어(예: 해시태그)는 enabled:false → 다음부터 자동배치 제외.
         if (L.enabled === false) return;
@@ -287,6 +329,7 @@
         if (L.type === 'badge' && L.text) { layers.push(Object.assign({}, L, { x: (L.x != null ? L.x + (L.w != null ? L.w : 0.2) / 2 : 0.5) })); return; }
         var text = (L.role === 'hashtag') ? hashText : roleText[L.role];
         if (!text) return;
+        if (!_confirmed) return;   // [5차] 스타일 미확정 → 시술명/부제/본문/해시태그 자동배치 스킵(로고·데코는 위/아래에서 통과)
         // [v583·B] shop-style 좌표는 좌상단(좌측 끝) 기준 → story-editor 중앙 기준으로 변환(화면 밖 이탈 방지).
         var cx = (L.x != null ? L.x + (L.w != null ? L.w : 0.84) / 2 : 0.5);
         cx = Math.max(0.14, Math.min(0.86, cx));
@@ -302,14 +345,21 @@
       }
       autoArranged = layers.length > 0;   // 우리샵 스타일로 자동배치됨 → AI 배치 배너+다시배치 노출
     }
-    // [#5] ShopStyle 없거나 매핑 결과 없음 → 시술내용(제목+부제)을 기본 레이어로. 단, 실제 시술 텍스트가 있을 때만
-    //   (업로드 직후 편집기는 시술이 아직 없음 → 빈 '텍스트' 폴백 안 올림. 깨끗한 사진으로 시작).
-    if (!layers.length && String(roleText.title || '').trim()) {
+    // [#5 / v779 보스] 시술명(title)이 있는데 사진에 안 올라갔으면 기본 레이어로 반드시 올린다.
+    //   예전엔 `!layers.length` 일 때만 폴백이라, ShopStyle 이 해시태그·로고 레이어만 있고 title 레이어가
+    //   없으면 '해시태그만 뜨고 시술명은 빠지는' 문제가 있었다(원장 지적). title 이 이미 배치됐으면 중복 안 올림.
+    //   (업로드 직후엔 시술이 없어 title 빈값 → 폴백 안 함 = 깨끗한 사진으로 시작.)
+    var _titleText = String(roleText.title || '').trim();
+    var _titlePlaced = layers.some(function (L) { return L.text && L.text === roleText.title; });
+    if (_confirmed && _titleText && !_titlePlaced) {   // [5차] 미확정이면 title 폴백도 안 박음(같은 opt-in 게이트)
       layers.push({ text: roleText.title, role: 'title', x: 0.5, y: 0.44, w: 0.8, size: 0.08, align: 'center' });
-      if (roleText.sub) layers.push({ text: roleText.sub, role: 'sub', x: 0.5, y: 0.56, w: 0.8, size: 0.05, align: 'center' });
+      if (roleText.sub && !layers.some(function (L) { return L.text && L.text === roleText.sub; })) {
+        layers.push({ text: roleText.sub, role: 'sub', x: 0.5, y: 0.56, w: 0.8, size: 0.05, align: 'center' });
+      }
       autoArranged = true;   // [#5] 미리보기(_autoComposeTemplate)도 이 텍스트를 합성하도록
     }
-    return { ss: ss, layers: layers, ratio: ss ? ss.frame.ratio : '4:5', autoArranged: autoArranged };
+    // [#18] 비율은 사용자 '게시 크기' 선택이 최우선 — ShopStyle frame.ratio(4:5 고정)보다 앞선다.
+    return { ss: ss, layers: layers, ratio: _wsRatio(), autoArranged: autoArranged };
   }
   // [v589·#3] 표시용 URL — 입력 화면/뒤로가기는 '원본', 캡션 '결과' 화면에서만 템플릿 적용 미리보기를 보여준다.
   //   사진 자체(editedDataUrl)는 절대 건드리지 않으므로(수동 '사진 꾸미기' 저장 제외) 뒤로가기 시 원본 유지.
@@ -321,8 +371,101 @@
   }
   // [v589·#3] 캡션 결과 화면에서 우리샵 스타일을 각 사진에 헤드리스 합성 → tplPreviewUrl(결과 전용).
   //   [#2 단일화] 편집기와 동일 렌더러(ItdEditor.compose) 단독 사용 — 옛 StoryEditor 제거됨.
-  // [cleanup 2026-07-12] 편집기가 유일한 결과 소스(구 AUTO_EDITOR 상시 ON) — 별도 자동합성(다른 크롭/위치로 미리보기 어긋남) 안 함. no-op 유지(호출부 무변경).
-  function _autoComposeTemplate() { /* no-op */ }
+  /* [cleanup 2026-07-12] 편집기가 유일한 결과 소스 → no-op 이었음(별도 자동합성이 다른 크롭/위치로 미리보기가 어긋나서).
+     [부활 2026-07-17] 그 결과 "사진편집을 눌러야 텍스트가 보인다"가 됐다 — 시술명/해시태그/로고는
+       _buildShopStyleLayers() 가 만들지만 그 레이어는 편집기 안에서만 살아서, 캡션·결과 화면 상단 합성본과
+       실제 발행 이미지엔 꾸밈이 하나도 없었다(:314 주석도 여기서 합성될 걸 전제하고 있었음).
+     예전 자동합성이 어긋난 원인은 '다른 경로로 그렸기 때문' → 이번엔 편집기와 **같은 렌더러**(ItdEditor.compose)에
+       같은 레이어·같은 비율로 굽는다 = 편집기를 열었을 때의 첫 그림과 일치.
+     겹쳐 굽기(텍스트 두 번) 방어 3중:
+       ① 원장이 직접 꾸민 카드(storyEdited)는 건드리지 않는다 — 편집기 결과가 늘 우선.
+       ② 같은 재료(autoSig)로 이미 구웠으면 skip → setScreen 재렌더로 무한루프도 안 됨.
+       ③ 재오픈해서 구운 것만 있고 원판(_autoBase)이 없으면 다시 굽지 않는다(그 위에 또 얹게 되므로).
+     _autoBase(텍스트 없는 원판)는 메모리에만 둔다 — buildSlot 이 떼어낸다(dataURL 2벌 = 저장 폭탄·sync 100KB 컷). */
+  function _cardWasEdited(o) {
+    var ids = (o && o.photoIds) || [];
+    if (!ids.length) return false;
+    return (d.photos || []).some(function (p) { return p && p.storyEdited && ids.indexOf(p.id) >= 0; });
+  }
+  function _autoComposeTemplate() {
+    if (!(window.ItdEditor && window.ItdEditor.compose)) return;
+    var outs = (d && d.templateOutputs) || [];
+    if (!outs.length) return;
+    var built = _buildShopStyleLayers();
+    var layers = (built && built.layers) || [];
+    // [v779 보스] '이 스타일로 또'로 지정한 작업 기억(선·도형·스티커·글씨 등)도 결과 사진에 자동으로 굽는다.
+    //   예전엔 사진편집을 열어야만 보였다. 편집기와 같은 병합 규칙 — role 겹치는 텍스트만 제외(이번 글 문구 보호),
+    //   role 없는 꾸밈(선/스티커)은 얹는다. 편집기는 굽기 전 원판(_autoBase)을 열어 이중으로 안 구워진다.
+    try {
+      var _wm = (window.WorkMemory && window.WorkMemory.defaultEditState)
+        ? window.WorkMemory.defaultEditState({ incoming: layers, photoCount: (editablePhotos() || []).length, layersOnly: true }) : null;
+      if (_wm && _wm.layers && _wm.layers.length) {
+        var _have = {}; layers.forEach(function (L) { if (L && L.role) _have[L.role] = 1; });
+        layers = layers.concat(_wm.layers.filter(function (L) { return !(L && L.role && _have[L.role]); }));
+      }
+    } catch (_wmE) { void _wmE; }
+    if (!layers.length) return;
+    // 텍스트·자리·크기만으로 지문 — 로고 dataUrl 은 넣지 않는다(길이만 커지고 판별력은 role/좌표로 충분).
+    var sig = layers.map(function (L) {
+      return (L.role || L.type || '') + ':' + (L.text || '') + ':' + (L.x || 0) + ',' + (L.y || 0) + ':' + (L.size || 0);
+    }).join('|') + '#' + built.ratio;
+    var myD = d;
+    // [2026-07-24 보스] 기본 시술내용 텍스트(시술명·부제·해시태그)는 **첫 장에만** 굽는다.
+    //   원장 요청: 여러 장 게시할 때 모든 사진에 시술내용이 박히지 않게 — 첫 장만 자동 텍스트,
+    //   나머지 장은 원장이 직접(위치/크기는 편집기서). 로고·워터마크·라인·스티커·작업기억 꾸밈은
+    //   역할이 시술내용이 아니므로 전 장 그대로 유지된다.
+    var SERVICE_TEXT_ROLES = { title: 1, sub: 1, hashtag: 1 };
+    function _stripServiceText(ls) {
+      return ls.filter(function (L) {
+        return !(L && SERVICE_TEXT_ROLES[L.role] && (L.type === 'text' || L.type === 'badge' || L.type == null));
+      });
+    }
+    var jobs = outs.map(function (o, idx) {
+      var _layersForO = (idx === 0) ? layers : _stripServiceText(layers);
+      // 첫 장 외에는 시술 텍스트가 빠져 지문이 달라진다 → 출력별 지문에 idx 반영(재굽기 판정 정확).
+      var _sigO = sig + '#i' + idx + (idx === 0 ? '' : '-nosvc');
+      if (!o || !o.outputUrl || o.autoSig === _sigO || _cardWasEdited(o)) return null;
+      if (o.autoSig && !o._autoBase) return null;   // ③ 원판 없음 → 겹쳐 굽지 않는다
+      if (!_layersForO.length) return null;          // 뺐더니 얹을 게 없으면(나머지 장, 로고 등도 없음) 원본 그대로 둔다
+      var base = o._autoBase || o.outputUrl;
+      // [2026-07-24] 이 출력이 구워진 실제 비율로 얹는다 — 콜라주(3장→1장)는 '1:1'로 구워졌는데
+      //   built.ratio(샵 프레임 4:5)로 다시 구우면 콜라주가 contain 레터박스돼 작업기억 꾸밈이
+      //   콜라주 실제 크기에 안 맞고 더 작은/어긋난 영역에 얹혔다(원장 지적). o.ratio 없으면(사진별 flat) 프레임 비율.
+      var _oRatio = o.ratio || built.ratio;
+      return window.ItdEditor.compose({ photoUrl: base, ratio: _oRatio, layers: _layersForO })
+        .then(function (url) {
+          if (!url || myD !== d || d._dead) return false;
+          o._autoBase = base; o.outputUrl = url; o.autoSig = _sigO;
+          return true;
+        })
+        .catch(function () { return false; });
+    }).filter(Boolean);
+    if (!jobs.length) return;
+    Promise.all(jobs).then(function (res) {
+      if (myD !== d || d._dead || !res.some(Boolean)) return;
+      d.templateOutput = outs[0].outputUrl;   // 첫 카드 미러 유지(기존 소비처 계약)
+      d.previewUrl = null;
+      if (cur === 'caption') setScreen('caption', { push: false });   // 한 번만 다시 그림(sig 가 같아져 재진입 안 함)
+    });
+  }
+  /* [버그수정 2026-07-17] 편집기 결과를 templateOutputs(결과물 배열)에도 돌려준다.
+     예전엔 onDone 이 d.templateOutput(첫 카드 미러)만 갱신하고 배열은 편집 전 합성본 그대로 뒀다. 그래서
+       · 상단 렌더가 다중 카드일 때 '텍스트 없는 옛 합성본'을 보여주고
+       · 발행(publish 의 _outs)이 그 옛 합성본을 그대로 인스타에 올렸다(꾸밈이 조용히 사라짐).
+     레이아웃 카드(isWs)는 보고 있던 카드에, 레이아웃 없는 카드는 그 사진을 담은 카드에 반영한다. */
+  function _syncOutputForEdit(p, dataUrl, isWs) {
+    var outs = (d && d.templateOutputs) || [];
+    if (!outs.length || !dataUrl) return;
+    var tgt = null;
+    if (isWs) tgt = (d.activeDisplayId && outs.filter(function (o) { return o && o.pairId === d.activeDisplayId; })[0]) || outs[0];
+    else if (p) tgt = outs.filter(function (o) { return o && !o.templateId && (o.photoIds || []).indexOf(p.id) >= 0; })[0];
+    if (tgt) {
+      tgt.outputUrl = dataUrl;
+      // [v779] 스칼라 미러 동기화 — outputUrl()·_displayItems 가 스칼라를 먼저 읽어, 안 맞추면
+      //   편집분이 배열엔 반영돼도 발행/미리보기는 옛 원본을 내보내던 버그(단일사진 편집 특히).
+      if (tgt === outs[0]) { d.templateOutput = dataUrl; d.previewUrl = null; }
+    }
+  }
   // [#5] 텍스트/편집을 '지금 캐러셀에서 보고 있는 장'에 적용 — 보던 사진을 편집·저장(다중 사진서 장 선택).
   function _activeEditPhoto() {
     if (d && d.activeDisplayId) {
@@ -331,10 +474,37 @@
     }
     return curPhoto();
   }
+  /* [2026-07-17] 레이아웃(콜라주) editState + ★기본 작업 기억의 꾸밈 합치기.
+     레이아웃은 칸 배치(layoutIdx·photos·layoutOrder)의 주인이고, 기억은 그 위에 얹는 꾸밈의 주인이다.
+     같은 role 을 둘 다 갖고 있으면 레이아웃 것을 남긴다 — 이번 글의 문구가 지난 글 문구로 되돌아가면 안 되므로. */
+  function _mergeWmLayers(base, wm) {
+    if (!wm || !Array.isArray(wm.layers) || !wm.layers.length) return base;
+    if (!base) return wm;
+    var have = {};
+    (base.layers || []).forEach(function (l) { if (l && l.role) have[l.role] = 1; });
+    var add = wm.layers.filter(function (l) { return !(l && l.role && have[l.role]); });
+    if (!add.length) return base;
+    return Object.assign({}, base, { layers: (base.layers || []).concat(add) });
+  }
   function _openStoryEditor(o) {
     o = o || {};
     // [slot-sync Phase B] 다른 기기 slot(https 이미지) → 편집기 캔버스 오염 방지 위해 먼저 수화. 1회만 시도(실패해도 진행).
-    if (_needsHydrate() && !d._hydrateTried) { d._hydrateTried = true; toast('사진 불러오는 중…'); _hydrateD().then(function (ok) { if (!ok) d._hydrateTried = false; /* [버그수정 2026-07-06] 실패 시 재시도 가능하게 */ _openStoryEditor(o); }); return; }
+    // [보안감사 M-12 2026-07-26] 예전엔 hydrate 실패 시에도 _openStoryEditor(o) 를 곧바로 재귀 호출해서,
+    //   _needsHydrate() 가 계속 true 면 무한 재시도 루프('사진 불러오는 중' 반복, 편집기 진입 불가)였다.
+    //   또 _hydrateD() 가 reject 하면 _hydrateTried=true 로 남아 영영 안 열리는 다른 고착도 있었다.
+    //   → 성공 시에만 재오픈, 실패/reject 시엔 멈추고 안내(재시도는 사용자 재요청으로).
+    if (_needsHydrate() && !d._hydrateTried) {
+      d._hydrateTried = true; toast('사진 불러오는 중…');
+      _hydrateD().then(function (ok) {
+        if (ok) { _openStoryEditor(o); return; }
+        d._hydrateTried = false;
+        toast('사진을 불러오지 못했어요 — 잠시 후 다시 시도해 주세요');
+      }).catch(function () {
+        d._hydrateTried = false;
+        toast('사진을 불러오지 못했어요 — 잠시 후 다시 시도해 주세요');
+      });
+      return;
+    }
     // [#2 단일화] 편집기는 ItdEditor 단독(옛 StoryEditor 제거됨). 계약 open{photoUrl,onDone(dataUrl,meta)} 동일.
     // o.fresh=true → 이전 편집상태(editState) 복원 안 함(캡션 직후 자동 오픈: 옛날 콜라주·빈 텍스트가 되살아나던 문제).
     var Editor = window.ItdEditor;
@@ -347,16 +517,69 @@
     var _restore = (!_hasBg && p0 && p0.editState) || null;
     // [ws-hyper] 레이아웃 활성 시: 프리셋 매칭되면 편집기 콜라주(슬롯 재조정 가능), 아니면 합성본 단일 이미지로 레이아웃 보존.
     //   (예전엔 항상 원본 단일 사진으로 열려 레이아웃이 통째 사라졌음 — 2026-07-10 버그수정)
-    var _wsEd = (d.wsLayout && !_hasBg) ? _wsLayoutEditState() : null;
+    // [v779 재오픈] d.wsLayout 은 레이아웃 화면을 방문해야만 채워지는 세션 별칭 → 재오픈 초안엔 없다.
+    //   합성본(templateOutput/배열)이 있으면 게이트를 열어 composite 편집이 되게 한다(원본 열림·편집 미반영 방지).
+    var _wsEd = ((d.wsLayout || d.templateOutput || (d.templateOutputs && d.templateOutputs.length)) && !_hasBg) ? _wsLayoutEditState() : null;
     var photo = (_wsEd && _wsEd.mode === 'composite') ? _wsEd.photoUrl
       : (_wsEd && _wsEd.mode === 'collage') ? (_wsEd.photos[0] || _cleanBase(p0) || outputUrl())
       : (_restore ? (_cleanBase(p0) || outputUrl())
         : ((o.fresh && p0 && p0.editedDataUrl) ? p0.editedDataUrl : (_cleanBase(p0) || outputUrl())));
     var built = _buildShopStyleLayers();
     var layers = built.layers, autoArranged = built.autoArranged;
+    // [2026-07-24 보스] 기본 시술내용 텍스트(시술명·부제·해시태그)는 **첫 장에만**. 둘째 장부터 편집기를 열면
+    //   시술텍스트를 얹지 않는다(발행 미리보기 bake 와 동일 규칙 — _autoComposeTemplate 참고). 나머지 장은
+    //   원장이 직접 텍스트를 넣게. 로고·워터마크·스티커·라인·작업기억 꾸밈(시술내용 역할 아님)은 그대로 둔다.
+    try {
+      var _eps0 = editablePhotos() || [];
+      var _actP = _activeEditPhoto();
+      var _pIdx = _actP ? _eps0.map(function (p) { return p && p.id; }).indexOf(_actP.id) : 0;
+      if (_pIdx > 0) {
+        layers = layers.filter(function (L) {
+          return !(L && { title: 1, sub: 1, hashtag: 1 }[L.role] && (L.type === 'text' || L.type === 'badge' || L.type == null));
+        });
+      }
+    } catch (_svcE) { void _svcE; }
+    // [2026-07-22 오케스트레이션] 잇비 브리핑(파싱)에서 온 텍스트·스티커 레이어. layers(신규편집) + editState.layers(콜라주 복원) 양쪽에 얹어야 함.
+    var _orchLayers = [];
+    if (d._orch && window.ItdasyPhotoBrief && window.ItdasyPhotoBrief.buildLayers) {
+      try { _orchLayers = window.ItdasyPhotoBrief.buildLayers(d._orch) || []; } catch (_oe) { _orchLayers = []; }
+      // orch 가 시술내용 텍스트를 주면, 우리샵 기본 플레이스홀더 텍스트(커스텀메모)는 뺀다(중복 방지).
+      if (_orchLayers.length && d._orch.wantsText) layers = layers.filter(function (l) { return l.text !== '커스텀메모'; });
+      if (_orchLayers.length) { layers = layers.concat(_orchLayers); autoArranged = false; }
+    }
+    /* [T-115 P2] ★기본 작업 기억을 편집기에 올린다. 플래그 OFF면 null(=기존 동작 그대로).
+       [버그수정 2026-07-17] 예전 조건은 `!_restore && !_wsEd` 였다 — _wsEd 는 작업실 레이아웃이 켜지면
+         늘 채워지는데, 작업실 기본 흐름이 업로드→레이아웃→캡션이라 사실상 **항상** 꺼져 있었다.
+         원장이 스티커·글씨·도형을 ★기본으로 지정해도 새 글에서 아무것도 안 올라오던 원인.
+       이제 레이아웃이 있어도 기억을 계산하되 layersOnly=true 로 '꾸밈만' 가져온다
+         (칸 배치는 방금 고른 레이아웃이 소유 — 안 그러면 레이아웃이 기억에 덮여 사라진다). */
+    var _wmEd = null;
+    if (!_restore && window.WorkMemory) {
+      var _wmPhotoN = (editablePhotos() || []).length;
+      // [2026-07-22 원장 스타일] "최근 원장 작업으로" 브리핑이면 플래그(ITDASY_WORK_MEMORY)와 무관하게
+      //   ★기본 작업 기억(꾸밈/폰트/위치)을 base 로 적용. orch 가 텍스트를 주면 기억의 텍스트역할은 비워
+      //   중복 방지(incoming:[]) — 시술내용 텍스트는 orch 레이어가 소유.
+      if (d._orch && d._orch.useRecentStyle && window.WorkMemory.getDefault && window.WorkMemory.toEditState) {
+        try {
+          var _rec = window.WorkMemory.getDefault();
+          if (_rec) _wmEd = window.WorkMemory.toEditState(_rec, { incoming: (d._orch.wantsText ? [] : layers), photoCount: _wmPhotoN, layersOnly: !!_wsEd });
+        } catch (_we) { _wmEd = null; }
+      }
+      if (!_wmEd) _wmEd = window.WorkMemory.defaultEditState({ incoming: layers, photoCount: _wmPhotoN, layersOnly: !!_wsEd });
+    }
     // [v590] 진입 시 올린 텍스트 역할 기록 — 저장 시 빠진 역할(사용자가 지움)을 스타일에서 비활성화하는 비교 기준.
     // [audit#3] 텍스트 역할 레이어는 type 필드가 없다(roleText 배치) — 'text'로만 필터하면 항상 빈 배열이라 '지운 레이어 기억' 기능이 죽어 있었음.
     d._editorOpenRoles = layers.filter(function (l) { return l.role && (l.type === 'text' || l.type == null); }).map(function (l) { return l.role; });
+    // 최종 editState 계산 후, 오케스트레이션 레이어를 editState.layers 에도 병합(콜라주는 editState.layers 를 쓰고 layers 파라미터를 무시하므로).
+    var _finalEs = (_wsEd && _wsEd.mode === 'collage') ? _mergeWmLayers(_wsEd.editState, _wmEd)
+      : (_restore || (o.fresh ? _wmEd : ((p0 && p0.editState) || _wmEd)));
+    if (_orchLayers.length && _finalEs) {
+      try {
+        var _esL = _finalEs.layers || [];
+        if (d._orch && d._orch.wantsText) _esL = _esL.filter(function (l) { return l.text !== '커스텀메모'; });
+        _finalEs.layers = _esL.concat(_orchLayers);
+      } catch (_me) { void _me; }
+    }
     Editor.open({
       photoUrl: photo,
       photos: (_wsEd && _wsEd.mode === 'collage') ? _wsEd.photos : (editablePhotos() || []).map(function (p) { return p.editedDataUrl || _cleanBase(p) || photoUrl(p); }),   // [itd][#5] 콜라주 셀은 편집본 우선 · [ws-hyper] 레이아웃 매칭 시 슬롯 순서대로
@@ -364,11 +587,14 @@
       shopName: (built.ss && (built.ss.name || built.ss.shopName)) || (window.WorkspaceAdapter && window.WorkspaceAdapter.shopName && window.WorkspaceAdapter.shopName()) || '',
       layers: layers,
       autoArranged: autoArranged,
-      editState: (_wsEd && _wsEd.mode === 'collage') ? _wsEd.editState : (_restore || (o.fresh ? null : ((p0 && p0.editState) || null))),   // [#17] 이어서 편집 · [ws-hyper] 레이아웃 매칭 시 콜라주 상태 주입(슬롯 재조정)
+      // [#17] 이어서 편집 · [ws-hyper] 레이아웃 매칭 시 콜라주 상태 주입(슬롯 재조정) · [T-115 P2] 없으면 ★기본 작업 기억
+      // [2026-07-17] 콜라주(레이아웃)엔 기억의 '꾸밈'만 합쳐 얹는다 — 칸 배치는 레이아웃 것 그대로.
+      editState: _finalEs,
       onDone: function (dataUrl, meta) {
         var p = p0 || _activeEditPhoto();   // [#5] 열 때 잡은 '보던 장'에 저장(편집 중 바뀌지 않게 고정)
         if (p) { p.editedDataUrl = dataUrl; p.storyEdited = true; if (meta && meta.editState) p.editState = meta.editState; }   // [#11] 편집 상태 보존 → 재편집 이어가기
         if (_wsEd) { d.templateOutput = dataUrl; d.previewUrl = null; }   // [ws-hyper] 편집한 레이아웃 합성본을 대표 이미지로 → 미리보기/발행/저장에 반영
+        _syncOutputForEdit(p, dataUrl, !!_wsEd);   // [버그수정 2026-07-17] 결과물 배열에도 반영(안 하면 발행이 편집 전 합성본을 올림)
         // [캐러셀] 편집기에서 (콜라주 아닌 단일 레이아웃으로) 새로 추가한 사진 → 플로우 사진목록에 별도 사진으로 반영.
         //   원장님 요청: "편집기 추가 사진도 캐러셀로". 이러면 여러 장 게시(캐러셀) 후보가 된다.
         try {
@@ -383,13 +609,14 @@
         try {
           var _pp = meta && meta.perPhoto;
           if (_pp && _pp.length && window.ItdEditor && window.ItdEditor.compose) {
-            var _eph = editablePhotos(), _rt = (meta.editState && meta.editState.ratio) || '4:5';
+            var _eph = editablePhotos(), _rt = (meta.editState && meta.editState.ratio) || _wsRatio();
             _pp.forEach(function (e) {
               var tp = _eph[e.idx]; if (!tp || tp === p) return;   // 보던 장은 위에서 dataUrl 로 이미 저장
               var _cb = _cleanBase(tp) || photoUrl(tp);
               window.ItdEditor.compose({ photoUrl: _cb, ratio: _rt, layers: e.layers }).then(function (u) {
                 if (!u) return;
                 tp.editedDataUrl = u; tp.storyEdited = true;
+                _syncOutputForEdit(tp, u, false);   // [버그수정 2026-07-17] 사진별 레이어 합성도 결과물 배열에 반영
                 tp.editState = { v: 1, layoutIdx: 0, layoutOrder: [], cellCrop: [], fitMode: 'contain', ratio: _rt, adj: [], photoDraw: {}, photoBg: {}, photos: [_cb], layers: e.layers };
                 d.previewUrl = null;   // [#3] 편집 중간에는 내 콘텐츠 저장 안 함 — 최종(발행/연결/저장)에서만. 데이터는 메모리 유지.
               });
@@ -397,12 +624,17 @@
           }
         } catch (_ppe) { void _ppe; }
         d.previewUrl = null;
-        _learnShopStyle(meta && meta.layers);   // [v587·C] 편집 결과를 우리샵 스타일로 학습
+        _learnShopStyle(meta && meta.layers);   // [v587·C] 편집 결과를 우리샵 스타일로 학습 · [T-115 P3] 기억 ON이면 '지운 역할'만
         // [#3] 편집 완료 시점엔 내 콘텐츠에 저장하지 않음(중간본 쌓임 방지). 편집 결과는 d.photos 메모리에 유지되어
         //   미리보기·발행에 그대로 쓰이고, 실제 저장은 워크플로 최종(발행/고객연결/저장)에서만.
         // [워크플로 재정렬] 편집기 완료 후 다음 목적지(예: 캡션→편집기→미리보기). 없으면 캡션 유지.
         if (d._editorNext) { var _nx = d._editorNext; d._editorNext = null; setScreen(_nx); }
         else if (cur === 'caption') setScreen('caption');
+        // [2026-07-22 오케스트레이션] 편집 반영 후 시술내용으로 캡션 자동생성(1회). 그 뒤 브리핑 소진.
+        if (d._orch) {
+          var _svc = d._orch.service; d._orch = null; d._orchApplied = false;
+          if (_svc) { d.service = _svc; try { doGenerate({}, null); } catch (_ge) { void _ge; } }
+        }
         toast('사진을 꾸몄어요');
       },
       onCancel: function () { d._editorNext = null; }   // 편집기 취소 시 라우팅 플래그 정리(다음 편집이 엉뚱히 미리보기로 안 가게)
@@ -415,14 +647,20 @@
     d._editorNext = 'caption';
     _openStoryEditor();
   }
-  // [v587·C] ShopStyle 학습 피드백 루프 — 편집기에서 바꾼 폰트/색/위치/외곽선을 활성 스타일에
-  //   되저장해 다음 사진부터 같은 스타일로 자동배치한다. (중앙x → 좌상단x 역변환)
+  // [v587·C] ShopStyle 학습 피드백 루프 — 편집기 결과를 활성 스타일에 되저장.
+  // [T-115 P3] '배치 학습'과 '지운 역할 기억' 두 가지를 하는데, 소유자가 갈렸다.
+  //   ① 배치(위치·크기·폰트·외곽선) → 작업 기억(WorkMemory)이 소유. 기억이 켜져 있으면 여기선 안 배운다.
+  //      둘 다 배우면 같은 걸 두 곳에 저장해 '왜 내 스타일이 저절로 바뀌지?' 가 된다(예측 불가).
+  //      기억이 꺼져 있으면(기본값) 예전 그대로 배운다 — 안 그러면 대체재 없이 기능만 잃는다.
+  //   ② 지운 역할(enabled:false) → 여기가 계속 소유. 기억엔 대응물이 없고, 이게 없으면
+  //      _buildShopStyleLayers 가 지운 레이어를 다시 올리고 편집기 _renderMissingIncoming 도
+  //      '빠진 역할' 로 보고 되살린다. 기억을 켜도 필요하다.
   function _learnShopStyle(layers) {
     try {
       if (!Array.isArray(layers)) return;
-      if (d.useShopStyle === false) return;
       var SS = window.ShopStyle; if (!(SS && SS.getActive && SS.save)) return;
       var ss = SS.getActive(); if (!ss || !Array.isArray(ss.layers)) return;
+      var learnGeom = !(window.WorkMemory && window.WorkMemory.flagOn());   // [T-115 P3] 배치는 기억이 켜지면 기억 소유
       var byRole = {};
       layers.forEach(function (l) { if (l && l.type === 'text' && l.role && !byRole[l.role]) byRole[l.role] = l; });
       var TEXT_ROLES = { title: 1, sub: 1, body: 1, hashtag: 1 };
@@ -432,7 +670,11 @@
         if (!TEXT_ROLES[L.role]) return L;
         var e = byRole[L.role];
         if (e) {
-          // 존재 → 폰트/색/위치/외곽선 학습 + 다시 활성화.
+          // 존재 → 다시 활성화(사용자가 도로 올림). 배치 학습은 기억이 꺼져 있을 때만.
+          if (!learnGeom) {
+            if (L.enabled === false) { changed = true; return Object.assign({}, L, { enabled: true }); }
+            return L;
+          }
           changed = true;
           var w = (e.w != null ? e.w : (L.w != null ? L.w : 0.84));
           var leftX = Math.max(0, Math.min(1, (e.x != null ? e.x - w / 2 : L.x)));
@@ -450,6 +692,7 @@
           });
         }
         // [v590] 올렸는데 저장 결과에 없음 = 사용자가 편집기에서 제거 → 비활성화(다음부터 이 스타일은 해당 레이어 안 올림).
+        //   [T-115 P3] 기억을 켜도 이건 계속 살아있어야 한다(위 ② 참고).
         if (openedRoles.indexOf(L.role) >= 0 && L.enabled !== false) { changed = true; return Object.assign({}, L, { enabled: false }); }
         return L;
       });
@@ -548,13 +791,19 @@
         '<span class="up-cloud"><i class="ph-duotone ph-cloud-arrow-up"></i></span>' +
         '<b>사진을 드래그하거나 여기를 눌러 업로드</b>' +
         '<span class="up-note">여러 장 한 번에 · JPG · PNG 최대 20MB</span>' +
-      '</div>' + guide +
+      '</div>' +
+      // [2026-07-28 원영 2번·A안] 사진 없이 글만 쓰기 — 업로드 0장일 때만 드롭존 아래 노출.
+      //   글만 쓰기는 업로드의 하위 옵션이 아니라 별도 시작점이라 드롭존 밖에 대등하게 둔다.
+      (n ? '' :
+        '<div class="up-or" aria-hidden="true"><span>또는</span></div>' +
+        '<button type="button" class="up-textonly" data-fl="textonly"><i class="ph-bold ph-pencil-simple"></i>사진 없이 글만 쓰기</button>') +
+      guide +
       '<div class="up-section">업로드한 사진 <b>' + n + '</b> / 10' +
         (n ? ' <span class="up-rolehint">· 탭해 <b>선택/해제</b>' + (multi ? ' · 전후는 사진마다 <b>전·후</b> 지정' : '') + '</span>' : '') + '</div>' +
       '<div class="upload-grid">' + tiles +
         '<div class="grid-add" data-fl-pick><i class="ph-bold ph-plus"></i><span>추가</span></div>' +
       '</div>' +
-      '<div class="up-foot" data-up-foot>' + _upSummaryHtml(selCount, multi, cnt) + _pairPreviewHtml(cnt) + '</div>';
+      '<div class="up-foot" data-up-foot>' + _formatSegHtml(selCount) + _upSummaryHtml(selCount, multi, cnt) + _pairPreviewHtml(cnt) + '</div>';
   }
   // [v531 렉] 역할/선택 변경 시 전체 재렌더(이미지 6장 base64 재파싱) 대신 in-place 갱신.
   //   타일 이미지 DOM 은 유지하고 selected 클래스·순서배지·역할 세그 on 상태만 바꾼다.
@@ -602,7 +851,7 @@
       var multi = selOrdered.length >= 2;
       var cnt = { before: 0, after: 0, hero: 0 };
       selOrdered.forEach(function (p) { var r = p.role || 'hero'; if (cnt[r] != null) cnt[r]++; else cnt.hero++; });
-      foot.innerHTML = _upSummaryHtml(selOrdered.length, multi, cnt) + _pairPreviewHtml(cnt);
+      foot.innerHTML = _formatSegHtml(selOrdered.length) + _upSummaryHtml(selOrdered.length, multi, cnt) + _pairPreviewHtml(cnt);
     });
   }
 
@@ -651,13 +900,6 @@
 	      '<span class="ed-slabel ed-slabel--lo">' + esc(lo) + '</span>' +
 	      '<input type="range" min="' + min + '" max="' + max + '" value="' + val + '" ' + attr + '="' + key + '">' +
 	      '<span class="ed-slabel ed-slabel--hi">' + esc(hi) + '</span></div>';
-	  }
-	  function _ctrlSlider(ctrls, activeKey, toolAttr) {
-	    var active = activeKey && ctrls.some(function (c) { return c.k === activeKey; }) ? activeKey : ctrls[0].k;
-	    var actObj = _toolByKey(ctrls, active);
-	    var val = (d.adjust && d.adjust[active]) || 0;
-	    return _toolButtons(ctrls, active, toolAttr) +
-	      _labeledRange(actObj.lo || '약하게', actObj.hi || '강하게', -100, 100, val, 'data-fl-range', active);
 	  }
 	  function _mainAdjustHtml() {
 	    var active = d.basicTool || 'brightness';
@@ -735,7 +977,7 @@
     return '<div class="ed-roles">' + eps.map(function (p) {
       var idx = d.photos.indexOf(p);
       var role = p.role || 'hero';
-      return '<div class="ed-roles__row"><span class="ed-roles__thumb" style="background-image:url(' + esc(photoUrl(p)) + ')"></span>' + _roleSegInline(role, idx) + '</div>';
+      return '<div class="ed-roles__row"><span class="ed-roles__thumb" style="background-image:url(' + esc(_blobDisp(photoUrl(p))) + ')"></span>' + _roleSegInline(role, idx) + '</div>';
     }).join('') + '<div class="ed-roles__hint">전후 비교 템플릿은 <b>전</b>·<b>후</b>를 각각 1장 이상 지정하세요.</div></div>';
   }
   function _advFoldHtml() {
@@ -793,28 +1035,6 @@
     if (o && o.templateId) { var _t = WORKSPACE_TEMPLATES.filter(function (x) { return x.id === o.templateId; })[0]; tn = _t ? _t.label : ''; }
     return base + (tn ? ' · ' + tn : '');   // [v541] active 라벨에 현재 Pair 템플릿명 표시(짝별 개별 적용 확인)
   }
-  function _tplResultCarousel() {
-    var items = _displayItems(); if (!items.length) return '';
-    var n = items.length;
-    var active = (function () { for (var i = 0; i < items.length; i++) if (items[i].id === d.activeDisplayId) return d.activeDisplayId; return items[0].id; })();
-    var actIdx = 0; for (var k = 0; k < items.length; k++) if (items[k].id === active) actIdx = k;
-    var slides = items.map(function (it) {
-      return '<div class="cap-car__slide" data-fl-carslide="' + esc(it.id) + '">' +
-        '<div class="cap-car__img" style="background-image:url(' + esc(it.url) + ')"></div></div>';
-    }).join('');
-    var dots = n > 1 ? '<div class="cap-car__dots">' + items.map(function (it) {
-      return '<button type="button" class="cap-car__dot' + (it.id === active ? ' on' : '') + '" data-fl-cardot="' + esc(it.id) + '" aria-label="이 결과 보기"></button>';
-    }).join('') + '</div>' : '';
-    var pills = n > 1 ? '<div class="tpl-car__pills">' + items.map(function (it, i) {
-      return '<button type="button" class="tpl-car__pill' + (it.id === active ? ' on' : '') + '" data-fl-cardot="' + esc(it.id) + '">' + esc(_carItemLabel(it, i)) + '</button>';
-    }).join('') + '</div>' : '';
-    return '<div class="cap-car tpl-car" data-fl-carousel>' +
-        '<div class="cap-car__track" data-fl-cartrack>' + slides + '</div>' + dots + pills +
-        '<div class="tpl-car__actions"><span class="tpl-car__active" data-fl-tpl-activelabel>' + esc(_carItemLabel(items[actIdx], actIdx)) + '</span>' +
-          '<button type="button" class="tpl-car__change" data-fl="tplchange-active">템플릿 바꾸기</button>' +
-          '<button type="button" class="tpl-car__edit" data-fl="tpledit-active">템플릿 수정</button>' +
-        '</div></div>';
-  }
   // [v559] 템플릿 결과를 '큰 preview 와 한 흐름'으로 — 별도 fold 카루셀 대신, 적용 시 항상 보이는 인라인 결과.
   //   활성 pair 의 합성 결과(전+후 한 장)를 크게 + '적용됨' badge + (다중)pair chip + 바꾸기/해제.
   function _tplAppliedHtml() {
@@ -830,7 +1050,7 @@
     var badge = '<div class="tplres__badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
         '<b>' + (isBA ? '전후 템플릿 적용됨' : '템플릿 적용됨') + '</b>' +
         (outs.length > 1 ? '<em>' + (actIdx + 1) + ' / ' + outs.length + '</em>' : '') + '</div>';
-    var img = '<div class="tplres__img" data-fl-tplresult style="background-image:url(' + esc(active.outputUrl) + ')"></div>';
+    var img = '<div class="tplres__img" data-fl-tplresult style="background-image:url(' + esc(_blobDisp(active.outputUrl)) + ')"></div>';
     var pairs = outs.length > 1 ? '<div class="tplres__nav" role="tablist" aria-label="결과물 전환 — 좌우로 넘기기">' +
         '<button type="button" class="tplres__arw" data-fl-pairstep="prev" aria-label="이전 결과물"' + (actIdx <= 0 ? ' disabled' : '') + '><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>' +
         '<div class="tplres__dots">' + outs.map(function (o, i) {
@@ -1337,130 +1557,278 @@
     return Object.keys(r).map(function (k) { return ({ before: '전', after: '후', hero: '홍보컷', exclude: '제외' }[k] || k) + ' ' + r[k]; }).join(' · ') || '없음';
   }
 
-  // [캡션재설계] 옛 3축(scenario-selector) 느낌을 살린 위저드 — 위 버튼 누르면 다음 질문, 아래 시술입력은 고정.
-  //   picks 는 기존 생성 배관(d.captionAxes → photo_context)에 그대로 흘러감(백엔드 변경 0).
+  // [캡션재설계 v2 2026-07-15] 3질문을 스텝 없이 한 화면 세로 배치(목업 33_작업실_개편 ②).
+  //   답은 기존 생성 배관(d.captionAxes → photo_context) 그대로. '직접' = 점선 칩, 누르면 그 자리 입력창 토글.
+  //   (구 capWizStep 스텝 넘김·점 인디케이터·done 화면·뒤로/다시 버튼은 전부 삭제·병합)
   var _WIZ_STEPS = [
-    { key: 'situation', q: '무슨 게시물인가요?', opts: [['시술 완성', 'ph-check-circle'], ['후기·감사', 'ph-heart'], ['직접', 'ph-pencil-simple']] },
-    { key: 'customer',  q: '손님은 어떤 분이에요?', opts: [['신규', 'ph-user-plus'], ['단골', 'ph-user-circle'], ['직접', 'ph-pencil-simple']] },
-    { key: 'photo',     q: '사진 종류는요?', opts: [['완성샷', 'ph-image'], ['전후 비교', 'ph-columns'], ['직접', 'ph-pencil-simple']] }
+    { key: 'situation', q: '무슨 게시물인가요?', l: '무슨 게시물', opts: ['시술 완성', '후기·감사', '이벤트·공지'] },
+    { key: 'customer',  q: '손님은 어떤 분이에요?', l: '손님', opts: ['처음 온 손님', '단골 손님'] },
+    { key: 'photo',     q: '사진은 어떤 사진이에요?', l: '사진', opts: ['완성샷', '전·후 비교'] }
   ];
+  // [아코디언 2026-07-15] 답한 질문은 한 줄로 접히고 다음 질문이 저절로 열린다(목업 34).
+  function _wizAnswered(key) { var v = (d.captionAxes || {})[key]; return !!(v && String(v).trim()); }
+  function _wizUnanswered() { return _WIZ_STEPS.filter(function (s) { return !_wizAnswered(s.key); }).length; }
+  // 지금 펼칠 질문: '바꾸기'로 강제로 연 것 > 첫 미답변. 전부 답했으면 없음('').
+  function _wizOpenKey() {
+    if (d._wizOpen && _wizStep(d._wizOpen)) return d._wizOpen;
+    for (var i = 0; i < _WIZ_STEPS.length; i++) { if (!_wizAnswered(_WIZ_STEPS[i].key)) return _WIZ_STEPS[i].key; }
+    return '';
+  }
+  function _wizStep(key) { for (var i = 0; i < _WIZ_STEPS.length; i++) { if (_WIZ_STEPS[i].key === key) return _WIZ_STEPS[i]; } return null; }
+  // 이 축의 저장값이 선택지 밖(=직접 입력값)인지
+  function _wizIsCustom(key) {
+    var v = (d.captionAxes || {})[key]; if (!v) return false;
+    var st = _wizStep(key);
+    return !!st && st.opts.indexOf(v) < 0;
+  }
   function _capWizHtml() {
-    var step = d.capWizStep || 0, ax = d.captionAxes || {};
-    var s = _WIZ_STEPS[step];   // step>=3(완료)이면 undefined
-    var dots = '';
-    for (var i = 0; i < 3; i++) { dots += '<span class="capwiz__dot' + (ax[_WIZ_STEPS[i].key] ? ' done' : (i === step ? ' on' : '')) + '"></span>'; }
-    // [#15] 질문을 헤더 줄에 인라인 배치 → 점 3개와 같은 수평선.
-    var qInline = s ? '<span class="capwiz__q capwiz__q--inline">' + esc(s.q) + '</span>' : '';
-    var head = '<div class="capwiz__head">' +
-      (step > 0 ? '<button type="button" class="capwiz__back" data-fl-wizback aria-label="이전"><i class="ph-bold ph-caret-left"></i></button>' : '<span class="capwiz__backsp"></span>') +
-      qInline +
-      '<span class="capwiz__dots">' + dots + '</span></div>';
-    var _dir = (d._wizDir === 'back' ? ' capwiz__body--back' : '');   // [애니메이션] 이전=왼쪽에서, 다음=오른쪽에서 슬라이드
-    if (step >= 3) {
-      var chips = _WIZ_STEPS.map(function (s) { return '<span class="capwiz__pick">' + esc(ax[s.key] || '-') + '</span>'; }).join('');
-      return '<div class="capwiz capwiz--done">' + head +
-        '<div class="capwiz__body' + _dir + '"><div class="capwiz__done"><i class="ph-fill ph-check-circle capwiz__donechk"></i><span class="capwiz__donet">다 골랐어요</span>' + chips +
-        '<button type="button" class="capwiz__redo" data-fl-wizredo>다시</button></div></div></div>';
-    }
-    var bodyInner;
-    if (d._wizCustom === s.key) {
-      // [직접 입력] 팝업 대신 인라인 — '직접' 누르면 여기서 바로 타이핑(Enter/확인 → 다음). [#15] q는 헤더로 이동.
-      bodyInner =
-        '<div class="capwiz__custom">' +
-          '<input type="text" class="capwiz__custin" data-fl-wizcustin maxlength="40" placeholder="직접 적어주세요" value="' + esc(ax[s.key] && s.opts.every(function (o) { return o[0] !== ax[s.key]; }) ? ax[s.key] : '') + '">' +
-          '<button type="button" class="capwiz__custok" data-fl-wizcustok aria-label="확인"><i class="ph-bold ph-check"></i></button>' +
-        '</div>' +
-        '<button type="button" class="capwiz__custcancel" data-fl-wizcustcancel>← 버튼으로</button>';
-    } else {
-      var btns = s.opts.map(function (o) {
-        var on = ax[s.key] === o[0];
-        return '<button type="button" class="capwiz__opt' + (on ? ' on' : '') + '" data-fl-wizpick="' + s.key + '::' + esc(o[0]) + '">' +
-          '<i class="ph-duotone ' + o[1] + '"></i><span>' + esc(o[0]) + '</span></button>';
+    var ax = d.captionAxes || {};
+    var openKey = _wizOpenKey();
+    var just = d._wizJust; d._wizJust = null;   // 방금 답한 질문 — 이번 렌더에서만 접힘·체크 팝 애니메이션
+    return _WIZ_STEPS.map(function (s, i) {
+      var val = ax[s.key] || '';
+      var answered = _wizAnswered(s.key);
+      // ① 접힌 줄 — 답 완료: 체크 + 한 줄 요약, 탭하면 다시 펼침
+      if (answered && s.key !== openKey) {
+        var lbl = val.length > 16 ? val.slice(0, 16) + '…' : val;
+        return '<button type="button" class="capwiz__row' + (just === s.key ? ' capwiz__row--pop' : '') + '" data-fl-wizreopen="' + esc(s.key) + '">' +
+          '<em><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></em>' +
+          '<span class="capwiz__rowl">' + esc(s.l) + '</span><b>' + esc(lbl) + '</b>' +
+          '<span class="capwiz__chg">바꾸기</span></button>';
+      }
+      // ② 잠긴 줄 — 아직 차례 아님
+      if (s.key !== openKey) {
+        return '<div class="capwiz__row capwiz__row--lock"><em>' + (i + 1) + '</em><span class="capwiz__rowq">' + esc(s.q) + '</span></div>';
+      }
+      // ③ 펼친 카드 — 지금 답할 질문
+      var isCustom = _wizIsCustom(s.key);
+      var open = d._wizCustom === s.key;
+      var chips = s.opts.map(function (o) {
+        return '<button type="button" class="capwiz__opt' + (val === o ? ' on' : '') + '" data-fl-wizpick="' + s.key + '::' + esc(o) + '">' + esc(o) + '</button>';
       }).join('');
-      bodyInner = '<div class="capwiz__opts">' + btns + '</div>';   // [#15] q는 헤더로 이동
+      // '직접' 점선 칩 — 저장된 직접 값이 있으면 칩에 값 미리보기, 누르면 입력창 토글(재탭=값 해제).
+      var etcLbl = (isCustom && !open) ? ('직접 · ' + esc(val.length > 10 ? val.slice(0, 10) + '…' : val)) : '직접';
+      chips += '<button type="button" class="capwiz__opt capwiz__opt--etc' + ((isCustom || open) ? ' on' : '') + '" data-fl-wizcustom="' + esc(s.key) + '">' + etcLbl + '</button>';
+      var custin = open
+        ? '<div class="capwiz__custom">' +
+            '<input type="text" class="capwiz__custin" data-fl-wizcustin maxlength="40" placeholder="직접 적어주세요" value="' + esc(isCustom ? val : '') + '">' +
+            '<button type="button" class="capwiz__custok" data-fl-wizcustok>확인</button>' +
+          '</div>'
+        : '';
+      return '<div class="capwiz__card' + (just ? ' capwiz__card--in' : '') + '"><label class="capwiz__q"><em>' + (i + 1) + '</em>' + esc(s.q) + '</label>' +
+        '<div class="capwiz__opts">' + chips + '</div>' + custin + '</div>';
+    }).join('');
+  }
+  // [아코디언] CTA 차오름 — 질문에 먼저 답해주세요 → 질문 N개 남았어요 → 게시글 만들기(로즈).
+  //   시술·특이사항까지 채우면 버튼 위에 정확도 힌트 한 줄. 잠긴 버튼 탭 = 첫 미답변 질문 펼침(핸들러).
+  function _capWizCtaHtml() {
+    var left = _wizUnanswered();
+    if (left > 0) {
+      var txt = left >= _WIZ_STEPS.length ? '질문에 먼저 답해주세요' : (left === 1 ? '질문 하나 남았어요' : '질문 ' + left + '개 남았어요');
+      return '<button type="button" class="capwiz__cta capwiz__cta--dis" data-fl-cgenlock>' + txt + '</button>';
     }
-    return '<div class="capwiz">' + head + '<div class="capwiz__body' + _dir + '">' + bodyInner + '</div></div>';
+    var hint = (String(d.service || '').trim() || String(d.specialNote || '').trim())
+      ? '<p class="capwiz__ready">우리샵 말투로 더 정확하게 써드려요</p>' : '';
+    return hint + '<button type="button" class="capwiz__cta" data-fl-cgen>게시글 만들기</button>';
+  }
+  // [캡션재설계 v2] 3축 → photo_context 문자열. '직접' 입력값도 caption-text 드롭 규칙(_publicServiceKeywords)으로
+  //   정제 후 포함 — 사담·욕설·지시어가 생성 컨텍스트에 원문으로 흘러가지 않게.
+  function _wizAxisContext() {
+    var ax = d.captionAxes || {}, parts = [];
+    _WIZ_STEPS.forEach(function (s) {
+      var v = String(ax[s.key] || '').trim(); if (!v) return;
+      if (s.opts.indexOf(v) < 0) { var cl = ''; try { cl = _publicServiceKeywords(v) || ''; } catch (_e) { void _e; } v = String(cl || v).slice(0, 40); }
+      parts.push(v);
+    });
+    return parts.join(' / ');
   }
   // 자주 쓰는 시술 태그(업종별 기본 + 커스텀) — 탭하면 시술 입력칸에 추가. getShopKeywords()는 caption-keyword-tags.js.
-  var _SVC_TYPES = ['미용실', '헤어', '네일', '붙임머리', '속눈썹', '왁싱', '피부'];
+  // [요청3 2026-07-13] 재선택 목록을 시술 사전(service-vocab) 전 업종으로 확장 — 반영구/메이크업/태닝/두피/에스테틱
+  //   샵으로 가입한 원장님도 자기 업종이 목록에 뜨고 라벨이 '업종 고르기'로 안 떨어지게. (네일아트는 '네일'로 통합)
+  var _SVC_TYPES = ['미용실', '헤어', '네일', '붙임머리', '속눈썹', '왁싱', '피부', '반영구', '메이크업', '태닝', '두피', '에스테틱'];
+  // [2026-07-26 원영] 특이사항 업종별 예시(_NOTE_EG·_noteEg) 삭제 — placeholder 자체를 없애기로(입력칸은 라벨만으로 충분).
   function _svcTagsHtml() {
     var kws = [];
     try { if (typeof getShopKeywords === 'function') kws = getShopKeywords() || []; } catch (_e) { void _e; }
+    kws = _applySvcOrder(kws);   // [관리모드] 저장된 순서 적용
     var stype = ''; try { stype = localStorage.getItem('shop_type') || ''; } catch (_e2) { void _e2; }
     // [#2] 업종이 키워드로 해석되면(가입값 hair/헤어샵/네일 등 정규화 성공) 태그 노출. 'beauty'·general 처럼 안 풀리면 업종 고르게.
     var _norm = ''; try { if (window.itdasyNormalizeShopType) _norm = window.itdasyNormalizeShopType(stype).label || ''; } catch (_en) { void _en; }
     var valid = kws.length > 0 || _SVC_TYPES.indexOf(stype) >= 0;
     var _typeLabel = (_SVC_TYPES.indexOf(stype) >= 0) ? stype : (valid ? (_norm || stype) : '업종 고르기');   // 고른 업종칩은 그대로 표시(정규화 '기타'로 안 바뀌게)
-    var chips = valid ? kws.slice(0, 8).map(function (k) { return '<button type="button" class="cap-svctag" data-fl-svctag="' + esc(k) + '">' + esc(k) + '</button>'; }).join('') : '';
-    var typeOpen = !!d.svcTypeOpen || !valid;
+    // [#5 2026-07-17] 중복선택 — 고른 칩 전부 검정 채움, 재탭 = 해제.
+    // [시술칩 관리모드 2026-07-20] 평소엔 순수 선택칩(× 없음) — '관리' 켤 때만 × 삭제 + 드래그 정렬 + 추가.
+    //   기존: 모든 칩에 × 상시 노출 → 이미 선택된 태그처럼 오해돼 "탭해서 고르기"가 안 읽힘(실사용 QA 2026-07-20).
+    var manage = !!d.svcManageOpen;
+    var _selArr = _svcList(), _base = kws.slice(0, 8);
+    function _svcChip(k, selected, truncate) {
+      var lbl = truncate && k.length > 20 ? k.slice(0, 20) + '…' : k;
+      return '<button type="button" class="cap-svctag' + (selected ? ' on' : '') + (manage ? ' cap-svctag--manage' : '') +
+        '" data-fl-svctag="' + esc(k) + '"' + (manage ? ' data-fl-svcsort' : '') + ' title="' + esc(k) + '">' + esc(lbl) +
+        (manage ? '<span class="cap-svctag__x" data-fl-svcdel="' + esc(k) + '" aria-label="삭제">×</span>' : '') + '</button>';
+    }
+    var chips = valid ? _base.map(function (k) { return _svcChip(k, _selArr.indexOf(k) >= 0, false); }).join('') : '';
+    // 선택값이 목록 밖(직접 추가·최근 시술·이어서 복원)이어도 선택 상태가 보이게 맨 앞에 활성 칩으로.
+    if (valid) {
+      var outside = _selArr.filter(function (s) { return _base.indexOf(s) < 0; });
+      chips = outside.map(function (s) { return _svcChip(s, true, true); }).join('') + chips;
+    }
+    // [업종정리 2026-07-15] 인식 실패해도 업종 12칩을 자동으로 쫙 펼치지 않는다 — 버튼 탭했을 때만.
+    //   (가입 업종은 앱 로드 때마다 /me 로 동기화됨(app-core) — 값이 없거나 못 알아듣는 값일 때만 이 버튼을 쓴다.)
+    var typeOpen = !!d.svcTypeOpen;
     var typeChips = typeOpen ? ('<div class="cap-svctype">' + _SVC_TYPES.map(function (tp) {
       return '<button type="button" class="cap-svctype__c' + (tp === stype ? ' on' : '') + '" data-fl-svctype="' + esc(tp) + '">' + esc(tp) + '</button>';
     }).join('') + '</div>') : '';
-    return '<div class="cap-svctags__hint">자주 쓰는 시술 · ' +
-        '<button type="button" class="cap-svctype__btn" data-fl-svctypetoggle>' + esc(_typeLabel) + ' <i class="ph-bold ph-caret-down"></i></button></div>' +
+    var manageBtn = valid ? ('<button type="button" class="cap-svcmanage' + (manage ? ' on' : '') + '" data-fl-svcmanage>' +
+      (manage ? '<i class="ph-bold ph-check"></i> 완료' : '<i class="ph-bold ph-pencil-simple"></i> 관리') + '</button>') : '';
+    return '<div class="cap-svctags__hint">우리샵 · ' +
+        '<button type="button" class="cap-svctype__btn" data-fl-svctypetoggle>' + esc(_typeLabel) + ' <i class="ph-bold ph-caret-down"></i></button>' +
+        (manage ? '<span class="cap-svctags__chg">탭·×로 삭제 · 드래그로 순서</span>'
+                : (!typeOpen ? '<span class="cap-svctags__chg">' + (valid ? '탭해서 골라요' : '업종을 고르면 시술이 나와요') + '</span>' : '')) +
+        manageBtn + '</div>' +
       typeChips +
-      (valid ? ('<div class="cap-svctags">' + chips +
-        '<button type="button" class="cap-svctag cap-svctag--add" data-fl-svctagadd><i class="ph-bold ph-plus"></i> 추가</button></div>') : '');
+      (valid ? ('<div class="cap-svctags' + (manage ? ' is-manage' : '') + '">' + chips +
+        (manage ? (d.svcAddOpen
+          ? '<input type="text" class="cap-svctag cap-svctag--addin" data-fl-svcaddin maxlength="40" placeholder="시술명 입력 후 Enter" aria-label="시술명 입력">'
+          : '<button type="button" class="cap-svctag cap-svctag--add" data-fl-svctagadd><i class="ph-bold ph-plus"></i> 추가</button>') : '')
+        + '</div>') : '');
   }
-  function _appendServiceTag(kw) {
+  /* [#5 2026-07-17] 시술 칩 **중복선택** — 원장 요청("시술명 선택하는데 중복선택 가능하게").
+     d.service 는 계속 '쉼표로 이어붙인 문자열'로 둔다. 이 값을 읽는 곳이 20군데 넘고(캡션 payload·
+     발행 메타·slot.service·work-memory 이름짓기·잇비 명령…) 대부분 이미 쉼표를 다룰 줄 안다
+     (_svcTitle 은 쉼표로 쪼개 '첫시술 외 N개', _makeName 은 첫 조각). 배열로 바꾸면 그 20곳을 전부
+     고쳐야 하고 저장된 옛 slot(문자열)과도 어긋난다 → 표현은 그대로, 편집만 다중으로. */
+  var SVC_MAX = 3;   // [원영 요청] 시술 칩 최대 3개 — 20인치+26인치, 옴브레+팁붙임처럼 2~3개 믹스가 실제 흔한 상한
+  function _svcList() {
+    return String(d.service || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+  function _svcSet(arr) {
+    var seen = {}, out = [];
+    (arr || []).forEach(function (s) { s = String(s).trim(); if (s && !seen[s]) { seen[s] = 1; out.push(s); } });
+    d.service = out.join(', ');
+  }
+  /* [시술칩 관리모드 2026-07-20] 시술 칩 순서 영구저장 — 관리 모드 드래그로 바꾼 순서를 기억(한 번 세팅하면 계속).
+     저장은 키워드 배열. 렌더 시 이 순서 먼저(그대로) + 순서에 없는 신규는 원래 순서로 뒤에. */
+  function _loadSvcOrder() { try { var a = JSON.parse(localStorage.getItem('itdasy_svc_order') || '[]'); return Array.isArray(a) ? a : []; } catch (_e) { return []; } }
+  function _saveSvcOrder(arr) { try { localStorage.setItem('itdasy_svc_order', JSON.stringify((arr || []).slice(0, 40))); } catch (_e) { void _e; } }
+  function _applySvcOrder(list) {
+    var ord = _loadSvcOrder(); if (!ord.length) return list;
+    var pos = {}; ord.forEach(function (k, i) { pos[k] = i; });
+    var known = [], unknown = [];
+    (list || []).forEach(function (k) { if (pos[k] != null) known.push(k); else unknown.push(k); });
+    known.sort(function (a, b) { return pos[a] - pos[b]; });
+    return known.concat(unknown);
+  }
+  function _pickServiceTag(kw) {
     syncServiceFromDom();
-    var curTx = String(d.service || '').trim();
-    if (curTx.split(/\s+/).indexOf(kw) >= 0) return;   // 중복 방지
-    d.service = (curTx ? curTx + ' ' : '') + kw;
-    // [fix] 칩 누를 때 setScreen 전체 재렌더는 화면을 맨 위로 튕김 → 입력창만 제자리 갱신(스크롤 유지).
-    var inp = el.querySelector('[data-fl-service]');
-    if (inp) { inp.value = d.service; try { inp.dispatchEvent(new Event('input', { bubbles: true })); } catch (_e) { void _e; } }
-    else setScreen('caption');
+    kw = String(kw).trim();
+    var cur = _svcList();
+    if (cur.indexOf(kw) >= 0) _svcSet(cur.filter(function (s) { return s !== kw; }));   // 재탭 = 해제
+    else if (cur.length >= SVC_MAX) { toast('시술은 ' + SVC_MAX + '개까지 고를 수 있어요'); return; }
+    else _svcSet(cur.concat([kw]));
+    setScreen('caption');
   }
+  // [v778 보스] 시술 추가 = 팝업(window.prompt) 금지 → '추가' 칩 자리에 인라인 입력칸이 열리고
+  //   거기 바로 타자 치면 채워진다. Enter/blur 로 확정.
   function _addSvcKeyword() {
-    var kw = window.prompt('자주 쓰는 시술 추가'); if (kw == null) return; kw = String(kw).trim(); if (!kw) return;
+    d.svcAddOpen = true;
+    setScreen('caption', { push: false });   // 재렌더 → _mountCaption 이 입력칸에 포커스
+  }
+  function _commitSvcKeyword(kw) {
+    if (!d.svcAddOpen) return;                // Enter+blur 중복 방지(재탭=해제 토글로 새지 않게)
+    d.svcAddOpen = false;
+    kw = String(kw || '').trim();
+    if (!kw) { setScreen('caption', { push: false }); return; }   // 빈값 = 그냥 닫기
     try { var arr = JSON.parse(localStorage.getItem('itdasy_custom_keywords') || '[]'); if (arr.indexOf(kw) < 0) { arr.push(kw); localStorage.setItem('itdasy_custom_keywords', JSON.stringify(arr)); } } catch (_e) { void _e; }
-    _appendServiceTag(kw);
+    _pickServiceTag(kw);   // 칩 추가 + setScreen('caption') 재렌더(입력칸은 닫힘)
   }
   // [P4 2026-07-10] 최근 시술 자동완성 — 생성한 시술 문구를 기억했다가 탭 한 번으로 다시 채운다(매번 재입력 제거).
   function _recentServices() { try { var a = JSON.parse(localStorage.getItem('itdasy:recent_services') || '[]'); return Array.isArray(a) ? a : []; } catch (_e) { return []; } }
+  /* [최근시술 소스 확장 2026-07-20] '최근 시술' = 캡션에 쓴 것(위) + 실제 예약에서 쓴 시술. 관리 모드에서
+     어느 소스를 반영할지 토글(itdasy_recent_src, 기본 둘 다 ON). × 삭제는 itdasy_recent_hidden 으로
+     양쪽 소스에서 함께 숨긴다(예약 소스는 지워도 다시 오므로). 예약 시술은 window.Booking._items(메모리 캐시). */
+  function _recentBookingServices() {
+    try {
+      var items = (window.Booking && window.Booking._items) || [];
+      if (!Array.isArray(items)) return [];
+      return items.slice().sort(function (a, b) { return new Date(b && b.starts_at || 0) - new Date(a && a.starts_at || 0); })
+        .map(function (b) { return String(b && b.service_name || '').replace(/\s+/g, ' ').trim(); }).filter(Boolean);
+    } catch (_e) { return []; }
+  }
+  function _recentSrcPref() {
+    try { var p = JSON.parse(localStorage.getItem('itdasy_recent_src') || 'null'); if (p && typeof p === 'object') return { caption: p.caption !== false, booking: p.booking !== false }; } catch (_e) { void _e; }
+    return { caption: true, booking: true };   // 기본 둘 다 ON
+  }
+  function _saveRecentSrcPref(p) { try { localStorage.setItem('itdasy_recent_src', JSON.stringify(p)); } catch (_e) { void _e; } }
+  function _recentHidden() { try { var a = JSON.parse(localStorage.getItem('itdasy_recent_hidden') || '[]'); return Array.isArray(a) ? a : []; } catch (_e) { return []; } }
+  function _recentHide(name) { try { var a = _recentHidden(); if (a.indexOf(name) < 0) { a.push(name); localStorage.setItem('itdasy_recent_hidden', JSON.stringify(a.slice(0, 60))); } } catch (_e) { void _e; } }
+  /* [#5 2026-07-17] 중복선택이 되면서 svc 가 "속눈썹, 네일" 같은 조인 문자열로 들어온다.
+     통째로 저장하면 '속눈썹, 네일' 이라는 없는 시술이 칩으로 박제되고(그 조합을 또 쓸 일도 없다)
+     40자 한도에도 금방 걸린다 → **쉼표로 쪼개 하나씩** 저장한다. 상한 6 → 5(원장 요청). */
   function _saveRecentService(svc) {
+    String(svc || '').split(',').forEach(_saveRecentServiceOne);
+  }
+  function _saveRecentServiceOne(svc) {
     svc = String(svc || '').replace(/\s+/g, ' ').trim(); if (svc.length < 2) return;
+    // [칩삭제 2026-07-15] 저장 시점부터 정제 — 욕설·하소연 문장이 칩으로 박제되던 문제("엄뒤새끼 22인치…").
+    //   드롭 규칙 통과 못 하거나 시술명치곤 너무 길면(40자+) 아예 안 남긴다.
+    var n = ''; try { n = _publicServiceKeywords(svc) || ''; } catch (_e0) { void _e0; }
+    svc = String(n || '').replace(/\s+/g, ' ').trim();
+    if (svc.length < 2 || svc.length > 40) return;
     try {
       var a = _recentServices().filter(function (x) { return x !== svc; });
-      a.unshift(svc); a = a.slice(0, 6);
+      a.unshift(svc); a = a.slice(0, 5);
       localStorage.setItem('itdasy:recent_services', JSON.stringify(a));
     } catch (_e) { void _e; }
   }
+  // [칩삭제] 최근 시술 칩 × — 렌더는 정제된 이름으로 나가므로, 원문이 그 이름으로 정제되는 항목까지 같이 지운다.
+  function _deleteRecentService(name) {
+    name = String(name || '').trim(); if (!name) return;
+    try {
+      var a = _recentServices().filter(function (s) {
+        var n = ''; try { n = _publicServiceKeywords(s) || ''; } catch (_e) { void _e; }
+        n = String(n || s).replace(/\s+/g, ' ').trim();
+        return n !== name && s !== name;
+      });
+      localStorage.setItem('itdasy:recent_services', JSON.stringify(a));
+    } catch (_e2) { void _e2; }
+    _recentHide(name);   // [소스확장] 예약 소스는 지워도 다시 오므로 숨김 목록에도 넣어 함께 제외
+    // [#5] 다중선택 — 지운 칩만 선택에서 뺀다(예전엔 '통째로 같으면 전체 해제'라 다중에선 안 먹었다)
+    _svcSet(_svcList().filter(function (s) { return s !== name; }));
+    setScreen('caption');
+  }
   function _recentSvcHtml() {
-    var a = _recentServices(); if (!a.length) return '';
-    // 기존 cap-svctags/cap-svctag 스타일 재사용(새 CSS 불필요). 최근 시술 전체를 탭 한 번으로 다시 채움.
-    return '<div class="cap-svctags" style="margin-bottom:8px">' +
-      '<span class="cap-svctags__hint" style="width:100%;margin:0 0 4px">최근 시술 · 탭해서 불러오기</span>' +
-      a.map(function (s) { var lbl = s.length > 20 ? (s.slice(0, 20) + '…') : s;
-        return '<button type="button" class="cap-svctag" data-fl-svcrecent="' + esc(s) + '" title="' + esc(s) + '">' + esc(lbl) + '</button>'; }).join('') + '</div>';
+    var manage = !!d.svcManageOpen;
+    var pref = _recentSrcPref();
+    // [소스확장] 캡션 입력 + 예약 시술을 토글대로 병합. 관리 모드에선 토글칩을 항상 보여준다(비어도).
+    var raw = [];
+    if (pref.caption) raw = raw.concat(_recentServices());
+    if (pref.booking) raw = raw.concat(_recentBookingServices());
+    var hidden = _recentHidden();
+    // [캡션재설계 v2] 시술명만 — 문장 통째 값은 드롭 규칙으로 정제, 40자+ 제외. 탭 = 시술 칩과 같은 단일선택.
+    var _selArr = _svcList(), names = [], seen = {};
+    raw.forEach(function (s) {
+      var n = ''; try { n = _publicServiceKeywords(s) || ''; } catch (_e) { void _e; }
+      n = String(n || s).replace(/\s+/g, ' ').trim();
+      if (!n || n.length > 40 || seen[n] || hidden.indexOf(n) >= 0) return;
+      seen[n] = 1; names.push(n);
+    });
+    names = names.slice(0, 8);   // 소스 둘이라 상한을 5→8 로(정제·중복·숨김 후 실제 보이는 수)
+    if (!names.length && !manage) return '';   // 관리 모드면 토글 보이게 빈 상태도 렌더
+    var toggleRow = manage ? ('<div class="cap-recentsrc">' +
+        '<span class="cap-recentsrc__lbl">최근 시술 채우기</span>' +
+        '<button type="button" class="cap-recentsrc__t' + (pref.caption ? ' on' : '') + '" data-fl-recentsrc="caption">캡션에 쓴 시술</button>' +
+        '<button type="button" class="cap-recentsrc__t' + (pref.booking ? ' on' : '') + '" data-fl-recentsrc="booking">예약 시술</button>' +
+      '</div>') : '';
+    var hintTxt = manage ? '탭해서 선택 · ×로 삭제' : '최근 시술 · 탭해서 선택(여러 개 가능)';
+    return toggleRow + '<div class="cap-svctags" style="margin-bottom:8px">' +
+      '<span class="cap-svctags__hint" style="width:100%;margin:0 0 4px">' + hintTxt + '</span>' +
+      names.map(function (n) { var lbl = n.length > 20 ? (n.slice(0, 20) + '…') : n;
+        return '<button type="button" class="cap-svctag' + (_selArr.indexOf(n) >= 0 ? ' on' : '') + (manage ? ' cap-svctag--manage' : '') + '" data-fl-svctag="' + esc(n) + '" title="' + esc(n) + '">' + esc(lbl) +
+          (manage ? '<span class="cap-svctag__x" data-fl-recentdel="' + esc(n) + '" aria-label="삭제">×</span>' : '') + '</button>'; }).join('') + '</div>';
   }
 
-  // [다양성 팩 2026-07-12] 게시물별 '말투·성격' 칩 — 친근/전문/감성/이벤트/후기. 원장이 게시물마다 톤을 고른다
-  //   (기존엔 SIMPLE_FLOW 에서 톤 선택이 사라져 페르소나 1개로 수렴). 클릭은 기존 data-fl-ctone 위임 핸들러가 d.capTone 세팅.
-  var _TONE_CHIPS = [
-    ['friendly', '친근', 'ph-hand-heart'],
-    ['professional', '전문', 'ph-seal-check'],
-    ['emotional', '감성', 'ph-sparkle'],
-    ['event', '이벤트', 'ph-megaphone-simple'],
-    ['review', '후기', 'ph-chat-circle-text']
-  ];
-  function _toneHint(t) {
-    return { friendly: '단골에게 말하듯 다정하고 부담 없이.', professional: '시술 포인트를 또렷하게, 신뢰감 있게.',
-      emotional: '분위기·무드를 살리는 잔잔한 감성 톤.', event: '혜택·예약을 강조하는 이벤트 홍보 톤.',
-      review: '고객이 남긴 듯한 1인칭 만족 후기체.' }[t] || '';
-  }
-  function _toneChipsHtml() {
-    var set = _TONE_CHIPS.map(function (o) { return o[0]; });
-    var cur = set.indexOf(d.capTone) >= 0 ? d.capTone : 'friendly';
-    return '<label class="cap-field-label" style="margin-top:14px">말투 · 게시물 성격</label>' +
-      '<div class="cap-chips cap-tonechips">' + _TONE_CHIPS.map(function (o) {
-        var on = cur === o[0];
-        return '<button type="button" class="cap-chip cap-tonechip' + (on ? ' on' : '') + '" data-fl-ctone="' + o[0] + '" aria-pressed="' + on + '"><i class="ph-duotone ' + o[2] + '"></i>' + o[1] + '</button>';
-      }).join('') + '</div>' +
-      '<p class="cap-field-hint" data-fl-tonehint>' + _toneHint(cur) + '</p>';
-  }
-  // 말투 칩 → 백엔드 안전 매핑. mood(친근/전문/감성)는 검증된 tone_override 값 그대로, 이벤트/후기는
+  // d.capTone(친근/전문/감성/이벤트/후기) → 백엔드 안전 매핑. mood(친근/전문/감성)는 검증된 tone_override 값 그대로, 이벤트/후기는
   //   안전 enum(ornate/plain) + extra_notes 로 성격 주입(caption_intent enum·tone_override enum 위반 0).
   function _resolveTone(t) {
     switch (t) {
@@ -1475,90 +1843,161 @@
     }
   }
   // [FC4] 게시글 화면 — 3x3 시나리오칩(scenario-selector 재사용) + 고정멘트 꼬리
+  // [통합 2026-07-13·요청6] 피드 미리보기 async 페치가 캡션 화면을 재렌더할 때, 카드 안 캡션/해시태그를
+  //   편집 중이면 재렌더를 건너뛴다(커서·포커스 유실 방지). 편집 중 아니면 그리드만 갱신.
+  function _isEditingCaptionCard() {
+    try {
+      var a = document.activeElement;
+      return !!(a && a.isContentEditable && el && el.contains(a) && (a.hasAttribute('data-fl-igcap') || a.hasAttribute('data-fl-ighash')));
+    } catch (_e) { return false; }
+  }
+  // [2026-07-26 원영] 캡션 생성 로딩 v3 — 강아지·페르소나 칩(자연스러운/보통/✨) 폐지 → 잇비(#ic-bot)가
+  //   초록 진행바를 걸어가는 로딩. 칩 3개는 미연동 기본값이 그대로 박혀 '셔플이 고장난 것'처럼 보였다.
+  //   대신 단계 멘트 3개가 로테이션(사진→말투→문장)하며 '지금 뭘 하는지'를 말해준다. 화면 세로 중앙 정렬.
+  //   자체 완결형 유지 — 외부 CSS(.cl-*)에 안 기댄다. CSS 캐시가 옛것이어도 keyframes 인라인이라 안 깨진다.
+  function _capLoadingHtml() {
+    var on = _personaOn();
+    return '<style>' +
+        // [2026-07-26 원영] 게이지는 1회만 — 2.6s infinite 루프가 "두 번 차오르는" 것으로 보였다.
+        //   4.8s(최소 로딩시간과 동일) 동안 97%까지 차고 forwards 로 멈춰 대기. 100%는 완료 시 화면 전환이 대신한다.
+        '@keyframes wclFill{0%{width:8%}100%{width:97%}}' +
+        '@keyframes wclRun{0%{left:0%}100%{left:calc(100% - 40px)}}' +
+        '@keyframes wclBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}' +
+        '@keyframes wclMsg{0%,4%{opacity:0;transform:translateY(6px)}9%,28%{opacity:1;transform:translateY(0)}33%,100%{opacity:0;transform:translateY(-6px)}}' +
+        // [2026-07-22 보스] !important 필수 — style-fun.css / style-polish.css 의 전역
+        //   `@media (prefers-reduced-motion: reduce){ *{animation-duration:.01ms!important;
+        //   animation-iteration-count:1!important} }` 가 로딩을 출발선에 얼려버린다.
+        //   아이폰 '동작 줄이기'를 켠 원장님 화면에선 진행바·멘트가 전부 정지했다.
+        //   로딩 표시는 장식이 아니라 '지금 일하는 중'이라는 피드백이라, 멈추면 앱이 죽은 걸로 보인다.
+        '.wcl-run{animation:wclRun 4.8s cubic-bezier(.45,.05,.55,.95) 1 forwards!important}' +
+        '.wcl-bob{animation:wclBob .5s ease-in-out infinite!important}' +
+        '.wcl-fill{animation:wclFill 4.8s cubic-bezier(.45,.05,.55,.95) 1 forwards!important}' +
+        '.wcl-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;animation:wclMsg 7.2s ease-in-out infinite!important}' +
+        '.wcl-msg:nth-child(2){animation-delay:2.4s!important}' +
+        '.wcl-msg:nth-child(3){animation-delay:4.8s!important}' +
+      '</style>' +
+      // min-height 62vh — 아래 공백 없이 화면 세로 중앙에 오도록(원영: "너무 밑에 공백많지않아? 좀 가운대로").
+      '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px;min-height:62vh;text-align:center">' +
+        '<div style="font-size:16px;font-weight:800;letter-spacing:-.02em;color:#2c2528">잇비가 ' + (on ? '우리샵 말투로 ' : '') + '쓰는 중…</div>' +
+        '<div style="position:relative;width:100%;max-width:290px;height:48px">' +
+          '<div class="wcl-run" style="position:absolute;bottom:16px;left:0">' +
+            '<div class="wcl-bob" style="color:#d58a95"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#ic-bot"/></svg></div></div>' +
+          '<div style="position:absolute;left:0;bottom:0;width:100%;height:11px;border-radius:6px;background:rgba(22,181,94,.13);overflow:hidden">' +
+            '<div class="wcl-fill" style="height:100%;border-radius:6px;background:linear-gradient(90deg,#16B55E,#4ad683)"></div></div>' +
+        '</div>' +
+        '<div style="position:relative;width:100%;max-width:290px;height:20px;font-size:12.5px;font-weight:700;color:#a89aa0;letter-spacing:-.01em">' +
+          '<span class="wcl-msg">사진을 살펴보는 중이에요</span>' +
+          '<span class="wcl-msg">' + (on ? '원장님 말투를 맞추는 중이에요' : '어울리는 말투를 고르는 중이에요') + '</span>' +
+          '<span class="wcl-msg">문장을 다듬는 중이에요</span>' +
+        '</div>' +
+      '</div>';
+  }
   function renderCaption() {
     var url = outputUrl();
-    if (d.capLoading) {
-      // [Skeleton] 스피너 대신 캡션 카드 형태 스켈레톤 — 결과가 어떻게 올지 미리 보이게(Astryx 로딩 패턴).
-      return '<div class="cap-skelwrap">' +
-        '<div class="cap-skel-note"><span class="cap-skel-dot"></span>AI가 우리샵 말투로 쓰는 중…</div>' +
-        '<div class="cap-skel-card">' +
-          '<div class="cap-skel-line" style="width:92%"></div>' +
-          '<div class="cap-skel-line" style="width:100%"></div>' +
-          '<div class="cap-skel-line" style="width:78%"></div>' +
-          '<div class="cap-skel-line cap-skel-line--gap" style="width:60%"></div>' +
-          '<div class="cap-skel-tags"><span></span><span></span><span></span><span></span></div>' +
-        '</div></div>';
-    }
+    if (d.capLoading) { return _capLoadingHtml(); }
 	    if (!d.caption) {
 	      // [v558] 캡션 UX 리뉴얼 — 시나리오 버튼 제거. 사진 → 시술 문구 입력 → 말투 6칩 → 길이 → 해시태그 토글 → 단일 생성 버튼.
 	      // [ws-hyper] 레이아웃 합성본은 폭 꽉 차는 img로(레터박스 빈 여백 제거).
 	      var photoThumb = d.templateOutput   /* [버그수정 2026-07-06] 재오픈 초안도 합성본 썸네일 */
-	        ? '<div class="wsl-cap-preview"><img src="' + esc(d.templateOutput) + '" alt="미리보기"></div>'
+	        ? '<div class="wsl-cap-preview"><img src="' + esc(_blobDisp(d.templateOutput)) + '" alt="미리보기"></div>'
 	        : (_capCarouselHtml() || ((!d.textOnly && url) ?
-	        '<div class="cap-photo cap-photo--sm" style="background-image:url(' + esc(url) + ')"></div>' : ''));
-	      // [Phase A-2] 심플 캡션 — 말투/길이/해시태그 칩 제거. 시술 내용 입력 + 우리샵 스타일 적용 + 캡션 생성.
-	      //   레거시(말투 6카드·길이·페르소나·해시태그 토글)는 SIMPLE_FLOW=false 에서 그대로 복원.
+	        '<div class="cap-photo cap-photo--sm" style="background-image:url(' + esc(_blobDisp(url)) + ')"></div>' : ''));
+	      // [캡션재설계 v2 2026-07-15] 자유 서술 텍스트영역(500자) 제거 — 질문 3카드 + 시술 칩(단일선택) + 특이사항 한 줄.
+      //   자유 텍스트가 시술명으로 못박혀 욕설·사담이 캡션에 그대로 실리던 verbatim 버그의 입구를 막는다.
 	      if (SIMPLE_FLOW) {
-	        var _svc = d.service || '';
         // 우리샵 스타일 시드만 보장 — 스타일 카드·레이아웃 미리보기·디자인 패널은 편집기로 이동.
-        //   레거시 함수(_presetThumb/_applyPreset/_applyHarmony/_autoPretty/_setShopType 등)는 삭제 안 함(보존).
-        if (window.ShopStyle && window.ShopStyle.ensureSeed) { try { window.ShopStyle.ensureSeed(); } catch (_e0) { void _e0; } }   // [v591·#6] 사진 추천색(async)
+        if (window.ShopStyle && window.ShopStyle.ensureSeed) { try { window.ShopStyle.ensureSeed(); } catch (_e0) { void _e0; } }
+        var _note = String(d.specialNote || '');
 	        return photoThumb +
 	          '<div class="cap-wizscreen">' +
-          '<div class="screen-head"><h2>게시글 만들기</h2><p class="screen-head__sub">상황만 고르고 시술을 적으면 우리샵 말투로 알아서 써드려요.</p></div>' +
+          '<div class="screen-head"><h2>게시글 만들기</h2><p class="screen-head__sub">질문에 답하고 시술만 고르면 우리샵 말투로 알아서 써드려요.</p></div>' +
           _capWizHtml() +
-          _svcTagsHtml() +   // [ws-hyper] 시술 선택 칩을 입력창 '위'로
-          _recentSvcHtml() +   // [P4] 최근 시술 — 탭하면 그대로 다시 채움
-          '<label class="cap-field-label">시술만 적으면 끝</label>' +
-          '<div class="cap-composer">' +
-            '<textarea class="service-input cap-svc-area" data-fl-service rows="3" maxlength="500" placeholder="예) 레이어드컷 손상모 일본인">' + esc(_svc) + '</textarea>' +
-            '<div class="cap-composer__bar">' +
-              '<span class="cap-composer__cnt"><span data-fl-svccount>' + _svc.length + '</span>/500</span>' +
-              '<button type="button" class="cap-composer__send" data-fl-cgen aria-label="캡션 생성"><i class="ph-duotone ph-arrow-up"></i></button>' +
-            '</div>' +
+          '<label class="cap-field-label capwiz__seclbl">시술</label>' +
+          _svcTagsHtml() +
+          _recentSvcHtml() +
+          '<label class="cap-field-label capwiz__seclbl">특이사항 <span>선택 · 그대로 안 실려요, 뜻만 반영돼요</span></label>' +
+          '<div class="capwiz__noterow">' +
+            '<input type="text" class="capwiz__notein" data-fl-specialnote maxlength="120" value="' + esc(_note) + '">' +   // [2026-07-26 원영] placeholder 예시 제거
+            '<span class="capwiz__notecnt" data-fl-notecount>' + (120 - _note.length) + '</span>' +
           '</div>' +
-          // [보스 2026-07-12] 말투·성격 칩 제거 — 화면 간소화(생성은 기본 톤). _toneChipsHtml/_resolveTone 은 보존. (HYPER 상시 → 하단 svctags 분기 제거)
+          '<p class="capwiz__guard">직접·특이사항에 적은 글은 재료로만 써요. 욕설·감정 표현은 빼고, 시술 얘기만 골라 원장님 말투로 새로 씁니다.</p>' +
+          // [보스 2026-07-12] 말투·성격 칩 제거 — 화면 간소화(생성은 기본 톤 d.capTone='friendly', _resolveTone 이 매핑).
           _shopInfoToggleHtml() +   // [#19] 저장된 예약/전화 반영 여부(기본 OFF)
-          _capConfirmHtml() +
+          _capWizCtaHtml() +
           '</div>';
 	      }
 
 	    }
     // 결과 화면 — [v583·C] 인스타 미리보기 디자인 카드 + 아래 편집 + 인스타 업로드(별도 미리보기 단계 폐지).
+    // [통합 2026-07-13·요청6] 캡션 결과 + 인스타 미리보기 = 한 화면. 아래로 스크롤하면 발행 버튼 + 피드 미리보기.
+    var custLine = d.customerName ?
+      '<div class="confirmline">연결 손님: <b>' + esc(d.customerName) + '</b>' + (d.customerVc ? ' · ' + d.customerVc + '회 방문' : ' · 첫 방문') + '</div>' : '';
     return '' +
-	      '<div class="cap-byline">원장님 인스타 글 학습 완료</div>' +
-	      '<label class="cap-field-label">게시글 <span>미리보기에서 바로 고쳐 쓸 수 있어요 · 시술을 바꾸려면 아래 처음부터 다시 쓰기</span></label>' +
+	      // [버그5 2026-07-14] 미연동이면 '학습 완료'라고 거짓말하지 않고, 연동하면 된다고 안내.
+	      (_personaOn() ? '<div class="cap-byline">원장님 인스타 글 학습 완료</div>'
+	                    : '<div class="cap-byline">인스타를 연동하면 원장님 말투로 써드려요</div>') +
+	      '<label class="cap-field-label">게시글 <span>미리보기에서 바로 고쳐 쓸 수 있어요</span></label>' +
 	      _igPreviewCard(url, true) +   // [v584] 카드 안 캡션 직접 편집(별도 편집칸 제거)
+      _capActionRow() +             // [2026-07-26 원영] 복사·문장만 다시·저장 — 카드 밖 필 버튼
+      // [2026-07-26 원영] 해시태그 = 칩 UI(개별 ×삭제 + 추가) — 카드 안 contenteditable 직접편집은
+      //   지우기/고치기 방법을 아무도 못 찾던 문제라 폐지. 칩이 진실원(d.hashtags/selectedHashes 동시 갱신).
+      _hashChipsHtml() +
       // [v589] 꼬리말 블록 폐지 → 설정폼으로 이동. 복사/다시생성/저장은 카드 액션줄로 이동.
-      // [v587] 별도 해시태그 편집칸 폐지 — 위 미리보기 카드의 해시태그(.ig-hash-edit)를 직접 편집.
-      // [Phase B-1] 스토리 편집 진입 — 사진 위에 우리샵 스타일 텍스트를 올려 편집.
-      ((!d.textOnly && url) ? '<button type="button" class="cap-edit-btn" data-fl="storyedit"><i class="ph-duotone ph-magic-wand"></i> 사진 편집</button>' : '') +
-      // [v592] 게시·피드 미리보기는 다음 단계(인스타 미리보기)로 이동. 캡션 화면은 글 편집까지만.
-		      '<button type="button" class="cap-restart" data-fl-var="reset">처음부터 다시 쓰기</button>';
+      // [2026-07-26 원영] '이렇게 올라가요' 라벨 + 피드 그리드(_feedPreview) 제거 — 위 미리보기 카드로 이미 충분("피드 보여줬으면 됐지").
+      // [2026-07-26 원영] 마무리 재구성 — '사진 편집'은 _finishActions 반반 줄로 이동(.cap-edit-btn 폐지),
+      //   '재료부터 다시 고르기'(.cap-restart) 삭제. 상단 뒤로가기(←)가 그 역할.
+      custLine +
+      _publishBlock() +
+      _finishActions(url);
 	  }
 
+  /* [시술칩 관리모드 2026-07-20] 관리 모드에서 시술 칩 드래그로 순서 바꾸기 — 포인터 이벤트(모바일 터치 대응,
+     HTML5 DnD 는 폰에서 미동작). 6px 넘게 움직이면 드래그로 판정, 드롭 시 화면 순서를 itdasy_svc_order 에 저장.
+     × 삭제(data-fl-svcdel)·탭 선택(data-fl-svctag)은 기존 위임이 처리 — 드래그 직후 click 만 억제. */
+  function _bindSvcSort() {
+    if (!el) return;
+    var cont = el.querySelector('.cap-svctags.is-manage');
+    if (!cont || cont._svcSortBound) return;
+    cont._svcSortBound = true;
+    var dragging = null, moved = false, sx = 0, sy = 0;
+    cont.addEventListener('pointerdown', function (e) {
+      if (e.target.closest('[data-fl-svcdel]')) return;                 // × 는 삭제가 처리
+      var chip = e.target.closest('[data-fl-svcsort]');
+      if (!chip || chip.parentNode !== cont) return;
+      dragging = chip; moved = false; sx = e.clientX; sy = e.clientY;
+      try { chip.setPointerCapture(e.pointerId); } catch (_e) { void _e; }
+    });
+    cont.addEventListener('pointermove', function (e) {
+      if (!dragging) return;
+      if (!moved && Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy) < 6) return;
+      moved = true; dragging.classList.add('is-dragging');
+      var over = document.elementFromPoint(e.clientX, e.clientY);
+      over = over && over.closest('[data-fl-svcsort]');
+      if (over && over !== dragging && over.parentNode === cont) {
+        var arr = Array.prototype.slice.call(cont.querySelectorAll('[data-fl-svcsort]'));
+        if (arr.indexOf(dragging) < arr.indexOf(over)) cont.insertBefore(dragging, over.nextSibling);
+        else cont.insertBefore(dragging, over);
+      }
+    });
+    function _end(e) {
+      if (!dragging) return;
+      var wasMoved = moved; dragging.classList.remove('is-dragging');
+      try { dragging.releasePointerCapture(e.pointerId); } catch (_e) { void _e; }
+      dragging = null;
+      if (wasMoved) {
+        var order = Array.prototype.slice.call(cont.querySelectorAll('[data-fl-svcsort]')).map(function (c) { return c.getAttribute('data-fl-svctag'); });
+        _saveSvcOrder(order);
+        cont._suppressClick = true; setTimeout(function () { cont._suppressClick = false; }, 80);
+      }
+    }
+    cont.addEventListener('pointerup', _end);
+    cont.addEventListener('pointercancel', _end);
+    cont.addEventListener('click', function (e) { if (cont._suppressClick) { e.stopPropagation(); e.preventDefault(); } }, true);
+  }
   function _mountCaption() {
     _mountCarousel();   // [v531] 결과 캐러셀 스와이프 바인딩(결과 화면엔 scenario 없어 아래 early-return 전에 먼저)
-    // [v558] 시나리오 선택기 제거 — 입력화면은 시술 문구 입력 + 말투/길이/해시태그 칩 + 단일 생성 버튼.
-    // [v531] 키워드 입력 후 Enter → 바로 생성(편의). 주 경로는 '게시글 만들기' 버튼(data-fl-cgen).
-    var svcInput = el.querySelector('[data-fl-service]');
-    if (svcInput && !svcInput._wsGenBound) {
-      svcInput._wsGenBound = true;
-      // [Phase A-2] 멀티라인 textarea(심플 캡션)에선 Enter=줄바꿈 → 생성은 '캡션 생성' 버튼으로만.
-      //   기존 한 줄 input(레거시)에서만 Enter→즉시 생성 유지.
-      if (svcInput.tagName === 'INPUT') {
-        svcInput.addEventListener('keydown', function (e) {
-          // [v532] 한글 IME 조합 중 Enter(조합 확정용)는 무시 — 이때 생성하면 마지막 음절이 빠진 채 들어가
-          //   '엔터 경로만 키워드 반영이 덜 되는' 증상이 났음. 조합이 끝난 뒤 Enter 에서만 생성.
-          if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
-          e.preventDefault();
-          _triggerCaptionGenerate(null);
-        });
-      }
-      // [Phase A-2] textarea 글자수 카운터(0/500) 라이브 갱신.
-      var _cnt = el.querySelector('[data-fl-svccount]');
-      if (_cnt) svcInput.addEventListener('input', function () { _cnt.textContent = String(svcInput.value.length); });
-    }
+    if (d.svcManageOpen) _bindSvcSort();   // [관리모드] 시술 칩 드래그 정렬 바인딩
+    // [캡션재설계 v2] 시술 자유서술 textarea 제거 — Enter 생성/글자수(500) 바인딩도 함께 삭제. 생성은 '캡션 만들기' 버튼만.
     // [직접 입력] 위저드 인라인 입력 — Enter=확인 + 자동 포커스(팝업 없이 바로 타이핑).
     var wcin = el.querySelector('[data-fl-wizcustin]');
     if (wcin && !wcin._wsBound) {
@@ -1568,6 +2007,30 @@
         e.preventDefault(); _wizCustomConfirm();
       });
       try { wcin.focus(); var _vl = wcin.value.length; wcin.setSelectionRange(_vl, _vl); } catch (_e) { void _e; }
+    }
+    // [v778 보스] 시술 추가 인라인 입력 — Enter=확정, Esc=취소, 다른 곳 탭(blur)=값 있으면 확정. 팝업 없이 바로 타이핑.
+    var svin = el.querySelector('[data-fl-svcaddin]');
+    if (svin && !svin._wsBound) {
+      svin._wsBound = true;
+      svin.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { e.preventDefault(); _commitSvcKeyword(''); return; }
+        if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+        e.preventDefault(); _commitSvcKeyword(svin.value);
+      });
+      svin.addEventListener('blur', function () { _commitSvcKeyword(svin.value); });
+      try { svin.focus(); } catch (_es) { void _es; }
+    }
+    // [2026-07-26 원영] 해시태그 추가 인라인 입력 — svcaddin 과 같은 관용구(Enter=확정/Esc=취소/blur=확정).
+    var hin = el.querySelector('[data-fl-hashaddin]');
+    if (hin && !hin._wsBound) {
+      hin._wsBound = true;
+      hin.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { e.preventDefault(); _commitHashAdd(''); return; }
+        if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+        e.preventDefault(); _commitHashAdd(hin.value);
+      });
+      hin.addEventListener('blur', function () { _commitHashAdd(hin.value); });
+      try { hin.focus(); } catch (_eh) { void _eh; }
     }
     // [#12] PC에서 게시글/해시태그를 클릭하면 곧바로 편집되도록 클릭→포커스 보장(상위 클릭 위임에 먹히던 회귀 방지).
     function _ensureEditFocus(node) {
@@ -1582,26 +2045,9 @@
       igCap.addEventListener('input', function () { d.caption = igCap.textContent; });
       _ensureEditFocus(igCap);
     }
-    // [v587] 카드 안 해시태그(contenteditable)를 고치면 d.hashtags/selectedHashes 즉시 동기화(별도 편집칸 폐지).
-    var igHash = el.querySelector('[data-fl-ighash]');
-    if (igHash && igHash.isContentEditable && !igHash._wsLiveBound) {
-      igHash._wsLiveBound = true;
-      igHash.addEventListener('input', function () {
-        var hs = _parseHashes(igHash.textContent); d.hashtags = hs; d.selectedHashes = hs.slice();
-      });
-      _ensureEditFocus(igHash);
-    }
+    // [2026-07-26 원영] 카드 안 해시태그 contenteditable 동기화 삭제 — 편집은 아래 해시태그 칩 UI 로 일원화.
     // [v589·#3] 결과 화면이면 각 사진에 우리샵 스타일 적용 미리보기 합성(원본은 보존, 결과 표시 전용).
     if (String(d.caption || '').trim()) _autoComposeTemplate();
-    // [v591·#6] 입력 화면 + 스타일 ON + 사진 있으면 — 사진에서 추천 색 추출해 팔레트 채움(클라이언트, 무료).
-    var pal = el.querySelector('[data-fl-palette]');
-    if (pal && !String(d.caption || '').trim() && d.useShopStyle !== false && !d.textOnly) {
-      // [#9] 사진에서 뽑은 색은 평균값이라 탁하게 나와 혼란 → 편집기(ItdEditor)와 '같은' 큐레이션 팔레트로 통일.
-      var cols = ['#FFFFFF', '#15181D', '#BC6675', '#E08A6E', '#E6B45A', '#86B06E', '#6E9BC4', '#A98AC4'];
-      pal.innerHTML = '<span class="cap-palette__label">글자색 · 탭하면 우리샵 글자색에 적용</span>' +
-        '<div class="cap-palette__row">' + cols.map(function (h) { return '<button type="button" class="cap-pal" data-fl-brandcolor="' + esc(h) + '" style="background:' + esc(h) + '" aria-label="' + esc(h) + '"></button>'; }).join('') + '</div>';
-      pal.hidden = false;
-    }
   }
   // [v532] 캡션 생성 단일 진입점 — Enter/상황버튼 어느 경로든 동일하게:
   //   ① DOM 에서 키워드 최신값 동기화 ② 상황축 반영(없으면 기본 '시술 완성') ③ doGenerate.
@@ -1609,21 +2055,22 @@
   function _triggerCaptionGenerate(axes) {
     syncServiceFromDom();
     if (axes) d.captionAxes = axes;
-    if (!String(d.service || '').trim()) { toast('시술내역/키워드를 입력하면 바로 만들어드려요'); return; }
-    // [위저드 선택형] 위에서 아무것도 안 골랐으면 강제 기본값 안 넣고 '아래 시술 입력한 대로만' 생성.
+    if (!String(d.service || '').trim()) { toast('시술 칩을 하나 골라주세요 — 없으면 + 추가로 만들 수 있어요'); return; }
+    // [위저드 선택형] 위에서 아무것도 안 골랐으면 강제 기본값 안 넣고 '고른 시술 그대로만' 생성.
     if (!d.captionAxes) d.captionAxes = {};
     doGenerate({}, null);
   }
-  // [직접 입력] 인라인 입력 확정 — 값 반영 후 다음 단계. 빈값이면 유지.
+  // [직접 입력] 인라인 확인 — 값을 그 축에 저장하고 입력창 닫기(칩 active 유지). 빈값이면 유지.
   function _wizCustomConfirm() {
     var key = d._wizCustom; if (!key) return;
     var inp = el.querySelector('[data-fl-wizcustin]');
     var val = inp ? String(inp.value || '').trim() : '';
     if (!val) { toast('직접 적을 내용을 입력해 주세요'); if (inp) try { inp.focus(); } catch (_e) { void _e; } return; }
+    syncServiceFromDom();
     d.captionAxes = d.captionAxes || {}; d.captionAxes[key] = val;
     d._wizCustom = null;
-    d.capWizStep = Math.min(3, (d.capWizStep || 0) + 1);
-    d._wizDir = 'fwd'; setScreen('caption');
+    d._wizJust = key; d._wizOpen = null;   // [아코디언] 직접 입력 확정도 접힘 + 다음 질문 열림
+    setScreen('caption');
   }
 
 	  // [v564·필수6] 인스타 미리보기 사진 carousel — 게시글/캡션 화면과 동일한 _displayItems 사용.
@@ -1632,17 +2079,17 @@
 	    var items = _displayItems();
 	    if (items.length <= 1) {
 	      var u = items.length ? items[0].url : fallbackUrl;
-	      return '<div class="ig-photo" style="background-image:url(' + esc(u) + ')"></div>';
+	      return '<div class="ig-photo' + (_wsFormat() === '11' ? ' ig-photo--sq' : '') + '" style="background-image:url(' + esc(_blobDisp(u)) + ')"></div>';
 	    }
 	    var active = (d.activeDisplayId && items.some(function (it) { return it.id === d.activeDisplayId; })) ? d.activeDisplayId : items[0].id;
 	    var slides = items.map(function (it) {
 	      var toggleAttr = it.kind === 'output' && it.expandable ? ' data-fl-tplexpand="' + esc(it.id) + '"'
 	        : (it.ofPair ? ' data-fl-tplcollapse="' + esc(it.ofPair) + '"' : '');
 	      return '<div class="ig-car__slide" data-fl-carslide="' + esc(it.id) + '"' + toggleAttr + '>' +
-	        '<div class="ig-car__img" style="background-image:url(' + esc(it.url) + ')"></div></div>';
+	        '<div class="ig-car__img" style="background-image:url(' + esc(_blobDisp(it.url)) + ')"></div></div>';
 	    }).join('');
 	    var dots = items.map(function (it) { return '<button type="button" class="ig-car__dot' + (it.id === active ? ' on' : '') + '" data-fl-cardot="' + esc(it.id) + '" aria-label="이 사진 보기"></button>'; }).join('');
-	    return '<div class="ig-car cap-car" data-fl-carousel>' +
+	    return '<div class="ig-car cap-car' + (_wsFormat() === '11' ? ' ig-car--sq' : '') + '" data-fl-carousel>' +
 	      '<div class="ig-car__track cap-car__track" data-fl-cartrack>' + slides + '</div>' +
 	      '<div class="ig-car__dots">' + dots + '</div>' +
 	    '</div>';
@@ -1659,19 +2106,24 @@
 	    return '<div class="ig-card2">' +
 	        '<div class="ig-head2">' + avatar + '<span class="ig-name2">' + esc(name) + '</span><span class="ig-loc">' + esc(ig.connected ? '샵 인스타' : '연결 필요') + '</span><span class="ig-dots2">···</span></div>' +
 	        _igCarouselHtml(url) +
-	        // [v589] 카드 액션줄 기능화 — 인스타 아이콘 자리에 복사·다시생성·저장(결과화면에서만)
-	        (editable
-	          ? '<div class="ig-act ig-act--fn">' +
-	              '<button type="button" class="ig-actbtn" data-fl="copycap" aria-label="게시글 복사"><i class="ph-duotone ph-copy"></i><b>복사</b></button>' +
-	              '<button type="button" class="ig-actbtn" data-fl-var="regen" aria-label="다시 생성"><i class="ph-duotone ph-arrows-clockwise"></i><b>다시 생성</b></button>' +
-	              '<button type="button" class="ig-actbtn" data-fl="saveimg" aria-label="이미지 저장"><i class="ph-duotone ph-download-simple"></i><b>저장</b></button>' +
-	            '</div>'
-	          : '<div class="ig-act"><div class="ig-ic"><i class="ph-duotone ph-heart"></i><i class="ph-duotone ph-chat-circle"></i><i class="ph-duotone ph-paper-plane-tilt"></i></div>' +
-	            '<div class="ig-save"><i class="ph-duotone ph-bookmark-simple"></i></div></div>') +
-	        '<div class="ig-copy2"><b>' + esc(handle) + '</b> <span data-fl-igcap' + (editable ? ' class="ig-cap-edit" contenteditable="true" role="textbox" aria-label="게시글 편집" spellcheck="false"' : '') + '>' + esc(d.caption || '') + '</span><br><span class="ig-hash' + (editable ? ' ig-hash-edit" contenteditable="true" role="textbox" aria-label="해시태그 편집" spellcheck="false' : '') + '" data-fl-ighash>' + esc((d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ')) + '</span><div class="ig-ago">' + (editable ? '게시글·해시태그를 눌러 바로 고쳐 쓰기' : '미리보기') + '</div></div>' +
+	        // [2026-07-26 원영] v589 '카드 액션줄 기능화' 철회 — 목업 안 기능버튼 혼입이 어색("너무 별로").
+	        //   카드는 순수 인스타 미리보기(정적 아이콘)로 복원, 기능 버튼은 카드 아래 _capActionRow 로 분리.
+	        '<div class="ig-act"><div class="ig-ic"><i class="ph-duotone ph-heart"></i><i class="ph-duotone ph-chat-circle"></i><i class="ph-duotone ph-paper-plane-tilt"></i></div>' +
+	        '<div class="ig-save"><i class="ph-duotone ph-bookmark-simple"></i></div></div>' +
+	        /* [2026-07-26 원영] 닉네임 옆이 아니라 아랫줄부터 캡션 시작(미관) — <br> 삽입 */
+        '<div class="ig-copy2"><b>' + esc(handle) + '</b><br><span data-fl-igcap' + (editable ? ' class="ig-cap-edit" contenteditable="true" role="textbox" aria-label="게시글 편집" spellcheck="false"' : '') + '>' + esc(d.caption || '') + '</span><br><span class="ig-hash" data-fl-ighash>' + esc((d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ')) + '</span><div class="ig-ago">' + (editable ? '게시글을 눌러 바로 고쳐 쓰기' : '미리보기') + '</div></div>' +
 	      '</div>';
 	  }
-	  // [작업물 미리보기] 슬롯 대표 썸네일 — home _thumb 과 동일 우선순위(합성결과→단일합성→첫사진).
+	  // [2026-07-26 원영] 복사·문장만 다시·저장 — 인스타 목업 카드 밖, 카드 바로 아래 텍스트 필 버튼 한 줄.
+  //   data-fl / data-fl-var 속성은 기존 위임 핸들러 그대로 사용(핸들러 수정 없음). 아이콘 없음(텍스트 전용).
+  function _capActionRow() {
+    return '<div class="cap-actrow">' +
+      '<button type="button" class="cap-actbtn" data-fl="copycap">복사</button>' +
+      '<button type="button" class="cap-actbtn" data-fl-var="regen">문장만 다시</button>' +
+      '<button type="button" class="cap-actbtn" data-fl="saveimg">저장</button>' +
+    '</div>';
+  }
+  // [작업물 미리보기] 슬롯 대표 썸네일 — home _thumb 과 동일 우선순위(합성결과→단일합성→첫사진).
 	  function _slotThumb(s) {
 	    if (!s) return '';
 	    if (s.templateOutputs && s.templateOutputs.length && s.templateOutputs[0].outputUrl) return s.templateOutputs[0].outputUrl;
@@ -1679,50 +2131,77 @@
 	    var p = (s.photos || [])[0];
 	    return (p && (p.editedDataUrl || p.dataUrl)) || '';
 	  }
-	  // [v589] 피드 미리보기 — 이 사진을 올리면 내 프로필 피드가 어떻게 보일지 그리드로.
-	  function _feedPreview(url) {
-	    if (!url) return '';
-	    var ig = window.WorkspaceAdapter && window.WorkspaceAdapter.instagramProfile ? window.WorkspaceAdapter.instagramProfile() : { connected: false };
-	    // [피드 미리보기] 기존 피드 썸네일 = 메모리/세션 캐시(저장소 X) → 켜자마자 즉시. new 사진은 로컬 합성본이라 항상 즉시.
-	    var recent = (window.WorkspaceAdapter && window.WorkspaceAdapter.recentMediaCached) ? window.WorkspaceAdapter.recentMediaCached() : [];
-	    // 캐시 비었고 인스타 연결됨 → 1회만 당겨와 채운다(미리보기면 완료 시 재렌더). 실패해도 자리표시 유지.
-	    if (ig.connected && !recent.length && !d._igMediaFetched && window.WorkspaceAdapter.recentMedia) {
-	      d._igMediaFetched = true;
-	      try { window.WorkspaceAdapter.recentMedia().then(function (m) { if (m && m.length && cur === 'preview') setScreen('preview', { push: false }); }); } catch (_e) { void _e; }
-	    }
-	    // [작업물 미리보기 2026-07-10] 채움 소스 분기 — 연동됨=실제 인스타 피드 / 미연동=내 작업물(로컬, 저장소 X).
-	    //   원장님 요청: 연동한 사람은 실제 피드에 어떻게 얹히는지, 미연동은 내가 만든 작업물이 자리를 채우게.
-	    var fill = ig.connected ? recent : (d._myWorkThumbs || []);
-	    var TILES = 11;   // 3×4 그리드 = 새 게시물 1 + 기존 11
-	    var cells = '<div class="wsfeed__cell wsfeed__cell--new" style="background-image:url(' + esc(url) + ')"><span class="wsfeed__new">NEW</span></div>';
-	    for (var i = 0; i < TILES; i++) {
-	      var _t = fill[i] && (fill[i].thumb || (typeof fill[i] === 'string' ? fill[i] : ''));   // 새형식(obj.thumb)·구형식(string) 호환
-	      cells += _t
-	        ? '<div class="wsfeed__cell" style="background-image:url(' + esc(_t) + ')"></div>'
-	        : '<div class="wsfeed__cell wsfeed__cell--ph"></div>';
-	    }
-	    var stat = ig.connected
-	      ? '<div class="wsfeed__prof"><span class="wsfeed__av"' + (ig.profilePic ? ' style="background-image:url(' + esc(ig.profilePic) + ')"' : '') + '></span><b>' + esc(ig.handle || '내 계정') + '</b></div>'
-	      : '';
-	    // 안내문구 — 연동: 실제 피드 / 미연동+작업물있음: 내 작업물 / 미연동+작업물없음: 연결 유도.
-	    var capMsg = ig.connected ? '왼쪽 위가 이번에 올릴 사진이에요'
-	      : (fill.length ? '왼쪽 위가 이번에 올릴 사진 · 나머지는 내 작업물이에요' : '왼쪽 위가 이번에 올릴 사진이에요 · 인스타 연결하면 실제 피드로 보여드려요');
-	    return '<div class="wsfeed">' +
-	      '<label class="cap-field-label wsfeed__lbl">피드 미리보기 <span>' + (ig.connected ? '올리면 내 피드가 이렇게 보여요' : '내 작업물과 함께 보기') + '</span></label>' +
-	      '<div class="wsfeed__card">' + stat +
-	        '<div class="wsfeed__grid">' + cells + '</div>' +
-	        '<p class="wsfeed__cap">' + capMsg + '</p>' +
-	        (window.FeedPlanner ? '<button type="button" class="wsfeed__plan" data-fl="feedplan" data-haptic="light">피드 정렬해보기</button>' : '') +
-	      '</div></div>';
+	  // [2026-07-26 원영] 피드 미리보기(_feedPreview) 통째 삭제 — "피드 보여줬으면 됐지" 지시. 위 인스타 카드로 충분.
+	  //   wsfeed CSS 도 함께 정리(css/workspace-v2-flow.css).
+	  /* [2026-07-26 원영] 해시태그 칩 편집 — 예전엔 카드 안 텍스트 직접편집(contenteditable)뿐이라
+	     지우는 방법이 안 보였다("해시태그 어디서 지울수있는거야?"). 카드 밑에 칩 목록: ×로 개별 삭제, 추가는 인라인 입력.
+	     d.hashtags/selectedHashes 는 항상 같이 갱신(발행 payload 는 selectedHashes 우선이라 어긋나면 사고). */
+	  function _hashList() {
+	    return ((d.selectedHashes && d.selectedHashes.length) ? d.selectedHashes : (d.hashtags || [])).slice();
+	  }
+	  function _hashSet(arr) {
+	    var prev = _hashList();
+	    var seen = {}, out = [];
+	    (arr || []).forEach(function (h) {
+	      h = String(h || '').trim().replace(/\s+/g, '');
+	      if (!h || h === '#') return;
+	      if (h[0] !== '#') h = '#' + h;
+	      if (!seen[h]) { seen[h] = 1; out.push(h); }
+	    });
+	    // [2026-07-26 원영] 원장님 손편집 기억 — ×로 지운 태그는 재생성돼도 부활 금지(_hashRemoved),
+	    //   직접 다시 추가하면 해제. _hashEdited 면 재생성이 태그 목록을 통째로 덮어쓰지 않는다.
+	    d._hashRemoved = d._hashRemoved || [];
+	    prev.forEach(function (h) { if (out.indexOf(h) < 0 && d._hashRemoved.indexOf(h) < 0) d._hashRemoved.push(h); });
+	    out.forEach(function (h) { var ri = d._hashRemoved.indexOf(h); if (ri >= 0) d._hashRemoved.splice(ri, 1); });
+	    d._hashEdited = true;
+	    d.hashtags = out; d.selectedHashes = out.slice();
+	  }
+	  function _hashChipsHtml() {
+	    var hs = _hashList();
+	    var chips = hs.map(function (h) {
+	      return '<span class="cap-hashchip">' + esc(h) + '<button type="button" class="cap-hashchip__x" data-fl-hashdel="' + esc(h) + '" aria-label="이 해시태그 삭제">×</button></span>';
+	    }).join('');
+	    var add = d._hashAddOpen
+	      ? '<input type="text" class="cap-hashchip cap-hashchip--addin" data-fl-hashaddin maxlength="30" placeholder="#태그 입력 후 Enter" aria-label="해시태그 입력">'
+	      : '<button type="button" class="cap-hashchip cap-hashchip--add" data-fl="hashaddopen"><i class="ph-bold ph-plus"></i> 추가</button>';
+	    return '<label class="cap-field-label cap-hashlbl">해시태그 <span>×로 지우고, 필요하면 추가해요</span></label>' +
+	      '<div class="cap-hashchips">' + chips + add + '</div>';
+	  }
+	  function _commitHashAdd(v) {
+	    if (!d._hashAddOpen) return;   // Enter+blur 중복 방지(시술 추가와 같은 관용구)
+	    d._hashAddOpen = false;
+	    v = String(v || '').trim();
+	    if (v) _hashSet(_hashList().concat([v]));
+	    setScreen('caption', { push: false });
 	  }
 	  function renderPreview() {
 	    var url = outputUrl();
 	    var custLine = d.customerName ?
 	      '<div class="confirmline">연결 손님: <b>' + esc(d.customerName) + '</b>' + (d.customerVc ? ' · ' + d.customerVc + '회 방문' : ' · 첫 방문') + '</div>' : '';
-	    // [v592] 인스타 미리보기 단계 = 최종 카드 + 게시 + 피드 미리보기.
-	    return '' + '<div class="cap-byline">이렇게 올라가요</div>' + custLine + _igPreviewCard(url, true) + _publishBlock() + _feedPreview(url);
+	    // [v592] 인스타 미리보기 단계 = 최종 카드 + 게시.
+	    return '' + custLine + _igPreviewCard(url, true) + _capActionRow() + _publishBlock() + _finishActions(url);
 	  }
 
+  // [통합 2026-07-14] 발행 종류 자동 판단 — 원장이 '1장/여러장'을 고르지 않게. 버튼은 하나.
+  //   레이아웃 합성본이면 단일 피드, 선택된 사진 2장 이상이면 캐러셀. 선택/해제는 업로드 화면에서(editablePhotos).
+  // [버그5 2026-07-14] '내 말투(페르소나)'가 실제로 적용되는 조건 = 인스타 연동 여부.
+  //   payload 의 use_persona 와 동일 기준(doGenerate 의 _igConn). 미연동인데 화면만 '학습 완료'라고 말해
+  //   원장이 "말투 반영되는 거 맞나?" 의심하게 만들던 거짓 표시를 차단한다.
+  function _personaOn() {
+    try { return !!(window.WorkspaceAdapter && window.WorkspaceAdapter.instagram && window.WorkspaceAdapter.instagram().connected); } catch (_e) { return false; }
+  }
+  function _publishKind() {
+    // [T-116] 결과물이 2장 이상이면(카드 여러 개) 캐러셀 — 레이아웃을 썼다고 무조건 단일 피드가 아니다.
+    var nOut = (d.templateOutputs || []).length;
+    if (nOut >= 2) return 'carousel';
+    /* [버그수정 2026-07-17] 합성본 1장 = 단일 피드. 예전 기준은 `d.wsLayout && d.templateOutput` 이었는데
+       d.wsLayout 은 레이아웃 화면이 세션 중에만 채우는 별칭이고 open() 이 복원하지 않는다(d 리터럴에 키 없음).
+       → 초안을 닫았다 다시 열어 발행하면 hasComposite=false 로 떨어져 '원본 사진 전부'가 캐러셀로 나갔다:
+         레이아웃이 조용히 사라지고, 서버가 child 마다 2초씩 순차 폴링해 발행이 30초+ 로 늘어짐.
+       판단 근거를 세션 상태가 아니라 저장되는 결과물(templateOutputs/templateOutput)로 바꾼다. */
+    if (nOut === 1 || d.templateOutput) return 'feed';
+    return ((editablePhotos() || []).length >= 2) ? 'carousel' : 'feed';
+  }
   function _publishBlock() {
 	    var connected = window.WorkspaceAdapter ? window.WorkspaceAdapter.instagram().connected : false;
 	    // [cleanup] 스토리 발행 픽커 제거(2026-07-12) — 진입 버튼(publishstory)이 재설계로 사라져 도달 불가였음. 발행은 피드/여러 장만.
@@ -1730,23 +2209,121 @@
 	      // [스토리/캐러셀] 피드 + 스토리, 사진 2장 이상이면 캐러셀(여러 장) 버튼도.
 	      // [버그수정 2026-07-10] ws-hyper 레이아웃은 여러 장을 '1장 합성본'(d.templateOutput)으로 합침 →
 	      //   캐러셀(여러 장 슬라이드)은 부적절하고 원본 여러 장을 보내 실패했음. 레이아웃이면 단일 피드로만.
-	      var _hasLayoutComposite = !!(d.wsLayout && d.templateOutput);
-	      var _multi = !_hasLayoutComposite && (editablePhotos() || []).length >= 2;
-	      // [계정 태그] 피드 사진에 계정 태그(선택) — @아이디 쉼표로.
-	      var _tagVal = (d.igUserTags || []).map(function (u) { return '@' + u; }).join(', ');
-	      return '<div class="cap-usertags" style="margin-top:10px"><input type="text" data-fl-usertags placeholder="사진에 계정 태그 — @아이디 (쉼표, 선택)" value="' + esc(_tagVal) + '" style="width:100%;height:42px;border:1px solid var(--border);border-radius:12px;padding:0 13px;font-size:13.5px;font-family:inherit;background:var(--surface);color:var(--text)"></div>' +
-	      '<div class="cap-pubrow" style="margin-top:10px">' +
-	        '<button type="button" class="cap-preview cap-preview--send" style="width:100%" data-fl="publish"' + (d._publishing ? ' disabled' : '') + '>' + (d._publishing === 'feed' ? '<i class="ph-duotone ph-spinner"></i>올리는 중…' : '<i class="ph-duotone ph-paper-plane-tilt"></i>피드에 올리기') + '</button>' +
+	      var _n = (editablePhotos() || []).length;
+	      var _multi = _publishKind() === 'carousel';
+	      // [2026-07-26 원영] 마무리 재구성 — 발행 블록은 '주 행동 1개'(인스타에 올리기)만.
+	      //   계정태그·예약·사진편집은 _finishActions()/_tagsBlockHtml() 로 이동(버튼 5개 위계 없이 쌓이던 것).
+	      return '<div class="cap-pubrow" style="margin-top:10px">' +
+	        '<button type="button" class="cap-preview cap-preview--send" style="width:100%" data-fl="publish"' + (d._publishing ? ' disabled' : '') + '>' + (d._publishing ? '<i class="ph-duotone ph-spinner"></i>올리는 중…' : '<i class="ph-duotone ph-paper-plane-tilt"></i>인스타에 올리기' + (_n > 1 ? ' (' + _n + '장)' : '')) + '</button>' +
 	      '</div>' +
-	      (_multi ? '<button type="button" class="cap-preview cap-preview--carousel" style="width:100%;margin-top:8px" data-fl="publishcarousel"' + (d._publishing ? ' disabled' : '') + '>' + (d._publishing === 'carousel' ? '<i class="ph-duotone ph-spinner"></i>올리는 중…' : '<i class="ph-duotone ph-images"></i>여러 장으로 올리기 (' + (editablePhotos() || []).length + '장)') + '</button>' : '');
+	      // [통합 2026-07-14] '여러 장으로 올리기' 별도 버튼 제거 — 위 버튼 하나가 _publishKind() 로 알아서 캐러셀 발행.
+      (_multi ? '<div class="cap-pubnote">선택한 ' + _n + '장이 여러 장 게시물로 올라가요</div>' : '');
 	    }
+    // [2026-07-26 원영] 복사·저장 버튼 제거 — 카드 아래 _capActionRow 가 항상 제공(중복 금지). 연결 버튼만.
     return '<div class="wsflow-prep">' +
       '<div class="wsflow-prep__note">인스타 계정이 연결되지 않아 바로 업로드할 수 없어요. 준비만 해둘게요.</div>' +
       '<div class="wsflow-prep__row">' +
-        '<button type="button" data-fl="copycap">게시글 복사</button>' +
-        '<button type="button" data-fl="saveimg">이미지 저장</button>' +
         '<button type="button" class="pink" data-fl="igconnect">인스타 연결</button>' +
       '</div></div>';
+  }
+  // [2026-07-26 원영] 계정 태그 블록 — _publishBlock 에서 분리(위계 정리). markup 은 v776/닫기 추가분 그대로.
+  function _tagsBlockHtml() {
+    var _multi = _publishKind() === 'carousel';
+    var _tagVal = (d.igUserTags || []).map(function (u) { return '@' + u; }).join(', ');
+    return (d._tagsOpen || _tagVal)
+      ? '<div class="cap-usertags"><div style="display:flex;align-items:center;gap:8px">' +
+          '<input type="text" data-fl-usertags placeholder="@아이디 (쉼표로 여러 명)" value="' + esc(_tagVal) + '" style="flex:1;min-width:0">' +
+          '<button type="button" data-fl="tagsclose" aria-label="계정 태그 접기" style="flex:none;background:none;border:none;padding:4px;font-size:12px;font-weight:700;color:#a89aa0;cursor:pointer">안 달래요 <i class="ph-bold ph-x" style="vertical-align:-2px"></i></button>' +
+        '</div>' +
+        (_multi ? '<div class="cap-tagnote">여러 장은 첫 번째 사진(커버)에만 태그가 붙어요</div>' : '') + '</div>'
+      : '<button type="button" class="cap-tagtoggle" data-fl="tagsopen">사진에 다른 계정 태그 달기 (선택)</button>';
+  }
+  // [2026-07-26 원영] 마무리 보조 액션 스택 — 주 버튼 아래 반반 [사진 편집][예약해서 올리기](간격 통일),
+  //   그 아래 계정 태그(작은 텍스트). '재료부터 다시 고르기'는 삭제 — 상단 뒤로가기(←)가 그 역할.
+  function _finishActions(url) {
+    var connected = window.WorkspaceAdapter ? window.WorkspaceAdapter.instagram().connected : false;
+    var eBtn = (!d.textOnly && url) ? '<button type="button" class="cap-halfbtn" data-fl="storyedit"><i class="ph-duotone ph-magic-wand"></i> 사진 편집</button>' : '';
+    var sBtn = connected ? '<button type="button" class="cap-halfbtn" data-fl="' + (d._schedOpen ? 'schedclose' : 'schedopen') + '"><i class="ph-duotone ph-clock"></i> 예약해서 올리기</button>' : '';
+    return ((eBtn || sBtn) ? '<div class="cap-halfrow">' + eBtn + sBtn + '</div>' : '') +
+      (connected && d._schedOpen ? _schedHtml() : '') +
+      (connected ? _tagsBlockHtml() : '');
+  }
+
+  // [v779] 예약 발행 — 기본 접힘, '예약하기' 누르면 datetime 입력. 스타일 inline(CSS 캐시 안전).
+  //   백엔드 /scheduled-posts 가 예약시각에 content_publish 로 발행(새 Meta 권한 불필요).
+  function _schedDefault() {
+    try {
+      var t = new Date(Date.now() + 2 * 3600 * 1000); t.setMinutes(0, 0, 0);
+      var p = function (n) { return String(n).length < 2 ? '0' + n : '' + n; };
+      return t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate()) + 'T' + p(t.getHours()) + ':' + p(t.getMinutes());
+    } catch (_e) { return ''; }
+  }
+  function _schedHtml() {
+    // [2026-07-26 원영] 접힘 상태 버튼은 _finishActions 의 반반 줄로 이동 — 여기선 열린 패널만 렌더.
+    if (!d._schedOpen) return '';
+    // [2026-07-22 보스] 여러 장이면 몇 장이 예약되는지 미리 말한다 — 예약은 나중에 올라가서
+    //   잘못 나가도 그 자리에서 못 알아챈다. 장수는 발행과 같은 규칙(_scheduleImages)으로 센다.
+    var _sn = _scheduleImages().length;
+    var _snNote = _sn >= 2
+      ? '<div style="font-size:11.5px;font-weight:600;color:#a89aa0;margin:-4px 0 8px">사진 ' + _sn + '장이 여러 장 게시물로 올라가요</div>'
+      : '';
+    // [2026-07-26 원영] 닫기 추가 — 예전엔 펼치기만 있고 되돌리기가 없어 예약 안 할 건데도 패널을 못 닫았다.
+    return '<div style="margin-top:8px;padding:12px;border:1px solid rgba(213,138,149,.28);border-radius:14px;background:rgba(213,138,149,.05)">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
+          '<div style="font-size:12.5px;font-weight:700;color:#8a7a80">언제 올릴까요?</div>' +
+          '<button type="button" data-fl="schedclose" aria-label="예약 접기" style="background:none;border:none;padding:2px 4px;font-size:12px;font-weight:700;color:#a89aa0;cursor:pointer">그냥 바로 올릴래요 <i class="ph-bold ph-x" style="vertical-align:-2px"></i></button>' +
+        '</div>' +
+        _snNote +
+        '<input type="datetime-local" data-fl-schedat value="' + esc(d._schedVal || _schedDefault()) + '" style="width:100%;height:42px;border:1px solid #E9EBEE;border-radius:10px;padding:0 10px;font-size:14px;box-sizing:border-box;margin-bottom:8px">' +
+        '<button type="button" data-fl="schedule"' + (d._scheduling ? ' disabled' : '') + ' style="width:100%;height:46px;border:none;border-radius:12px;background:#d58a95;color:#fff;font-size:14.5px;font-weight:800;cursor:pointer">' + (d._scheduling ? '예약 중…' : '이 시간에 예약') + '</button>' +
+      '</div>';
+  }
+  function _fmtSchedTime(dt) {
+    try { var p = function (n) { return String(n).length < 2 ? '0' + n : '' + n; }; return (dt.getMonth() + 1) + '월 ' + dt.getDate() + '일 ' + p(dt.getHours()) + ':' + p(dt.getMinutes()); } catch (_e) { return '예약 시간'; }
+  }
+  /* [2026-07-22 보스] 예약에 실을 사진 목록 — '지금 올리기'(publish 의 _imgs)와 똑같은 규칙.
+     ① 레이아웃 합성본이 2장 이상이면 그 합성본들(원본이 아니라!)
+     ② 합성본이 딱 1장이면 그 1장(여러 장을 한 장으로 합친 콜라주 — 더 쪼개면 안 된다)
+     ③ 합성본이 없으면 편집 반영된 사진들
+     규칙이 어긋나면 "화면엔 콜라주인데 예약은 원본 5장" 같은 조용한 사고가 난다. */
+  function _scheduleImages() {
+    var outs = (d.templateOutputs || []).map(function (o) { return o && o.outputUrl; }).filter(Boolean);
+    if (outs.length >= 2) return outs;
+    if (d.templateOutput || outs.length === 1) return [d.templateOutput || outs[0]].filter(Boolean);
+    return (editablePhotos() || []).map(function (p) { return dispUrl(p); }).filter(Boolean);
+  }
+  function _doSchedule() {
+    if (d._scheduling) return;
+    var inp = el && el.querySelector('[data-fl-schedat]');
+    var val = inp && inp.value; if (val) d._schedVal = val;
+    if (!val) { toast('올릴 날짜·시간을 골라 주세요'); return; }
+    var when = new Date(val);
+    if (isNaN(when.getTime()) || when.getTime() < Date.now() + 60000) { toast('지금보다 나중 시간으로 골라 주세요'); return; }
+    if (!(editablePhotos() || []).length && !d.templateOutput && !(d.templateOutputs || []).length) { toast('사진을 먼저 추가해 주세요'); return; }
+    flushCaptionInputs();
+    if (!String(d.caption || '').trim()) { toast('게시글을 먼저 만들어 주세요'); return; }
+    // [2026-07-22 보스] 여러 장 예약 허용. 예전엔 백엔드가 이미지 1장만 받아서 여기서 통째로 막았는데
+    //   (`여러 장 게시물은 예약이 아직 안 돼요`), 이제 scheduled_posts.image_urls + 캐러셀 발행 워커가 생겼다.
+    //   보내는 사진 목록은 '지금 올리기'(publish carousel)와 같은 규칙 — 합성본 2장 이상이면 합성본,
+    //   아니면 편집 반영된 사진들. 그래야 눈에 보이는 것과 예약된 것이 어긋나지 않는다.
+    var _schedImgs = _scheduleImages();
+    if (!_schedImgs.length) { toast('사진을 먼저 추가해 주세요'); return; }
+    if (_schedImgs.length > 10) { toast('사진은 10장까지 예약할 수 있어요'); return; }
+    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.scheduleInstagramV2)) { toast('예약 기능을 불러오지 못했어요'); return; }
+    d._scheduling = true; setScreen('caption', { push: false });
+    var myD = d;
+    window.WorkspaceAdapter.scheduleInstagramV2({ imageUrls: _schedImgs, caption: d.caption, hashtags: (d.hashtags || []).slice(0, 30), scheduledAt: when.toISOString() })
+      .then(function (r) {
+        if (myD !== d || myD._dead) return;   // 세션 교체/닫힘 — 새 글 안 건드림
+        d._scheduling = false;
+        if (r && r.ok) {
+          d.publish = d.publish || {}; d.publish.status = 'scheduled'; d.publish.scheduledAt = when.getTime();
+          try { if (window.WorkspaceAdapter.saveItem) window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_e) { void _e; }
+          toast(_fmtSchedTime(when) + '에 ' + ((r.count || 1) >= 2 ? '사진 ' + r.count + '장이 ' : '') + '올라가도록 예약했어요');
+          if (window.WorkspaceV2 && window.WorkspaceV2.refresh) window.WorkspaceV2.refresh();
+          close();
+        } else { toast((r && r.toast) || '예약에 실패했어요'); setScreen('caption', { push: false }); }
+      }).catch(function () { if (myD === d) { d._scheduling = false; toast('예약에 실패했어요 — 잠시 후 다시'); setScreen('caption', { push: false }); } });
   }
 
   // [C5] 고객 연결 — 컬러바+방문횟수 배지, 아바타 없음
@@ -1791,21 +2368,15 @@
       return false;
     }
     // [A1] 후기 레이아웃은 시술/캡션이 확정된 지금 재합성해 본문에 반영(레이아웃 단계엔 아직 캡션이 없었음).
-    if (d.wsLayout && d.wsLayout.kind === 'review' && window.WorkspaceLayout) {
-      return Promise.resolve(window.WorkspaceLayout.composeLayout(_fillLayoutText(d.wsLayout), editablePhotos(), d._wsAssign)).then(function (u) {
-        if (u) { d.templateOutput = u; d.previewUrl = null; }
-      });
-    }
+    // [T-116] 카드가 여러 장이면 후기 카드만 있는 게 아니라도 전부 다시 굽는다 — 결과물 배열 전체가 진실.
+    if (_WSL.hasReviewCard && _WSL.hasReviewCard() && window.WorkspaceLayout) return _WSL.composeCards();
   }
   // 편집 전환 전: 현재 보정을 굽고(bake) 다음 단계.
   function _exitEdit() { return bakeEdit(); }
   // [ws-hyper] 레이아웃 전환 전: 조정된 focal/zoom 으로 최종 이미지 합성 후 다음 단계.
+  // [T-116] 카드(=올라갈 사진)마다 한 번씩 구워 templateOutputs 배열로. 레이아웃 없는 카드는 사진 그대로.
   function _exitLayout() {
-    if (d.wsLayout && window.WorkspaceLayout) {
-      return Promise.resolve(window.WorkspaceLayout.composeLayout(_fillLayoutText(d.wsLayout), editablePhotos(), d._wsAssign)).then(function (u) {   // [A1] 후기/가격 텍스트 주입
-        if (u) { d.templateOutput = u; d.previewUrl = null; }
-      });
-    }
+    if (window.WorkspaceLayout && _WSL.composeCards) return _WSL.composeCards();
   }
   // [v531] 캡션 결과 화면에서 뒤로 = 결과만 비우고 캡션 입력으로(편집으로 안 튐). 결과 없으면 기본 pop.
   function _backCaption() {
@@ -1898,20 +2469,23 @@
 
   // [T-104 P4] loadRecent → flow/connect.js
 
-	  // 생성 직전 입력창의 최신 값을 직접 읽음 — input 이벤트 누락/IME 미확정으로 키워드 빠지는 것 방지.
+	  // 생성/재렌더 직전 입력창의 최신 값을 직접 읽음 — input 이벤트 누락/IME 미확정으로 글자가 빠지는 것 방지.
+	  // [캡션재설계 v2] 시술은 칩 단일선택(d.service 직저장)이라 DOM 동기화 대상은 특이사항 입력칸뿐.
 	  function syncServiceFromDom() {
 	    if (!el) return;
-	    var s = el.querySelector('[data-fl-service]');
-	    if (s && typeof s.value === 'string') d.service = s.value;
+	    var n = el.querySelector('[data-fl-specialnote]');
+	    if (n && typeof n.value === 'string') d.specialNote = n.value;
 	  }
-	  // [v532] extra_notes 빌더 — 핵심: 백엔드 fewshot(샵 과거글)은 '말투'만 참고, '시술 내용'은 입력값만.
-	  //   기존엔 category=extension fewshot 이 붙임머리/단발탈출/슬림땋기 등 엉뚱한 시술명을 캡션에 흘렸음.
-	  //   → "과거 글은 말투·길이만, 시술명·인치·기법·재료는 입력값만" 으로 프론트에서 강제 차단.
+	  // [캡션재설계 v2 2026-07-15] extra_notes 빌더 — verbatim 버그 수정의 핵심.
+	  //   기존: '이 게시글의 시술은 오직 "<자유서술 원문>"' 으로 원문 전체를 시술명으로 못박음 → 욕설·불만 문장이
+	  //   캡션에 그대로 실렸다. 이제 시술명 = 시술 칩 선택값(_publicServiceKeywords 정제)만 넣고,
+	  //   특이사항 메모는 '재료' 규칙(그대로 복사 금지·시술 사실만 발췌·욕설/감정/환불 금지)으로 분리 지시.
 	  //   regenSeq 가 있으면 '앞 글과 다른 구성으로' 변형 지시 추가('다시 쓰기' 가 동일 캡션 반복하던 회귀 해소).
-	  function _buildExtraNotes(svc, regenSeq) {
-	    var s = String(svc || '').trim().slice(0, 60);
-	    var note = '이 게시글의 시술은 오직 "' + s + '". 과거 글·예시는 말투와 문장 길이만 참고하고, 시술명·인치·기법·재료는 입력값만 쓰세요. ' +
-	      '입력에 없는 다른 시술/상품명(붙임머리·단발·땋기·매듭·펌 등)은 사진이나 예시에 보여도 절대 언급하지 마세요. ' +
+	  function _buildExtraNotes(svc, regenSeq, hasNote) {
+	    var s = String(svc || '').trim().slice(0, 40);
+	    var note = (hasNote
+	        ? '특이사항 메모는 재료일 뿐 — 문장 그대로 복사 금지. 시술 사실(길이·색·기법·방문 차수)과 고객 방문 사연(멀리·해외에서 와주신 것 등 긍정 맥락)은 빠짐없이 자연스럽게 반영하고, 욕설·비속어·감정 표현·환불/불만 얘기는 캡션에 절대 넣지 말 것. ' : '') +
+	      '이 게시글의 시술명은 "' + s + '" 하나뿐. 과거 글·예시는 말투와 문장 길이만 참고하고, 입력에 없는 다른 시술/상품명은 사진·예시에 보여도 절대 언급하지 말 것. ' +
 	      '샵·디자이너 이름을 모르면 지어내지 말고 "저희 샵"으로. 구어/비속어는 그대로 쓰지 말고 의미만 뷰티 인스타 톤으로 정제.';
 	    if (regenSeq && regenSeq > 0) note += ' (재생성 ' + regenSeq + '회차: 앞 글과 도입부·문장 구성·표현을 다르게, 같은 내용 다른 말로.)';
 	    return note.slice(0, 300);
@@ -1959,74 +2533,72 @@
     if (stripped) out = stripped;   // 본문이 전부 해시태그였던 극단 케이스는 원본 유지
     return out || nomd.trim();   // 전부 걸러지면(극단) 마크다운만 제거한 본문 유지
 	  }
-	  // [P1-1] 캡션 생성 전 '확인칩' — 입력에서 분리된 샵/고객/시술을 사용자가 보고 ✎로 직접 고친다.
-	  //   오버라이드(d.capShopOverride/d.capCustOverride)는 doGenerate 가 파싱보다 우선 사용 → 오분리 즉시 교정.
+	  // 입력에서 샵/고객/시술을 분리 — 샵 파싱이 자동(#1)이라 확인칩(P1-1)은 제거됨.
 	  function _capParseService() {
 	    var raw = String(d.service || '');
 	    var c = _cleanService(raw);
-	    var shop = (d.capShopOverride != null) ? d.capShopOverride : (c.shop || _shopName() || '');   // [#1] 사용자가 친 인라인 샵 우선(stale 등록값 'Dd' 가 덮어쓰는 것 방지)
-	    var customer = (d.capCustOverride != null) ? d.capCustOverride : (c.customer || (d.customerId ? d.customerName : '') || '');   // [#1] 연결된 고객(customerId)만 재사용, stale 이름('방') 방지
+	    var shop = c.shop || _shopName() || '';   // [#1] 사용자가 친 인라인 샵 우선(stale 등록값 'Dd' 가 덮어쓰는 것 방지)
+	    var customer = c.customer || (d.customerId ? d.customerName : '') || '';   // [#1] 연결된 고객(customerId)만 재사용, stale 이름('방') 방지
 	    return { shop: shop, customer: customer, service: c.service || raw };
-	  }
-	  function _capConfirmHtml() {
-	    return '';   // [#3] 캡션 생성 화면에서 '검증(확인칩)' 제거 — 샵 파싱이 자동(#1)이라 불필요. 오버라이드 로직은 doGenerate 에 유지.
-	  }
-	  function _capConfirmHtmlOld() {
-	    if (!String(d.service || '').trim()) return '<div class="cap-confirm" data-fl-confirm hidden></div>';
-	    var p = _capParseService();
-	    var chip = function (kind, ic, lbl, val) {
-	      return '<button type="button" class="cap-cfm" data-cfm="' + kind + '"><i class="ph-duotone ' + ic + '"></i><span>' + lbl + '</span><b>' + (val ? esc(val) : '<em>없음</em>') + '</b><i class="ph ph-pencil-simple-line cap-cfm__ed"></i></button>';
-	    };
-	    return '<div class="cap-confirm" data-fl-confirm>' +
-	      '<span class="cap-confirm__hint">AI에 이렇게 전달돼요 · 틀리면 탭해서 고치기</span>' +
-	      '<div class="cap-confirm__row">' +
-	        chip('shop', 'ph-storefront', '우리샵', p.shop) +
-	        chip('cust', 'ph-user', '고객', p.customer) +
-	        '<span class="cap-cfm cap-cfm--svc"><i class="ph-duotone ph-scissors"></i><span>시술</span><b>' + (p.service ? esc(p.service) : '<em>입력</em>') + '</b></span>' +
-	      '</div></div>';
-	  }
-	  function _refreshCapConfirm() {
-	    var box = el && el.querySelector('[data-fl-confirm]');
-	    if (!box) return;
-	    var tmp = document.createElement('div'); tmp.innerHTML = _capConfirmHtml();
-	    box.replaceWith(tmp.firstChild);
-	  }
-	  function _editCapOverride(kind) {
-	    var p = _capParseService();
-	    var cur = kind === 'shop' ? p.shop : p.customer;
-	    var title = kind === 'shop' ? '우리샵 이름 (게시글에 이대로 표기)' : '고객 이름 (없으면 비워두세요)';
-	    (window._inlinePrompt || window.prompt)(title, cur || '', function (v) {
-	      var nv = (v == null ? '' : String(v)).trim();
-	      if (kind === 'shop') d.capShopOverride = nv; else { d.capCustOverride = nv; d.customerName = nv; }
-	      _refreshCapConfirm();
-	    });
 	  }
 	  function doGenerate(extra, label) {
 	    if (d.capLoading) return;   // [audit] 생성 중 재탭 무시 — 연타 시 API 이중 호출(비용) 방지
 	    syncServiceFromDom();
 	    var svc = String(d.service || '').trim();
-	    if (!svc) { toast('시술 내역을 먼저 입력해 주세요'); return; }
+	    if (!svc) { toast('시술 칩을 먼저 골라주세요'); return; }
     _saveRecentService(svc);   // [P4] 최근 시술 기억 — 다음엔 탭 한 번으로 다시 채움
 	    var _p = _capParseService();   // [P1-1] 확인칩 오버라이드 우선 반영
 	    var _cust = { service: _p.service, customer: _p.customer, shop: _p.shop }; var svcClean = _p.service || svc;
 			// [#2] 사적 방문정황(남친이랑 옴)·가격(28만원짜리) 뺀 '공개 시술 키워드' — LLM 이 사담/가격을 캡션에 안 넣게.
-		var _pubParts = _splitServiceForLayers(svc); var _pubSvc = [_pubParts.title, _pubParts.sub].filter(Boolean).join(' ').trim() || svcClean;
+		// [버그6 2026-07-14] 캡션 API 에는 '절단 없는' 공개 시술 키워드 전체를 보낸다.
+		//   기존: _splitServiceForLayers(오버레이용 title+sub = 앞 4단어)를 재사용 → 시술명 5개 이상이면 뒤가 소실됐음.
+		//   사담·가격·지시·이모지 제거는 그대로 유지(_publicServiceKeywords 가 같은 정제 파이프라인을 씀).
+		var _pubSvc = _publicServiceKeywords(svc) || svcClean;
     if (_cust.customer) d.customerName = _cust.customer;   // [#2] 이번 입력의 고객을 우선(예전 stale 값이 안 남게)
 	    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.generateCaption)) { toast('게시글 생성 모듈을 불러오지 못했어요'); return; }
 	    var _wasEmpty = !String(d.caption || '').trim();   // [v531] 입력→결과 최초 전환이면 뒤로가기용 history 마커 push
     // [v532] 재생성('다시 쓰기/더 길게/인스타 톤/짧게')이면 회차 카운터 증가 → extra_notes 변형 지시에 사용(동일 캡션 반복 방지).
     if (extra && extra._regen) d.regenSeq = (d.regenSeq || 0) + 1;
 	    var _myToken = ++_genToken;   // [버그수정] 이 호출만의 토큰 — 응답 도착 시 아직 최신인지 확인용
+	    _genPending++;   // [카오스 P2] in-flight 생성 카운트 — 응답(.then/.catch)에서 감소
 	    d.capLoading = true; setScreen('caption');
-	    var photoCtx = d.captionAxes ? [d.captionAxes.situation, d.captionAxes.customer, d.captionAxes.photo].filter(Boolean).join(' / ') : _roleSummary();
+	    // [v779] 생성 타임아웃 — 약전파/프록시 stall 로 응답이 매달리면(끊김 아님) 프로미스가 영영 settle 안 돼
+	    //   스피너가 무한 고착 + 이후 생성이 `if(d.capLoading)return` 으로 영구 차단되던 것. 자가 복구.
+	    // [2026-07-22 보스] 45초 → 130초. 캡션 생성은 15~60초가 정상인데 45초 워치독이 먼저 터져서
+	    //   아직 오고 있는 응답을 두고 "오래 걸려요"를 띄웠다. app-core 의 LLM 타임아웃(120초) 바로 뒤로 둔다.
+	    (function (tok) {
+	      setTimeout(function () {
+	        if (tok === _genToken && d && d.capLoading) {
+	          d.capLoading = false;
+	          try { toast('생성이 오래 걸려요 — 잠시 뒤 다시 시도해 주세요'); } catch (_te) { void _te; }
+	          if (cur === 'caption') setScreen('caption', { push: false });
+	        }
+	      }, 130000);
+	    })(_myToken);
+	    // [캡션재설계 v2] 3축 전부(직접 입력 텍스트 포함, 드롭 규칙 정제 후) → photo_context.
+	    var photoCtx = _wizAxisContext() || _roleSummary();
 	    var opts = Object.assign({ slotId: d.slot && d.slot.id, service: _pubSvc, photo_context: photoCtx, mode: d.captionMode || 'normal' }, extra || {});
     delete opts._regen;   // [v532] 내부 재생성 플래그 — 페이로드로 내보내지 않음
     // [v532] 사용자 입력을 캡션 최우선 context 로. '입력 키워드만 시술명으로, 과거 글은 말투만 참고'를 명시 —
     //   백엔드 fewshot(샵 과거글)이 엉뚱한 시술명(붙임머리·단발 등)으로 새는 것을 프론트에서 차단.
     if (svc) {
-      opts.photo_context = '시술/키워드(이 게시글의 유일한 시술): ' + _pubSvc +
+      // [#5 2026-07-17] 시술 다중선택 → '유일한 시술'은 이제 거짓. 고른 게 여러 개면 그렇게 말한다.
+      //   (문구가 사실과 어긋나면 LLM 이 나머지를 버리거나 하나로 뭉갠다.) 여러 개일 때도
+      //   '이 목록 밖은 만들지 마라'는 제약은 그대로 — fewshot 이 엉뚱한 시술명을 흘리는 걸 막는 핵심.
+      var _svcN = _svcList().length;
+      opts.photo_context = (_svcN > 1
+        ? '시술/키워드(이 게시글의 시술 ' + _svcN + '가지 — 전부 반영): ' + _pubSvc
+        : '시술/키워드(이 게시글의 유일한 시술): ' + _pubSvc) +
         '. 이 키워드만 시술명으로 쓰고, 입력에 없는 다른 시술/상품명은 절대 만들지 마세요. 과거 글은 말투만 참고' +
         (opts.photo_context ? ' · ' + opts.photo_context : '');
+    }
+    // [캡션재설계 v2] 특이사항 = 참고 맥락(재료) 블록 — 원문 복사 금지·verbatim 방지.
+    // [버그3 2026-07-25] '시술 사실만' 화이트리스트가 너무 좁아 "일본에서 온 손님" 같은 방문 사연이
+    //   통째로 걸러졌음(백엔드 프롬프트는 반영을 의도). 고객 방문 사연(긍정 맥락)을 반영 대상에 명시.
+    var _spNote = String(d.specialNote || '').replace(/\s+/g, ' ').trim();
+    if (_spNote) {
+      opts.photo_context += ' · 특이사항 메모(참고 재료, 문장 그대로 복사 금지): "' + _spNote.slice(0, 120) +
+        '" — 이 메모의 시술 사실(길이·색·기법·방문 차수)과 고객 방문 사연(멀리·해외에서 와주신 것 등 긍정 맥락)을 빠짐없이 자연스럽게 반영. 욕설·비속어·감정 표현·환불/불만 얘기는 캡션에 절대 넣지 말 것';
     }
     opts.customer_name = _cust.customer || (d.customerId ? d.customerName : '') || '';   // [#1] 이번 입력 고객 or 연결된 고객만(stale 이름 '방' 방지)
     if (opts.customer_name) opts.photo_context += ' · 고객명: ' + opts.customer_name + '(시술받는 고객 이름. 시술명·스타일명·브랜드명이 아님. 게시글엔 고객님으로 자연스럽게만 언급)';
@@ -2036,8 +2608,8 @@
     else if (_outs.length === 1 && d.tplPurpose === 'before_after') opts.photo_context += ' · 시술 전후 변화 1장.';
     // [v532] photo_context 백엔드 상한 500자 — 다중 pair 노트까지 붙은 뒤 초과 시 422(생성 실패) 방지로 클램프.
     if (opts.photo_context && opts.photo_context.length > 480) opts.photo_context = opts.photo_context.slice(0, 480);
-    // [v532] extra_notes — 시술 내용은 입력값만(과거 글은 말투만) + 재생성 변형 지시. 백엔드 상한 300자 내 보장.
-    opts.extra_notes = _buildExtraNotes(svcClean, d.regenSeq);
+    // [캡션재설계 v2] extra_notes — 시술명 = 정제된 칩 값(_pubSvc)만 + 특이사항 재료 규칙 + 재생성 변형 지시. 300자 내 보장.
+    opts.extra_notes = _buildExtraNotes(_pubSvc, d.regenSeq, !!_spNote);
     // [#2] 고객의 사적 방문정황(남자친구·친구와 함께 왔다 등)과 금액/가격은 캡션 본문·해시태그에 절대 넣지 말 것.
     opts.extra_notes = ('고객의 사적인 방문 정황(남자친구·친구·지인과 함께 왔다 등)과 시술 금액/가격은 게시글 본문과 해시태그에 넣지 말 것. ' + opts.extra_notes).slice(0, 300);
     // [P1-2] 빈값 가드 — 고객/샵을 입력 안 했으면 AI가 지어내지 않게 명시(차용 방지).
@@ -2083,15 +2655,24 @@
     var _igConn = (window.WorkspaceAdapter && window.WorkspaceAdapter.instagram) ? window.WorkspaceAdapter.instagram().connected : false;
     opts.use_persona = (d.capUsePersona === true) && _igConn;
     window.WorkspaceAdapter.generateCaption(opts).then(function (r) {
-      d.capLoading = false;
+      var _apply = function () {
+      _genPending = Math.max(0, _genPending - 1);
+      // [카오스 P2] 내 응답이거나 더 대기 중인 생성이 없을 때만 스피너 해제 — stale 응답이 아직
+      //   진행 중인 fresh 생성(45초 자가복구 후 재생성 등)의 스피너를 조기 해제하던 깜빡임 방지.
+      //   (대기 중 fresh 가 있으면 그게 도착할 때 해제하므로 스투키 스피너 회귀도 없음.)
+      if (_myToken === _genToken || _genPending === 0) d.capLoading = false;
       // [버그수정] 그 사이 뒤로가기/재생성이 있었던 낡은 응답이면 d.caption/오버레이는 안 건드리지만,
       //   화면 갱신(setScreen)은 그대로 해서 로딩 스피너가 안 풀리고 멈춰버리는 회귀를 방지한다.
-      if (_myToken !== _genToken) { setScreen('caption'); return; }
+      // [v779] 단, 이미 캡션 화면을 떠났으면 캡션으로 낚아채지 않는다.
+      if (_myToken !== _genToken) { if (cur === 'caption') setScreen('caption'); return; }
       if (r.ok) {
         var fresh = (r.hashtags || []).map(function (h) { return _fixTypos(h); })   // [v570·3] 태그 오타 백스톱
           .filter(function (h) { return !/(만원|천원|원짜리|짜리|가격|얼마|남친|여친|남자친구|여자친구)/.test(String(h)); });   // [#2] 가격·사담 파생 가비지 해시태그(#만원짜리 등) 제거
         // [#7] 시술 내용에 지역(OO동/OO구/OO역)이 있으면 지역 해시태그를 앞에 보강(백엔드 누락 백스톱).
         _locationTags(_pubSvc).forEach(function (t) { if (fresh.indexOf(t) < 0) fresh.unshift(t); });
+        // [2026-07-26 원영] 원장님이 ×로 지운 태그는 새 생성분에서도 제외 — 지워도 자꾸 살아나던 것.
+        var _rm = d._hashRemoved || [];
+        if (_rm.length) fresh = fresh.filter(function (h) { return _rm.indexOf(h) < 0; });
         if (opts.hashtag_mode === 'more' && d.caption) {
           // [#3] '해시태그 더'/'더 가져오기' = 캡션 유지, 새 해시태그만 누적(중복 제거).
           var merged = (d.hashtags || []).slice();
@@ -2105,7 +2686,9 @@
           // [v558] 해시태그 토글 OFF → 게시글에 해시태그 비표시(백엔드는 그대로 생성, 프론트에서만 숨김).
           if (d.capHashOn === false) fresh = [];
           d.caption = _scrubCaption(r.caption) + _shopCTA();   // [기능스티커] 저장된 예약링크·전화가 있으면 실제 CTA 로 캡션에 연결(피드 게시물에 그대로 노출)
-          d.hashtags = fresh; d.selectedHashes = fresh.slice();   // [v566·scope7] 렌더 직전 상투/마크다운 제거
+          // [2026-07-26 원영] 재생성(문장만 다시 등)은 원장님이 손본 태그 목록을 덮어쓰지 않는다 — "지우거나 수정하면 그걸로".
+          if (d._hashEdited && opts.caption_intent !== 'generate') { /* 태그 유지, 캡션만 갱신 */ }
+          else { d.hashtags = fresh; d.selectedHashes = fresh.slice(); }   // [v566·scope7] 렌더 직전 상투/마크다운 제거
           // [v531] 캡션 입력→결과 최초 전환 시 history 마커 1개 push → 결과 화면에서 뒤로가기 = 캡션 입력 화면(편집 X).
           if (_wasEmpty) { navStack.push('caption'); _pushHist(); }
           // [#6] 꼬리말(captionTemplate)은 어댑터가 돌려주지 않으므로 여기서 덮어쓰지 않는다.
@@ -2118,9 +2701,31 @@
       // [보스요청 2026-07-12] 생성 후 인스타 미리보기 자동 점프 제거 — 캡션 결과 화면(사진 편집·캡션 직접 수정)에
       //   머물고, 원장이 하단 '인스타 미리보기로' CTA 를 눌러야 preview 로 이동.
       setScreen('caption');
+      };
+      // [2026-07-26 원영] 기다리지 않는다("응답 빨리 오면 빨리 오는 대로 끝내야지") — 응답 도착 시
+      //   게이지를 0.35초 만에 100%로 마저 채우고 바로 결과. 인위적 대기(4.8s) 없음.
+      var _fin = 0;
+      try {
+        var _fEl = document.querySelector('.wcl-fill'), _rEl = document.querySelector('.wcl-run');
+        if (_fEl) {
+          _fEl.style.width = getComputedStyle(_fEl).width;   // 현재 진행폭 고정
+          _fEl.style.setProperty('animation', 'none', 'important');   // keyframes(!important) 해제
+          void _fEl.offsetWidth;
+          _fEl.style.transition = 'width .35s ease'; _fEl.style.width = '100%';
+          if (_rEl) {
+            _rEl.style.left = getComputedStyle(_rEl).left;
+            _rEl.style.setProperty('animation', 'none', 'important');
+            void _rEl.offsetWidth;
+            _rEl.style.transition = 'left .35s ease'; _rEl.style.left = 'calc(100% - 34px)';
+          }
+          _fin = 400;
+        }
+      } catch (_fe) { void _fe; }
+      setTimeout(_apply, _fin);
     }).catch(function (e) {
       // [audit] 생성 실패(네트워크/예외) 시 로딩에 갇히지 않게 복구 — 예전엔 catch 없어 capLoading 이 true 로 남아 이후 생성이 영구 차단됐음.
-      d.capLoading = false;
+      _genPending = Math.max(0, _genPending - 1);
+      if (_myToken === _genToken || _genPending === 0) d.capLoading = false;   // [카오스 P2] .then 과 동일 게이트
       console.warn('[wsv2flow] generateCaption failed', e);
       // [버그수정] 낡은 요청의 실패 토스트는 생략하되, 화면 갱신은 그대로(로딩 스피너 고착 방지).
       if (_myToken !== _genToken) { setScreen('caption'); return; }
@@ -2145,7 +2750,14 @@
       // [refactor S5] 고아 핸들러 제거 — 렌더러(data-fl="…")가 없어 어떤 클릭으로도 도달 불가(전 코드베이스 기계 확인).
       //   batoggle·gen·regen(=cgen/data-fl-var 로 대체됨)·toconnect·topreview(오배선)·sharepreview·roles·applydefault·tplchange(=tplchange-active)·publishstory/storypick(스토리 발행 세트). HYPER 재설계로 버튼 소멸, 핸들러만 잔존했던 쓰레기코드.
       // [cleanup] footersave/footerclear·clen·chash·cpersona 핸들러 제거 — 레거시 캡션 UI(SIMPLE_FLOW=false) 삭제로 렌더러 사라져 도달 불가.
+      // [v778 복구] 캡션 결과의 '사진 편집' 버튼 핸들러 되살림 — 입력 반영 후 스토리 편집기 진입.
       if (a === 'storyedit') { flushCaptionInputs(); return _openStoryEditor(); }
+      // [2026-07-28 원영 2번·A안] 업로드 화면에서 '사진 없이 글만 쓰기' — textOnly 모드로 캡션 직행.
+      //   기존 textOnly 진입(open({textOnly:true}))과 같은 상태, 단 navStack push 로 back=업로드 복귀.
+      if (a === 'textonly') { d.textOnly = true; return setScreen('caption'); }
+      if (a === 'tagsopen') { d._tagsOpen = true; return setScreen(cur, { push: false }); }   // [v776] 계정 태그 펼치기
+      // [2026-07-26 원영] 계정 태그 접기 — 값이 있으면 자동 펼침 조건(_tagVal) 때문에 값도 같이 비워야 닫힌다.
+      if (a === 'tagsclose') { d._tagsOpen = false; d.igUserTags = []; return setScreen(cur, { push: false }); }
       if (a === 'crop') { return openCropFlow(); }
       // [v568·B-1] 전체화면 편집 — body 클래스로 .ed-photo-vp 를 화면 가득. ESC/버튼으로 닫기. 토글 후 마스크 재투영.
       if (a === 'edfull') {
@@ -2211,15 +2823,14 @@
         return;
       }
       if (a === 'tpledit-active') { var _ape = _activeOutputPair(); if (!_ape) { toast('수정할 결과물을 찾지 못했어요'); return; } return _openTplEdit(_ape); }
-      if (a === 'feedplan') {
-        if (!window.FeedPlanner) { toast('피드 플래너를 불러오지 못했어요'); return; }
-        var _fps = (editablePhotos() || []).map(function (p) { return dispUrl(p); }).filter(Boolean);
-        if (!_fps.length) { var _fo = outputUrl(); if (_fo) _fps = [_fo]; }
-        var _fig = window.WorkspaceAdapter && window.WorkspaceAdapter.instagramProfile ? window.WorkspaceAdapter.instagramProfile() : {};
-        window.FeedPlanner.open({ photos: _fps, newCount: _fps.length, handle: (_fig && _fig.handle) || '내 피드' });
-        return;
-      }
-      if (a === 'publish') { return publish('feed'); }
+      // [요청7 2026-07-13] feedplan 액션 제거 — 인플로우 '피드 정렬해보기'(현작업만) 폐지. 피드 정렬은 작업실 홈 진입으로 이관.
+      // [통합 2026-07-14] 버튼 하나 → 장수에 따라 feed/carousel 자동. (publishcarousel 은 레거시 경로로 유지)
+      if (a === 'publish') { return publish(_publishKind()); }
+      // [v779] 예약 발행 — '지금 말고 예약'을 펼치고, 시간 골라 예약.
+      if (a === 'schedopen') { d._schedOpen = true; return setScreen('caption', { push: false }); }
+      // [2026-07-26 원영] 예약 패널 닫기 — 열기만 있고 닫기가 없어 되돌릴 수 없었다.
+      if (a === 'schedclose') { d._schedOpen = false; return setScreen('caption', { push: false }); }
+      if (a === 'schedule') { return _doSchedule(); }
       // [cleanup] publishstory/storypick/storypickcancel 제거 — 진입 버튼 없어 도달 불가였던 스토리 발행 세트. 발행은 피드/여러 장(carousel)만.
       if (a === 'publishcarousel') { return publish('carousel'); }
       if (a === 'copycap') { flushCaptionInputs(); window.WorkspaceAdapter && window.WorkspaceAdapter.copyText((d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '')); _markPrepared(); return; }   // [#6] copyText 가 이미 토스트 → 중복 토스트 제거(두 개 쌓여 ~5초 떠있던 문제)
@@ -2231,6 +2842,15 @@
       if (t.closest('[data-fl-pick]')) { el.querySelector('[data-fl-file]').click(); return; }
       var del = t.closest('[data-fl-del]'); if (del) { e.stopPropagation(); d.photos.splice(+del.getAttribute('data-fl-del'), 1); reassignRoles(); setScreen('upload'); return; }
       var roleBtn = t.closest('[data-fl-setrole]'); if (roleBtn) { e.stopPropagation(); var _pr = roleBtn.getAttribute('data-fl-setrole').split(':'); _setRole(+_pr[0], _pr[1]); if (cur === 'template') _rerenderTemplate(); else if (d.rolesOpen) _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
+      // [#18] 게시 크기 세그먼트 — 저장 후 세그 on 상태만 토글(전체 재렌더 없이).
+      var fmtBtn = t.closest('[data-fl-format]'); if (fmtBtn) {
+        e.stopPropagation();
+        _setWsFormat(fmtBtn.getAttribute('data-fl-format'));
+        d.previewUrl = null;   // 규격 변경 → 캐시된 합성 미리보기 무효화(다음 단계에서 새 비율로 재합성)
+        var _fseg = fmtBtn.parentNode.querySelectorAll('[data-fl-format]');
+        for (var _fi = 0; _fi < _fseg.length; _fi++) { _fseg[_fi].classList.toggle('on', _fseg[_fi] === fmtBtn); }
+        return;
+      }
       // [#2] 타일 탭 = 선택/해제 토글. 역할/삭제 버튼은 위에서 이미 처리됨.
       var upTile = t.closest('[data-fl-tile]'); if (upTile && cur === 'upload') { e.stopPropagation(); _toggleSelect(+upTile.getAttribute('data-fl-tile')); return; }
       if (t.closest('[data-fl-edphoto]')) { return; }
@@ -2240,9 +2860,8 @@
       var edsel = t.closest('[data-fl-editsel]'); if (edsel) { return switchEditPhoto(+edsel.getAttribute('data-fl-editsel')); }
       var edswipe = t.closest('[data-fl-edswipe]'); if (edswipe) { return _stepEditPhoto(edswipe.getAttribute('data-fl-edswipe') === 'next' ? 1 : -1); }   // [v550] PC 화살표
 	      var basictool = t.closest('[data-fl-basictool]'); if (basictool) { d.basicTool = basictool.getAttribute('data-fl-basictool'); _setEditSection('[data-ed-basic]', _mainAdjustHtml()); return; }
-	      var edtab = t.closest('[data-fl-edtab]'); if (edtab) { d.editTab = edtab.getAttribute('data-fl-edtab'); d.control = null; _setEditSection('[data-ed-adv]', _advFoldHtml()); _renderVpTools(); if (d.maskView || d.maskPaint) _renderMaskOverlay(); return; }
+	      var edtab = t.closest('[data-fl-edtab]'); if (edtab) { d.editTab = edtab.getAttribute('data-fl-edtab'); _setEditSection('[data-ed-adv]', _advFoldHtml()); _renderVpTools(); if (d.maskView || d.maskPaint) _renderMaskOverlay(); return; }
 	      var beautytool = t.closest('[data-fl-beautytool]'); if (beautytool) { d.precTool = beautytool.getAttribute('data-fl-beautytool'); _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
-	      var edtool = t.closest('[data-fl-edtool]'); if (edtool) { d.control = edtool.getAttribute('data-fl-edtool'); _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
       if (t.closest('[data-fl-bgpick]')) { el.querySelector('[data-fl-bgfile]').click(); return; }
       var bgb = t.closest('[data-fl-bg]'); if (bgb) { return applyBg(bgb.getAttribute('data-fl-bg')); }
       var bgc = t.closest('[data-fl-bgcolor]'); if (bgc) { d.bgColor = bgc.getAttribute('data-fl-bgcolor'); return applyBg('color'); }
@@ -2311,71 +2930,89 @@
       var psel = t.closest('[data-fl-pairsel]'); if (psel) { d.activeDisplayId = psel.getAttribute('data-fl-pairsel'); _rerenderTplResult(); return; }
       var pstep = t.closest('[data-fl-pairstep]'); if (pstep) { _stepPair(pstep.getAttribute('data-fl-pairstep') === 'next' ? 1 : -1); return; }
       // [v532] 추천 해시태그 칩 제거 — 해시태그 토글 핸들러도 함께 삭제(편집은 textarea 직접 입력으로 일원화).
-      // [v558] 캡션 입력화면 칩/토글/생성 — 말투/길이/해시태그 선택 + 단일 생성 버튼.
-      var ct = t.closest('[data-fl-ctone]'); if (ct) { d.capTone = ct.getAttribute('data-fl-ctone'); setScreen('caption'); return; }
       var csi = t.closest('[data-fl-cshopinfo]'); if (csi) { try { localStorage.setItem('itdasy:caption_shopinfo', _shopInfoOn() ? '0' : '1'); } catch (_e) { void _e; } toast(_shopInfoOn() ? '샵정보를 글 끝에 넣을게요' : '샵정보 반영을 껐어요'); setScreen('caption'); return; }   // [#19] 샵정보 opt-in 토글
-      // [v567] 원장님 말투 반영 토글 — 인스타 미연동이면 안내 후 무시(데이터 없는 반영 금지).
-      // [Phase A-2] 우리샵 스타일 적용 토글 — 생성 직전 syncServiceFromDom 으로 입력 보존 후 재렌더.
-      var css = t.closest('[data-fl-cshopstyle]'); if (css) { syncServiceFromDom(); d.useShopStyle = !(d.useShopStyle !== false); setScreen('caption'); return; }
-      var bc = t.closest('[data-fl-brandcolor]'); if (bc) { syncServiceFromDom(); _applyBrandColor(bc.getAttribute('data-fl-brandcolor')); return; }   // [v591·#6] 추천색 적용
-      // [#6] 우리샵 스타일 전환/생성
-      var sp = t.closest('[data-fl-stylepick]'); if (sp) { syncServiceFromDom(); try { window.ShopStyle.setActive(sp.getAttribute('data-fl-stylepick')); } catch (_sp) { void _sp; } (d.photos || []).forEach(function (p) { p._tplSig = null; }); toast('우리샵 스타일을 바꿨어요'); setScreen('caption'); return; }
-      var sn = t.closest('[data-fl-stylenew]'); if (sn) { syncServiceFromDom(); try { var _ns = window.ShopStyle.list().length + 1; var _abc = '우리샵 스타일 ' + String.fromCharCode(64 + _ns); window.ShopStyle.create({ name: _abc }, true); } catch (_sn) { void _sn; } (d.photos || []).forEach(function (p) { p._tplSig = null; }); toast('새 스타일을 만들었어요'); setScreen('caption'); return; }
-      var prn = t.closest('[data-fl-presetrename]'); if (prn) { _renamePreset(prn.getAttribute('data-fl-presetrename')); return; }   // [#7] 프리셋 이름 변경
-      var pcp = t.closest('[data-fl-presetcopy]'); if (pcp) { _copyPreset(pcp.getAttribute('data-fl-presetcopy')); return; }   // [#7] 복사해서 수정
-      var pa = t.closest('[data-fl-preset]'); if (pa) { _applyPreset(pa.getAttribute('data-fl-preset')); return; }   // [#14] 레이아웃 프리셋 A/B/C
-      var bf = t.closest('[data-fl-brandfont]'); if (bf) { syncServiceFromDom(); _applyBrandFont(bf.getAttribute('data-fl-brandfont')); return; }   // [#6] 브랜드 폰트
-      var hm = t.closest('[data-fl-harmony]'); if (hm) { syncServiceFromDom(); _applyHarmony(hm.getAttribute('data-fl-harmony')); return; }   // [P2-3] 색·폰트 어울림 조합
-      var apb = t.closest('[data-fl-autopretty]'); if (apb) { syncServiceFromDom(); _autoPretty(); return; }   // [P3-1] 알아서 예쁘게
-      var stb = t.closest('[data-fl-shoptype]'); if (stb) { _setShopType(stb.getAttribute('data-fl-shoptype')); return; }   // [P3-2] 업종
-      var lc = t.closest('[data-fl-logoclear]'); if (lc) { _clearBrandLogo(); return; }   // [#6] 로고 빼기
-      var cfm = t.closest('[data-cfm]'); if (cfm) { syncServiceFromDom(); _editCapOverride(cfm.getAttribute('data-cfm')); return; }   // [P1-1] 확인칩 ✎
-      // [캡션재설계] 3축 위저드 — 버튼 누르면 그 축 저장 + 다음 질문. 시술 입력은 유지(syncServiceFromDom).
+      // [캡션재설계 v2] 3질문 한 화면 — 칩 탭 = 그 축 저장/재탭 해제(스텝 넘김 없음). 특이사항 입력은 유지(syncServiceFromDom).
       var wp = t.closest('[data-fl-wizpick]'); if (wp) {
         syncServiceFromDom();
         var _pv = wp.getAttribute('data-fl-wizpick').split('::'); var _wk = _pv[0], _wv = _pv[1];
-        // [직접] 인라인 입력창 대신 → 그냥 다음 단계로. 마지막 단계에서 '직접'이면 아래 시술 입력창으로 포커스(직접 작성).
-        if (_wv === '직접') {
-          d._wizCustom = null; d._wizDir = 'fwd';
-          var _isLast = (d.capWizStep || 0) >= (_WIZ_STEPS.length - 1);
-          if (d.captionAxes) delete d.captionAxes[_wk];   // 직접 작성할 축은 비워둠(자유 서술)
-          d.capWizStep = Math.min(3, (d.capWizStep || 0) + 1);
-          setScreen('caption');
-          if (_isLast) { setTimeout(function () { var _svc = el && el.querySelector('[data-fl-service]'); if (_svc) { try { _svc.focus(); _svc.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_e) { void _e; } } }, 220); }
-          return;
-        }
-        d.captionAxes = d.captionAxes || {}; d.captionAxes[_wk] = _wv;
-        d._wizCustom = null;
-        d.capWizStep = Math.min(3, (d.capWizStep || 0) + 1);
-        d._wizDir = 'fwd';
-        // [#3] 누른 버튼을 잠깐 '활성'으로 보여준 뒤 부드럽게 다음 단계로 슬라이드(즉시 넘어가 활성감 안 보이던 것).
-        wp.classList.add('capwiz__opt--picked');
-        setTimeout(function () { if (cur === 'caption') setScreen('caption'); }, 170);
+        d.captionAxes = d.captionAxes || {};
+        // [아코디언] 답 고르면 접힘 + 다음 질문 자동 열림(_wizJust = 접힘·체크 팝 1회 애니메이션 트리거)
+        if (d.captionAxes[_wk] === _wv) { delete d.captionAxes[_wk]; }
+        else { d.captionAxes[_wk] = _wv; d._wizJust = _wk; }
+        d._wizOpen = null;
+        if (d._wizCustom === _wk) d._wizCustom = null;   // 직접 입력창 열려 있었으면 닫기
+        setScreen('caption');
         return;
       }
-      // [직접 입력] 인라인 확인 → 값 반영 후 다음 단계. 빈값이면 무시.
+      // [아코디언] 접힌 질문 줄 탭 = 그 질문 다시 펼치기
+      var wro = t.closest('[data-fl-wizreopen]'); if (wro) { syncServiceFromDom(); d._wizOpen = wro.getAttribute('data-fl-wizreopen'); setScreen('caption'); return; }
+      // [직접] 점선 칩 토글 — 닫혀 있으면 그 자리 입력창, 열려 있거나 직접 값이 있으면 닫기+값 해제.
+      var wcu = t.closest('[data-fl-wizcustom]'); if (wcu) {
+        syncServiceFromDom();
+        var _ck = wcu.getAttribute('data-fl-wizcustom');
+        if (d._wizCustom === _ck || _wizIsCustom(_ck)) {
+          if (d.captionAxes && _wizIsCustom(_ck)) delete d.captionAxes[_ck];
+          d._wizCustom = null;
+        } else {
+          d._wizCustom = _ck;
+        }
+        setScreen('caption');
+        return;
+      }
+      // [직접 입력] 인라인 확인 → 값 저장 + 입력창 닫기. 빈값이면 무시.
       var wco = t.closest('[data-fl-wizcustok]'); if (wco) { _wizCustomConfirm(); return; }
-      var wcc = t.closest('[data-fl-wizcustcancel]'); if (wcc) { d._wizCustom = null; d._wizDir = 'back'; setScreen('caption'); return; }
-      var wbk = t.closest('[data-fl-wizback]'); if (wbk) { syncServiceFromDom(); d._wizCustom = null; d.capWizStep = Math.max(0, (d.capWizStep || 0) - 1); d._wizDir = 'back'; setScreen('caption'); return; }
-      var wrd = t.closest('[data-fl-wizredo]'); if (wrd) { syncServiceFromDom(); d.capWizStep = 0; d.captionAxes = {}; d._wizCustom = null; d._wizDir = 'back'; setScreen('caption'); return; }
       var svtt = t.closest('[data-fl-svctypetoggle]'); if (svtt) { syncServiceFromDom(); d.svcTypeOpen = !d.svcTypeOpen; setScreen('caption'); return; }
       var svty = t.closest('[data-fl-svctype]'); if (svty) { syncServiceFromDom(); try { localStorage.setItem('shop_type', svty.getAttribute('data-fl-svctype')); } catch (_es) { void _es; } d.svcTypeOpen = false; setScreen('caption'); return; }
-      var svrec = t.closest('[data-fl-svcrecent]'); if (svrec) { var _rv = svrec.getAttribute('data-fl-svcrecent'); var _si = el && el.querySelector('[data-fl-service]'); d.service = _rv; if (_si) { _si.value = _rv; try { _si.dispatchEvent(new Event('input', { bubbles: true })); } catch (_e) { void _e; } } return; }   // [P4·보스] 최근 시술 → 입력창만 제자리 채움(setScreen 재렌더 제거 → 스크롤 안 튐)
-      var svtag = t.closest('[data-fl-svctag]'); if (svtag) { _appendServiceTag(svtag.getAttribute('data-fl-svctag')); return; }
+      // [시술칩 관리모드] '관리'/'완료' 토글 — × 삭제·드래그 정렬·추가 노출 전환(선택 로직·d.service 는 불변).
+      var smng = t.closest('[data-fl-svcmanage]'); if (smng) { syncServiceFromDom(); d.svcManageOpen = !d.svcManageOpen; d.svcAddOpen = false; setScreen('caption', { push: false }); return; }
+      // [칩삭제] × 가 칩(button) 안에 있어서 svctag 보다 먼저 잡아야 한다.
+      var sdel = t.closest('[data-fl-svcdel]'); if (sdel) {
+        syncServiceFromDom(); var _dk = sdel.getAttribute('data-fl-svcdel');
+        try { if (typeof deleteCaptionKeyword === 'function') deleteCaptionKeyword(_dk, e); } catch (_ed) { void _ed; }
+        _svcSet(_svcList().filter(function (s) { return s !== _dk; }));   // [#5] 다중선택 — 지운 칩만 해제
+        setScreen('caption'); return;
+      }
+      var rdel = t.closest('[data-fl-recentdel]'); if (rdel) { syncServiceFromDom(); _deleteRecentService(rdel.getAttribute('data-fl-recentdel')); return; }
+      // [소스확장] 최근 시술 소스 토글(캡션/예약) — 관리 모드에서 어느 소스를 반영할지.
+      var rsrc = t.closest('[data-fl-recentsrc]'); if (rsrc) { syncServiceFromDom(); var _k = rsrc.getAttribute('data-fl-recentsrc'); var _p = _recentSrcPref(); _p[_k] = !_p[_k]; _saveRecentSrcPref(_p); setScreen('caption', { push: false }); return; }
+      // [캡션재설계 v2] 시술 칩·최근 시술 = 같은 단일선택 토글(data-fl-svctag 하나로 통합).
+      var svtag = t.closest('[data-fl-svctag]'); if (svtag) {
+        var _stag = svtag.getAttribute('data-fl-svctag');
+        // [2026-07-24] 관리 모드 + 우리샵 시술칩(data-fl-svcsort)은 칩 몸통 탭 = 삭제.
+        //   예전엔 이때도 _pickServiceTag(캡션 선택)로 빠져서, 작은 × 를 못 누르면 삭제도 안 되고
+        //   엉뚱하게 '캡션에 쓸 칩'으로 선택됐다(원장 지적). 관리모드 이 칩의 힌트는 '×로 삭제'라
+        //   탭 선택 의도가 없다. 드래그 정렬은 _bindSvcSort 가 6px↑ 이동일 때 click 을 억제하므로
+        //   진짜 탭만 삭제된다. 최근시술 칩(data-fl-recentdel, '탭해서 선택' 의도)은 그대로 선택.
+        if (d.svcManageOpen && svtag.hasAttribute('data-fl-svcsort')) {
+          syncServiceFromDom();
+          try { if (typeof deleteCaptionKeyword === 'function') deleteCaptionKeyword(_stag, e); } catch (_ed2) { void _ed2; }
+          _svcSet(_svcList().filter(function (s) { return s !== _stag; }));   // 지운 칩만 선택 해제
+          setScreen('caption'); return;
+        }
+        _pickServiceTag(_stag); return;
+      }
       var svtadd = t.closest('[data-fl-svctagadd]'); if (svtadd) { _addSvcKeyword(); return; }
+      // [2026-07-26 원영] 해시태그 칩 — × 개별 삭제 / '+ 추가' = 인라인 입력 열기(확정은 _commitHashAdd).
+      var hdel = t.closest('[data-fl-hashdel]'); if (hdel) {
+        var _hk = hdel.getAttribute('data-fl-hashdel');
+        _hashSet(_hashList().filter(function (h) { return h !== _hk; }));
+        setScreen('caption', { push: false }); return;
+      }
+      if (a === 'hashaddopen') { d._hashAddOpen = true; return setScreen('caption', { push: false }); }
       var cg = t.closest('[data-fl-cgen]'); if (cg) { return _triggerCaptionGenerate(null); }
+      // [아코디언] 잠긴 생성 버튼 탭 = 안내 + 첫 미답변 질문 펼치기
+      var cgl = t.closest('[data-fl-cgenlock]'); if (cgl) { syncServiceFromDom(); d._wizOpen = null; toast('질문에 먼저 답해주세요'); setScreen('caption'); return; }
       // [C4] 재생성 버튼: data-fl-var="regen|short|long"
       var vv = t.closest('[data-fl-var]'); if (vv) {
         var vk = vv.getAttribute('data-fl-var');
 	        if (vk === 'short') { return doGenerate({ length_tier: 'short', caption_intent: 'rewrite', _regen: true }, '짧게 다시 생성했어요'); }
 	        if (vk === 'long')  { var _nl = (d.capLen === 'long' || d.capLen === 'max') ? 'max' : 'long'; return doGenerate({ length_tier: _nl, caption_intent: 'longer', _regen: true }, _nl === 'max' ? '아주 길게 다시 생성했어요' : '길게 다시 생성했어요'); }
-	        if (vk === 'reset') { d.caption = ''; d.hashtags = []; d.selectedHashes = []; d.capLen = 'medium'; d.capTone = 'friendly'; d.regenSeq = 0; d.captionMode = (d.tplPurpose === 'review') ? 'review' : 'normal'; d.logId = null; setScreen('caption'); toast('게시글을 초기화했어요 (사진은 그대로예요)'); return; }
+	        /* [2026-07-26 원영] 'reset'(재료부터 다시 고르기) 제거 — 버튼 삭제(뒤로가기가 대체). 잇비 명령 쪽 reset(cmd.variant)은 별도 유지. */
 	        /* [v532] 'hashtags'(더 가져오기) 케이스 제거 — 추천 칩/더가져오기 UI 삭제로 더 이상 트리거 없음. */
 	        // [v532] '인스타 톤' = 백엔드 tone_override enum 의 'ornate'(풍부·SNS 감성)로 매핑. 기존 'instagram' 은 enum(plain/normal/ornate)에 없어 422 → '캡션 생성 실패' 의 직접 원인.
 		        if (vk === 'insta') { return doGenerate({ tone_override: 'ornate', caption_intent: 'instagram', _regen: true }, '인스타 톤으로 다시 생성했어요'); }
-	        return doGenerate({ caption_intent: 'rewrite', _regen: true }, '게시글을 다시 생성했어요');
+	        return doGenerate({ caption_intent: 'rewrite', _regen: true }, '문장만 새로 썼어요');
 	      }
-      var seg = t.closest('[data-fl-seg]'); if (seg) { d.capSeg = seg.getAttribute('data-fl-seg'); setScreen('caption'); if (d.capSeg === 'write') { var bd = el.querySelector('[data-fl-igcap],[data-fl-capbody]'); if (bd) bd.focus(); } return; }
     });
     el.querySelector('[data-fl-file]').addEventListener('change', function (e) {
       var files = Array.from(e.target.files || []); e.target.value = '';
@@ -2385,10 +3022,17 @@
     el.querySelector('[data-fl-bgfile]').addEventListener('change', function (e) {
       var f = (e.target.files || [])[0]; e.target.value = '';
       if (!f) return;
-      var r = new FileReader();
-      r.onload = function () { d.customBg = r.result; d.customBgName = f.name || '내 배경'; applyBg('image'); };
-      r.onerror = function () { toast('배경 이미지를 불러오지 못했어요'); };
-      r.readAsDataURL(f);
+      // [보안감사 M-10 2026-07-26] 본문 사진과 동일하게 HEIC 변환 + 리사이즈 경유.
+      //   예전엔 원본 File 을 그대로 readAsDataURL 해서 아이폰 HEIC 배경이 깨지고, 초대형 원본이
+      //   수 MB dataURL 로 상태·슬롯에 저장됐다.
+      var _rs = (typeof window._resizeIfNeeded === 'function') ? window._resizeIfNeeded(f, 1920) : Promise.resolve(f);
+      Promise.resolve(_rs).catch(function () { return f; }).then(function (small) {
+        if (!small) { toast('배경 이미지를 불러오지 못했어요'); return; }
+        var r = new FileReader();
+        r.onload = function () { d.customBg = r.result; d.customBgName = f.name || '내 배경'; applyBg('image'); };
+        r.onerror = function () { toast('배경 이미지를 불러오지 못했어요'); };
+        r.readAsDataURL(small);
+      });
     });
 	    el.addEventListener('input', function (e) {
 	      if (e.target.matches('[data-fl-usertags]')) {   // [계정 태그] @아이디 파싱 → d.igUserTags
@@ -2414,20 +3058,17 @@
 	        var bk = e.target.getAttribute('data-fl-beautyrange'); d.beauty[bk] = +e.target.value;
 	      }
 	      if (e.target.matches('[data-fl-brush]')) { d.maskBrush = +e.target.value; return; }   // [v561] 붓 크기
-      if (e.target.matches('[data-fl-capbody]')) { d.caption = e.target.value; var cc = el.querySelector('[data-fl-capcount]'); if (cc) cc.textContent = (d.caption || '').length; }
-      if (e.target.matches('[data-fl-footer]')) { d.captionTemplate = e.target.value; }
-      if (e.target.matches('[data-fl-service]')) { d.service = e.target.value; d.capShopOverride = null; d.capCustOverride = null; _refreshCapConfirm(); }   // [P1-1] 입력 바뀌면 오버라이드 해제+확인칩 갱신
+      if (e.target.matches('[data-fl-specialnote]')) {   // [캡션재설계 v2] 특이사항 — 값 + 남은 글자수(120) 라이브 갱신
+        d.specialNote = e.target.value;
+        var _nc = el.querySelector('[data-fl-notecount]'); if (_nc) _nc.textContent = String(Math.max(0, 120 - e.target.value.length));
+      }
       if (e.target.matches('[data-fl-custsearch]')) { d.custQuery = e.target.value; }
     });
     el.addEventListener('focusin', function (e) {
       // 보정·정밀 슬라이더 모두 한 스냅샷(adjust+beauty)으로 묶어 되돌리기/다시실행 일원화.
       if (e.target.matches('[data-fl-range],[data-fl-beautyrange]')) { if (!d._editPrev) d._editPrev = _snapEdit(); }
-	      if (e.target.matches('[data-fl-capbody]') && e.target.getAttribute('data-empty') === '1') { e.target.value = ''; e.target.removeAttribute('data-empty'); e.target.style.color = ''; }
 	    });
     el.addEventListener('change', function (e) {
-      // [#6 브랜드킷] 로고 파일 선택 → 활성 스타일에 등록
-      var lg = e.target.closest && e.target.closest('[data-fl-logoadd]');
-      if (lg && lg.files && lg.files[0]) { _brandLogoFromFile(lg.files[0], function (url) { _setBrandLogo(url); }); lg.value = ''; return; }
       if (e.target.matches('[data-fl-range],[data-fl-beautyrange]')) {
         if (d._editPrev) { d.undo = d.undo || []; d.undo.push(d._editPrev); if (d.undo.length > 30) d.undo.shift(); d.redo = []; d._editPrev = null; }
 	        // 손 뗄 때 한 번만 실픽셀 확정 + 되돌리기/다시실행 버튼 상태 갱신(전체 재렌더 없이).
@@ -2497,7 +3138,7 @@
   }
   function _tplPreviewSampleCard(tpl) {
     // 업로드 사진이 아닌 '샘플' 템플릿 미리보기(_tplThumb = 사진 미주입 플레이스홀더 렌더).
-    return '<div class="tpl-preview__card" style="background-image:url(' + esc(_tplThumb(tpl)) + ')"></div>';
+    return '<div class="tpl-preview__card" style="background-image:url(' + esc(_blobDisp(_tplThumb(tpl))) + ')"></div>';
   }
   function _openTplPreview(key) {
     var tpl = _tplByKey(key); if (!tpl) return;
@@ -2608,6 +3249,20 @@
       if (e.key === 'ArrowLeft') { _stepEditPhoto(-1); } else if (e.key === 'ArrowRight') { _stepEditPhoto(1); }
     });
     _bindEditPC();
+    _bindWheelHScroll();
+  }
+  // [v748] PC 마우스 휠 — 가로 스크롤 영역(레이아웃 미리보기·사진 캐러셀·칩 줄)이 옆으로 안 넘어가던 문제.
+  //   스크롤바를 숨겨놔서(height:0) 마우스로는 넘길 방법이 없었음 → 세로 휠을 가로 스크롤로 변환.
+  function _bindWheelHScroll() {
+    if (!el || el._hsBound) return; el._hsBound = true;
+    el.addEventListener('wheel', function (e) {
+      if (cur === 'edit') return;   // 편집 화면 휠 = 확대/축소(_bindEditPC 담당)
+      var sc = e.target && e.target.closest && e.target.closest('.wsc-frames, .wsc-strip, .ig-car__track, .tpl-results, .tpl-chips, .cap-storypick__row');
+      if (!sc || sc.scrollWidth <= sc.clientWidth + 1) return;
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;   // 트랙패드 가로 제스처는 브라우저 기본 동작 유지
+      sc.scrollLeft += e.deltaY;
+      e.preventDefault();
+    }, { passive: false });
   }
   // [v568·B-3] PC 마우스 — 휠 확대/축소, 드래그(줌>1 팬 / 줌=1 좌우 사진 넘김). 칠하기 모드 단일 포인터는 paint 가 담당.
   function _bindEditPC() {
@@ -2786,19 +3441,22 @@
     // 항상 '배경 적용 전 원본'에서 재합성 — 색→흐림 등 옵션 전환 시 합성본을 또 누끼하지 않도록.
     var composeSrc = photo.preBgUrl || photo.editedDataUrl || photo.dataUrl;
     d.bgAction = action; d.bgBusy = true; d.bgFail = false; setScreen('edit');
-    window.WorkspaceAdapter.applyWorkspaceBgAction({ src: composeSrc, action: action, color: d.bgColor, bgImage: d.customBg, ratio: CROP_RATIO[d.tplPurpose] || 'original' })
+    window.WorkspaceAdapter.applyWorkspaceBgAction({ src: composeSrc, action: action, color: d.bgColor, bgImage: d.customBg, ratio: _cropRatio('original') })
       .then(function (r) {
         d.bgBusy = false;
+        // [보안감사 M-11 2026-07-26] 누끼 처리 중 사용자가 레이아웃/캡션으로 이동했으면 화면을 뺏지 않는다.
+        //   결과(editedDataUrl/fgCutout)는 그대로 보존하되 setScreen('edit') 강제복귀만 막는다.
+        var _onEdit = (cur === 'edit');
         if (r && r.ok && r.dataUrl) {
           if (!photo.preBgUrl) photo.preBgUrl = composeSrc;   // 최초 1회 원본 보관(되돌리기용)
           photo.editedDataUrl = r.dataUrl;
           photo.fgCutout = r.removedBg || null;   // 투명 인물 — 이후 보정은 여기에만
           // [v539] ratio 저장 — 직후 슬라이더 재합성(_compositeBg)이 적용 때와 '동일 비율/배치'로 출력해야
           //   크기 점프가 안 생긴다. (editedDataUrl 은 ratioToSize(ratio) 크기, fgCutout 은 원본 크기라 불일치했음)
-          photo.bgSpec = photo.fgCutout ? { action: action, color: d.bgColor, bgImage: d.customBg, origUrl: photo.preBgUrl, ratio: CROP_RATIO[d.tplPurpose] || 'original' } : null;
-          d.previewUrl = null; d.bgFail = false; toast('배경 적용 완료'); setScreen('edit'); _refreshPreview();
+          photo.bgSpec = photo.fgCutout ? { action: action, color: d.bgColor, bgImage: d.customBg, origUrl: photo.preBgUrl, ratio: _cropRatio('original') } : null;
+          d.previewUrl = null; d.bgFail = false; if (_onEdit) { toast('배경 적용 완료'); setScreen('edit'); _refreshPreview(); }
         }
-        else { d.bgAction = prev; d.bgFail = true; d.bgFailMsg = (r && r.toast) || '배경 처리에 실패했어요'; toast(d.bgFailMsg); setScreen('edit'); }
+        else { d.bgAction = prev; d.bgFail = true; d.bgFailMsg = (r && r.toast) || '배경 처리에 실패했어요'; if (_onEdit) { toast(d.bgFailMsg); setScreen('edit'); } }
 	      });
 	  }
 
@@ -2858,7 +3516,7 @@
 	      var role = p.role || 'hero';
 	      var rl = role === 'before' ? '전' : (role === 'after' ? '후' : '');
 	      var seqNo = _pickSeqNo(p.id);   // 전/후 짝 번호(2짝 이상일 때만 표시)
-	      return '<button type="button" class="tpls-slide' + (rl ? ' is-' + role : '') + '" data-fl-tplpick="' + esc(p.id) + '" style="background-image:url(' + esc(photoUrl(p)) + ')" aria-label="' + esc(_editPhotoLabel(p, i)) + ' — 탭하면 전/후 지정">' +
+	      return '<button type="button" class="tpls-slide' + (rl ? ' is-' + role : '') + '" data-fl-tplpick="' + esc(p.id) + '" style="background-image:url(' + esc(_blobDisp(photoUrl(p))) + ')" aria-label="' + esc(_editPhotoLabel(p, i)) + ' — 탭하면 전/후 지정">' +
 	        (rl ? '<span class="tpls-slide__role">' + rl + (seqNo ? '<em>' + seqNo + '</em>' : '') + '</span>'
 	            : '<span class="tpls-slide__tag">탭 → 전/후</span>') +
 	      '</button>';
@@ -2867,7 +3525,7 @@
 	    var shown = WORKSPACE_TEMPLATES.filter(function (tpl) { return !d.tplCat || d.tplCat === '전체' || tpl.chip === d.tplCat; });
 	    var grid = shown.map(function (tpl) {
 	      var on = d.templateId === tpl.id;
-	      return '<div class="tpl-itemwrap"><button type="button" class="tpl-item' + (on ? ' on' : '') + '" data-fl-tpl="' + esc(tpl.key) + '" aria-label="' + esc(tpl.label) + ' 템플릿' + (on ? ' (적용됨)' : '') + '" style="background-image:url(' + esc(_tplThumb(tpl)) + ')"><i class="tpl-badge">' + esc(tpl.chip) + '</i>' + (on ? '<i class="tpl-onpill">적용됨</i>' : '') + '</button></div>';
+	      return '<div class="tpl-itemwrap"><button type="button" class="tpl-item' + (on ? ' on' : '') + '" data-fl-tpl="' + esc(tpl.key) + '" aria-label="' + esc(tpl.label) + ' 템플릿' + (on ? ' (적용됨)' : '') + '" style="background-image:url(' + esc(_blobDisp(_tplThumb(tpl))) + ')"><i class="tpl-badge">' + esc(tpl.chip) + '</i>' + (on ? '<i class="tpl-onpill">적용됨</i>' : '') + '</button></div>';
 	    }).join('');
 	    return '<div class="tpls">' +
 	      '<div class="tpls-carousel' + (eps.length > 1 ? ' is-multi' : '') + '" data-fl-tplcar>' + (eps.length > 1 ? '<button type="button" class="tpls-nav tpls-nav--prev" data-fl-tplnav="-1" aria-label="이전 사진"><i class="ph-bold ph-caret-left"></i></button>' : '') + '<div class="tpls-strip" data-fl-tplstrip aria-label="편집한 사진 — 좌우로 넘겨 확인">' + (strip || '<div class="tpls-empty">선택된 사진이 없어요. 먼저 사진을 골라 주세요.</div>') + '</div>' + (eps.length > 1 ? '<button type="button" class="tpls-nav tpls-nav--next" data-fl-tplnav="1" aria-label="다음 사진"><i class="ph-bold ph-caret-right"></i></button>' : '') + '</div>' + (eps.length > 1 ? '<div class="tpls-dots" data-fl-tpldots>' + eps.map(function (p, i) { return '<button type="button" class="tpls-dot' + (i === 0 ? ' on' : '') + '" data-fl-tpldot="' + i + '" aria-label="' + (i + 1) + '번째 사진으로"></button>'; }).join('') + '</div>' : '') +
@@ -2896,7 +3554,7 @@
 	        ctx.drawImage(im, sx, sy, sw, sh, dx, dy, dw, dh);
 	      }
 	      function _draw() {
-	        var W = 1080, H = 1080, gap = 4;   // 정사각 캔버스 + 가는 흰 거터
+	        var W = 1080, H = (_wsFormat() === '11' ? 1080 : 1350), gap = 4;   // [#18] 게시 크기 선택 반영(4:5/1:1) + 가는 흰 거터
 	        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
 	        var ctx = cv.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
 	        if (layout === 'tb') {
@@ -3151,7 +3809,11 @@
 	  //   원본(d.photos)은 절대 변형하지 않고, 렌더용 리스트에서만 1장/2장 표현을 바꾼다.
 	  function _displayItems() {
 	    // [ws-hyper] 레이아웃 적용 시 — 합성본 1장만 표시(원본 개별 사진은 숨김). 미리보기/캡션/발행 공통 소스.
-	    if (d.templateOutput) return [{ kind: 'output', id: 'wslayout', url: d.templateOutput, label: '', expandable: false }];   // [버그수정 2026-07-06] 재오픈 초안(wsLayout 미복원)도 합성본 표시 — 합성본이 진실
+	    // [버그수정 2026-07-06] 재오픈 초안(wsLayout 미복원)도 합성본 표시 — 합성본이 진실.
+	    // [버그수정 2026-07-17] 단, 결과물이 2장 이상이면 여기서 끊지 않는다. composeCards 는 templateOutput 에
+	    //   '첫 카드'를 늘 미러하므로(flow/layout.js:133) 이 줄이 T-116 다중 카드를 통째로 가렸다 →
+	    //   캡션·결과 화면이 항상 1장만 보여줌(아래 캐러셀은 items.length<2 로 막혀 도달 불가였음).
+	    if (d.templateOutput && (d.templateOutputs || []).length < 2) return [{ kind: 'output', id: 'wslayout', url: d.templateOutput, label: '', expandable: false }];
 
 	    var outs = d.templateOutputs || [];
 	    if (outs.length) {
@@ -3201,7 +3863,7 @@
 	        : (it.ofPair ? '<span class="cap-car__toggle">탭 → 결과로 접기</span>' : '');
 	      return '<div class="cap-car__slide" data-fl-carslide="' + esc(it.id) + '"' + toggleAttr + '>' +
 	        '<span class="cap-car__badge">' + (i + 1) + ' / ' + n + ' · ' + esc(it.label) + '</span>' + toggleHint +
-	        '<div class="cap-car__img" style="background-image:url(' + esc(it.url) + ')"></div></div>';
+	        '<div class="cap-car__img" style="background-image:url(' + esc(_blobDisp(it.url)) + ')"></div></div>';
 	    }).join('');
 	    var dots = items.map(function (it) { return '<button type="button" class="cap-car__dot' + (it.id === active ? ' on' : '') + '" data-fl-cardot="' + esc(it.id) + '" aria-label="이 결과물 보기"></button>'; }).join('');
 	    var outN = (d.templateOutputs || []).length;
@@ -3340,12 +4002,21 @@
 	    reassignRoles(); _repaintUpload();   // [v531 렉] 선택 토글도 in-place 갱신
 	  }
 	  function addFiles(files, showToast, toEdit) {
-	    files = Array.from(files || []).slice(0, 10);
+	    var _all = Array.from(files || []);
+	    files = _all.slice(0, 10);
+	    // [보안감사 M-16] 10장 초과분을 조용히 버리고 "N장 추가됨"만 뜨던 것 → 명시적으로 안내.
+	    if (_all.length > 10) { try { toast('사진은 한 번에 10장까지만 추가돼요'); } catch (_e) { void _e; } }
 	    if (!files.length) return Promise.resolve([]);
 	    // [#6] 업로드 픽커가 느린 원인 = 폰 사진(3~8MB) 원본을 그대로 base64 로 읽어 담던 것.
 	    //   2MB 초과분은 먼저 1920px JPEG 로 축소(_resizeIfNeeded) 후 읽어 import·썸네일·편집기 로딩을 크게 단축.
 	    var _resize = (typeof window._resizeIfNeeded === 'function') ? window._resizeIfNeeded : function (f) { return Promise.resolve(f); };
-	    return Promise.all(files.map(function (f) { return Promise.resolve(_resize(f, 1920)).catch(function () { return f; }).then(fileToDataUrl); })).then(function (urls) {
+	    return Promise.all(files.map(function (f) { return Promise.resolve(_resize(f, 1920)).catch(function () { return f; }).then(fileToDataUrl); })).then(function (rawUrls) {
+	      // [보안감사 H-3] 읽기 실패(null)한 파일은 걸러낸다. 예전엔 한 장 실패가 Promise.all 전체를 reject 시켜
+	      //   같이 고른 정상 사진까지 조용히 버려지고 무피드백이었다. 이제 성공분만 넣고 실패 건수만 안내.
+	      var urls = rawUrls.filter(function (u) { return !!u; });
+	      var _failed = rawUrls.length - urls.length;
+	      if (_failed > 0) { try { toast(_failed + '장은 열 수 없어 건너뛰었어요'); } catch (_e) { void _e; } }
+	      if (!urls.length) { setScreen('upload'); return urls; }
 	      urls.forEach(function (u) { d.photos.push({ id: uid(), dataUrl: u, role: 'hero', selected: true, selSeq: ++d._selSeq }); });
 	      // [QA hotfix] 다중 업로드 시 전후/홍보컷 자동 확정 금지 — 사용자가 '전/후 토글' 또는
 	      //   카테고리/템플릿으로 직접 용도를 고르게 한다. (전/후 카테고리로 진입한 경우만 baMode 유지)
@@ -3357,7 +4028,20 @@
 	      //   이제 navStack 이 비어 back → _systemBack → close → 작업실 홈으로 바로 복귀(중간 업로드 화면 X).
 	      // [v590·#1] 심플 플로우면 업로드 진입경로(홈 시작하기 포함) 불문하고 '캡션 생성'으로 직행.
       //   기존엔 toEdit(홈→편집) 우선이라 사진편집으로 새던 회귀. SIMPLE_FLOW 최우선.
-      if (!d.textOnly && editablePhotos().length) { setScreen('layout', { push: false }); }   // 사진 로드 후 '레이아웃 고르기'로
+      // [2026-07-28 원영 2번] 글만 쓰기로 갔다가 back 으로 돌아와 사진을 올리면 textOnly 해제 — 사진 플로우 복귀.
+      //   업로드 화면에서 추가한 경우만(cur 체크). 홈 textOnly 직행 플로우(캡션 화면)는 건드리지 않는다.
+      if (cur === 'upload') d.textOnly = false;
+      if (!d.textOnly && editablePhotos().length) {
+        setScreen('layout', { push: false });   // 사진 로드 후 '레이아웃 고르기'로
+        /* [2026-07-22 보스] 잇비 채팅에서 이미 레이아웃을 골라 왔으면 그 구성을 적용하고
+           **레이아웃 화면을 그냥 지나쳐** 게시글(캡션)로 간다 — 채팅에서 딸깍 = 바로 다음 단계.
+           setScreen('caption') 로 건너뛰지 않고 onCta() 를 쓰는 이유: layout 의 onExit(_exitLayout)이
+           합성본을 굽는다. 그걸 건너뛰면 콜라주를 골랐는데 원본이 그대로 올라가는 조용한 사고가 난다. */
+        if (d._pickComp && _WSL && _WSL.applyComp) {
+          var _pc = d._pickComp; d._pickComp = null;
+          if (_WSL.applyComp(_pc)) { setScreen('layout', { push: false }); onCta(); }
+        }
+      }
       else if (toEdit && editablePhotos().length) { d.editIdx = 0; setScreen('edit', { push: false }); }  // [v588·#1] 업로드 직후 바로 캡션
 	      else { setScreen('upload'); }
 	      if (showToast) toast(urls.length + '장 추가됨');
@@ -3365,10 +4049,9 @@
 	    });
 	  }
 	  function syncCaptionFromDom() {
-	    // [v584] 캡션은 카드 안 contenteditable(igcap)이 원본. (레거시 capbody 도 호환)
+	    // [v584] 캡션은 카드 안 contenteditable(igcap)이 원본.
 	    var ig = el.querySelector('[data-fl-igcap]');
 	    if (ig && ig.isContentEditable) { d.caption = (ig.textContent || '').trim(); return; }
-	    var b = el.querySelector('[data-fl-capbody]'); if (b && b.getAttribute('data-empty') !== '1') d.caption = (b.value != null ? b.value : b.textContent).trim();
 	    if (ig) ig.textContent = d.caption;
 	  }
 
@@ -3381,11 +4064,7 @@
     if (!el) return;
     var ig = el.querySelector('[data-fl-igcap]');   // [v584] 카드 안 캡션 편집(원본)
     if (ig && ig.isContentEditable) { d.caption = (ig.textContent || '').trim(); }
-    else { var b = el.querySelector('[data-fl-capbody]'); if (b && b.getAttribute('data-empty') !== '1') d.caption = (b.value != null ? b.value : b.textContent).trim(); }
-    var f = el.querySelector('[data-fl-footer]'); if (f && typeof f.value === 'string') d.captionTemplate = f.value;
-    // [v587] 해시태그 = 카드 안 contenteditable(.ig-hash-edit) → d.hashtags/selectedHashes(저장·미리보기·복사 반영).
-    var h = el.querySelector('[data-fl-ighash]');
-    if (h && h.isContentEditable) { var hs = _parseHashes(h.textContent); d.hashtags = hs; d.selectedHashes = hs.slice(); }
+    // [2026-07-26 원영] 해시태그는 칩 UI(_hashSet)가 진실원 — 카드 안 contenteditable 파싱 삭제.
   }
 
   function back() {
@@ -3397,12 +4076,14 @@
   // [refactor S3] 전환 전 스텝별 로직은 STEP_FX[cur].onExit 에 위임(무동작변경). 흩어진 if(cur===) 사다리 제거 → 스텝 변경 시 레지스트리 한 줄.
   function onCta() {
     var c = CTA[cur]; if (!c) return;
+    if (d._ctaBusy) return;   // [v779 카오스QA] 비동기 전환(bake/compose) 중 연타 재진입 차단 — 이중 compose·레이아웃 경합·이중 저장 방지
     var fx = STEP_FX[cur];
     if (fx && fx.onExit) {
       var r = fx.onExit(c.to);
       if (r === false) return;                                       // 검증 실패/캡션 생성 등 — 전환 취소
       if (r && typeof r.then === 'function') {                       // bake/compose 등 비동기 — 완료 후 전환(성공·실패 모두 진행)
-        return r.then(function () { _ctaGo(c.to); }).catch(function () { _ctaGo(c.to); });
+        d._ctaBusy = true;
+        return r.then(function () { d._ctaBusy = false; _ctaGo(c.to); }).catch(function () { d._ctaBusy = false; _ctaGo(c.to); });
       }
     }
     _ctaGo(c.to);
@@ -3411,6 +4092,13 @@
   function _ctaGo(to) {
     if (to === '__save') return save();
     if (to === '__edit') return _openEditFirst();   // [통합 편집기] 업로드 다음 = ItdEditor
+    // [2026-07-22 오케스트레이션] 레이아웃 다음(→캡션) 직전에 잇비 브리핑 편집기(텍스트·스티커 주입)를 먼저 연다.
+    //   onDone 에서 d._editorNext='caption' 으로 캡션 진입 + 시술내용 자동생성.
+    if (to === 'caption' && d._orch && !d._orchApplied) {
+      d._orchApplied = true; d._editorNext = 'caption';
+      _openStoryEditor();
+      return;
+    }
     setScreen(to);
   }
 
@@ -3418,7 +4106,7 @@
     if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.openCrop)) { toast('크롭 모듈을 불러오지 못했어요'); return; }
     var idx = d.photos.indexOf(curEditPhoto()); if (idx < 0) idx = 0;
     window.WorkspaceAdapter.openCrop({
-      photos: d.photos, index: idx, ratio: CROP_RATIO[d.tplPurpose] || '4:5',
+      photos: d.photos, index: idx, ratio: _cropRatio(),
       onApply: function (photoId, dataUrl, meta) {
         var p = d.photos.filter(function (x) { return x.id === photoId; })[0];
         if (p) { p.editedDataUrl = dataUrl; p.cropMeta = meta; }
@@ -3430,16 +4118,35 @@
 
   // [T-104 P4] pickCustomer → flow/connect.js
 
+  // [키메라 수정 2026-07-15] 이어서 카드 제목 — 쉼표 없는 문장이 통째로 제목이 되던 것 차단.
+  //   시술 여러 개면 '첫시술 외 N개', 하나면 그대로, 40자 초과 시 말줄임.
+  function _svcTitle(svc) {
+    var parts = String(svc || '').split(/[,·]+/).map(function (x) { return x.trim(); }).filter(Boolean);   // 쉼표·가운뎃점만 — 공백 분리하면 '속눈썹 연장'이 '속눈썹 외 1개'가 됨
+    if (!parts.length) return '';
+    // [원영 요청] 여러 시술은 'A + B'로 합쳐 보여준다(저장 d.service 는 연준 엔진 그대로 쉼표 조인 — 표시만 변환).
+    var joined = parts.join(' + ');
+    if (joined.length <= 40) return joined;
+    var t = parts[0] + (parts.length > 1 ? ' 외 ' + (parts.length - 1) + '개' : '');   // 너무 길면 축약 폴백
+    return t.length > 40 ? (t.slice(0, 39) + '…') : t;
+  }
   function buildSlot() {
     var slot = d.slot || { id: uid(), order: 0, createdAt: Date.now() };
     var now = Date.now();
-	    slot.label = d.customerName || slot.label || (d.service ? d.service.split(',')[0].trim() : '새 콘텐츠');
-	    slot.photos = d.photos.map(function (p) { return { id: p.id, dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl || null, role: p.role, cropMeta: p.cropMeta || null, templateId: p.templateId || null, editState: p.editState || null, baseUrl: p.baseUrl || null, updatedAt: now }; });   // [#11] editState=재편집 이어가기 보존
+	    slot.label = d.customerName || slot.label || _svcTitle(d.service) || '새 콘텐츠';
+	    // [#11] editState=재편집 이어가기 보존 · [2026-07-17] storyEdited=원장이 직접 꾸민 사진 표시.
+	    //   storyEdited 가 메모리에만 있어서 초안을 다시 열면 '자동합성 금지' 표시가 사라졌다 → 직접 꾸민 사진 위에
+	    //   시술명이 한 번 더 구워질 수 있었다(글씨 두 겹). 저장·복원 양쪽에 실어 세션 밖에서도 유지한다.
+	    slot.photos = d.photos.map(function (p) { return { id: p.id, dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl || null, role: p.role, cropMeta: p.cropMeta || null, templateId: p.templateId || null, editState: p.editState || null, baseUrl: p.baseUrl || null, storyEdited: !!p.storyEdited, updatedAt: now }; });
 	    // [이슈2] 전후 템플릿 합성 결과물은 사진 배열과 분리된 전용 필드로 저장(원본 슬롯 비오염).
 	    // [다중pair] 페어별 결과물 배열 저장 + 단일 templateOutput 미러(구 코드/홈 썸네일 하위호환).
-	    slot.templateOutputs = (d.templateOutputs && d.templateOutputs.length) ? d.templateOutputs.slice() : [];
+	    // [2026-07-17] _autoBase(자동합성 전 원판 dataURL)는 메모리 전용 — 저장하면 같은 이미지가 2벌이 되고
+	    //   workspace-sync 의 100KB 컷에 걸려 templateOutputs 자체가 통째로 버려진다(sync 주석 213-215 참고).
+	    slot.templateOutputs = (d.templateOutputs && d.templateOutputs.length)
+	      ? d.templateOutputs.map(function (o) { var c = Object.assign({}, o); delete c._autoBase; return c; })
+	      : [];
 	    slot.templateOutput = d.templateOutput || (slot.templateOutputs[0] && slot.templateOutputs[0].outputUrl) || null;
 	    slot.service = d.service || '';
+	    slot.specialNote = d.specialNote || '';   // [캡션재설계 v2] 특이사항 — 이어서 복원용
 	    slot.caption = d.caption || '';
     slot.hashtags = (d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ');
     slot.customer_id = d.customerId || null;
@@ -3448,7 +4155,7 @@
     slot.workspaceContext = Object.assign({}, slot.workspaceContext, {
       type: TYPE_MAP[d.tplPurpose] || 'promo',
       expectedPhotos: d.tplPurpose === 'before_after' ? 2 : 1,
-      defaultRatio: CROP_RATIO[d.tplPurpose] || '4:5',
+      defaultRatio: _cropRatio(),
 	      templatePurpose: d.tplPurpose || 'feed',
 	      templateId: d.templateId || null,
 	      templateLabel: d.template || '',
@@ -3460,19 +4167,29 @@
       generatedAt: d.caption ? ((slot.captionMeta && slot.captionMeta.generatedAt) || now) : null, log_id: d.logId || null,
     };
     slot.publish = Object.assign({ status: 'draft', instagramPreparedAt: null, publishedAt: null }, slot.publish, d.publish || {});
+    // [보관함 중복 2026-07-20] 작업실 v2 는 dedupeKey 가 없어 saveToGallery 가 매번 _uid() 로 새 gallery row 를
+    //   만들었다. 발행 1회에 saveItem 이 2번(발행 직전+발행 후), 초안 저장까지 더하면 같은 콘텐츠가 3~4벌씩 쌓여
+    //   고객 타임라인·보관함에 같은 사진이 여러 장 뜨고, base64 가 IndexedDB 에 중복 적재됐다.
+    //   slot.id(=재편집·발행에 걸쳐 고정, 3807) 기반 안정 키를 주면 saveToGallery(T-107)·_dedupePhotoItems 가
+    //   put-in-place 로 같은 row 를 갱신한다. 네임스페이스 'ws2:' 라 treatment-link/asst_tpl 키와 안 겹친다.
+    slot.dedupeKey = slot.dedupeKey || ('ws2:' + slot.id);
+    slot.source = slot.source || 'workspace_v2';
     d.slot = slot;   // [#13] 만든 슬롯을 고정 — 이후 저장(에디터 완료·발행 등)이 같은 id 를 갱신하게. 예전엔 매번 새 id 라 콘텐츠가 중복 저장됐음.
     return slot;
   }
 
   function save() {
+    if (d._saving) return;   // [v779 카오스QA] 저장 연타 → 이중 저장·이중 close·이중 토스트 방지
+    d._saving = true;
     var slot = buildSlot();
     var done = function () {
       toast(d.customerName ? (d.customerName + ' 고객 기록에 저장했어요.') : '작업실에 저장했어요.');
+      try { if (window.WorkMemory) window.WorkMemory.captureAndNotify(slot, d); } catch (_wm) { void _wm; }   // [T-115] 원장 작업 기억
       close();
       if (window.WorkspaceV2 && window.WorkspaceV2.refresh) window.WorkspaceV2.refresh();
     };
     if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) {
-      window.WorkspaceAdapter.saveItem(slot).then(function (r) { if (r.ok) done(); else toast('저장에 실패했어요'); });
+      window.WorkspaceAdapter.saveItem(slot).then(function (r) { if (r.ok) done(); else { d._saving = false; toast('저장에 실패했어요'); } });
     } else { done(); }
   }
 
@@ -3505,7 +4222,10 @@
   function _closePublishSheet() { var w = el && el.querySelector('[data-fl-pubask]'); if (w && w.parentNode) w.parentNode.removeChild(w); }
   function _markPublishedNow() {
     d.publish = d.publish || {}; d.publish.status = 'published'; d.publish.publishedAt = Date.now();
-    if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) { try { window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_e) { void _e; } }
+    // [P0-3] buildSlot 은 한 번만 — 예전엔 saveItem·captureAndNotify 가 각자 buildSlot() 해 큰 슬롯 객체를 두 번 재구성했다.
+    var _pubSlot = buildSlot();
+    if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) { try { window.WorkspaceAdapter.saveItem(_pubSlot); } catch (_e) { void _e; } }
+    try { if (window.WorkMemory) window.WorkMemory.captureAndNotify(_pubSlot, d); } catch (_wm) { void _wm; }   // [T-115] 원장 작업 기억
     _closePublishSheet();
     toast('게시물이 저장되었습니다');
     // [v548] 게시 완료 시 작업이 끝났음을 명확히 — 플로우 닫고 작업실 홈으로(카드 게시완료 badge 갱신).
@@ -3519,8 +4239,15 @@
   var _pubShow = _WSPP._pubShow, _pubHide = _WSPP._pubHide, _pubFinish = _WSPP._pubFinish;
 
 	  function publish(kind) {
+	    // [v779 카오스QA] 사진 0장 발행 방지 — 예전엔 outputUrl() 이 빈 문자열을 올려 서버가 원인불명 거부했다.
+	    if (!(editablePhotos() || []).length && !(d.templateOutputs || []).length && !d.templateOutput) {
+	      toast('사진을 먼저 추가해 주세요'); return;
+	    }
 	    // [버그수정 2026-07-10] 레이아웃 합성본(여러 장→1장)이 있으면 캐러셀 요청도 단일 피드로 — 원본 여러 장 전송/실패 방지.
-	    if (kind === 'carousel' && d.wsLayout && d.templateOutput) kind = 'feed';
+	    // [T-116] 단, 결과물이 2장 이상이면 그 합성본들을 캐러셀로 올리는 게 맞다 — 이때만 예외.
+	    // [버그수정 2026-07-17] 가드 기준도 세션 별칭(d.wsLayout) → 저장되는 합성본으로. 재오픈 초안에서 이 가드가
+	    //   통째로 안 걸려 원본 여러 장이 나가던 게 '발행 30초'의 정체였다(_publishKind 주석 참고).
+	    if (kind === 'carousel' && (d.templateOutputs || []).length < 2 && d.templateOutput) kind = 'feed';
 	    if (!window.WorkspaceAdapter) return;
 	    var _igp = window.WorkspaceAdapter.instagram();
 	    if (!_igp.connected) { toast('인스타 연결 후 올릴 수 있어요'); return; }
@@ -3529,41 +4256,134 @@
 	    if (!_igp.tokenValid) { toast('인스타 연동이 끊겼어요 — 설정에서 다시 연결해 주세요'); return; }
 	    // [slot-sync Phase B] 캐러셀은 각 장을 캔버스로 JPEG 인코딩 → 다른 기기(https) 이미지는 taint 로 막힘. 먼저 수화.
 	    //   (피드/스토리 단일 발행은 fetch→blob 경로라 CORS(*)로 그냥 됨 — 게이트 불필요.)
-	    if (kind === 'carousel' && _needsHydrate() && !d._hydrateTried) { d._hydrateTried = true; toast('사진 불러오는 중…'); _hydrateD().then(function (ok) { if (!ok) d._hydrateTried = false; /* [버그수정 2026-07-06] 실패 시 재시도 가능 */ publish(kind); }); return; }
-	    if (d._publishing) return;
+	    if (kind === 'carousel' && _needsHydrate() && !d._hydrateTried) {
+	      d._hydrateTried = true; d._preflight = true; toast('사진 불러오는 중…');
+	      _hydrateD().then(function (ok) {
+	        d._preflight = false;   // [카오스 P2] 사전단계 종료 — 재진입 락 해제
+	        // [P2 무한루프 수정 2026-07-16] 예전엔 실패해도 publish 를 다시 불러서 → 재진입 → 영원히
+	        //   "사진 불러오는 중…" 반복(네트워크 안 좋은 다기기 케이스). 실패 시엔 멈추고 안내만 —
+	        //   재시도는 원장이 다시 누르면 된다(_hydrateTried=false 로 열어둠).
+	        if (!ok) { d._hydrateTried = false; toast('사진을 불러오지 못했어요 — 잠시 뒤 다시 눌러 주세요'); return; }
+	        publish(kind);
+	      });
+	      return;
+	    }
+	    if (d._publishing || d._preflight) return;   // [카오스 P2] 사전단계(hydrate/compose) 창 재탭 차단
+	    // [v779 보스] 콜라주(한장으로 합치기)를 골랐는데 합성본이 없으면 outputUrl() 이 '첫 원본 사진'으로
+	    //   조용히 폴백해, 3장 합쳐 올렸는데 첫 장만 올라갔다(편집 미리보기는 CSS라 콜라주로 보여 눈치 못 챔).
+	    //   발행 전에 다시 굽고, 그래도 없으면 발행을 멈추고 레이아웃으로 돌려보낸다(잘못된 사진 발행 방지).
+	    if (d.wsComp && d.wsComp !== 'flat' && (editablePhotos() || []).length >= 2 &&
+	        !(d.templateOutput || (d.templateOutputs && d.templateOutputs[0] && d.templateOutputs[0].outputUrl))) {
+	      if (_WSL && _WSL.composeCards) {
+	        d._preflight = true;   // [카오스 P2] compose 중 재탭 차단
+	        Promise.resolve(_WSL.composeCards()).catch(function () { return null; }).then(function () {
+	          if (d) d._preflight = false;
+	          if (!d || d._dead) return;
+	          if (d.templateOutput || (d.templateOutputs && d.templateOutputs[0] && d.templateOutputs[0].outputUrl)) publish(kind);
+	          else { toast('레이아웃을 못 만들었어요 — 레이아웃을 다시 골라 주세요'); setScreen('layout'); }
+	        });
+	        return;
+	      }
+	      toast('레이아웃을 못 만들었어요 — 레이아웃을 다시 골라 주세요'); return;
+	    }
 	    syncCaptionFromDom();
 	    d._publishing = kind || 'feed'; setScreen('caption');
     var slot = buildSlot();
+    /* [P1#1 세션 가드 2026-07-16] 이 발행이 '어느 세션 것인지' 붙잡아 둔다.
+       d(플로우 상태)는 모듈 전역이고 open() 이 통째로 재할당한다. 그래서 발행이 도는 동안
+       원장이 닫고 다른 글을 열면, 옛 발행의 콜백이 resolve 시점의 d(=새 글)에 써버렸다:
+         · 새 글이 published 로 저장되고(saveItem) · 새 글에 igMediaId 가 박히고 · 화면이 강제로 넘어감.
+       실측 재현: A 발행 중 close→B open → "SLOT-B:published" 로 저장됨(A 는 draft 그대로).
+       카운터 대신 객체 아이덴티티로 본다 — 세션이 바뀌면 d !== myD, 닫히기만 했으면 _dead. */
+    var myD = d;
+    function _stale() { return !myD || myD._dead || myD !== d; }
+    /* [P2-H1 2026-07-17] 발행 idempotency 키 — '누를 때' 한 번 만들고 재시도해도 같은 키를 보낸다.
+       타임아웃(120s)으로 끊겼는데 서버는 이미 올린 상태에서 원장이 다시 누르면 공개 게시물이 2개
+       생기던 걸 막는다. 성공 시에만 폐기 → 나중에 같은 사진을 진짜로 또 올리면 새 키라 안 막힌다.
+       실패(진짜 에러)면 서버가 마커를 즉시 만료시키므로 같은 키로 재시도해도 정상 진행된다. */
+    if (!d._idemKey) {
+      d._idemKey = 'p_' + (slot.id || 's') + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    }
+    var myIdem = d._idemKey;
     _pubShow();
     Promise.resolve(window.WorkspaceAdapter.saveItem ? window.WorkspaceAdapter.saveItem(slot) : { ok: true }).then(function (sr) {
+	      if (_stale()) return;   // 세션이 바뀜/닫힘 — 새 세션 건드리지 않는다(UI 정리는 close 가 함)
 	      if (!sr || !sr.ok) { d._publishing = false; _pubHide(); toast('저장에 실패해 게시를 중단했어요'); setScreen('caption'); return; }
       d.slot = slot;
       if (!window.WorkspaceAdapter.publishInstagramV2) {
 	        d._publishing = false; _pubHide(); _markPrepared(); setScreen('caption'); toast('게시 준비 완료 — 업로드 기능을 불러오지 못했어요'); return;
       }
-      var cap = (d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '');
+      // [v779 카오스QA] 인스타 해시태그 상한 30개 — 초과하면 서버가 캡션을 거부/절단한다. 앞 30개만.
+      var _hs = (d.hashtags || []).slice(0, 30);
+      var cap = (d.caption || '') + (_hs.length ? '\n\n' + _hs.join(' ') : '');
       // [캐러셀] 여러 장이면 각 사진의 표시 이미지(편집 반영본)를 모아 보냄.
-      var _imgs = (kind === 'carousel') ? (editablePhotos() || []).map(function (p) { return dispUrl(p); }).filter(Boolean) : null;
+      // [T-116] 카드로 만든 결과물이 2장 이상이면 '원본 사진'이 아니라 '합성본'을 보내야 한다.
+      //   (안 그러면 레이아웃을 다 만들어 놓고 원본 5장이 조용히 올라간다)
+      var _outs = (d.templateOutputs || []).map(function (o) { return o && o.outputUrl; }).filter(Boolean);
+      var _imgs = (kind === 'carousel')
+        ? (_outs.length >= 2 ? _outs : (editablePhotos() || []).map(function (p) { return dispUrl(p); }).filter(Boolean))
+        : null;
       // [audit#6] 발행 직전 태그칸 flush — input 이벤트 못 받은 값(IME/붙여넣기 직후 즉시 발행)도 반영.
       try { var _utEl = el && el.querySelector('[data-fl-usertags]'); if (_utEl) d.igUserTags = String(_utEl.value || '').split(/[,\s]+/).map(function (s) { return s.replace(/^@/, '').trim(); }).filter(Boolean).slice(0, 20); } catch (_ue) { void _ue; }
       // [계정 태그] 피드에서만 — 입력한 @아이디를 자동 위치(세로로 분산)로 태그.
       var _tagArr = d.igUserTags || [];
-      var _utags = (kind === 'feed' && _tagArr.length) ? _tagArr.map(function (u, i) { return { username: u, x: 0.5, y: Math.min(0.85, 0.32 + i * (0.46 / Math.max(1, _tagArr.length))) }; }) : null;
+      // [계정 태그 2026-07-14] 캐러셀(여러 장)도 태그 전송 — 기존 조건이 kind==='feed' 라 5장 발행 시
+      //   태그가 '실패'가 아니라 '처음부터 안 나감'이었다(에러도 안 뜸). 백엔드가 커버(첫 장) child 에 적용.
+      var _utags = _tagArr.length ? _tagArr.map(function (u, i) { return { username: u, x: 0.5, y: Math.min(0.85, 0.32 + i * (0.46 / Math.max(1, _tagArr.length))) }; }) : null;
       var _pubImg = outputUrl();   // 대표 이미지(레이아웃 합성본 또는 대표 사진)
-      window.WorkspaceAdapter.publishInstagramV2({ slotId: slot.id, imageUrl: _pubImg, imageUrls: _imgs, caption: cap, userTags: _utags, kind: kind || 'feed' }).then(function (r) {
+      window.WorkspaceAdapter.publishInstagramV2({ slotId: slot.id, imageUrl: _pubImg, imageUrls: _imgs, caption: cap, userTags: _utags, kind: kind || 'feed', idempotencyKey: myIdem }).then(function (r) {
         r = r || {};
+        // [P1#1] 인스타 응답이 늦게 와도 그 사이 바뀐 세션엔 절대 쓰지 않는다.
+        //   여기가 실제 피해 지점이었다 — 엉뚱한 글이 published 로 저장되고 igMediaId 까지 박혔다.
+        /* [버그수정 2026-07-17] 세션이 바뀌었어도 '발행됐다'는 사실은 원래 슬롯에 남긴다.
+           P1#1 가드가 새 세션 오염을 막으려고 콜백을 통째로 버렸는데, 그 바람에 업로드 중(수 초) 원장이
+           닫기/뒤로가기만 눌러도 인스타엔 실제로 올라간 글이 로컬에선 영원히 draft 로 남았다
+           ("발행했는데 발행됨으로 안 바뀜"). 화면(setScreen/toast)과 전역 d 는 그대로 안 건드리고,
+           이 발행이 시작될 때 붙잡아 둔 myD/slot 에만 써서 저장한다 → 새 세션은 오염되지 않는다. */
+        if (_stale()) {
+          console.warn('[wsv2flow] publish resolved for a closed/replaced session — 화면은 두고 원래 슬롯에만 기록');
+          if (r.ok) {
+            try {
+              myD._idemKey = null;
+              myD.publish = myD.publish || {};
+              myD.publish.status = 'published'; myD.publish.publishedAt = Date.now();
+              var _sid = (r.data && (r.data.media_id || r.data.id)) || null;
+              var _slk = (r.data && r.data.permalink) || null;
+              if (_sid) myD.publish.igMediaId = String(_sid);
+              if (_slk) myD.publish.igPermalink = String(_slk);
+              // slot 은 이 발행을 누른 시점의 buildSlot() 결과 — 전역 d 를 다시 읽지 않는다.
+              slot.publish = Object.assign({}, slot.publish, myD.publish);
+              slot.status = 'published'; slot.instagramPublished = true;   // 홈 _isPub 이 보는 3필드를 함께(workspace-v2-home.js:562)
+              if (window.WorkspaceAdapter.saveItem) window.WorkspaceAdapter.saveItem(slot);
+              if (window.WorkspaceV2 && window.WorkspaceV2.refresh) window.WorkspaceV2.refresh();
+            } catch (_se) { void _se; }
+          }
+          return;
+        }
         if (r.ok) {
+          d._idemKey = null;   // [P2-H1] 이 발행은 끝 — 다음 발행은 새 키(같은 사진 재발행도 정상 허용)
           d.publish = d.publish || {}; d.publish.status = 'published'; d.publish.publishedAt = Date.now();
+          // [성과 2026-07-14] 인스타 media id 를 슬롯에 남긴다 — 성과 화면이 '이 게시물'과 인스타 지표를
+          //   이어붙이는 유일한 열쇠. 예전엔 학습 로그로만 흘려보내고 슬롯엔 안 남아서 캡션 앞글자 매칭에 의존했음.
+          var _mid = (r.data && (r.data.media_id || r.data.id)) || null;
+          var _plink = (r.data && r.data.permalink) || null;
+          if (_mid) d.publish.igMediaId = String(_mid);
+          if (_plink) d.publish.igPermalink = String(_plink);
           // [P1 학습 루프] 발행한 최종 캡션을 학습에 반영 — final_text→PastPost 역반입(백엔드). 발행 성공 시만.
           try {
             if (d.logId && window.WorkspaceAdapter.recordPublishedCaption) {
-              var _mid = (r.data && (r.data.media_id || r.data.id || r.data.permalink)) || null;
-              window.WorkspaceAdapter.recordPublishedCaption(d.logId, cap, _mid);
+              window.WorkspaceAdapter.recordPublishedCaption(d.logId, cap, _mid || _plink);
             }
           } catch (_le) { void _le; }
           // [v542] 게시 완료 상태를 저장소에 반영(이전엔 게시 전 slot 만 저장 → 새로고침 시 badge 사라짐).
-          if (window.WorkspaceAdapter.saveItem) { try { window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_e) { void _e; } }
+          // [P0-3] buildSlot 은 한 번만 — saveItem·captureAndNotify 가 같은 슬롯을 공유(큰 객체 재구성 1회로).
+          var _pubSlot = buildSlot();
+          if (window.WorkspaceAdapter.saveItem) { try { window.WorkspaceAdapter.saveItem(_pubSlot); } catch (_e) { void _e; } }
+          try { if (window.WorkMemory) window.WorkMemory.captureAndNotify(_pubSlot, d); } catch (_wm) { void _wm; }   // [T-115] 원장 작업 기억
           _pubFinish(function () {
+            // [P1#1] 완료 애니메이션(~1.5s) 도중에도 세션이 바뀔 수 있다 — 그때 setScreen 하면
+            //   원장이 보고 있던 새 글 화면을 강제로 낚아챈다.
+            if (_stale()) return;
             d._publishing = false;
             toast(kind === 'carousel' ? '여러 장 게시물을 올렸어요' : '인스타그램에 올렸어요');
             if (window.WorkspaceV2 && window.WorkspaceV2.refresh) window.WorkspaceV2.refresh();
@@ -3603,6 +4423,12 @@
 
   function open(opts) {
     opts = opts || {};
+    // [카오스 2026-07-21] close 와 대칭 — open 도 진행 중 캡션 생성 토큰을 무효화한다.
+    //   캡션 경로만 d 아이덴티티가 아닌 전역 _genToken 으로 stale 판별하는데, close 는 토큰을
+    //   올려도 open 은 안 올려서, close 없이 다른 세션을 open/command 로 열면 옛 캡션 응답이
+    //   _myToken===_genToken 을 통과해 새 세션 d.caption 에 누출됐다(다른 사진에 엉뚱한 글).
+    _genToken++;
+    try { if (d) d._dead = true; } catch (_od) { void _od; }
 	    ensureEl();
 	    var slot = opts.slot || null;
 	    var incomingFiles = Array.from(opts.files || []);
@@ -3615,7 +4441,7 @@
     var hadRoles = !!(slot && slot.photos && slot.photos.some(function (p) { return p && p.role; }));
     d = {
       slot: slot,
-      photos: slot && slot.photos ? slot.photos.map(function (p, i) { return { id: p.id || uid(), dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl, role: p.role || 'hero', cropMeta: p.cropMeta || null, editState: p.editState || null, baseUrl: p.baseUrl || null, selected: true, selSeq: i + 1 }; }) : [],   // [#11] editState 복원
+      photos: slot && slot.photos ? slot.photos.map(function (p, i) { return { id: p.id || uid(), dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl, role: p.role || 'hero', cropMeta: p.cropMeta || null, editState: p.editState || null, baseUrl: p.baseUrl || null, storyEdited: !!p.storyEdited, selected: true, selSeq: i + 1 }; }) : [],   // [#11] editState 복원 · [2026-07-17] storyEdited 복원(자동합성이 직접 꾸민 사진을 덮지 않게)
       _selSeq: (slot && slot.photos ? slot.photos.length : 0),
       baMode: purpose === 'before_after',
 	      template: (wc && wc.templateLabel) || null, templateId: (wc && wc.templateId) || null,
@@ -3624,13 +4450,13 @@
 	      tplCat: ctx.tplLabel || (wc && wc.type === 'before_after' ? '전후' : null),
 	      tplPurpose: purpose, captionMode: capMode, defaultRole: ctx.role || 'hero',
       textOnly: !!(opts.textOnly),
-      service: slot && slot.service ? slot.service : '', caption: slot ? (slot.caption || '') : '', hashtags: slot && slot.hashtags ? String(slot.hashtags).split(/\s+/).filter(Boolean) : [], selectedHashes: [],
+      service: slot && slot.service ? slot.service : '', specialNote: (slot && slot.specialNote) || '', caption: slot ? (slot.caption || '') : '', hashtags: slot && slot.hashtags ? String(slot.hashtags).split(/\s+/).filter(Boolean) : [], selectedHashes: [],
       customerId: slot ? (slot.customer_id || null) : null, customerName: slot ? (slot.customer_name || '') : '', customerVc: 0, custQuery: '',
       capLen: cm.length_tier || 'medium', capTone: cm.tone_override || 'normal', logId: cm.log_id || null,
       capUsePersona: (cm.use_persona !== false),   // [P2 2026-07-10] 원장님 말투 반영 기본 ON(전송 시 IG연동 게이트 유지) — 저장본이 명시적 false면 존중
 
       publish: (slot && slot.publish) ? Object.assign({}, slot.publish) : { status: 'draft', instagramPreparedAt: null, publishedAt: null },
-      recent: [], recentLoaded: false, capLoading: false, capSeg: 'rec',
+      recent: [], recentLoaded: false, capLoading: false,
 	      editTab: 'skin', control: null, basicTool: 'brightness', precTool: null, editIdx: null, bgOpen: false, advOpen: true, tplOpen: true, adjust: newAdjust(), beauty: newBeauty(), undo: [], redo: [], originalPreview: false, previewUrl: null, bgAction: null, bgColor: null, bgBusy: false, bgFail: false,
       maskPaint: false, maskBrush: 26, maskErase: false, _paintCv: {},   // [v561] 직접 칠하기(수동 마스크)
 	      captionAxes: null, captionTemplate: '',
@@ -3641,6 +4467,26 @@
     try { if (window.WorkspaceSync && window.WorkspaceSync.beginEdit) window.WorkspaceSync.beginEdit(); } catch (_be) { void _be; }
     // [피드 미리보기] 발행 미리보기 그리드용 기존 피드 썸네일을 미리 당겨 메모리 캐시(도달 시 0.1초). 저장 X.
     try { if (window.WorkspaceAdapter && window.WorkspaceAdapter.recentMedia) window.WorkspaceAdapter.recentMedia(); } catch (_rm) { void _rm; }
+    // [등록시술 연결 2026-07-20] 우리샵 등록 시술(가격표/설정) 캐시 워밍 — 캡션 칩이 이 목록을 기본으로 쓴다(getShopKeywords).
+    //   localStorage 캐시가 있으면 즉시 뜨고, 새로 도착하면 캡션 화면일 때 재렌더해 칩을 갱신.
+    try {
+      if (window.loadServiceTemplates) {
+        Promise.resolve(window.loadServiceTemplates()).then(function (list) {
+          if (list && list.length && cur === 'caption' && !_isEditingCaptionCard()) setScreen('caption', { push: false });
+        }).catch(function () { /* ignore */ });
+      }
+    } catch (_st) { void _st; }
+    // [최근시술 소스확장] 최근 예약 시술을 '최근 시술' 칩에 쓰려고 예약 캐시 워밍(최근 90일~+14일). 도착 시 캡션이면 재렌더.
+    try {
+      if (window.Booking && window.Booking.list && _recentSrcPref().booking) {
+        var _bn = new Date();
+        var _bfrom = new Date(_bn.getTime() - 90 * 86400000).toISOString();
+        var _bto = new Date(_bn.getTime() + 14 * 86400000).toISOString();
+        Promise.resolve(window.Booking.list(_bfrom, _bto)).then(function (its) {
+          if (its && its.length && cur === 'caption' && !_isEditingCaptionCard()) setScreen('caption', { push: false });
+        }).catch(function () { /* ignore */ });
+      }
+    } catch (_bk) { void _bk; }
     // [작업물 미리보기 2026-07-10] 미연동 원장님용 — 내 작업물 썸네일을 미리 캐시(도달 시 즉시). 로컬 IndexedDB, 저장 X. 이번 슬롯은 제외(NEW 칸 중복 방지).
     d._myWorkThumbs = [];
     try {
@@ -3654,7 +4500,7 @@
           });
           d._myWorkThumbs = out;
           var _conn = window.WorkspaceAdapter && window.WorkspaceAdapter.instagram ? window.WorkspaceAdapter.instagram().connected : false;
-          if (out.length && !_conn && cur === 'preview') setScreen('preview', { push: false });
+          if (out.length && !_conn && (cur === 'caption' || cur === 'preview') && !_isEditingCaptionCard()) setScreen(cur, { push: false });
         }).catch(function () {});
       }
     } catch (_mw) { void _mw; }
@@ -3667,6 +4513,9 @@
     var startScreen = opts.startScreen && SCREENS.indexOf(opts.startScreen) >= 0 ? opts.startScreen : 'upload';
 	    if (d.textOnly && startScreen === 'upload') startScreen = 'caption';
 	    // [v540] 내 콘텐츠 편집 딥링크 — 버튼 의도(focus)에 맞춰 진입 탭/섹션 상태 미리 세팅(기존 콘텐츠 유지).
+	    // [2026-07-22 오케스트레이션] 잇비 사진 브리핑(파싱 결과) — 레이아웃 다음에 편집기(레이어 주입)+캡션 자동.
+	    d._orch = opts._orch || null; d._orchApplied = false;
+	    d._pickComp = opts._pickComp || null;   // [2026-07-22] 잇비 채팅에서 미리 고른 레이아웃 구성 키
 	    d._focusIntent = (startScreen === 'edit' && opts.focus) ? opts.focus : null;
 	    if (d._focusIntent === 'background') { d.bgOpen = true; d.basicTool = 'background'; }
 	    else if (d._focusIntent === 'crop') { d.editTab = 'tools'; d.advOpen = true; }
@@ -3674,12 +4523,25 @@
 	    // [v564·필수1] 홈에서 파일과 함께 edit 로 바로 진입 시, 사진 로드 전 '빈 편집화면'이 깜빡이지
 	    //   않도록 setScreen 을 addFiles 완료까지 미룬다(업로드 화면을 거치지 않음).
 	    // [v590·#1] 사진이 아직 없는데 edit/caption 으로 바로 그리면 빈 화면이 깜빡 → 사진 들어온 뒤(addFiles) 그린다.
-	    var _deferInit = ((startScreen === 'edit' || startScreen === 'caption') && incomingFiles.length && !d.photos.length);
-	    if (!_deferInit) setScreen(startScreen, { push: false });
+	    // [v778·#3 보스] 'upload' 로 파일과 함께 진입하는 경로도 포함 — 사진 디코딩(폰 원본 3~8MB) 동안
+	    //   업로드 화면(전/후 역할 UI)이 잠깐 떴다가 레이아웃으로 점프하던 깜빡임 제거. 파일 있으면 addFiles 가 알아서 넘긴다.
+	    var _deferInit = ((startScreen === 'edit' || startScreen === 'caption' || startScreen === 'upload') && incomingFiles.length && !d.photos.length);
+	    if (!_deferInit) { setScreen(startScreen, { push: false }); _seedNavStack(startScreen); }   // [버그11] 직행 진입도 뒤로가기로 이전 단계 복귀
 	    if (d._focusIntent) { var _rafF = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _rafF(function () { _applyFocusScroll(); }); }
-	    if (incomingFiles.length) addFiles(incomingFiles, true, startScreen === 'edit');
+	    // 디코딩 실패 시엔 빈 화면에 갇히지 않도록 업로드 화면으로 복귀.
+	    if (incomingFiles.length) addFiles(incomingFiles, true, startScreen === 'edit').catch(function () { if (_deferInit) { setScreen('upload', { push: false }); _seedNavStack('upload'); } });
 	    // [구조 통합] 잇비 채팅 사진(dataURL)을 작업실로 바로 투입 — File 변환 없이 직접.
 	    if (opts.photoUrls && opts.photoUrls.length) addPhotoUrls(opts.photoUrls, true);
+	    // [2026-07-22] '사진 편집' = 인스타식 편집기(ItdEditor). 슬라이더 'edit' 화면(A)이 아니라 B를 연다.
+	    //   사진 디코딩(File/dataURL)까지 몇 프레임 걸릴 수 있어 사진이 준비될 때까지 폴링 후 _openStoryEditor.
+	    if (opts._openStory) {
+	      var _rs = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
+	      var _tryStory = function (tries) {
+	        if (editablePhotos().length) { _openStoryEditor(); return; }
+	        if (tries > 0) _rs(function () { _tryStory(tries - 1); });
+	      };
+	      _rs(function () { _tryStory(30); });
+	    }
 	  }
 	  // dataURL 배열을 사진으로 추가(잇비 채팅 사진 핸드오프). addFiles 와 동일 규약, File 변환만 생략.
 	  function addPhotoUrls(urls, showToast) {
@@ -3691,8 +4553,18 @@
     //   [ws-hyper 버그수정 2026-07-06] photoUrls(채팅/딥링크) 경로도 addFiles 와 동일하게 HYPER→레이아웃 분기.
     //   빠지면 HYPER인데 채팅으로 사진 던지면 옛 편집기가 열려 레이아웃 스텝을 건너뛴다.
     if (cur === 'upload') {
-      if (!d.textOnly && editablePhotos().length) { setScreen('layout', { push: false }); }
-      else setScreen('upload', { push: false });
+      if (!d.textOnly && editablePhotos().length) {
+        setScreen('layout', { push: false });
+        // [2026-07-22 보스] 잇비 채팅에서 이미 레이아웃을 골라 왔으면 레이아웃 화면을 지나쳐 게시글로.
+        //   ⚠️ 파일 업로드 경로(addPhotoFiles)와 채팅/딥링크 경로(여기)가 **따로**다 —
+        //      한쪽만 고치면 채팅에서 고른 게 안 먹는다(실제로 처음에 그 실수를 했다).
+        //   setScreen('caption') 대신 onCta(): layout 의 onExit 이 합성본을 굽는다. 건너뛰면
+        //   콜라주를 골랐는데 원본이 그대로 올라가는 조용한 사고가 난다.
+        if (d._pickComp && _WSL && _WSL.applyComp) {
+          var _pc = d._pickComp; d._pickComp = null;
+          if (_WSL.applyComp(_pc)) { setScreen('layout', { push: false }); onCta(); }
+        }
+      } else setScreen('upload', { push: false });
     }
 	    if (showToast) toast(urls.length + '장 추가됨');
 	    return urls.length;
@@ -3707,6 +4579,18 @@
   }
   function close() {
     if (el) el.classList.remove('is-open');
+    // [v779] 전체화면 편집 상태 정리 — ESC/토글 아닌 경로(하단 CTA·시스템 back·닫기)로 나가면
+    //   body.itd-edit-fs 와 d.edFull 이 잔존해 재진입/CSS 변경 시 검은 오버레이 고착 소지가 있었다.
+    try { document.body.classList.remove('itd-edit-fs'); } catch (_ef) { void _ef; }
+    try { if (d) d.edFull = false; } catch (_ef2) { void _ef2; }
+    // [P1 캡션 누출 수정 2026-07-16] 진행 중인 캡션 재생성 응답을 무효화한다. 예전엔 close 가
+    //   _genToken 을 안 올려서, 닫고 다른 슬롯을 연 뒤 옛 응답이 도착하면 _myToken===_genToken 이
+    //   통과해 새 슬롯의 캡션을 덮어썼다(다른 사진에 엉뚱한 캡션). 닫을 때 토큰을 올려 차단.
+    _genToken++;
+    // [P1#1 세션 가드] 이 세션은 죽었다고 표시 — 진행 중인 발행 콜백이 돌아와도 아무것도 안 쓴다.
+    //   d 를 null 로 만들지 않는 이유: d 를 읽는 코드가 파일 곳곳에 있어 즉시 크래시가 난다.
+    //   대신 죽음 표식만 남기고, 진행 중이던 발행 진행바는 여기서 정리한다(콜백은 UI 안 건드림).
+    try { if (d) { var _wasPublishing = d._publishing; d._dead = true; if (_wasPublishing) _pubHide(); } } catch (_de) { void _de; }
     // [slot-sync coalesce] 편집 종료 → 정착: 최종본 1회 업로드+동기화.
     try { if (window.WorkspaceSync && window.WorkspaceSync.settleSlot) window.WorkspaceSync.settleSlot(); } catch (_se) { void _se; }
     var leftover = _histDepth;
@@ -3745,15 +4629,27 @@
       case 'open':
         open({ cat: cmd.cat || null, startScreen: cmd.screen || 'upload', textOnly: !!cmd.textOnly, files: cmd.files || null, photoUrls: cmd.photoUrls || null });
         return { ok: true };
+      case 'storyedit':   // [2026-07-22] 인스타식 편집기(ItdEditor) 열기 — '사진 편집'·꾸미기·누끼 목적지.
+        if (_flowReady() && editablePhotos().length) { _openStoryEditor(); return { ok: true }; }   // 이미 열림 → 현재 사진으로
+        open({ cat: cmd.cat || null, startScreen: 'layout', files: cmd.files || null, photoUrls: cmd.photoUrls || null, _openStory: true });
+        return { ok: true };
+      case 'orchestrate':   // [2026-07-22] 잇비 사진+브리핑 → 레이아웃 고르기 → (편집기 레이어 자동)+캡션 자동.
+        //   startScreen 미지정(=upload) → addPhotoUrls 가 사진 투입 후 레이아웃으로 넘김(빈 레이아웃 방지).
+        open({ cat: cmd.cat || null, files: cmd.files || null, photoUrls: cmd.photoUrls || null,
+               _orch: cmd.brief || null, _pickComp: cmd.comp || null });
+        return { ok: true };
+      // [2026-07-22] 잇비 채팅이 "사진 n장이면 어떤 구성이 있나"를 물어보는 창구.
+      //   플로우가 안 열려 있어도 답할 수 있어야 한다(채팅에서 먼저 고르고 그다음 열리므로).
+      case 'layoutopts':
+        return { ok: true, options: (_WSL && _WSL.compOptions) ? _WSL.compOptions(+cmd.n || 0) : [] };
       case 'goto':
         if (!_flowReady() || SCREENS.indexOf(cmd.screen) < 0) return { ok: false, reason: 'not_open' };
         setScreen(cmd.screen); return { ok: true };
       case 'adjust':
         return _applyAdjustPatch(cmd);
-      case 'edit':   // 되돌리기/다시실행/비교/초기화
+      case 'edit':   // 되돌리기/다시실행/초기화 — [2026-07-22] 옛 슬라이더 화면(A) 안 띄우고 headless 로 상태만.
         if (!_flowReady()) return { ok: false, reason: 'not_open' };
-        if (cur !== 'edit') setScreen('edit');
-        _editBottom(cmd.action); return { ok: true };
+        _editBottom(cmd.action); return { ok: true };   // _setEditSection 은 A DOM 없으면 no-op, _refreshPreview 로 결과만 갱신
       case 'bg':
         if (!_flowReady()) return { ok: false, reason: 'not_open' };
         if (cur !== 'edit') setScreen('edit');

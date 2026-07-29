@@ -28,25 +28,25 @@
   }
 
   function openPhotoEditorFromAction(opts) {
-    // [2026-06-11 로딩분할 1단계] 사진 그룹 미로드 상태면 로드 후 재진입
-    if (window.AppLoader && !window.AppLoader.loaded('photo') && !window.PhotoEditor) {
+    // [2026-07-22] 옛 PhotoEditor 진입 전면 폐지 → 현재 작업실(WorkspaceFlow)로 일원화.
+    //   이 함수가 사진편집 진입의 중앙 초크포인트(ai-hub·photo-local-handlers 가 위임)라
+    //   여기만 돌리면 모든 옛 편집기 경로가 현재 작업실로 모인다.
+    // [2026-06-11 로딩분할] 작업실 그룹 미로드면 로드 후 재진입.
+    if (window.AppLoader && !window.AppLoader.loaded('photo') && !window.WorkspaceFlow) {
       _toast('사진 도구 준비 중…');
       window.AppLoader.ensure('photo').then(() => openPhotoEditorFromAction(opts));
       return true;
     }
     try {
-      if (window.PhotoEditor && typeof window.PhotoEditor.openFromAction === 'function') {
-        window.PhotoEditor.openFromAction(opts || {});
-        return true;
-      }
-      if (window.PhotoEditor && typeof window.PhotoEditor.open === 'function') {
-        window.PhotoEditor.open(opts || {});
+      if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+        const src = opts && (opts.src || opts.photoUrl);
+        window.WorkspaceFlow.command({ type: 'storyedit', photoUrls: src ? [src] : null });
         return true;
       }
     } catch (e) {
-      console.warn('[entrypoints] 사진 편집기 열기 실패:', e);
+      console.warn('[entrypoints] 작업실 열기 실패:', e);
     }
-    _toast('사진 편집기를 여는 중이에요. 잠시 후 다시 눌러주세요');
+    _toast('작업실을 여는 중이에요. 잠시 후 다시 눌러주세요');
     return false;
   }
 

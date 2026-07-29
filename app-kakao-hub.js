@@ -42,8 +42,12 @@
             <div class="ss-card-tt" style="margin:0;color:#8a5d00;">준비 중 · 출시 예정 안내</div>
           </div>
           <div class="ss-card-sub" style="color:#8a5d00;">
-            카카오 비즈니스 채널 연결은 <strong>Phase 2 (예상 2026-05)</strong> 에 활성화돼요.<br>
-            지금은 자동 발송 템플릿만 미리 살펴보실 수 있어요.
+            <strong>내 카카오 채널 직접 연결</strong>(사업자등록증·채널 ID 필요)은 <strong>Phase 2</strong> 에 열려요.
+            지금은 아래 발송 템플릿을 미리 볼 수 있어요.<br>
+            <!-- [죽은동작 정리 2026-07-27] '두 화면 상반' 해소: 기본 예약 알림톡은 지금도 실제 발송된다. -->
+            <span style="display:inline-block;margin-top:8px;padding:6px 10px;background:#fff;border-radius:8px;color:#6b4e00;">
+              💡 <strong>예약 확정·전날 리마인드 알림톡</strong>은 지금도 <strong>설정 → 예약 알림톡 자동발송</strong> 에서 켜면 손님 폰으로 발송돼요.
+            </span>
           </div>
         </div>
 
@@ -122,6 +126,9 @@
     const el = _ensureMounted();
     requestAnimationFrame(() => el.classList.add('is-open'));
     el.setAttribute('aria-hidden', 'false');
+    // [2026-07-22 보스] 뒤로가기 등록 — 안 하면 안드로이드 back/스와이프에서 이 화면 대신 앱이 그대로 꺼진다.
+    if (typeof window._registerSheet === 'function') window._registerSheet('kakaoHub', closeKakaoHub);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('kakaoHub');
     _haptic();
   }
   function closeKakaoHub() {
@@ -129,6 +136,7 @@
     if (!el) return;
     el.classList.remove('is-open');
     el.setAttribute('aria-hidden', 'true');
+    if (typeof window._markSheetClosed === 'function') window._markSheetClosed('kakaoHub');
     _haptic();
   }
 

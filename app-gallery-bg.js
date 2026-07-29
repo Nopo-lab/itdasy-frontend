@@ -78,7 +78,7 @@ function _renderBgPanel() {
       <div class="gp-card" data-bg-select data-bgid="${safeId}">
         <div class="gp-card__thumb${isSelected ? ' gp-card__thumb--sel' : ''}">${preview}</div>
         <div class="gp-card__name">${safeName}</div>
-        <button class="gp-fav-btn" data-bg-fav data-bgid="${safeId}" aria-label="${isFav ? '즐겨찾기 해제' : '즐겨찾기 추가'}">${isFav ? '⭐' : '☆'}</button>
+        <button class="gp-fav-btn" data-bg-fav data-bgid="${safeId}" aria-label="${isFav ? '즐겨찾기 해제' : '즐겨찾기 추가'}"><svg width="13" height="13" aria-hidden="true" style="${isFav ? 'color:#FFB800;fill:currentColor' : 'color:#bbb;fill:none;stroke:currentColor;stroke-width:2'}"><use href="#ic-star"/></svg></button>
         ${isUser ? `<button class="gp-del-btn" data-bg-delete data-bgid="${safeId}" aria-label="삭제">×</button>` : ''}
       </div>`;
   };

@@ -304,20 +304,6 @@ function togglePopupPhotoSel(id) {
 }
 
 // ── 배정 취소 (미배정 풀로 복귀) ──────────────────────────────
-async function unassignPopupPhoto(photoId, e) {
-  e?.stopPropagation();
-  const slot = _slots.find(s => s.id === _popupSlotId);
-  if (!slot) return;
-  const sp = slot.photos.find(p => p.id === photoId);
-  if (sp && !_photos.find(p => p.id === photoId)) {
-    _pushToPhotos({ id: sp.id, file: null, dataUrl: sp.dataUrl });
-  }
-  _filterSlotPhotos(_popupSlotId, p => p.id !== photoId);
-  _removePopupSelId(photoId);
-  try { await saveSlotToDB(slot); } catch (_e) { /* ignore */ }
-  _renderPopupPhotoGrid(slot);
-  showToast('배정 취소됨 — 미배정 사진으로 돌아갔어요');
-}
 
 async function addPhotosToPopup(input) {
   const slot = _slots.find(s => s.id === _popupSlotId);
@@ -443,7 +429,7 @@ function _ensureBASelectPanel() {
     + '<button type="button" class="ba-cta" data-ba-assign="before">Before로 지정</button>'
     + '<button type="button" class="ba-cta" data-ba-assign="after">After로 지정</button>'
     + '<button type="button" class="ba-cta" data-ba-swap>서로 바꾸기</button>'
-    + '<button type="button" class="ba-cta ba-cta--primary" data-ba-template disabled>템플릿 고르기</button>'
+    + '<button type="button" class="ba-cta ba-cta--primary" data-ba-template disabled title="준비 중">전후 템플릿 (준비 중)</button>'
     + '</div></div>';
   host.appendChild(el);
   el.addEventListener('click', (e) => {
@@ -486,39 +472,14 @@ function _renderBASelect() {
     return '<button type="button" class="ba-card' + focus + '" data-ba-pick="' + p.id + '">'
       + '<img src="' + (p.editedDataUrl || p.dataUrl) + '" alt="">' + badge + '</button>';
   }).join('');
+  // [죽은기능 정리 2026-07-27] '템플릿 고르기'는 _baPickTemplate 이 "(준비 중)" 토스트만 하는 스텁이라,
+  //   활성화되면 동작하는 것처럼 보였다. 실제 전후 템플릿 스텝이 붙기 전엔 계속 비활성(준비 중) 유지.
   const tplBtn = document.querySelector('#baSelectPanel [data-ba-template]');
-  if (tplBtn) tplBtn.disabled = !_baReady();
+  if (tplBtn) tplBtn.disabled = true;
 }
 if (typeof window !== 'undefined') { window.openBASelect = openBASelect; window.closeBASelect = closeBASelect; }
 
 // ── 인스타 미리보기 ────────────────────────────────────────────
-function showPhotoInstaPreview(dataUrl) {
-  let pop = document.getElementById('_wsInstaPreviewPop');
-  if (!pop) {
-    pop = document.createElement('div');
-    pop.id = '_wsInstaPreviewPop';
-    pop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:10000;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px;box-sizing:border-box;';
-    pop.innerHTML = `
-      <div style="width:100%;max-width:380px;">
-        <div style="background:#fff;border-radius:14px;overflow:hidden;">
-          <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #f0f0f0;">
-            <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:800;">잇</div>
-            <div style="font-size:13px;font-weight:700;">@itdasy</div>
-          </div>
-          <img id="_wsPreviewImg" style="width:100%;aspect-ratio:1/1;object-fit:cover;display:block;">
-          <div style="padding:8px 12px;font-size:11px;color:#888;">인스타 피드 1:1 비율 미리보기</div>
-        </div>
-      </div>
-      <button data-preview-close style="margin-top:16px;color:#fff;background:transparent;border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:8px 20px;font-size:13px;cursor:pointer;">닫기</button>
-    `;
-    pop.querySelector('[data-preview-close]')?.addEventListener('click', () => {
-      pop.style.display = 'none';
-    });
-    document.body.appendChild(pop);
-  }
-  document.getElementById('_wsPreviewImg').src = dataUrl;
-  pop.style.display = 'flex';
-}
 
 // ── 선택 일괄 삭제 ─────────────────────────────────────────────
 function _bulkDeletePopup() {
@@ -565,13 +526,13 @@ function openSlotPhotoInEditor(tab) {
     if (fb && typeof window[fb] === 'function') return window[fb]();
     return;
   }
-  if (!window.PhotoEditor || typeof window.PhotoEditor.open !== 'function') {
-    if (typeof showToast === 'function') showToast('사진 편집기를 불러오는 중이에요. 잠시 후 다시 시도해주세요');
+  // [2026-07-22] 옛 PhotoEditor 진입 제거 → 현재 작업실(WorkspaceFlow)로.
+  if (!window.WorkspaceFlow || typeof window.WorkspaceFlow.command !== 'function') {
+    if (typeof showToast === 'function') showToast('작업실을 불러오는 중이에요. 잠시 후 다시 시도해주세요');
     return;
   }
   // [버그수정] 편집기가 이미 열려 있으면 재오픈 금지 — 편집 화면 여러 개/패널 섞임 방지.
-  const _peSheet = document.getElementById('photoEditorSheet');
-  if (_peSheet && _peSheet.style.display !== 'none') return;
+  if (window.WorkspaceFlow.isOpen && window.WorkspaceFlow.isOpen()) return;
   const slot = _slots.find(s => s.id === _popupSlotId);
   if (!slot) return;
   const visible = (slot.photos || []).filter(p => !p.hidden);
@@ -582,46 +543,13 @@ function openSlotPhotoInEditor(tab) {
   if (!photo) photo = visible[0];
   if (!photo) { if (typeof showToast === 'function') showToast('편집할 사진이 없어요'); return; }
 
-  // [P2-2a] 잇비 템플릿 결과(slot.templateMeta)는 baked 이미지가 아니라 템플릿 상태로 복원해 재편집.
-  //   복원 성공 시 여기서 종료. 메타 없거나 복원 실패면 아래 기존 baked 편집으로 폴백.
-  if (slot.templateMeta && typeof window.restoreAssistantTemplate === 'function') {
-    const _restoreOnSave = (dataUrl) => {
-      const tp = (slot.photos || []).find(pp => pp.id === photo.id);
-      if (tp) { tp.editedDataUrl = dataUrl; tp.mode = 'enhanced'; }
-      try {
-        const st = window.PhotoEditor && window.PhotoEditor._internal && window.PhotoEditor._internal.getState && window.PhotoEditor._internal.getState();
-        if (st && typeof window.buildAssistantTemplateMeta === 'function') {
-          const nm = window.buildAssistantTemplateMeta(st, slot.templateMeta && slot.templateMeta.purpose, slot.templateMeta);
-          if (nm) slot.templateMeta = nm;   // [P2-2a] 재편집 후 메타 갱신(같은 슬롯)
-        }
-      } catch (_e) { /* keep prev meta */ }
-      try { saveSlotToDB(slot); } catch (_e2) { /* ignore */ }
-      try { if (typeof _renderPopupPhotoGrid === 'function') _renderPopupPhotoGrid(slot); } catch (_e3) { /* ignore */ }
-    };
-    if (window.restoreAssistantTemplate(slot, photo, _restoreOnSave)) return;
-  }
-
-  // [#1] 손님 사진 여러 장 → 편집기에서 좌우로 넘기며 편집(완료→다음). photoSet 으로 목록+활성 인덱스 전달.
-  const startIndex = Math.max(0, visible.findIndex(p => p.id === photo.id));
-  window.PhotoEditor.open({
-    src: photo.editedDataUrl || photo.dataUrl,
-    initial_tab: tab || 'auto',
-    customer_name: slot.label || '',
-    // [PR-C2] C-lite 확장: 부위보정/배경/템플릿/텍스트는 슬롯 팝업 안 슬라이드업.
-    //   전후(ba-toggle)는 별도 BA 플로우라 제외, 저장은 slot-save-close 라 해당 없음.
-    inline: tab === 'beauty' || tab === 'bg' || tab === 'template' || tab === 'text',
-    photoSet: {
-      list: visible.map(pp => ({ id: pp.id, src: pp.editedDataUrl || pp.dataUrl })),
-      index: startIndex,
-    },
-    // 각 사진 저장은 그 사진(id)에만 반영 — 다른 사진 오염 없음.
-    onSavePhoto: (photoId, dataUrl) => {
-      const tp = (slot.photos || []).find(pp => pp.id === photoId);
-      if (tp) { tp.editedDataUrl = dataUrl; tp.mode = 'enhanced'; }
-      try { saveSlotToDB(slot); } catch (_e) { /* ignore */ }
-      _renderPopupPhotoGrid(slot);
-    },
-  });
+  // [2026-07-22] 옛 PhotoEditor(photoSet/onSavePhoto/inline/templateMeta 복원) 경로 폐지.
+  //   현재 작업실 편집기로 슬롯 사진 전체를 넘긴다 — 활성 사진이 맨 앞에 오게 정렬해
+  //   '무엇을 편집하려 했는지'는 유지. 저장은 작업실 자체 저장(슬롯 동기화)이 담당.
+  const ordered = [photo].concat(visible.filter(p => p.id !== photo.id));
+  const urls = ordered.map(p => p.editedDataUrl || p.dataUrl).filter(Boolean).slice(0, 10);
+  if (!urls.length) { if (typeof showToast === 'function') showToast('편집할 사진이 없어요'); return; }
+  window.WorkspaceFlow.command({ type: 'storyedit', photoUrls: urls });
 }
 
 window.saveAndCloseSlotPopup = saveAndCloseSlotPopup;

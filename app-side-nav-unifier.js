@@ -49,7 +49,7 @@
     const cds = document.getElementById('customerDashSheet');
     if (cds) cds.style.display = 'none';
     // popstate 관리용 sheet-closed 신호
-    ['customers', 'inventory', 'revenue', 'booking', 'revenuehub', 'aihub', 'settingshub', 'nav'].forEach(k => {
+    ['customers', 'revenue', 'booking', 'revenuehub', 'aihub', 'settingshub', 'nav'].forEach(k => {
       try { window._markSheetClosed?.(k); } catch (_e) { void _e; }
     });
   }
@@ -83,7 +83,6 @@
     { action: 'revenue',      sheets: ['revenueSheet'] },
     { action: 'customer',     sheets: ['customerSheet', 'customerDashSheet'] },
     { action: 'customer-dm',  sheets: ['dmConvSheet'] },
-    { action: 'inventory',    sheets: ['inventorySheet'] },
     { action: 'calendar',     sheets: ['cal-overlay'] },
     { action: 'ai-hub',       sheets: ['aiHubSheet'] },
     { action: 'settings-hub', sheets: ['settingsHubSheet'] },

@@ -125,14 +125,30 @@
       const res = await apiFetch('/subscription/usage', { headers });
       if (!res.ok) throw new Error('usage ' + res.status);
       const u = await res.json();
+      // [버그6] BE 실제 응답 shape는 중첩 객체 — { plan, caption:{used,limit,period}, removebg:{…}, publish:{…}, analyze:{…}, portfolio_tag:{…} }
+      // 기존 코드는 평면 필드(u.caption_today)를 읽어 항상 rows=0 → "불러올 수 없어요"로 빠지던 버그.
+      const _fmtLimit = (l) => (l == null || l < 0) ? '∞' : l;
+      const _defs = [
+        ['caption', 'AI 캡션/해시태그', ''],
+        ['removebg', '누끼·배경', ''],
+        ['analyze', '말투 분석', ' (이번 달)'],
+        ['publish', '인스타 발행', ' (이번 달)'],
+        ['portfolio_tag', '포트폴리오 자동태그', ''],
+      ];
       const rows = [];
-      if (u.caption_today !== undefined) rows.push(`• AI 캡션/해시태그: ${u.caption_today}/${u.caption_limit || '∞'}`);
-      if (u.removebg_today !== undefined) rows.push(`• 누끼·배경: ${u.removebg_today}/${u.removebg_limit || '∞'}`);
-      if (u.analyze_month !== undefined) rows.push(`• 말투 분석: ${u.analyze_month}/${u.analyze_limit || '∞'} (이번 달)`);
-      if (u.publish_month !== undefined) rows.push(`• 인스타 발행: ${u.publish_month}/${u.publish_limit || '∞'} (이번 달)`);
-      box.innerHTML = rows.length ? rows.join('<br>') : '사용량 정보를 불러올 수 없어요';
+      let recognized = false; // 예상 shape의 키를 하나라도 이해했는지 (파싱 성공 판정)
+      for (const [key, label, suffix] of _defs) {
+        const it = u && u[key];
+        if (it && typeof it === 'object' && it.used !== undefined) {
+          recognized = true;
+          rows.push(`• ${label}: ${it.used}/${_fmtLimit(it.limit)}${suffix}`);
+        }
+      }
+      if (rows.length) box.innerHTML = rows.join('<br>');
+      else if (recognized) box.textContent = '아직 사용 내역이 없어요'; // 200이지만 집계 전/빈 경우
+      else box.textContent = '사용량 정보를 표시할 수 없어요'; // 응답 shape 예상 밖 (파싱 실패)
     } catch (_) {
-      box.textContent = '사용량을 불러오지 못했어요';
+      box.textContent = '사용량을 불러오지 못했어요'; // 네트워크/HTTP 실패
     }
   }
 
@@ -156,7 +172,7 @@
   function _renderSubMeta() {
     const meta = document.getElementById('planSubMeta');
     const cancelBtn = document.getElementById('planCancelBtn');
-    const paid = _currentPlan === 'pro' || _currentPlan === 'premium';
+    const paid = ['pro', 'premium', 'membership'].includes(_currentPlan);  // [2026-07-26] membership 도 유료(취소·만료 UI 노출)
     if (meta) {
       if (paid && _periodEnd) {
         const dt = new Date(_periodEnd);
@@ -168,6 +184,12 @@
       }
     }
     if (cancelBtn) cancelBtn.style.display = (paid && !_cancelScheduled) ? 'block' : 'none';
+    // [C-1] 구매 복원 버튼 — 네이티브 + IAP 플러그인 있을 때만 노출(Apple 3.1.1 필수).
+    const restoreBtn = document.getElementById('planRestoreBtn');
+    if (restoreBtn) {
+      const showRestore = _isNative() && window.ItdasyIAP && window.ItdasyIAP.isAvailable && window.ItdasyIAP.isAvailable();
+      restoreBtn.style.display = showRestore ? 'block' : 'none';
+    }
   }
 
   // [graceful disable] 웹에서 결제 불가(env 미설정)면 결제 버튼 비활성. 네이티브는 별도(IAP).
@@ -187,11 +209,9 @@
   function _updatePlanBadgeUI(plan) {
     const badge = document.getElementById('planBadge');
     if (!badge) return;
-    if (plan === 'pro') {
-      badge.textContent = _planDisplayName(plan);
-      badge.style.background = 'var(--brand)';
-      badge.style.color = '#fff';
-    } else if (plan === 'premium') {
+    // [C-1 2026-07-27] membership(정본 유료)도 브랜드색 — 예전엔 pro/premium 만 봐서
+    //   6,900원 결제자에게 배지가 회색(체험)으로 보였다.
+    if (plan === 'pro' || plan === 'premium' || plan === 'membership') {
       badge.textContent = _planDisplayName(plan);
       badge.style.background = 'var(--brand)';
       badge.style.color = '#fff';
@@ -220,8 +240,31 @@
     // 네이티브 앱: 앱스토어 IAP 만 사용 (Apple/Google anti-steering — 웹 PG 호출 금지).
     if (_isNative()) {
       if (window.hapticMedium) window.hapticMedium();
-      if (typeof window.showToast === 'function') window.showToast('앱에서는 앱스토어 결제로 진행돼요 (준비중)');
-      // TODO: @capacitor-community/in-app-purchases 플러그인 호출
+      // [C-1 2026-07-27] IAP 플러그인(cordova-plugin-purchase)이 설치된 빌드에서만 실제 결제.
+      //   플러그인 없으면(현재 빌드) isAvailable()=false → 기존 '준비중' 안내 유지(무회귀).
+      if (!(window.ItdasyIAP && window.ItdasyIAP.isAvailable && window.ItdasyIAP.isAvailable())) {
+        if (typeof window.showToast === 'function') window.showToast('앱스토어 결제 준비 중이에요. 곧 열려요!');
+        return;
+      }
+      var _btn = document.getElementById('planActionBtn');
+      var _orig = _btn ? _btn.textContent : '';
+      if (_btn) { _btn.disabled = true; _btn.style.opacity = '0.6'; _btn.textContent = '결제 진행 중…'; }
+      window.ItdasyIAP.purchaseMembership().then(function (r) {
+        if (r && r.ok) {
+          if (window.hapticSuccess) window.hapticSuccess();
+          _currentPlan = r.plan || 'membership';
+          _updateActionButton();
+          _updatePlanBadgeUI(_currentPlan);
+          if (typeof window.showToast === 'function') window.showToast('멤버십이 시작됐어요 🎉');
+          setTimeout(closePlanPopup, 1200);
+        } else {
+          if (_btn) { _btn.disabled = false; _btn.style.opacity = '1'; _btn.textContent = _orig; }
+          if (r && r.reason === 'cancelled') return; // 사용자가 취소 — 조용히
+          if (typeof window.showToast === 'function') {
+            window.showToast(r && r.message ? ('결제 실패: ' + r.message) : '결제를 완료하지 못했어요. 잠시 후 다시 시도해 주세요');
+          }
+        }
+      });
       return;
     }
 
@@ -269,7 +312,41 @@
   // 외부에서 현재 플랜 조회 (고객·매출 한도 분기용)
   window.getCurrentPlan = () => _currentPlan;
   window.getCurrentPlanLabel = () => _planDisplayName(_currentPlan);
-  window.isPaidPlan = () => _currentPlan === 'pro' || _currentPlan === 'premium';
+  // [2026-07-26 결제] membership(정본 단일 멤버십)도 유료로 인식 — 예전엔 pro/premium 만 봐서
+  //   6,900원 결제자가 무료 취급(취소 UI·유료기능 클라 게이트에서 배제)됐다.
+  window.isPaidPlan = () => ['pro', 'premium', 'membership'].includes(_currentPlan);
+
+  // [C-1] 구매 복원 — 스토어에서 소유한 구독을 다시 활성화(기기 변경·재설치 후).
+  async function doRestorePurchases() {
+    if (!(window.ItdasyIAP && window.ItdasyIAP.restore)) return;
+    const rb = document.getElementById('planRestoreBtn');
+    const orig = rb ? rb.textContent : '';
+    if (rb) { rb.disabled = true; rb.textContent = '복원 중…'; }
+    try {
+      const r = await window.ItdasyIAP.restore();
+      if (r && r.ok) {
+        if (window.hapticSuccess) window.hapticSuccess();
+        _currentPlan = r.plan || 'membership';
+        _updateActionButton(); _updatePlanBadgeUI(_currentPlan); _renderSubMeta();
+        if (typeof window.showToast === 'function') window.showToast('구매를 복원했어요 ✅');
+      } else if (typeof window.showToast === 'function') {
+        window.showToast('복원할 구매 내역이 없어요');
+      }
+    } catch (_e) {
+      if (typeof window.showToast === 'function') window.showToast('복원에 실패했어요. 잠시 후 다시 시도해 주세요');
+    } finally {
+      if (rb) { rb.disabled = false; rb.textContent = orig; }
+    }
+  }
+  window.doRestorePurchases = doRestorePurchases;
+
+  // [C-1] IAP/복원 성공으로 멤버십이 켜지면 플랜 상태 최신화(서버 기준).
+  window.addEventListener('itdasy:plan-activated', (e) => {
+    const plan = (e && e.detail && e.detail.plan) || 'membership';
+    _currentPlan = plan;
+    try { _updateActionButton(); _updatePlanBadgeUI(plan); _renderSubMeta(); } catch (_err) { void _err; }
+    if (typeof _loadStatus === 'function') _loadStatus().catch(() => {});
+  });
 
   // planActionBtn 클릭 이벤트 바인딩 (app-core.js 의 on() 등록 외에 안전장치)
   document.addEventListener('DOMContentLoaded', () => {
@@ -278,6 +355,8 @@
       btn._planActionBound = true;
       btn.addEventListener('click', doPlanAction);
     }
+    const rbtn = document.getElementById('planRestoreBtn');
+    if (rbtn && !rbtn._bound) { rbtn._bound = true; rbtn.addEventListener('click', doRestorePurchases); }
     // 초기 진입 시 현재 플랜 로드
     setTimeout(() => { if (window.API && window.authHeader && window.authHeader()?.Authorization) _loadStatus().catch(() => {}); }, 1500);
   });

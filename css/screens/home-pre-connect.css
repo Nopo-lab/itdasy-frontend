@@ -51,6 +51,8 @@
 /* [v559] flex 자식 min-width:auto 로 인해 내부 nowrap typewriter 가 280px 에서 가로 오버플로 → min-width:0 으로 축소 허용. */
 .ipc-live-bubble { background: var(--surface); border-radius: 4px 13px 13px; padding: 8px 12px; font-size: 12.5px; color: var(--text-muted); box-shadow: 0 1px 4px rgba(25,31,40,.05); display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; }
 .ipc-live-bubble b { color: var(--text); font-weight: 700; }
+/* 메시지+badge 사이 mid-word 줄바꿈 방지 — 텍스트를 하나의 flex 자식으로 묶고 한글은 어절 단위로만 접기 */
+.ipc-live-msg { flex: 1; min-width: 0; word-break: keep-all; }
 .ipc-ok { width: 15px; height: 15px; border-radius: 50%; background: #16B55E; color: #fff; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: auto; }
 .ipc-typewriter { display: inline-block; border-right: 2px solid var(--brand); white-space: nowrap; overflow: hidden; max-width: 100%; vertical-align: bottom; animation: ipcTw 6.5s steps(24,end) infinite, ipcBlink .8s step-end infinite; }
 @keyframes ipcTw { 0%,3%{width:0} 18%,100%{width:100%} }
@@ -189,4 +191,31 @@
   }
   .ipc-live-row { opacity: 1 !important; }
   .ipc-typewriter { border-right: none; }
+}
+
+/* ════ [A안 2026-07-21] 인스타 건너뛴 신규 = "사진으로 시작" 가이드 (#homeStartGuide) ════
+   IPC .ipc-* 디자인 그대로 재사용. 위치·닫기 버튼 + 데스크톱 단일컬럼 보정(IPC 는 PC 2단 히어로라 그대로 두면 깨짐). */
+#homeStartGuide { padding: 6px 14px 16px; }
+#homeStartGuide .ipc-card { position: relative; }
+.isg-close {
+  position: absolute; top: 12px; right: 12px; width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; background: transparent; color: var(--text-subtle);
+  border-radius: 50%; cursor: pointer; -webkit-tap-highlight-color: transparent; z-index: 1;
+}
+.isg-close:active { background: rgba(0,0,0,.05); }
+
+@media (width >= 768px) {
+  #homeStartGuide { max-width: 560px; margin: 0 auto; }
+  /* IPC 의 2단 grid 를 무력화하고 단일 컬럼으로 — 무대/혜택 요소가 없어 grid 면 빈칸 생김 */
+  #homeStartGuide .ipc-card { display: block; grid-template-columns: none; grid-template-areas: none; text-align: center; padding: 34px 32px; border-radius: 28px; }
+  #homeStartGuide .ipc-title { font-size: 24px; line-height: 1.34; white-space: normal; }
+  /* 모바일 전용 블록을 PC 가이드에선 그대로 노출 (IPC 는 PC 에서 숨기지만 여기선 단일 히어로라 살림) */
+  #homeStartGuide .ipc-bot-top { display: flex; }
+  #homeStartGuide .ipc-bot-shadow { display: block; }
+  #homeStartGuide .ipc-live { display: block; }
+  #homeStartGuide .ipc-flow--m { display: flex; }
+  #homeStartGuide .ipc-ctas { margin-top: 4px; }
+  #homeStartGuide .ipc-cta { width: 100%; align-self: auto; padding: 0; }
+  #homeStartGuide .ipc-trust, #homeStartGuide .ipc-skip { text-align: center; width: 100%; }
 }

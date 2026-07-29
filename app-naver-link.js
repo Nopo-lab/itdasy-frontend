@@ -180,7 +180,10 @@
       const res = await fetch(_api() + '/integrations/naver/sync', {
         method: 'POST', headers: _auth(),
       });
-      if (res.ok) _toast('동기화 완료');
+      // [2026-07-22 fix] BE가 {ok:true, status:'pending'}(아직 미구현) 반환 → res.ok 만 보고 '완료' 거짓토스트던 버그.
+      const j = await res.json().catch(() => ({}));
+      if (res.ok && j && j.status === 'pending') _toast('네이버 예약 동기화는 준비 중이에요 (Phase 1 예정)');
+      else if (res.ok) _toast('동기화 완료');
       else _toast('동기화 실패 — 다시 시도해주세요');
     } catch (_) {
       _toast('네트워크 오류');
@@ -192,6 +195,9 @@
     _hydrate();
     requestAnimationFrame(() => el.classList.add('is-open'));
     el.setAttribute('aria-hidden', 'false');
+    // [2026-07-22 보스] 뒤로가기 등록 — 안 하면 안드로이드 back/스와이프에서 이 화면 대신 앱이 그대로 꺼진다.
+    if (typeof window._registerSheet === 'function') window._registerSheet('naverLink', closeNaverLink);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('naverLink');
     _haptic();
   }
   function closeNaverLink() {
@@ -199,6 +205,7 @@
     if (!el) return;
     el.classList.remove('is-open');
     el.setAttribute('aria-hidden', 'true');
+    if (typeof window._markSheetClosed === 'function') window._markSheetClosed('naverLink');
     _haptic();
   }
 

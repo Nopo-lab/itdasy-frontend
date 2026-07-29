@@ -1,54 +1,8 @@
 /* 작업실 초고도화 — 레이아웃 고르기 화면 (ITDASY_WS_HYPER)
-   앱 전역 토큰(tokens.css) 기준. 클래스가 렌더될 때만 적용(플래그 OFF면 미사용=무해). */
+   앱 전역 토큰(tokens.css) 기준. 클래스가 렌더될 때만 적용(플래그 OFF면 미사용=무해).
+   [2026-07-15 구성 3종 재설계] 흑백 기조(#17191C · #8B95A1 · #E9EBEE · #F7F8FA), 로즈는 하단 CTA 하나만. */
 
-.wsl-wrap { padding: 4px 2px calc(24px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 14px; }
-
-/* 선택 레이아웃 미리보기 */
-.wsl-preview {
-  width: 100%; max-width: 520px; margin: 4px auto 2px; border-radius: var(--r-lg, 20px);
-  overflow: hidden; background: var(--surface-2, #F7F8FA); box-shadow: var(--shadow-md, 0 8px 24px rgba(0,0,0,.08));
-}
-.wsl-preview img { display: block; width: 100%; height: auto; }
-.wsl-preview--empty {
-  aspect-ratio: 4 / 5; display: grid; place-items: center; text-align: center;
-  color: var(--text-subtle, #6B7684); font-size: 14px; line-height: 1.6; font-weight: 600;
-  border: 1.5px dashed var(--border-strong, rgba(0,0,0,.14)); box-shadow: none;
-}
-
-.wsl-sec-t { font-size: 13px; font-weight: 800; color: var(--text-muted, #4E5968); letter-spacing: -0.02em; padding: 2px 4px; }
-
-.wsl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-
-.wsl-card {
-  appearance: none; -webkit-appearance: none; border: 1.5px solid var(--border, rgba(0,0,0,.07));
-  background: var(--surface, #fff); border-radius: var(--r-md, 14px); padding: 8px 8px 6px;
-  display: flex; flex-direction: column; gap: 6px; cursor: pointer; transition: border-color .12s, box-shadow .12s, transform .08s;
-  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-}
-.wsl-card:active { transform: scale(.97); }
-.wsl-card.on { border-color: var(--brand, #D58A95); box-shadow: var(--shadow-brand, 0 10px 24px rgba(213,138,149,.30)); }
-
-/* 슬롯 스키마틱 미니 프레임 — [2026-07-06] 고정높이 박스 안에 실제 비율 프레임 중앙정렬(카드 높이 통일) */
-.wsl-fbox { height: 96px; display: flex; align-items: center; justify-content: center; }
-/* [design] 미리보기 썸네일 — 솔리드 스키매틱은 'AI 티'가 나서, 살짝 투명·유리(frosted) 느낌으로 부드럽게. */
-.wsl-frame { position: relative; height: 100%; width: auto; max-width: 100%; aspect-ratio: 0.8; background: #EEF1F4; border-radius: 9px; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(25,31,40,.14); }
-/* [보스 2026-07-12] 슬롯 경계 명확히 — 사진이 어디에 어떻게 들어가는지 보이게 진한 테두리. */
-.wsl-frame > i {
-  position: absolute; background: #FBFCFD;
-  border: 1.5px solid rgba(25,31,40,.78); box-sizing: border-box; border-radius: 3px;
-}
-.wsl-card.on .wsl-frame { background: #F7EFF0; }
-.wsl-card.on .wsl-frame > i { border-color: #191F28; background: #FFF; }
-
-.wsl-card__name { font-size: 11.5px; font-weight: 700; color: var(--text, #191F28); text-align: center; letter-spacing: -0.02em; }
-
-.wsl-skip {
-  appearance: none; -webkit-appearance: none; background: none; border: 0; margin: 4px auto 0;
-  color: var(--text-subtle, #6B7684); font-size: 13px; font-weight: 700; padding: 10px; cursor: pointer;
-  text-decoration: underline; text-underline-offset: 3px; touch-action: manipulation;
-}
-
-/* 인터랙티브 슬롯 스테이지 (드래그=위치, 핀치=확대) */
+/* ── 인터랙티브 슬롯 스테이지 (드래그=위치, 핀치=확대) — slot-stage.js 가 붙임 ── */
 .wsl-stage {
   position: relative; width: 100%; max-width: 520px; margin: 4px auto 2px;
   border-radius: var(--r-lg, 20px); overflow: hidden; background: var(--frame, #E8ECF1);
@@ -60,48 +14,109 @@
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
   user-select: none; -webkit-user-drag: none; will-change: transform, object-position; pointer-events: none;
 }
-.wsl-slot--empty { display: grid; place-items: center; color: var(--text-subtle, #6B7684); font-size: 12px; font-weight: 700; }
-.wsl-stage-hint { text-align: center; font-size: 12px; color: var(--text-subtle, #6B7684); font-weight: 600; margin: -2px 0 2px; }
+.wsl-slot--empty { display: grid; place-items: center; color: var(--text-subtle, #8B95A1); font-size: 12px; font-weight: 700; }
 
-/* 사진 트레이 (탭 순서로 슬롯 채움) */
-.wsl-tray { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; -webkit-overflow-scrolling: touch; }
-.wsl-tray__ph {
-  position: relative; flex: 0 0 auto; width: 56px; height: 56px; border-radius: var(--r-md, 14px);
-  background-size: cover; background-position: center; border: 2px solid var(--border, rgba(0,0,0,.08));
-  cursor: pointer; padding: 0; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-}
-.wsl-tray__ph.on { border-color: var(--brand, #D58A95); box-shadow: var(--shadow-brand, 0 6px 16px rgba(213,138,149,.30)); }
-.wsl-tray__n {
-  position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px;
-  background: var(--brand-strong, #BC6675); color: #fff; border-radius: 999px; font-size: 12px; font-weight: 800;
-  display: grid; place-items: center; box-shadow: 0 2px 6px rgba(0,0,0,.2);
-}
-
-/* 캡션/미리보기 — 레이아웃 합성본은 폭 꽉 차게(레터박스 여백 X) */
+/* ── 캡션/미리보기 — 레이아웃 합성본은 폭 꽉 차게(레터박스 여백 X) ── */
 .wsl-cap-preview { width: 100%; max-width: 520px; margin: 0 auto; border-radius: var(--r-lg, 20px); overflow: hidden; background: var(--surface-2, #F7F8FA); }
 .wsl-cap-preview img { display: block; width: 100%; height: auto; }
 
-/* [2026-07-09 접근성] 키보드 포커스 가시화 + 모션 최소화 */
-.wsl-card:focus-visible, .wsl-skip:focus-visible, .wsl-tray__ph:focus-visible, .wsl-slot:focus-visible {
-  outline: 2px solid var(--brand, #D58A95); outline-offset: 2px;
+/* ── 레이아웃 고르기 (구성 3종, 목업 ③·④) ─────────────────────────────
+   위: 번호 썸네일 스트립(전부 보임, 캐러셀 없음) → 중간: 결과 미리보기 → 아래: 구성 카드 2~3개. */
+.wsc-wrap { display: flex; flex-direction: column; gap: 14px; padding: 4px 2px calc(16px + env(safe-area-inset-bottom)); }
+.wsc-empty { margin: 24px 8px; text-align: center; font-size: 13px; font-weight: 600; color: var(--text-subtle, #8B95A1); }
+
+/* 섹션 라벨 */
+.wsc-sec { font-size: 13px; font-weight: 800; color: var(--text, #17191C); display: flex; align-items: baseline; gap: 8px; padding: 0 2px; margin-bottom: 8px; }
+.wsc-sec span { font-size: 11px; font-weight: 500; color: var(--text-subtle, #8B95A1); }
+
+/* 번호 썸네일 스트립 — n장 전부 보인다 */
+.wsc-strip { display: flex; gap: 8px; overflow-x: auto; padding: 2px; -webkit-overflow-scrolling: touch; }
+.wsc-strip::-webkit-scrollbar { height: 0; }
+.wsc-sph {
+  position: relative; flex: none; width: 60px; height: 60px; border-radius: 12px;
+  background-size: cover; background-position: center; background-color: var(--border, #E9EBEE);
 }
-@media (prefers-reduced-motion: reduce) {
-  .wsl-card, .wsl-tray__ph, .wsl-slot, .wsl-card:active { transition: none !important; }
+.wsc-sph i {
+  position: absolute; left: 4px; top: 4px; width: 17px; height: 17px; border-radius: 9px;
+  background: rgba(23,25,28,.75); color: #fff; font-size: 10px; font-weight: 700; font-style: normal;
+  display: flex; align-items: center; justify-content: center;
 }
 
-/* [E2/E3 2026-07-09] 내 레이아웃 저장 버튼 + 삭제(×) 오버레이 */
-.wsl-save {
-  display: flex; align-items: center; justify-content: center; gap: 6px; margin: 8px auto 2px;
-  padding: 9px 16px; border-radius: 999px; background: var(--surface-2, #F7F8FA);
-  border: 1px solid var(--border, rgba(0,0,0,.08)); color: var(--text, #191F28);
-  font-size: 13px; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+/* 선택된 구성의 결과 미리보기 — 올라갈 이미지들을 그대로 나열(합치면 줄어드는 게 보인다) */
+.wsc-preview { background: var(--surface-2, #F7F8FA); border-radius: 18px; padding: 10px; }
+.wsc-frames {
+  display: flex; gap: 8px; overflow-x: auto; height: clamp(200px, 34vh, 320px);
+  scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch;
 }
-.wsl-save:active { transform: scale(.97); }
-.wsl-save svg { flex: none; }
-.wsl-cardwrap { position: relative; display: block; }
-.wsl-card-del {
-  position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; border-radius: 50%;
-  background: #191F28; color: #fff; border: 2px solid #fff; font-size: 15px; line-height: 1;
-  cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; z-index: 2;
+.wsc-frames::-webkit-scrollbar { height: 0; }
+/* 1장짜리는 가운데, 넘치면 스크롤 — auto 마진은 넘칠 때 0으로 접힌다 */
+.wsc-frame:first-child { margin-left: auto; }
+.wsc-frame:last-child { margin-right: auto; }
+.wsc-frame {
+  position: relative; flex: none; height: 100%; border-radius: 12px; overflow: hidden;
+  background: var(--border, #E9EBEE); box-shadow: inset 0 0 0 1px rgba(23,25,28,.08);
+  container-type: size; scroll-snap-align: center;
 }
-.wsl-save:focus-visible, .wsl-card-del:focus-visible { outline: 2px solid var(--brand, #D58A95); outline-offset: 2px; }
+.wsc-frame .wsl-ph { position: absolute; display: block; background-size: cover; background-position: center; background-color: #E4E8ED; }
+.wsc-frame b { position: absolute; display: block; font-weight: 800; white-space: pre; overflow: hidden; }
+.wsc-stagehost { position: absolute; inset: 0; }
+/* slot-stage 가 host.className 을 '.wsl-stage' 로 덮어쓴다 — 프레임 안에선 꽉 채우게 되돌린다 */
+.wsc-frame > .wsl-stage {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  max-width: none; margin: 0; border-radius: 0; box-shadow: none; background: transparent;
+}
+.wsc-fn {
+  position: absolute; left: 6px; top: 6px; z-index: 2; min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 9px; background: rgba(23,25,28,.75); color: #fff; font-size: 10px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+.wsc-count { margin: 8px 2px 0; text-align: center; font-size: 11.5px; font-weight: 500; color: var(--text-subtle, #8B95A1); }
+.wsc-count b { font-weight: 800; color: var(--text, #17191C); }
+
+/* 구성 카드 — 미니 다이어그램 + 이름 + 한줄 설명. 선택 = 검정 보더(로즈 X) */
+.wsc-opts { display: flex; flex-direction: column; gap: 8px; }
+.wsc-opt {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; cursor: pointer;
+  border: 1px solid var(--border, #E9EBEE); border-radius: 14px; padding: 12px 14px;
+  background: var(--surface, #fff); font-family: inherit;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  transition: border-color .12s, box-shadow .12s, transform .08s;
+}
+.wsc-opt:active { transform: scale(.985); }
+.wsc-opt.on { border-color: var(--text, #17191C); box-shadow: inset 0 0 0 .5px var(--text, #17191C); }
+.wsc-opt:focus-visible { outline: 2px solid var(--text, #17191C); outline-offset: 2px; }
+.wsc-mini { width: 40px; height: 40px; border-radius: 8px; background: var(--surface-2, #F7F8FA); flex: none; display: grid; gap: 2px; padding: 4px; }
+.wsc-mini i { background: #AEB5BD; border-radius: 2px; transition: background-color .12s; }
+.wsc-opt.on .wsc-mini i { background: var(--text, #17191C); }
+.wsc-mini--cover { grid-template-columns: 1fr 1fr; grid-template-rows: 2fr 1fr 1fr; }
+.wsc-mini--cover i:first-child { grid-column: 1 / 3; }
+.wsc-mini--2v { grid-template-columns: 1fr 1fr; }
+.wsc-mini--2h { grid-template-rows: 1fr 1fr; }
+/* [#3 2026-07-18] 한 컷 콜라주 미니 — 4장 2×2 · 3장 크게+2 */
+.wsc-mini--g4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.wsc-mini--1l2 { grid-template-columns: 1.6fr 1fr; grid-template-rows: 1fr 1fr; }
+.wsc-mini--1l2 i:first-child { grid-row: 1 / 3; }
+.wsc-opt-t { flex: 1; min-width: 0; }
+.wsc-opt-t b { display: block; font-size: 13.5px; font-weight: 700; color: var(--text, #17191C); }
+.wsc-opt-t span { display: block; font-size: 11.5px; color: var(--text-subtle, #8B95A1); margin-top: 2px; }
+
+/* ④ 사진 1장 — 확인만 */
+.wsc-one {
+  height: min(52vh, 480px); aspect-ratio: 4 / 5; margin: 0 auto; border-radius: 18px;
+  background-size: cover; background-position: center; background-color: var(--border, #E9EBEE);
+  max-width: 100%;
+}
+.wsc-onemsg {
+  display: flex; align-items: center; gap: 10px; background: var(--surface-2, #F7F8FA);
+  border-radius: 14px; padding: 13px 14px; color: var(--text, #17191C);
+}
+.wsc-onemsg svg { flex: none; }
+.wsc-onemsg b { display: block; font-size: 13.5px; font-weight: 700; }
+.wsc-onemsg span { display: block; font-size: 11.5px; color: var(--text-subtle, #8B95A1); margin-top: 2px; }
+
+/* 모션 최소화 */
+@media (prefers-reduced-motion: reduce) {
+  .wsc-opt, .wsc-opt:active, .wsc-mini i { transition: none !important; transform: none !important; }
+  .wsc-frames, .wsc-strip { scroll-behavior: auto; }
+}

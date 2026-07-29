@@ -47,36 +47,76 @@
     }
 
     const token = params.get('token');
+    const code = params.get('code');
     const provider = params.get('provider') || 'oauth';
     const err = params.get('error');
+    const api = (window.API || '');
 
     if (err) {
       if (window.showToast) window.showToast('로그인 실패: ' + decodeURIComponent(err));
       return true;
     }
+
+    // [보안감사 C-2/C-3 2026-07-27] 신규: 백엔드가 JWT 대신 1회용 code 만 넘긴다.
+    //   app-core._oauthPkceStart 가 로컬에 저장해둔 code_verifier 로 POST /auth/oauth/exchange 해서 JWT 교환.
+    //   딥링크(itdasy://oauth-return?code=)를 가로챈 악성 앱은 verifier 없어 교환 불가(C-3 토큰탈취 차단),
+    //   공격자 code 는 우리 verifier 로 만든 challenge 와 안 맞아 실패(C-2 세션고정 차단).
+    if (code) {
+      let pk = null;
+      try { pk = JSON.parse(localStorage.getItem('itdasy_oauth_pkce') || 'null'); } catch (_e) { void _e; }
+      if (!pk || !pk.v) {
+        if (window.showToast) window.showToast('로그인을 처음부터 다시 시작해 주세요.');
+        return true;
+      }
+      fetch(api + '/auth/oauth/exchange', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code, code_verifier: pk.v }),
+      })
+        .then(function (res) { return res.ok ? res.json() : Promise.reject(new Error('exchange_failed')); })
+        .then(function (d) {
+          if (!d || !d.access_token) throw new Error('no_token');
+          try { localStorage.removeItem('itdasy_oauth_pkce'); } catch (_e) { void _e; }
+          try {
+            const keySuffix = api.includes('staging') ? 'staging' : (api.includes('localhost') ? 'local' : 'prod');
+            localStorage.setItem('itdasy_token::' + keySuffix, d.access_token);
+          } catch (_e) { void _e; }
+          try { if (typeof window.applyNewSession === 'function') window.applyNewSession(d.access_token).catch(function () {}); } catch (_e) { void _e; }
+          if (window.showToast) window.showToast(provider + ' 로그인 완료!');
+          setTimeout(function () { window.location.reload(); }, 300);
+        })
+        .catch(function () {
+          if (window.showToast) window.showToast('로그인 코드가 만료됐어요. 다시 시도해 주세요.');
+        });
+      return true;
+    }
+
     if (!token) return true;
 
-    try {
-      const api = (window.API || '');
-      const keySuffix = api.includes('staging')
-        ? 'staging'
-        : (api.includes('localhost') ? 'local' : 'prod');
-      localStorage.setItem('itdasy_token::' + keySuffix, token);
-    } catch (_e) { void _e; }
+    // [보안감사 H-2 2026-07-27] 레거시 폴백(전환기): 딥링크로 token 을 직접 받은 경우.
+    //   무검증 저장하면 세션 고정 공격이 되므로, 저장·세션적용 전에 백엔드 /auth/me 로
+    //   (1) 유효 토큰인지 + (2) 서버가 돌려준 user id 가 토큰 sub 와 일치하는지 확인한다.
+    //   (신규 code 교환 경로가 이 경로를 대체 — code_challenge 를 보내는 프론트는 항상 code 를 받는다.)
+    let claimedSub = '';
+    try { claimedSub = String(JSON.parse(atob(token.split('.')[1])).sub || ''); } catch (_e) { void _e; }
 
-    // 다른 사용자 토큰일 수 있으니 user_id 비교 → 캐시 정리 + 가입방법 배지 동기화
-    // (window.applyNewSession 이 정의된 뒤에만 동작; reload 후에는 자동 로직이 다시 동작)
-    try {
-      if (typeof window.applyNewSession === 'function') {
-        // 비동기지만 reload 전에 캐시 정리·배지 저장이 끝나도록 await
-        // (실패해도 reload 는 진행)
-        window.applyNewSession(token).catch(() => {});
-      }
-    } catch (_e) { void _e; }
-
-    if (window.showToast) window.showToast('✓ ' + provider + ' 로그인 완료!');
-    // 토큰 반영을 위해 앱 새로고침
-    setTimeout(() => { window.location.reload(); }, 300);
+    fetch(api + '/auth/me', { headers: { 'Authorization': 'Bearer ' + token } })
+      .then(function (res) { return res.ok ? res.json() : Promise.reject(new Error('invalid_token')); })
+      .then(function (me) {
+        const meId = String((me && (me.id != null ? me.id : me.user_id)) || '');
+        if (!claimedSub || !meId || meId !== claimedSub) throw new Error('token_user_mismatch');
+        // 검증 통과 → 저장 · 세션 적용 · 리로드
+        try {
+          const keySuffix = api.includes('staging') ? 'staging' : (api.includes('localhost') ? 'local' : 'prod');
+          localStorage.setItem('itdasy_token::' + keySuffix, token);
+        } catch (_e) { void _e; }
+        try { if (typeof window.applyNewSession === 'function') window.applyNewSession(token).catch(function () {}); } catch (_e) { void _e; }
+        if (window.showToast) window.showToast(provider + ' 로그인 완료!');
+        setTimeout(function () { window.location.reload(); }, 300);
+      })
+      .catch(function () {
+        if (window.showToast) window.showToast('로그인 정보를 확인하지 못했어요. 다시 시도해 주세요.');
+      });
     return true;
   }
 

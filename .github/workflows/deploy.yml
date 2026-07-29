@@ -9,12 +9,18 @@ permissions:
   pages: write
   id-token: write
 
+# [배포 안정화] Pages 배포는 한 번에 하나만 — 겹치는 실행이 같은 Pages 배포를 두고 경쟁하다
+#   "Deployment failed, try again later" 나던 것 방지. 진행 중 배포는 취소하지 않고(중간 취소=깨짐) 큐잉.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deploy_try3.outputs.page_url || steps.deploy_try2.outputs.page_url || steps.deploy_try1.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,6 +36,8 @@ jobs:
           SHA=${GITHUB_SHA::7}
           NEW_VERSION="${TS}-${SHA}"
           echo "🔄 Bumping app build → ${NEW_VERSION}"
+          # 다음 스텝(?v= 자동 갱신)이 같은 값을 쓰도록 넘긴다 — 셸 변수는 스텝을 넘어가지 않는다.
+          echo "NEW_VERSION=${NEW_VERSION}" >> "$GITHUB_ENV"
           if [ -f sw.js ]; then
             sed -i.bak -E "s|const CACHE_VERSION = '[^']*';|const CACHE_VERSION = '${NEW_VERSION}';|" sw.js
             rm -f sw.js.bak
@@ -42,11 +50,61 @@ jobs:
           rm -f app-core.js.bak
           sed -i.bak -E "s|window.__LATEST_BUILD__ = '[^']*';|window.__LATEST_BUILD__ = '${NEW_VERSION}';|" index.html
           rm -f index.html.bak
+      # [2026-07-23 보스] ?v= 캐시 버스터 **자동 갱신** — 사람이 올리는 걸 그만둔다.
+      #   왜: 손으로 올리면 반드시 빠뜨린다. 특히 index.html 의 js/load-groups.js?v= 를 빼먹으면
+      #   그 안의 ?v= 를 아무리 올려도 브라우저가 옛 load-groups 를 써서 **버전 올리기가 통째로 무효**가 된다
+      #   (2026-07-23 실측: caption-text.js 가 9일 전 버전으로 로드되고 있었다).
+      #   → 매 배포마다 모든 ?v= 를 빌드 버전으로 통일한다. 배포 산출물만 바뀌고 레포는 그대로.
+      - name: Auto-bump all ?v= cache busters
+        env:
+          BUILD_V: ${{ env.NEW_VERSION }}
+        run: python3 scripts/bump_cache_busters.py "$BUILD_V"
       - name: Smoke check
+
         run: npm run smoke
+      # [기능별 연결 그래프] 코드 변경이 공유용 graph.html 에 자동 반영되게 매 배포마다 재생성.
+      #   AST 만 쓰므로 API 키 불필요. 비치명적(continue-on-error) — 실패해도 커밋된 graph.html 이 서빙됨.
+      - name: Rebuild feature graph (non-fatal)
+        continue-on-error: true
+        run: |
+          python3 -m pip install --quiet graphifyy || pip install --quiet graphifyy || true
+          python3 scripts/build_feature_graph.py || echo "graph build skipped (non-fatal)"
+      # [핫픽스] Pages 아티팩트에서 node_modules 제외 — 22k+ 파일이 Pages 파일 한도를 넘겨
+      #   tokens.css·app-core.js 등 정상 파일이 무작위 404 나던 문제 근본 해결(런타임 미참조라 안전).
+      #   .nojekyll 보장으로 Jekyll 처리에 의한 파일 누락도 방지.
+      - name: Trim Pages artifact (drop node_modules + internal files, ensure .nojekyll)
+        run: |
+          # node_modules: Pages 파일 한도 초과로 정상 파일 404 나던 것 방지(런타임 미참조).
+          # [보안감사 M-2 2026-07-27] 내부·민감 파일 공개 배포 금지 — 전부 런타임 미참조라 안전:
+          #   android/ios(네이티브·manifest·plist), .github(워크플로), .ai/.claude(내부문서·소스중복·감사노트),
+          #   scripts(QA 스크립트·데모계정 흔적), docs(제출문서·법무템플릿), capacitor-templates(빌드템플릿),
+          #   루트 *.md(CLAUDE/AGENTS/AUDIT 등 내부문서). 런타임 privacy/terms 는 루트 *.html 이라 유지됨.
+          rm -rf node_modules android ios .github .ai .claude scripts docs capacitor-templates
+          rm -f ./*.md
+          touch .nojekyll
+          echo "files to publish: $(find . -type f -not -path './.git/*' | wc -l)"
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
-      - id: deployment
+      # [배포 안정화] GitHub Pages 백엔드가 syncing_files 단계에서 간헐적으로 "Deployment failed, try
+      #   again later"를 뱉는다(GitHub 측 일시 장애). 연속 푸시로 Pages 배포가 겹치면 더 잦다.
+      #   → 같은 run 안에서 백오프 두고 최대 3회 재배포로 자가치유. 아티팩트는 1개 그대로라 "Multiple
+      #     artifacts" 오류 없음('rerun'과 다름 — rerun은 아티팩트를 하나 더 올려 터진다).
+      #   attempt 1·2는 continue-on-error(삼키고 재시도), 마지막 attempt 3만 실패 시 job 실패(진짜 문제 노출).
+      - id: deploy_try1
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - name: Backoff before retry 1 (30s)
+        if: steps.deploy_try1.outcome == 'failure'
+        run: sleep 30
+      - id: deploy_try2
+        if: steps.deploy_try1.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - name: Backoff before retry 2 (60s)
+        if: steps.deploy_try1.outcome == 'failure' && steps.deploy_try2.outcome == 'failure'
+        run: sleep 60
+      - id: deploy_try3
+        if: steps.deploy_try1.outcome == 'failure' && steps.deploy_try2.outcome == 'failure'
         uses: actions/deploy-pages@v4

@@ -21,43 +21,69 @@
     <p id="msg">잠시만 기다려주세요</p>
   </div>
   <script>
+    // [보안감사 C-2/C-3 2026-07-27] OAuth 복귀 처리 — 세션고정·토큰탈취 방어.
+    //  · 신규: 백엔드가 JWT 대신 1회용 code 만 넘김. 이 페이지가 로컬에 저장해둔
+    //    code_verifier(app-core.js _oauthPkceStart)로 POST /auth/oauth/exchange 해서 JWT 교환.
+    //    → 링크(?code=)만 가로챈 공격자는 verifier 없어 교환 불가(C-3),
+    //      공격자 code 는 우리 verifier 와 challenge 불일치로 실패(C-2).
+    //  · 레거시(?token=): 전환기 구 백엔드 호환. /auth/me 로 최소 검증 후 저장.
+    //  ⚠️ API 오리진은 URL 파라미터가 아니라 여기 하드코딩 — 아니면 공격자가 ?api=evil 로
+    //     verifier 를 탈취할 수 있다. (레포별 env: 이 레포 = staging 백엔드)
     (function () {
-      try {
-        const params = new URLSearchParams(window.location.search);
-        const token = params.get('token');
-        const provider = params.get('provider') || 'oauth';
-        const err = params.get('error');
-        if (err) {
-          document.getElementById('title').textContent = '로그인 실패';
-          document.getElementById('title').className = 'error';
-          document.getElementById('msg').textContent = decodeURIComponent(err);
-          return;
-        }
-        if (!token) {
-          document.getElementById('title').textContent = '잘못된 접근';
-          document.getElementById('msg').textContent = '토큰이 누락됐어요';
-          return;
-        }
-        // 2026-05-01 ── 운영 frontend (nopo-lab.github.io/itdasy-frontend/) + staging-named
-        // backend Railway URL 조합으로 키 불일치. app-core.js 가 API URL 보고 'staging' 키
-        // 사용하지만 여기선 frontend URL 기준이라 'prod' 저장 → 토큰 못 찾고 로그인 화면 회귀.
-        // 해결: 양쪽 키 모두 저장 (어느 쪽 읽어도 찾을 수 있게). 마지막에 unused 키는 cleanup 안 함.
-        const isLocal = /localhost|127\.0\.0\.1/.test(window.location.hostname);
-        if (isLocal) {
-          localStorage.setItem('itdasy_token::local', token);
-        } else {
-          localStorage.setItem('itdasy_token::staging', token);
-          localStorage.setItem('itdasy_token::prod', token);
-        }
-        // URL 정리 (토큰이 히스토리에 남지 않도록)
+      var API = 'https://itdasy-backend-staging-644329093453.asia-northeast3.run.app';
+      var params = new URLSearchParams(window.location.search);
+      function el(id) { return document.getElementById(id); }
+      function fail(t, m) { el('title').textContent = t; el('title').className = 'error'; el('msg').textContent = m || ''; }
+      function store(token) {
+        // app-core.js 가 ?api 설정에 따라 staging/prod 중 하나를 읽으므로 둘 다 저장(키 불일치 회귀 방지).
+        // 토큰은 방금 백엔드 교환/검증을 거친 정본이라 이중저장이 안전하다.
+        var isLocal = /localhost|127\.0\.0\.1/.test(window.location.hostname);
+        if (isLocal) { localStorage.setItem('itdasy_token::local', token); }
+        else { localStorage.setItem('itdasy_token::staging', token); localStorage.setItem('itdasy_token::prod', token); }
+        try { localStorage.removeItem('itdasy_oauth_pkce'); } catch (e) { void e; }
         history.replaceState({}, '', window.location.pathname);
-        document.getElementById('title').textContent = '✓ 로그인 완료!';
-        document.getElementById('msg').textContent = provider + ' 계정으로 로그인됐어요';
-        // 서브패스 (/itdasy-frontend-test-yeunjun/) 대응 — 같은 디렉토리의 index.html 로
-        setTimeout(() => { window.location.href = 'index.html'; }, 800);
+        el('title').textContent = '✓ 로그인 완료!';
+        el('title').className = '';
+        el('msg').textContent = (params.get('provider') || 'oauth') + ' 계정으로 로그인됐어요';
+        setTimeout(function () { window.location.href = 'index.html'; }, 800);
+      }
+      try {
+        var err = params.get('error');
+        if (err) { fail('로그인 실패', decodeURIComponent(err)); return; }
+
+        var code = params.get('code');
+        if (code) {
+          var pk = null;
+          try { pk = JSON.parse(localStorage.getItem('itdasy_oauth_pkce') || 'null'); } catch (e) { void e; }
+          if (!pk || !pk.v) { fail('로그인 정보 없음', '로그인을 처음부터 다시 시작해 주세요.'); return; }
+          fetch(API + '/auth/oauth/exchange', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: code, code_verifier: pk.v })
+          }).then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('exchange_failed')); })
+            .then(function (d) { if (!d || !d.access_token) throw new Error('no_token'); store(d.access_token); })
+            .catch(function () { fail('로그인 실패', '로그인 코드가 만료됐어요. 다시 로그인해 주세요.'); });
+          return;
+        }
+
+        var token = params.get('token');
+        if (token) {
+          // 레거시 폴백(전환기): /auth/me 로 유효성 + sub 일치만 확인 후 저장.
+          var sub = '';
+          try { sub = String(JSON.parse(atob(token.split('.')[1])).sub || ''); } catch (e) { void e; }
+          fetch(API + '/auth/me', { headers: { 'Authorization': 'Bearer ' + token } })
+            .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('invalid')); })
+            .then(function (me) {
+              var meId = String((me && (me.id != null ? me.id : me.user_id)) || '');
+              if (!sub || !meId || meId !== sub) throw new Error('mismatch');
+              store(token);
+            })
+            .catch(function () { fail('로그인 실패', '로그인 정보를 확인하지 못했어요. 다시 시도해 주세요.'); });
+          return;
+        }
+
+        fail('잘못된 접근', '로그인 코드가 누락됐어요');
       } catch (e) {
-        document.getElementById('title').textContent = '오류';
-        document.getElementById('msg').textContent = String(e.message || e);
+        fail('오류', String(e.message || e));
       }
     })();
   </script>

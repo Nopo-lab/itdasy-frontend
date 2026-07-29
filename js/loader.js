@@ -60,9 +60,10 @@
     const stub = function () {
       const args = arguments;
       if (window.showToast) window.showToast(toastMsg || '준비 중…');
-      ensure(group).then(() => {
+      // 실함수 반환값(Promise 등)을 그대로 전달 — await window.openCalendarView() 같은 호출 대응.
+      return ensure(group).then(() => {
         const real = window[name];
-        if (typeof real === 'function' && real !== stub) real.apply(null, args);
+        if (typeof real === 'function' && real !== stub) return real.apply(null, args);
       });
     };
     stub._loaderStub = true;
@@ -79,11 +80,29 @@
   _stub('openSupport', 'extras', '준비 중…');
   _stub('openSupportChat', 'extras', '준비 중…');
   _stub('openDMManualReplies', 'extras', '준비 중…');
+  /* [P0-2 Phase3] 게이트된 주변 기능 화면(리포트·리마인더·리텐션·리뷰요청·음성캡션) → extras 그룹.
+     assistant NL 명령 테이블이 openReviewRequests/openRetentionAI 를 값 캡처하나, 이 스텁이
+     boot 시점에 이미 있어 스텁이 캡처됨 → 스텁이 실함수로 위임(안전). */
+  _stub('openReport', 'extras', '준비 중…');
+  _stub('openReviewRequests', 'extras', '준비 중…');
+  _stub('openReminderSettings', 'extras', '준비 중…');
+  _stub('openRetentionAI', 'extras', '준비 중…');
+  _stub('openVoiceCaption', 'extras', '음성 캡션 준비 중…');
+  /* [P0-2] 예약/달력(app-calendar-view 124KB) — features 그룹으로 오프로드.
+     외부 진입점은 openCalendarView·openBooking 둘뿐(나머지 _cal*·closeBooking 은 열린 뒤 내부용). */
+  _stub('openCalendarView', 'features', '예약 화면 준비 중…');
+  _stub('openBooking', 'features', '예약 화면 준비 중…');
+  /* [P0-2 Phase2] 매출 화면(app-revenue 계열 7파일) — revenue 그룹으로 오프로드.
+     외부 진입점은 openRevenue·openRevenueHub·openRevenueInput. Revenue 엔진 소비처는
+     API폴백(service-templates)·toast가드+ensure브리지(phase9)로 안전. */
+  _stub('openRevenue', 'revenue', '매출 화면 준비 중…');
+  _stub('openRevenueHub', 'revenue', '매출 화면 준비 중…');
+  _stub('openRevenueInput', 'revenue', '매출 화면 준비 중…');
 
   /* ── 유휴 선로딩 — 홈 첫 페인트를 막지 않게 load 이후 idle 에 시작.
        잇비(매일 쓰는 기능) → 주변 기능 → 사진(106개, 최대 덩어리) 순서. ── */
   function _prefetch() {
-    const go = () => { ensure('assistant').then(() => ensure('extras')).then(() => ensure('photo')); };
+    const go = () => { ensure('assistant').then(() => ensure('features')).then(() => ensure('revenue')).then(() => ensure('extras')).then(() => ensure('photo')); };
     if ('requestIdleCallback' in window) requestIdleCallback(go, { timeout: 4000 });
     else setTimeout(go, 1500);
   }

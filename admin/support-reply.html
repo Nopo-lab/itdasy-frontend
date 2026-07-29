@@ -210,8 +210,8 @@
       const meta = document.getElementById('metaRow');
       if (found) {
         meta.innerHTML = `
-          <span><b>이름:</b> ${found.user_name || '—'}</span>
-          <span><b>이메일:</b> ${found.user_email || '—'}</span>
+          <span><b>이름:</b> ${escapeHtml(found.user_name || '—')}</span>
+          <span><b>이메일:</b> ${escapeHtml(found.user_email || '—')}</span>
           <span><b>최근 메시지:</b> ${escapeHtml(found.last_message || '—').slice(0, 80)}</span>
           <span><b>읽지않음:</b> ${found.unread_from_user || 0}건</span>
         `;

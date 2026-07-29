@@ -66,10 +66,13 @@
           var dd = dist(pts[ids[0]], pts[ids[1]]);
           sl.zoom = clamp(pin.z0 * (dd / (pin.d0 || 1)), 1, 3.5);
         } else if (drag) {
-          // 손가락을 오른쪽으로 끌면 사진이 오른쪽으로 → 왼쪽이 보임 → focal.x 감소. 배율 클수록 민감도↑.
+          // 손가락을 오른쪽으로 끌면 사진이 오른쪽으로 → 왼쪽이 보임 → focal.x 감소.
+          // GAIN: 셀 폭의 절반만 끌어도 좌우 끝까지 가도록 감도를 키운다(원장 피드백: 끝까지 안 밀림).
+          //   k(=1/zoom)는 확대했을 때 미세 조정이 되도록 유지.
           var k = 1 / Math.max(1, (sl.zoom || 1));
-          sl.focal.x = clamp(drag.fx - (e.clientX - drag.sx) / Math.max(1, rect.width) * k, 0, 1);
-          sl.focal.y = clamp(drag.fy - (e.clientY - drag.sy) / Math.max(1, rect.height) * k, 0, 1);
+          var GAIN = 1.8;
+          sl.focal.x = clamp(drag.fx - (e.clientX - drag.sx) / Math.max(1, rect.width) * k * GAIN, 0, 1);
+          sl.focal.y = clamp(drag.fy - (e.clientY - drag.sy) / Math.max(1, rect.height) * k * GAIN, 0, 1);
         }
         _applyImg(img, sl);
         e.preventDefault();

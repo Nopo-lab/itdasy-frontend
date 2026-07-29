@@ -607,7 +607,9 @@
     const focusEl = c.querySelector('[data-rv-field="amount"]');
     if (focusEl) focusEl.focus();
   }
+  let _qaBusy = false; // [2026-07-14 QA] 빠른추가 연타 중복 저장 방지
   async function _submitQuickAdd() {
+    if (_qaBusy) return;
     const v = _readQA();
     if (!v) return;
     const amount = parseInt(v.amount, 10);
@@ -618,6 +620,7 @@
       if (window.showToast) window.showToast('금액을 입력해 주세요');
       return;
     }
+    _qaBusy = true;
     try {
       await create({
         amount, method: v.method || 'card',
@@ -631,6 +634,8 @@
     } catch (e) {
       console.warn('[revenue] qa-add 실패:', e);
       if (window.showToast) window.showToast('저장 실패 — 다시 시도해 주세요');
+    } finally {
+      _qaBusy = false;
     }
   }
 
@@ -951,9 +956,11 @@
   }
 
   // ── 디스패처 ────────────────────────────────────────────
+  let _rerenderSeq = 0; // [카오스] 월 네비 연타 시 요청 순서 토큰 — 늦게 온 응답이 최신 달을 덮는 것 방지
   async function _rerender() {
     const sheet = document.getElementById('revenueSheet');
     if (!sheet) return;
+    const _seq = ++_rerenderSeq;
     _refreshDatalists();
     // 모바일 period 버튼 상태 + 오프라인 배지
     sheet.querySelectorAll('.rv-periods__btn').forEach(b => b.classList.toggle('is-on', b.dataset.period === _currentPeriod));
@@ -975,6 +982,8 @@
         console.warn('[revenue] summary fetch 실패 — 클라이언트 폴백:', _e);
         summary = window.RevenueMonth.fallbackSummary(_items);
       }
+      // [카오스] 이 await 사이 더 최근 네비/재렌더가 있었으면 폐기 — 라벨·수치 불일치(예: '5월' 라벨에 6월 매출) 방지
+      if (_seq !== _rerenderSeq) return;
       // 과거 월은 RevenueMonth 가 자체 fetch 한 _viewItems 사용. 이번달은 SWR _items.
       const view = window.RevenueMonth.getView ? window.RevenueMonth.getView() : null;
       const viewItems = window.RevenueMonth.getViewItems ? window.RevenueMonth.getViewItems() : null;

@@ -212,60 +212,6 @@
   }
 
   // ── 주요 지표 (재고 제외 1×3) ───────────────────────
-  function _metricsGrid(stats, deltaPct, inventory, period) {
-    /* INVENTORY_HIDDEN
-    const lowStock = inventory && inventory.items
-      ? (inventory.items || []).filter(i => i.quantity != null && i.threshold != null && i.quantity <= i.threshold).length
-      : null;
-    const invVal = lowStock != null ? (lowStock > 0 ? lowStock + '종 부족' : '재고 정상') : '재고 현황';
-    const invSubCls = lowStock != null && lowStock > 0 ? 'db-wid__sub--down' : '';
-    */
-
-    const periodTag = ({ today: '전일 대비', week: '전주 대비', month: '전월 대비' })[period] || '전월 대비';
-    const deltaStr = deltaPct != null ? (deltaPct >= 0 ? '+' : '') + deltaPct + '% ' + periodTag : periodTag + ' —';
-    const deltaCls = deltaPct == null ? '' : deltaPct >= 0 ? 'db-wid__sub--up' : 'db-wid__sub--down';
-    const deltaIcon = deltaPct == null || deltaPct >= 0 ? IC.trendUp : IC.trendDown;
-    const periodAmount = stats.period_amount != null ? stats.period_amount : stats.month_amount;
-
-    return `
-      <div class="db-grid2">
-        <button class="db-wid" data-metric="revenue">
-          <div class="db-wid__top">
-            <div class="db-wid__ic">${_ic(IC.chart)}</div>
-            <span class="db-wid__ttl">매출관리</span>
-          </div>
-          <p class="db-wid__val">${formatMan(periodAmount)}</p>
-          <span class="db-wid__sub ${deltaCls}">${_ic(deltaIcon, 12)} ${_esc(deltaStr)}</span>
-        </button>
-        <button class="db-wid" data-metric="customer">
-          <div class="db-wid__top">
-            <div class="db-wid__ic">${_ic(IC.users)}</div>
-            <span class="db-wid__ttl">고객관리</span>
-          </div>
-          <p class="db-wid__val">${stats.customer_count}명</p>
-          <span class="db-wid__sub">등록 고객</span>
-        </button>
-        <button class="db-wid" data-metric="booking">
-          <div class="db-wid__top">
-            <div class="db-wid__ic">${_ic(IC.calendar)}</div>
-            <span class="db-wid__ttl">예약관리</span>
-          </div>
-          <p class="db-wid__val">${stats.upcoming_bookings}건</p>
-          <span class="db-wid__sub">예정 예약</span>
-        </button>
-        <!-- INVENTORY_HIDDEN
-        <button class="db-wid" data-metric="inventory">
-          <div class="db-wid__top">
-            <div class="db-wid__ic">${"$"}{_ic(IC.box)}</div>
-            <span class="db-wid__ttl">재고관리</span>
-          </div>
-          <p class="db-wid__val">${"$"}{_esc(invVal)}</p>
-          <span class="db-wid__sub ${"$"}{invSubCls}">${"$"}{lowStock != null && lowStock > 0 ? '재주문 필요' : '재고 관리'}</span>
-        </button>
-        -->
-      </div>
-    `;
-  }
 
   // ── 데이터 & 인사이트 리스트 ─────────────────────────────
   function _insightItems() {
@@ -347,7 +293,6 @@
         const tab = btn.dataset.metric;
         if      (tab === 'booking')   { if (typeof window.openCalendarView  === 'function') window.openCalendarView(); }
         else if (tab === 'revenue')   { (window.openRevenue || window.openRevenueHub)?.(); }
-        /* INVENTORY_HIDDEN */ // else if (tab === 'inventory') { if (typeof window.openInventoryHub === 'function') window.openInventoryHub(); }
         else if (tab === 'customer')  { if (typeof window.openCustomerHub   === 'function') window.openCustomerHub(); }
       });
     });
@@ -435,7 +380,7 @@
       '/customers',
       '/bookings',
       '/retention/at-risk',
-      '/inventory',
+      null,   // [2026-07-22] 재고 제거 — 슬롯만 유지(뒤 인덱스 재정렬 방지)
       '/today/brief?period=' + period,
     ];
 
@@ -496,18 +441,18 @@
       Promise.all([
         _cachedGet('/bookings').catch(() => ({ items: [] })),
         _cachedGet('/retention/at-risk').catch(() => null),
-        _cachedGet('/inventory').catch(() => null),
+        Promise.resolve(null),   // [2026-07-22] 재고 제거 — 페치 안 함(슬롯 유지)
         _cachedGet('/today/brief?period=' + period).catch(() => null),
       ]).then(([bookings, atRisk, inventory, brief]) => {
         fresh[5] = bookings;
         fresh[6] = atRisk;
         fresh[7] = inventory;
         fresh[8] = brief;
-        // 비핵심 데이터 도착 후 해당 위젯만 재렌더
-        try { _renderBookingWidget && _renderBookingWidget(bookings); } catch(e){ console.warn('[dashboard] 예약 위젯 갱신 실패:', e); }
-        try { _renderRetentionWidget && _renderRetentionWidget(atRisk); } catch(e){ console.warn('[dashboard] 위험 고객 위젯 갱신 실패:', e); }
-        try { _renderInventoryWidget && _renderInventoryWidget(inventory); } catch(e){ console.warn('[dashboard] 재고 위젯 갱신 실패:', e); }
-        try { _renderBriefWidget && _renderBriefWidget(brief); } catch(e){ console.warn('[dashboard] 브리핑 위젯 갱신 실패:', e); }
+        // [2026-07-26 에러스윕] 비핵심 데이터(예약·위험고객·브리핑) 도착 후 전체 재렌더.
+        //   예전엔 _renderBookingWidget 등 '존재하지 않는' 함수를 호출했다. 'X && X()' 가드는
+        //   미선언 식별자를 못 막아(ReferenceError) 매번 터졌고, 그래서 예약·위험고객·브리핑 위젯이
+        //   데이터가 도착해도 빈 채로 남았다. 완성된 fresh 로 한 번 다시 그린다.
+        try { _renderFromData(fresh); } catch(e){ console.warn('[dashboard] fresh 재렌더 실패:', e); }
       }).catch(() => {});
     } catch (_e) {
       // fresh 실패해도 stale 화면은 이미 표시됨 — 조용히 무시

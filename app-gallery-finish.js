@@ -165,7 +165,7 @@ function _renderFinishTab(root, galleryItems = []) {
     const safeSel = window.CSS && CSS.escape ? CSS.escape(String(slot.id)) : String(slot.id).replace(/"/g, '\\"');
     const card = root.querySelector(`[data-finish-slot="${safeSel}"]`);
     if (!card) return;
-    card.querySelector('[data-action="edit"]')?.addEventListener('click', () => openSlotPopup(slot.id));
+    card.querySelector('[data-action="edit"]')?.addEventListener('click', () => _editSlotInWorkspace(slot));
     card.querySelector('[data-action="publish"]')?.addEventListener('click', () => _showPublishOptions(slot.id));
     card.querySelector('[data-action="pickCustomer"]')?.addEventListener('click', () => _pickCustomerForSlot(slot.id));
     card.querySelector('[data-action="defer"]')?.addEventListener('click', () => _deferSlot(slot.id));
@@ -174,6 +174,25 @@ function _renderFinishTab(root, galleryItems = []) {
   root.querySelectorAll('[data-gallery-item]').forEach(el => {
     el.addEventListener('click', () => _galleryItemDetail(el.dataset.galleryItem));
   });
+}
+
+// [2026-07-22] 발행 콘텐츠 '편집' → 레거시 슬롯 팝업(→ 옛 PhotoEditor) 대신 현재 작업실로.
+//   슬롯의 사진(편집본 우선)을 그대로 넘겨 현재 편집기에서 이어서 작업.
+function _editSlotInWorkspace(slot) {
+  const urls = ((slot && slot.photos) || [])
+    .filter(p => p && !p.hidden)
+    .map(p => p.editedDataUrl || p.dataUrl)
+    .filter(Boolean)
+    .slice(0, 10);
+  if (!(window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function')) {
+    if (typeof showToast === 'function') showToast('작업실을 여는 중이에요. 잠시 후 다시 눌러주세요');
+    return;
+  }
+  if (!urls.length) {
+    if (typeof showToast === 'function') showToast('편집할 사진이 없어요');
+    return;
+  }
+  window.WorkspaceFlow.command({ type: 'storyedit', photoUrls: urls });
 }
 
 function _bindFinishQuickActions(root) {

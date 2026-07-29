@@ -21,7 +21,7 @@
   --danger: #EF4444;
   --info:   #3B82F6;
 
-  /* [skin-v3] 액센트 별칭 — 향후 브랜드 색 '단일 제어 지점'.
+  /* 액센트 별칭 — 브랜드 색 '단일 제어 지점'.
      기본값은 기존 브랜드와 동일 → 시각 변화 0. 색 바꿀 땐 여기 한 곳만. */
   --accent:        var(--brand);
   --accent-strong: var(--brand-strong);

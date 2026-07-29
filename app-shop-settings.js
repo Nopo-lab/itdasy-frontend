@@ -74,9 +74,16 @@
           <div class="ss-toggle">
             <div>
               <div class="ss-toggle-lbl">예약 자동 확정</div>
-              <div class="ss-toggle-sub">예약금 결제 완료 시 자동으로 확정 처리</div>
+              <div class="ss-toggle-sub">손님 입금 신호가 오면 원장 확인 없이 자동으로 예약을 확정해요. 꺼두면 [입금 확인+예약 확정] 버튼으로 직접 확정해요(기본).</div>
             </div>
-            <div class="ss-switch is-on" id="ssAutoConfirmSwitch" role="switch" aria-checked="true" tabindex="0"></div>
+            <div class="ss-switch" id="ssAutoConfirmSwitch" role="switch" aria-checked="false" tabindex="0"></div>
+          </div>
+          <div class="ss-toggle" style="margin-top:12px;">
+            <div>
+              <div class="ss-toggle-lbl">예약 알림톡 자동발송</div>
+              <div class="ss-toggle-sub">예약 확인·전날 리마인드를 고객에게 카카오 알림톡으로 자동 발송해요. 켜면 발송돼요.</div>
+            </div>
+            <div class="ss-switch" id="ssAlimtalkSwitch" role="switch" aria-checked="false" tabindex="0"></div>
           </div>
         </div>
 
@@ -308,6 +315,7 @@
     // [2026-05-23] 1인샵 토글 복원 + _refreshStaffVisibility 제거 — 직원 기능 폐지.
     // 영업시간 hydrate — 백엔드 GET /shop/settings 우선, 실패 시 localStorage, 그것도 없으면 default
     let hours = _defaultHours();
+    let _serverHadHours = false; // [보안감사 M-9] 서버가 영업시간을 주면 로컬로 덮지 않는다(다중기기 stale 롤백 방지)
     try {
       const res = await fetch(_api() + '/shop/settings', { headers: { ..._auth() } });
       if (res.ok) {
@@ -316,18 +324,39 @@
         if (typeof bh === 'string') { try { bh = JSON.parse(bh); } catch (_e) { bh = null; } }
         if (bh && typeof bh === 'object' && !Array.isArray(bh)) {
           _DAY_KEYS.forEach(k => { if (bh[k]) hours[k] = { ...hours[k], ...bh[k] }; });
+          _serverHadHours = true;
+        }
+        // [2026-07-25 예약QA F5] 알림톡 자동발송 스위치 서버값 반영.
+        const _alSw = document.getElementById('ssAlimtalkSwitch');
+        if (_alSw) {
+          const _on = !!data.alimtalk_auto_enabled;
+          _alSw.classList.toggle('is-on', _on);
+          _alSw.setAttribute('aria-checked', _on ? 'true' : 'false');
+        }
+        // [C-6 2026-07-27] 예약 자동확정 스위치 서버값 반영. 백엔드에 auto_confirm 컬럼을 신설해
+        //   이제 GET 에서 실제 값을 내려준다(기본 False = 팀 설계대로 원장 수동 확정). 켠 샵에서만 자동확정.
+        const _acSw = document.getElementById('ssAutoConfirmSwitch');
+        if (_acSw) {
+          const _acOn = !!data.auto_confirm;
+          _acSw.classList.toggle('is-on', _acOn);
+          _acSw.setAttribute('aria-checked', _acOn ? 'true' : 'false');
         }
       }
     } catch (_e) { /* ignore — fallback to default */ }
-    try {
-      const localBH = localStorage.getItem('itdasy_business_hours_json');
-      if (localBH) {
-        const parsed = JSON.parse(localBH);
-        if (parsed && typeof parsed === 'object') {
-          _DAY_KEYS.forEach(k => { if (parsed[k]) hours[k] = { ...hours[k], ...parsed[k] }; });
+    // [보안감사 M-9] 로컬 영업시간은 '서버에 값이 없을 때만' 폴백으로 쓴다.
+    //   예전엔 서버 로드 뒤 무조건 로컬로 재override 해서, 다른 기기가 고친 최신 영업시간이
+    //   이 기기의 오래된 로컬로 되돌아가고 저장 시 서버까지 롤백됐다.
+    if (!_serverHadHours) {
+      try {
+        const localBH = localStorage.getItem('itdasy_business_hours_json');
+        if (localBH) {
+          const parsed = JSON.parse(localBH);
+          if (parsed && typeof parsed === 'object') {
+            _DAY_KEYS.forEach(k => { if (parsed[k]) hours[k] = { ...hours[k], ...parsed[k] }; });
+          }
         }
-      }
-    } catch (_e) { /* ignore */ }
+      } catch (_e) { /* ignore */ }
+    }
     _expandedDay = null; // 화면 재진입 시 인라인 확장 초기화
     _renderHoursGrid(hours);
   }
@@ -345,6 +374,8 @@
       hours: _hrText,
       business_hours_json: hoursObj ? JSON.stringify(hoursObj) : null,
       auto_confirm: document.getElementById('ssAutoConfirmSwitch')?.classList.contains('is-on') ? 1 : 0,
+      // [2026-07-25 예약QA F5] 예약 알림톡 자동발송 opt-in — 백엔드 ShopSettings.alimtalk_auto_enabled.
+      alimtalk_auto_enabled: !!document.getElementById('ssAlimtalkSwitch')?.classList.contains('is-on'),
     };
     if (!payload.shop_name) { _toast('샵 이름을 입력해주세요'); return; }
 
@@ -355,7 +386,7 @@
       await _safeSet('itdasy_shop_addr', payload.address);
       localStorage.setItem('itdasy_shop_hours', _hrText);
       if (payload.business_hours_json) localStorage.setItem('itdasy_business_hours_json', payload.business_hours_json);
-      localStorage.setItem('itdasy_solo_mode', String(payload.solo_mode));
+      // [보안감사 L-8] payload.solo_mode 는 폐지돼 항상 undefined → 문자열 "undefined" 저장되던 것 제거.
     } catch (_e) { void _e; }
 
     // 드로어 헤더 즉시 갱신
@@ -382,6 +413,9 @@
     _hydrate().catch(() => {});
     requestAnimationFrame(() => el.classList.add('is-open'));
     el.setAttribute('aria-hidden', 'false');
+    // [2026-07-22 보스] 뒤로가기 등록 — 안 하면 안드로이드 back/스와이프에서 이 화면 대신 앱이 그대로 꺼진다.
+    if (typeof window._registerSheet === 'function') window._registerSheet('shopSettings', closeShopSettings);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('shopSettings');
     _haptic();
   }
   function closeShopSettings() {
@@ -389,6 +423,7 @@
     if (!el) return;
     el.classList.remove('is-open');
     el.setAttribute('aria-hidden', 'true');
+    if (typeof window._markSheetClosed === 'function') window._markSheetClosed('shopSettings');
     _haptic();
   }
 

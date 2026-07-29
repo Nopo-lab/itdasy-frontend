@@ -86,12 +86,32 @@
     const photoUrl = userMsg.thumb || (Array.isArray(userMsg.photos) ? userMsg.photos[0] : '');
     const photos = Array.isArray(userMsg.photos) ? userMsg.photos : (photoUrl ? [photoUrl] : []);
     if (!photoUrl) return true;
-    // [잇비↔작업실] 채팅 사진으로 바로 작업실 게시글 흐름 열기(명시 버튼만 — 자동진입 아님).
-    if (chip.id === 'workspace' && window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+    // [잇비↔작업실 2026-07-21] 채팅 사진 카드의 모든 버튼 → 현재 작업실(WorkspaceFlow)의 알맞은 모드.
+    //   ws_post=게시글(레이아웃-퍼스트) · ws_ba=전후 · ws_review=후기 · ws_edit=바로 보정. (구 'workspace' 칩도 흡수)
+    var WS_CAT = { workspace: null, ws_post: null, ws_ba: 'ba', ws_review: 'review', ws_edit: null };
+    if (Object.prototype.hasOwnProperty.call(WS_CAT, chip.id)) {
+      var _cat = WS_CAT[chip.id];
+      // [2026-07-22] '사진 편집'(ws_edit)은 인스타식 편집기(ItdEditor)로 — 옛 슬라이더 'edit' 화면 아님.
+      var _isEdit = chip.id === 'ws_edit';
       try { if (window.ItdasySourceImage) window.ItdasySourceImage.noteChatPhoto({ dataUrl: photoUrl, messageId: 'chat-ws' }); } catch (_e) { void _e; }
       deps.history.splice(hi - 1, 2);
       deps.renderHistory();
-      window.WorkspaceFlow.command({ type: 'open', photoUrls: photos, cat: null });
+      // photo 그룹(지연 로드) 먼저 보장 후 열기 — WorkspaceFlow 미로드 시 조용히 폴백하던 버그 방지.
+      (async function () {
+        try {
+          if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) {
+            await window.AppLoader.ensure('photo');
+          }
+        } catch (_l) { void _l; }
+        if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+          try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_c) { void _c; }   // 잇비 시트 닫아 작업실이 위로 보이게
+          window.WorkspaceFlow.command(_isEdit
+            ? { type: 'storyedit', photoUrls: photos }
+            : { type: 'open', photoUrls: photos, cat: _cat });
+        } else if (typeof deps.runChatAutoEdit === 'function') {
+          deps.runChatAutoEdit({ photoUrl: photoUrl, photos: photos, question: '사진 편집', customerCtx: null });
+        }
+      })();
       return true;
     }
     deps.history.splice(hi - 1, 2);
@@ -133,9 +153,20 @@
   }
 
   function _openEditor(dataUrl) {
-    if (window.PhotoEditor && typeof window.PhotoEditor.open === 'function') {
-      window.PhotoEditor.open({ src: dataUrl, initial_tab: 'tune' });
-    }
+    // [2026-07-22] 옛 PhotoEditor 대신 현재 인스타식 편집기(ItdEditor)로.
+    (function () {
+      var go = function () {
+        try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_c) { void _c; }
+        if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+          window.WorkspaceFlow.command({ type: 'storyedit', photoUrls: dataUrl ? [dataUrl] : null });
+        } else if (window.showToast) {
+          window.showToast('작업실을 여는 중이에요. 잠시 후 다시 눌러주세요');   // [2026-07-22] 옛 PhotoEditor 폴백 제거
+        }
+      };
+      if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) {
+        Promise.resolve(window.AppLoader.ensure('photo')).then(go, go);
+      } else { go(); }
+    })();
   }
 
   function _savePhotoResult(dataUrl) {
@@ -158,10 +189,47 @@
     deps.runChatAutoEdit({ photoUrl, photos, question, customerCtx: null });
   }
 
+  /* [2026-07-22 보스] 잇비 채팅 안 레이아웃 카드 탭 → 그 구성으로 작업실을 열고 게시글까지 직행.
+     "채팅 안에서 딸깍" — 사진 던지고 레이아웃 하나 누르면 끝. 중간에 레이아웃 화면을 안 거친다.
+     실제 구성 적용·합성은 WorkspaceFlow 가 한다(여긴 어느 구성인지만 넘긴다) — 합성 로직을
+     여기 복제하면 콜라주를 골랐는데 원본이 올라가는 식으로 조용히 어긋난다. */
+  function _handleLayoutPick(e, deps) {
+    const el = e.target.closest('[data-asst-layoutpick]');
+    if (!el || !_bodyContains(el)) return false;
+    if (deps.isSendInFlight()) return true;
+    const [hiStr, compKey] = el.dataset.asstLayoutpick.split(':');
+    const hi = parseInt(hiStr, 10);
+    const pickMsg = deps.history[hi];
+    const userMsg = deps.history[hi - 1];
+    if (!pickMsg || !Array.isArray(pickMsg.layout_picks) || !userMsg) return true;
+    const photos = Array.isArray(userMsg.photos) ? userMsg.photos : (userMsg.thumb ? [userMsg.thumb] : []);
+    if (!photos.length) return true;
+    const picked = pickMsg.layout_picks.find(o => o.key === compKey);
+
+    // 고른 걸 채팅에 남긴다 — 나중에 위로 스크롤했을 때 "내가 뭘 골랐지"가 보이게.
+    pickMsg.layout_picks = null;
+    pickMsg.text = (picked ? '‘' + picked.name + '’' : '레이아웃') + '으로 만들게요. 게시글 화면에서 시술 내용만 알려주세요.';
+    deps.renderHistory();
+
+    (async function () {
+      try {
+        if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) {
+          await window.AppLoader.ensure('photo');
+        }
+      } catch (_l) { void _l; }
+      if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+        try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_c) { void _c; }
+        window.WorkspaceFlow.command({ type: 'orchestrate', photoUrls: photos.slice(0, 10), brief: null, comp: compKey });
+      }
+    })();
+    return true;
+  }
+
   function handleClick(e, deps) {
     return _handlePendingRemove(e, deps)
       || _handleUploadPhotoClick(e, deps)
       || _handlePhotoResultClick(e, deps)
+      || _handleLayoutPick(e, deps)
       || _handleIntentChip(e, deps)
       || _handlePhotoAction(e, deps);
   }

@@ -114,7 +114,7 @@ function _renderAiRecommendTab(root, slots) {
         <!-- 체크박스 -->
         <div data-ai-check data-ai-id="${safeSlotId}" style="position:absolute;top:12px;left:12px;z-index:2;width:20px;height:20px;border-radius:5px;border:2px solid ${isChecked ? 'var(--accent)' : 'rgba(0,0,0,0.2)'};background:${isChecked ? 'var(--accent)' : 'rgba(255,255,255,0.9)'};display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;cursor:pointer;">${isChecked ? '✓' : ''}</div>
         <!-- 삭제 버튼 -->
-        <button data-ai-delete data-ai-id="${safeSlotId}" style="position:absolute;top:10px;right:10px;background:transparent;border:none;font-size:16px;color:var(--text3);cursor:pointer;line-height:1;padding:2px 6px;">✕</button>
+        <button data-ai-delete data-ai-id="${safeSlotId}" aria-label="삭제" style="position:absolute;top:10px;right:10px;background:transparent;border:none;font-size:16px;color:var(--text3);cursor:pointer;line-height:1;padding:2px 6px;">✕</button>
         <!-- 카드 본문: 상태에 따라 다른 탭으로 -->
         <div data-ai-open data-ai-id="${safeSlotId}" style="display:flex;gap:12px;align-items:center;cursor:pointer;padding:0 24px 0 28px;">
           ${thumbSrc

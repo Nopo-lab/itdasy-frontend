@@ -67,8 +67,17 @@
         method: 'POST',
         headers: window.authHeader ? window.authHeader() : {},
       });
+      // [죽은동작 정리 2026-07-27] BE 는 쿨다운·재시도한도·실제 발송실패를 전부 HTTP 200 + {ok:false}
+      //   로 응답한다. 예전엔 res.ok(200)만 보고 "다시 보냈어요"를 띄워, 실제로 안 나갔는데도
+      //   성공으로 오인시켰다. body 의 ok 와 message 를 읽어 정확히 안내한다.
       if (res.ok) {
-        if (window.showToast) window.showToast('다시 보냈어요');
+        const data = await res.json().catch(() => ({}));
+        if (data && data.ok) {
+          if (window.showToast) window.showToast(data.message || '다시 보냈어요');
+          return;
+        }
+        if (window.showToast) window.showToast((data && data.message) || '재시도하지 못했어요 — 잠시 후 다시 시도해주세요');
+        if (btn) btn.disabled = false;
         return;
       }
       if (window.showToast) window.showToast('재시도 실패 — 잠시 후 다시 시도해주세요');
@@ -159,6 +168,11 @@
       }
       if (kind === 'support_reply' || kind === 'support_ai_reply') {
         if (window.openSupportSheet) { window.openSupportSheet(); return true; }
+      }
+      // [죽은동작 정리 2026-07-27] 예약 알림은 "예약관리 보기 →" 라벨인데 라우팅이 없어 읽음+제거만 됐다.
+      //   (payload.customer_id 가 있으면 오히려 고객카드로 튀었음.) 캘린더로 보낸다. payload 분기보다 먼저.
+      if (kind === 'booking_soon' || kind === 'booking_confirm_prev_day' || kind.indexOf('booking') === 0) {
+        if (window.openCalendar) { window.openCalendar(); return true; }
       }
       // payload 안에 customer_id 있으면 고객 카드 열기
       if (n.payload) {
@@ -274,209 +288,12 @@
     } catch (_) { void 0; }
   }
 
-  // [2026-04-29] 회원권 만료 임박 + 잔액 부족 알림 카드 (홈 인라인)
-  function _renderMembershipAlertCard() {
-    const anchor = document.getElementById('home-today-brief')
-      || document.getElementById('homePostConnect')
-      || document.querySelector('main') || document.body;
-    if (!anchor) return;
-    let host = document.getElementById('itdMembershipAlertHost');
-    if (!host) {
-      host = document.createElement('div');
-      host.id = 'itdMembershipAlertHost';
-      host.style.cssText = 'margin:0 0 12px 0;';
-      if (anchor.parentNode) anchor.parentNode.insertBefore(host, anchor);
-      else anchor.appendChild(host);
-    }
-    const dismissed = _getDismissed();
-    const memKinds = ['membership_expire_7d', 'membership_expire_1d', 'membership_low_30', 'membership_low_10'];
-    // [2026-06-07] 홈 상단 인라인 카드 노출 중단 — 알림은 종(🔔) 목록에서만. 홈 상단 안 밀리게.
-    const memNotifs = [];
-    // [2026-06-07] 비었을 때 display:none — 빈 호스트의 margin 12px 가 홈 상단 공백 만들던 문제.
-    if (!memNotifs.length) { host.innerHTML = ''; host.style.display = 'none'; return; }
-    const total = memNotifs.length;
-    const a = memNotifs[0];
-    host.style.display = '';
-    host.innerHTML = `
-      <div role="status" style="background:linear-gradient(135deg,#F7EFF0 0%,#FCE7EC 100%);border:1px solid #F0DADF;border-radius:14px;padding:14px 14px 14px 16px;position:relative;">
-        <div style="display:flex;align-items:flex-start;gap:10px;">
-          <div style="flex-shrink:0;width:36px;height:36px;border-radius:12px;background:var(--brand,#D58A95);display:flex;align-items:center;justify-content:center;">
-            <svg style="width:18px;height:18px;stroke:#fff;stroke-width:2;fill:none;" aria-hidden="true"><use href="#ic-credit-card"/></svg>
-          </div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:11px;font-weight:600;color:#BC6675;letter-spacing:0.2px;margin-bottom:2px;">회원권 알림 ${total > 1 ? `(${total}건)` : ''}</div>
-            <div style="font-size:14px;font-weight:700;color:#1f2330;line-height:1.35;">${_esc(a.title)}</div>
-            <div style="font-size:12px;color:#525c70;margin-top:4px;line-height:1.5;">${_esc(a.body || '')}</div>
-            <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
-              <button data-mem-open="${a.id}" data-mem-payload='${(a.payload || '{}').replace(/'/g, '&#39;')}' style="background:#BC6675;color:#fff;border:none;padding:7px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">충전 안내</button>
-              <button data-mem-dismiss="${a.id}" style="background:none;border:none;color:#BC6675;font-size:11px;cursor:pointer;">나중에</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-    host.querySelector('[data-mem-open]')?.addEventListener('click', async (e) => {
-      const btn = e.currentTarget;
-      const id = parseInt(btn.dataset.memOpen, 10);
-      try {
-        const payload = JSON.parse(btn.dataset.memPayload || '{}');
-        if (payload.customer_id && window.MembershipUI && window.MembershipUI.openTopupSheet) {
-          window.MembershipUI.openTopupSheet(payload.customer_id, payload.customer_name || '');
-        }
-      } catch (_) { void 0; }
-      await _markRead(id);
-      _items = _items.filter(x => x.id !== id);
-      _updateBadge();
-      _renderMembershipAlertCard();
-    });
-    host.querySelector('[data-mem-dismiss]')?.addEventListener('click', async (e) => {
-      const id = parseInt(e.currentTarget.dataset.memDismiss, 10);
-      _items = _items.filter(x => x.id !== id);
-      _updateBadge();
-      _renderMembershipAlertCard();
-    });
-  }
-
-  // [2026-04-30 Sprint 7] DM 사장 확인 대기 + [기능 4] 위험 알림 — 홈 인라인 카드
-  function _renderDMConfirmQueueCard() {
-    const anchor = document.getElementById('home-today-brief')
-      || document.getElementById('homePostConnect')
-      || document.querySelector('main') || document.body;
-    if (!anchor) return;
-    let host = document.getElementById('itdDMConfirmHost');
-    if (!host) {
-      host = document.createElement('div');
-      host.id = 'itdDMConfirmHost';
-      host.style.cssText = 'margin:0 0 12px 0;';
-      if (anchor.parentNode) anchor.parentNode.insertBefore(host, anchor);
-      else anchor.appendChild(host);
-    }
-    const dismissed = _getDismissed();
-    const dmKinds = ['dm_pending_confirm', 'dm_customer_register', 'dm_action_pending', 'dm_risk_alert'];
-    // [2026-06-07] 홈 상단 인라인 카드 노출 중단 — DM 은 '고객 메시지' 카드 줄로 이관됨(+ 종 목록).
-    //   홈 상단이 알림으로 안 밀리게. 배지·종 목록은 그대로 유지. (배열 비워 카드 미표시)
-    const dmNotifs = [];
-    // [2026-06-07] 비었을 때 display:none — 빈 호스트 margin 으로 홈 상단 공백 생기던 문제.
-    if (!dmNotifs.length) { host.innerHTML = ''; host.style.display = 'none'; return; }
-    // 위험 알림이 1건이라도 있으면 빨간 카드 우선
-    const riskNotifs = dmNotifs.filter(n => n.kind === 'dm_risk_alert');
-    const isRisk = riskNotifs.length > 0;
-    const showItems = isRisk ? riskNotifs : dmNotifs;
-    const total = showItems.length;
-    const a = showItems[0];
-
-    const colors = isRisk
-      ? { bg: 'linear-gradient(135deg,#FEE2E2 0%,#FECACA 100%)', border: '#FCA5A5', icon: '#DC2626', label: '#991B1B', btn: '#DC2626', btnText: '#fff', subText: '#991B1B' }
-      : { bg: 'linear-gradient(135deg,#FFFBEB 0%,#FEF3C7 100%)', border: '#FDE68A', icon: '#F59E0B', label: '#B45309', btn: '#F59E0B', btnText: '#fff', subText: '#92400E' };
-    const headerLbl = isRisk
-      ? `위험 메시지 ${total > 1 ? `(${total}건)` : ''}`
-      : `DM 사장 확인 대기 ${total > 1 ? `(${total}건)` : ''}`;
-    const iconId = isRisk ? 'ic-alert-triangle' : 'ic-bell';
-
-    host.style.display = '';
-    host.innerHTML = `
-      <div role="status" style="background:${colors.bg};border:1px solid ${colors.border};border-radius:14px;padding:14px 14px 14px 16px;position:relative;">
-        <div style="display:flex;align-items:flex-start;gap:10px;">
-          <div style="flex-shrink:0;width:36px;height:36px;border-radius:12px;background:${colors.icon};display:flex;align-items:center;justify-content:center;color:#fff;">
-            <svg width="20" height="20" aria-hidden="true"><use href="#${iconId}"/></svg>
-          </div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:11px;font-weight:700;color:${colors.label};letter-spacing:0.2px;margin-bottom:2px;">${headerLbl}</div>
-            <div style="font-size:14px;font-weight:700;color:#1f2330;line-height:1.35;">${_esc(a.title)}</div>
-            <div style="font-size:12px;color:#525c70;margin-top:4px;line-height:1.5;">${_esc(a.body || '')}</div>
-            <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
-              <button data-dmq-open style="background:${colors.btn};color:${colors.btnText};border:none;padding:7px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">${isRisk ? '바로 확인' : '큐 열기'}</button>
-              <button data-dmq-dismiss="${a.id}" style="background:none;border:none;color:${colors.subText};font-size:11px;cursor:pointer;">나중에</button>
-              <span style="margin-left:auto;font-size:11px;color:${colors.subText}80;">${_esc(_relativeTime(a.scheduled_at))}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-    host.querySelector('[data-dmq-open]')?.addEventListener('click', async () => {
-      if (window.openDMConfirmQueue) window.openDMConfirmQueue();
-      for (const n of showItems) {
-        try { await _markRead(n.id); } catch (_) { /* ignore */ }
-      }
-      _items = _items.filter(n => !showItems.some(x => x.id === n.id));
-      _updateBadge();
-      _renderDMConfirmQueueCard();
-    });
-    host.querySelector('[data-dmq-dismiss]')?.addEventListener('click', (e) => {
-      const id = parseInt(e.currentTarget.dataset.dmqDismiss, 10);
-      _addDismissed(id);
-      _renderDMConfirmQueueCard();
-    });
-  }
-
-  function _renderAnnouncementCard() {
-    // 잇데이 운영자가 보낸 공지(kind=announcement) 만 인라인 카드로 노출
-    const anchor = document.getElementById('home-today-brief')
-      || document.getElementById('homePostConnect')
-      || document.querySelector('main') || document.body;
-    if (!anchor) return;
-    let host = document.getElementById('itdAnnouncementHost');
-    if (!host) {
-      host = document.createElement('div');
-      host.id = 'itdAnnouncementHost';
-      host.style.cssText = 'margin:0 0 12px 0;';
-      // 가장 위에 삽입 (가능한 경우)
-      if (anchor.parentNode) anchor.parentNode.insertBefore(host, anchor);
-      else anchor.appendChild(host);
-    }
-    // [2026-06-07] 홈 인라인 '잇데이 공지' 카드 노출 제거 — 공지는 알림(벨) 목록/시트에서만 확인.
-    //   배지·알림목록·DM 확인 큐 카드 등 다른 알림 기능은 그대로 유지. BE seed 와 무관하게 홈 노출만 차단.
-    const announcements = [];
-    if (!announcements.length) {
-      host.innerHTML = '';
-      host.style.display = 'none';  // 빈 카드 자리(margin) 흔적 제거
-      return;
-    }
-    host.style.display = '';  // 다시 보일 때 복귀
-    // 가장 최신 한 건만 노출 (스택형 카드는 시트에서 확인)
-    const a = announcements[0];
-    const more = announcements.length - 1;
-    host.innerHTML = `
-      <div role="status" aria-live="polite" style="background:linear-gradient(135deg,#fff5f7 0%,#ffe8ec 100%);border:1px solid rgba(213,138,149,0.35);border-radius:14px;padding:14px 14px 14px 16px;box-shadow:0 2px 10px rgba(213,138,149,0.10);position:relative;">
-        <div style="display:flex;align-items:flex-start;gap:10px;">
-          <div style="flex-shrink:0;width:36px;height:36px;border-radius:12px;background:var(--brand);display:flex;align-items:center;justify-content:center;font-size:17px;color:#fff;">📢</div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:11px;font-weight:600;color:var(--brand);letter-spacing:0.2px;margin-bottom:2px;">잇데이 공지</div>
-            <div style="font-size:14px;font-weight:700;color:#1f2330;line-height:1.35;">${_esc(a.title)}</div>
-            <div style="font-size:12px;color:#525c70;margin-top:4px;line-height:1.5;white-space:pre-wrap;">${_esc(a.body || '')}</div>
-            <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
-              <button data-ann-confirm="${a.id}" style="background:var(--brand);color:#fff;border:none;padding:7px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">확인</button>
-              ${more > 0 ? `<button data-ann-more style="background:none;border:none;color:#7a8294;font-size:11px;cursor:pointer;">공지 ${more}개 더 보기</button>` : ''}
-              <span style="margin-left:auto;font-size:11px;color:#8b94a7;">${_esc(_relativeTime(a.scheduled_at))}</span>
-            </div>
-          </div>
-          <button data-ann-dismiss="${a.id}" aria-label="공지 닫기" style="position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;border:none;background:rgba(0,0,0,0.05);font-size:13px;color:#525c70;cursor:pointer;line-height:1;">✕</button>
-        </div>
-      </div>
-    `;
-    const confirmBtn = host.querySelector('[data-ann-confirm]');
-    if (confirmBtn) {
-      confirmBtn.addEventListener('click', async () => {
-        const id = parseInt(confirmBtn.dataset.annConfirm, 10);
-        await _markRead(id);
-        _items = _items.filter(x => x.id !== id);
-        _updateBadge();
-        _renderAnnouncementCard();
-        const list = document.getElementById('notifBody');
-        if (list) _renderList();
-      });
-    }
-    const dismissBtn = host.querySelector('[data-ann-dismiss]');
-    if (dismissBtn) {
-      dismissBtn.addEventListener('click', () => {
-        const id = parseInt(dismissBtn.dataset.annDismiss, 10);
-        _addDismissed(id);
-        _renderAnnouncementCard();
-      });
-    }
-    const moreBtn = host.querySelector('[data-ann-more]');
-    if (moreBtn) moreBtn.addEventListener('click', () => window.openNotifications && window.openNotifications());
-  }
+  // [죽은코드 정리 2026-07-27] 홈 상단 인라인 알림 카드 3종(회원권/DM큐/공지)은 2026-06-07 비활성
+  //   (알림은 종 목록으로 일원화). 항상 빈 배열→display:none 뒤의 카드 렌더 ~200줄이 죽어 있어 제거.
+  //   호출부(폴링·이벤트 핸들러 다수)가 참조하므로 함수 껍데기는 no-op 로 유지.
+  function _renderMembershipAlertCard() {}
+  function _renderDMConfirmQueueCard() {}
+  function _renderAnnouncementCard() {}
 
   // [2026-05-28] 메인홈 잇비 카드/오늘 예약과 중복되거나 불필요한 알림은 알림함에서 제외.
   // 추후 백엔드 /notifications/pending 자체에서 제외하는 게 정석.

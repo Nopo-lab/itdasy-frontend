@@ -166,9 +166,17 @@
     });
   }
 
+  // [2026-07-25 #2] 로드 범위를 현재 달 ±7일로 넓힌다 — 주간 뷰가 월 경계를 넘는 경우
+  //   (경계 주가 반쪽만 보이고 충돌검사 _items 에서도 빠지던 것)를 커버. 월 그리드는
+  //   _buildMonthGrid 에서 현재 달만 버킷팅하므로 여유분(인접 달)이 엉뚱한 날짜 칸에 안 샌다.
+  //   통계(_calcStats)·일/주 뷰는 전부 전체날짜로 필터하므로 여유분은 무해.
+  function _monthRange(year, month) {
+    const from = new Date(year, month - 1, 1); from.setDate(from.getDate() - 7);
+    const to   = new Date(year, month, 0, 23, 59, 59); to.setDate(to.getDate() + 7);
+    return { from: from.toISOString(), to: to.toISOString() };
+  }
   async function _loadMonth(year, month) {
-    const from = new Date(year, month - 1, 1).toISOString();
-    const to   = new Date(year, month, 0, 23, 59, 59).toISOString();
+    const { from, to } = _monthRange(year, month);
     const items = await window.Booking.list(from, to);
     return _mapItems(items);
   }
@@ -237,15 +245,6 @@
     };
   }
 
-  function _monthSummary(items) {
-    let cnt = 0, rev = 0;
-    items.forEach(it => {
-      if (it.status === 'cancelled' || it.status === 'no_show') return;
-      cnt++;
-      if (it.status === 'completed' && it.amount) rev += it.amount;
-    });
-    return { cnt, rev };
-  }
 
   // ============================================================
   // §5 모바일 — 월 그리드
@@ -286,7 +285,14 @@
   function _buildMonthGrid(year, month, mapped, p, isPC, opts) {
     const filtered = _filterByStaff(mapped);
     const byDay = {};
-    filtered.forEach(m => { (byDay[m.d] = byDay[m.d] || []).push(m); });
+    // [2026-07-25 #2] byDay 는 일자번호(m.d=getDate)로 그룹핑하므로, ±7 여유분(인접 달)이 섞이면
+    //   예: 8월 보는데 7/30 예약이 8/30 칸에 뜬다. 현재 달 항목만 버킷팅해 오염 차단.
+    //   (월 그리드의 인접 달 셀은 원래 예약 없는 정적 셀 — 여기서 인접 달 예약을 그릴 자리도 없다.)
+    filtered.forEach(m => {
+      const sd = new Date(m._raw.starts_at);
+      if (sd.getFullYear() !== year || sd.getMonth() + 1 !== month) return;
+      (byDay[m.d] = byDay[m.d] || []).push(m);
+    });
     const firstDow = new Date(year, month - 1, 1).getDay();
     const lastDate = new Date(year, month, 0).getDate();
     const prevLast = new Date(year, month - 1, 0).getDate();
@@ -443,14 +449,14 @@
         + dot(8)
         + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;color:' + nameColor + ';letter-spacing:-0.2px;' + strike + '">' + _esc(it.cust) + '</span>'
         + '<span style="flex-shrink:0;font-size:11px;color:#8B95A1;' + strike + '">' + tm + '</span>'
-        + (done ? '<span style="flex-shrink:0;color:#16B55E;font-weight:700;font-size:12px;">✓</span>' : '')
+        + (done ? '<span style="flex-shrink:0;color:#16B55E;display:inline-flex;align-items:center;"><svg width="13" height="13" aria-hidden="true"><use href="#ic-check"/></svg></span>' : '')
         + '</div>';
     }
     // 모바일: 좁은 컬럼(≈49px) — 점·시간을 윗줄에, 이름은 아랫줄(잘려도 점·시간은 보존)
     return '<div style="display:flex;align-items:center;gap:3px;line-height:1.1;">'
       + dot(7)
       + '<span style="font-size:10px;color:#8B95A1;font-weight:600;flex-shrink:0;' + strike + '">' + tm + '</span>'
-      + (done ? '<span style="margin-left:auto;color:#16B55E;font-weight:700;font-size:10px;flex-shrink:0;">✓</span>' : '')
+      + (done ? '<span style="margin-left:auto;color:#16B55E;flex-shrink:0;display:inline-flex;align-items:center;"><svg width="11" height="11" aria-hidden="true"><use href="#ic-check"/></svg></span>' : '')
       + '</div>'
       + '<div style="font-size:12px;font-weight:600;color:' + nameColor + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.2;margin-top:1px;' + strike + '">' + _esc(it.cust) + '</div>';
   }
@@ -698,8 +704,8 @@
     h += '<div class="bk-mini__head">';
     h += '<div class="bk-mini__month">' + y + '년 ' + m + '월</div>';
     h += '<div class="bk-mini__nav">';
-    h += '<button data-mini-nav="prev" aria-label="이전">‹</button>';
-    h += '<button data-mini-nav="next" aria-label="다음">›</button>';
+    h += '<button data-mini-nav="prev" aria-label="이전"><svg width="16" height="16" aria-hidden="true"><use href="#ic-chevron-left"/></svg></button>';
+    h += '<button data-mini-nav="next" aria-label="다음"><svg width="16" height="16" aria-hidden="true"><use href="#ic-chevron-right"/></svg></button>';
     h += '</div></div>';
     h += '<div class="bk-mini__grid">';
     ['일','월','화','수','목','금','토'].forEach(d => { h += '<div class="bk-mini__dow">' + d + '</div>'; });
@@ -759,7 +765,7 @@
     if (isMobile && !open) {
       h += '<div class="bk-stat-card__compact">';
       h +=   '<span>완료 ' + done + ' · 예정 ' + upcoming + '</span>';
-      h +=   '<span class="bk-stat-card__caret">›</span>';
+      h +=   '<span class="bk-stat-card__caret" style="display:inline-flex;align-items:center;"><svg width="13" height="13" aria-hidden="true"><use href="#ic-chevron-right"/></svg></span>';
       h += '</div>';
     } else {
       h += '<div class="bk-stat-card__row">';
@@ -1049,6 +1055,9 @@
   function _renderViewBody() {
     const o = _overlay(); if (!o) return;
     const body = o.querySelector('#bk-body'); if (!body) return;
+    // [2026-07-25 #5] 목록으로 돌아온다 = 예약 폼은 닫힌 상태. 폼 시트-백 정리(멱등 — 폼 안 열렸으면 no-op).
+    //   저장/삭제/취소/back 등 모든 폼 나가기 경로가 여길 지나므로 history 엔트리 누적을 한 곳에서 막는다.
+    try { if (typeof window._markSheetClosed === 'function') window._markSheetClosed('cvBookingForm'); } catch (_e) { void _e; }
     _updateOfflineBadge();
     _updateHeaderLabel();
     _saveState();
@@ -1295,7 +1304,8 @@
     if (raw.deposit != null && +raw.deposit > 0) money.push('예약금 ' + (+raw.deposit).toLocaleString() + '원');
     if (raw.amount != null && +raw.amount > 0) money.push('예상 시술비 ' + (+raw.amount).toLocaleString() + '원');
     if (money.length) info.push(`<div style="font-size:13px;color:var(--text-subtle,#8B95A1);margin-top:6px;">${esc(money.join('  ·  '))}</div>`);
-    if (raw.memo) info.push(`<div style="font-size:13px;color:var(--text-subtle,#8B95A1);margin-top:6px;white-space:pre-line;">메모 ${esc(raw.memo)}</div>`);
+    const _memoDisp = raw.memo ? (window.itdCleanMemo ? window.itdCleanMemo(String(raw.memo)) : String(raw.memo)) : '';
+    if (_memoDisp) info.push(`<div style="font-size:13px;color:var(--text-subtle,#8B95A1);margin-top:6px;white-space:pre-line;">메모 ${esc(_memoDisp)}</div>`);
     ov.innerHTML = `
       <div style="background:var(--surface,#fff);width:100%;max-width:460px;border-radius:20px 20px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));max-height:80vh;overflow-y:auto;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
@@ -1498,7 +1508,7 @@
     const _today = new Date();
     const _todayLabel = `${_today.getMonth()+1}/${_today.getDate()}(${['일','월','화','수','목','금','토'][_today.getDay()]})`;
 
-    let html = `<button class="cv-form-back" id="cv-form-back">← 뒤로</button>`;
+    let html = `<button class="cv-form-back" id="cv-form-back"><svg width="15" height="15" aria-hidden="true" style="vertical-align:-3px"><use href="#ic-arrow-left"/></svg> 뒤로</button>`;
     html += `<div class="bf-root">`;
     // 좌측 사이드 (PC ≥1100px 만) — 오늘 / 이번주 정보 카드
     html += `<aside class="bf-side-left">
@@ -1522,7 +1532,7 @@
           <div class="bf-date-text" id="bfDateLabel">${dateLabel}</div>
           <div class="bf-date-meta" id="bfDateMeta">${metaText}</div>
         </div>
-        <span class="bf-date-chev" aria-hidden="true">›</span>
+        <span class="bf-date-chev" aria-hidden="true" style="display:inline-flex;align-items:center;"><svg width="17" height="17"><use href="#ic-chevron-right"/></svg></span>
       </button>
       <input type="date" id="bfDate" class="bf-date-native" value="${dateStr}" />
     </div>`;
@@ -1559,7 +1569,7 @@
              <button type="button" class="bf-cust-clear" id="bfCustClear" aria-label="고객 해제">×</button>`
           : `<div class="bf-cust-bar empty"></div>
              <div class="bf-cust-info"><div class="bf-cust-empty-text">고객 골라주세요</div></div>
-             <span class="bf-cust-chev" aria-hidden="true">›</span>`}
+             <span class="bf-cust-chev" aria-hidden="true" style="display:inline-flex;align-items:center;"><svg width="17" height="17"><use href="#ic-chevron-right"/></svg></span>`}
       </button>
       <input type="hidden" id="bfCustName" value="${_esc(existing?.customer_name || '')}" />
       <div id="bfAiBriefMount" style="margin-top:10px;"></div>
@@ -1569,12 +1579,12 @@
     const _initDep0 = Number(existing?.deposit) || 0;
     const _depCellMobile = _initDep0 > 0
       ? `<span class="bf-money-val" data-money-edit="deposit"><span class="bf-num" data-hv-count="${_initDep0}">${_initDep0.toLocaleString('ko-KR')}</span><span class="bf-money-unit">원</span></span>`
-      : `<span class="bf-money-val empty" data-money-edit="deposit"><button type="button" class="bf-amount-link">탭해서 입력 ›</button></span>`;
+      : `<span class="bf-money-val empty" data-money-edit="deposit"><button type="button" class="bf-amount-link">탭해서 입력 <svg width="13" height="13" aria-hidden="true" style="vertical-align:-1px"><use href="#ic-chevron-right"/></svg></button></span>`;
     html += `<div class="bf-card bf-service-card">
       <div class="bf-svc-pad">
         <div class="bf-svc-head">
           <span class="bf-svc-sub">시술 종류, 자주 받은 순으로 자동 정렬</span>
-          <button type="button" class="bf-svc-more" id="bfSvcMore">전체 ›</button>
+          <button type="button" class="bf-svc-more" id="bfSvcMore">전체 <svg width="13" height="13" aria-hidden="true" style="vertical-align:-1px"><use href="#ic-chevron-right"/></svg></button>
         </div>
         <div class="bf-svc-chips" id="bfSvcChips"></div>
         <input type="hidden" id="bfSvc" value="${_esc(existing?.service_name || '')}" />
@@ -1607,7 +1617,7 @@
           <span class="bf-num" data-hv-count="${_initDep}">${_initDep.toLocaleString('ko-KR')}</span>
           <span class="bf-money-unit">원</span>
         </span>`
-      : `<span class="bf-money-val empty" data-money-edit="deposit"><button type="button" class="bf-amount-link">탭해서 입력 ›</button></span>`;
+      : `<span class="bf-money-val empty" data-money-edit="deposit"><button type="button" class="bf-amount-link">탭해서 입력 <svg width="13" height="13" aria-hidden="true" style="vertical-align:-1px"><use href="#ic-chevron-right"/></svg></button></span>`;
     html += `<aside class="bf-side-right">`;
     html += `<div class="bf-itby-box bf-itby-pc" style="display:none">
       <div class="bf-itby">
@@ -1624,7 +1634,7 @@
                 <span class="bf-num" data-hv-count="${_initAmt}">${_initAmt.toLocaleString('ko-KR')}</span>
                 <span class="bf-money-unit">원</span>
               </span>`
-            : `<span class="bf-money-val empty" data-money-edit="amount"><button type="button" class="bf-amount-link">탭해서 입력 ›</button></span>`}
+            : `<span class="bf-money-val empty" data-money-edit="amount"><button type="button" class="bf-amount-link">탭해서 입력 <svg width="13" height="13" aria-hidden="true" style="vertical-align:-1px"><use href="#ic-chevron-right"/></svg></button></span>`}
         </div>
         <div class="bf-money-row deposit">
           <span class="bf-money-key">예상 예약금</span>
@@ -1840,7 +1850,7 @@
         card.className = 'bf-cust-card empty';
         card.innerHTML = `<div class="bf-cust-bar empty"></div>
           <div class="bf-cust-info"><div class="bf-cust-empty-text">고객 골라주세요</div></div>
-          <span class="bf-cust-chev" aria-hidden="true">›</span>`;
+          <span class="bf-cust-chev" aria-hidden="true" style="display:inline-flex;align-items:center;"><svg width="17" height="17"><use href="#ic-chevron-right"/></svg></span>`;
       }
     }
     const _doPick = async () => {
@@ -1882,7 +1892,7 @@
         if (!valEl) return;
         if (isDep && to <= 0) {
           valEl.classList.add('empty');
-          valEl.innerHTML = '<button type="button" class="bf-amount-link">탭해서 입력 ›</button>';
+          valEl.innerHTML = '<button type="button" class="bf-amount-link">탭해서 입력 <svg width="13" height="13" aria-hidden="true" style="vertical-align:-1px"><use href="#ic-chevron-right"/></svg></button>';
           return;
         }
         let numEl = valEl.querySelector('.bf-num');
@@ -2035,9 +2045,15 @@
       const d = body.querySelector('#bfDate')?.value;
       if (!d) return;
       const endMin = _startH * 60 + _startM + _durMin;
-      const eh = Math.floor(endMin / 60) % 24, em = endMin % 60;
+      // [2026-07-25 #4] 자정 넘김 처리 — 저장 경로(_bindFormSave)와 동일하게. 예전엔 ends 를 같은 날 d 로
+      //   만들어 25:00→01:00 이 되며 ends<starts 로 역전, findConflict overlap 판정이 어긋나 실시간 경고가
+      //   저장 차단과 불일치했다(밤 예약 편집 시 경고 오작동).
+      const crossesMidnight = endMin >= 1440;
+      const adjEnd = crossesMidnight ? endMin - 1440 : endMin;
+      const eh = Math.floor(adjEnd / 60), em = adjEnd % 60;
+      const endDate = crossesMidnight ? _nextDay(d) : d;
       const starts = `${d}T${_pad(_startH)}:${_pad(_startM)}:00+09:00`;
-      const ends = `${d}T${_pad(eh)}:${_pad(em)}:00+09:00`;
+      const ends = `${endDate}T${_pad(eh)}:${_pad(em)}:00+09:00`;
       const conflict = window.Booking.findConflict(starts, ends, existing?.id);
       const el = body.querySelector('#bfConflict');
       if (el) {
@@ -2099,7 +2115,10 @@
   }
 
   function _bindFormSave(body, existing, _date) {
-    body.querySelector('#bfSave').addEventListener('click', async () => {
+    let _saving = false; // [2026-07-14 QA] 연타 시 예약 이중 생성 방지
+    body.querySelector('#bfSave').addEventListener('click', async (ev) => {
+      if (_saving) return;
+      const _saveBtn = ev.currentTarget;
       const d = body.querySelector('#bfDate').value;
       if (!d) { if (window.showToast) window.showToast('날짜를 입력해 주세요'); return; }
       const sh = body._getStartH(), sm = body._getStartM(), dur = body._getDurMin();
@@ -2114,7 +2133,9 @@
       if (!crossesMidnight && sTime >= eTime) { if (window.showToast) window.showToast('종료 시간이 시작보다 늦어야 해요'); return; }
       // [A3] 과거 날짜 예약 방지
       if (!existing) {
-        const today = new Date().toISOString().slice(0, 10);
+        // [2026-07-25 #6] 로컬(KST) 날짜로. 예전엔 toISOString(UTC)이라 KST 00~09시엔 today 가
+        //   하루 뒤처져 그 시간대에 과거 날짜가 통과했다. 폼의 다른 날짜 계산은 전부 _ds()(로컬).
+        const today = _ds(new Date());
         if (d < today) {
           if (window.showToast) window.showToast('과거 날짜에는 예약을 추가할 수 없어요');
           return;
@@ -2128,6 +2149,17 @@
         if (conflict) {
           if (window.showToast) window.showToast(_conflictMsg(conflict));
           return;
+        }
+        // [보안감사 M-4] 고른 날짜가 현재 보고 있는 달 밖이면 findConflict(_items=현재 달)가 못 잡는다.
+        //   그 날짜만 직접 조회해 한 번 더 확인(타월 이중예약 무경고 방지). 조회 실패 시엔 막지 않음.
+        const _pickYM = d.slice(0, 7);
+        const _curYM = `${_curYear}-${_pad(_curMonth)}`;
+        if (window.Booking?.dayConflict && _pickYM !== _curYM) {
+          const _c2 = await window.Booking.dayConflict(starts, ends, existing?.id);
+          if (_c2) {
+            if (window.showToast) window.showToast(_conflictMsg(_c2));
+            return;
+          }
         }
       }
       // [2026-06-10] 신규 예약은 고객 필수 — 이름 없는 "이름 없음" 예약 생성 차단.
@@ -2159,6 +2191,8 @@
         amount:        amtVal > 0 ? amtVal : null,
         deposit:       depVal > 0 ? depVal : null,
       };
+      _saving = true;
+      if (_saveBtn) _saveBtn.disabled = true;
       try {
         const changeDetail = {
           customer_id: payload.customer_id,
@@ -2189,6 +2223,9 @@
         // [2026-06-10 QA] 실제 사유 노출 — "저장 실패"만 떠서 원인(시간 충돌 등)을 알 수 없던 문제
         console.warn('[cal] save 실패:', err);
         if (window.showToast) window.showToast('저장 실패: ' + (window._humanError ? window._humanError(err) : (err?.message || '잠시 후 다시 시도해주세요')));
+      } finally {
+        _saving = false;
+        if (_saveBtn) _saveBtn.disabled = false;
       }
     });
   }
@@ -2209,8 +2246,10 @@
     });
     // [2026-05-16] #bfComplete 카드는 _buildFormHTML 에서 제거 — 핸들러도 삭제.
     const STATUS_LABEL = { confirmed: '확정', completed: '완료', cancelled: '취소', no_show: '안 옴' };
+    let _statusBusy = false; // [카오스] 상태변경 버튼 연타 시 동시 PATCH 방지
     body.querySelectorAll('[data-bf-status]').forEach(btn => {
       btn.addEventListener('click', async () => {
+        if (_statusBusy) return;
         const newStatus = btn.getAttribute('data-bf-status');
         if (newStatus === existing.status) return;
         // [2026-05-16] 완료 버튼은 직접 status 변경하지 않고 CompleteFlow 거치도록.
@@ -2225,6 +2264,8 @@
           return;
         }
         const _applyStatus = async () => {
+          if (_statusBusy) return;
+          _statusBusy = true;
           try {
             await window.Booking.update(existing.id, { status: newStatus });
             // [핫픽스D #6] 취소면 잇비 "복구해"로 되살릴 수 있게 최근 취소 context 저장.
@@ -2244,6 +2285,7 @@
             _mappedCache = await _loadMonth(_curYear, _curMonth);
             _renderViewBody();
           } catch (_) { if (window.showToast) window.showToast('상태 변경 실패'); }
+          finally { _statusBusy = false; }
         };
         // [핫픽스D #6] 모든 취소 경로 확인 통일 — 상태 '취소'는 확인 후에만 반영.
         if (newStatus === 'cancelled') {
@@ -2270,6 +2312,11 @@
     const defE = existing ? _fmt(new Date(existing.ends_at))   : (pendE ? _fmt(pendE) : (slots[2] || slots[slots.length - 1]));
     body.innerHTML = '<div class="cv-form-wrap bf-wrap" style="flex:1;overflow-y:auto;">' + _buildFormHTML(existing, slots, dateStr, defS, defE, !!pendS) + '</div>';
     body.querySelector('#cv-form-back').addEventListener('click', () => _renderViewBody());
+    // [2026-07-25 #5] 폼을 시트-백 레지스트리에 등록 — 안드로이드/브라우저 back 이 폼→목록으로만
+    //   돌아가고 예약관리 전체가 닫히지 않게(작성 중이던 고객/금액/메모 소실 방지). 상세시트와 동일 패턴.
+    //   close=_renderViewBody(목록 복귀), 목록 복귀 시 _markSheetClosed 는 _renderViewBody 안에서 일괄.
+    if (typeof window._registerSheet === 'function') window._registerSheet('cvBookingForm', _renderViewBody);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('cvBookingForm');
     _bindFormExtras(body, existing);
     _bindFormSave(body, existing, date);
     if (existing) _bindFormActions(body, existing, date);
@@ -2327,14 +2374,26 @@
     await _reloadAndRender();
     _prefetchNeighbors();
   }
+  let _navSeq = 0; // [카오스 P1-1] 월/주 전환 연타 시 요청 순서 토큰
   async function _reloadAndRender() {
-    _mappedCache = await _loadMonth(_curYear, _curMonth);
-    _renderViewBody();
+    const my = ++_navSeq;
+    try {
+      const mapped = await _loadMonth(_curYear, _curMonth);
+      if (my !== _navSeq) return;   // 더 최근 전환이 있었음 — 늦게 온 stale 달 무시
+      _mappedCache = mapped;
+      _renderViewBody();
+    } catch (err) {
+      if (my !== _navSeq) return;
+      // [카오스 P2-1] 월 이동 중 로드 실패 무음 → 헤더/그리드 불일치 방지: 알리고 캐시 유지
+      console.warn('[cal] 월 로드 실패:', err);
+      if (window.showToast) window.showToast('예약을 불러오지 못했어요. 잠시 후 다시 시도해주세요');
+    }
   }
   function _prefetch(year, month) {
-    const from = new Date(year, month - 1, 1).toISOString();
-    const to   = new Date(year, month, 0, 23, 59, 59).toISOString();
-    window.Booking.list(from, to).catch(() => {});
+    // [#2] _loadMonth 와 같은 ±7일 범위 → 캐시 키 정합(이웃 달로 이동 시 프리페치 캐시 적중).
+    const { from, to } = _monthRange(year, month);
+    // [2026-07-25 #1] prefetch 플래그 — 이웃 달 캐시만 채우고 화면용 _items(충돌검사 대상)는 안 건드림.
+    window.Booking.list(from, to, { prefetch: true }).catch(() => {});
   }
   function _prefetchNeighbors() {
     let py = _curYear, pm = _curMonth - 1;
@@ -2404,18 +2463,13 @@
     if (typeof window._perfMark === 'function') window._perfMark('calendar:open:start');
     const existing = _overlay(); if (existing) existing.remove();
 
-    // 상태 복원 — [2026-05-28] view는 항상 'month' 로 진입 (saveState에서도 제외)
-    const saved = _loadState();
+    // [버그8] 예약관리 재진입 시 선택일은 항상 오늘로 초기화 — 이전 세션/선택 잔존으로
+    // 미니캘린더가 옛 날짜(예: 6일)로 열리던 문제. 저장된 dateISO는 더 이상 선택일로 복원하지 않는다.
+    // [2026-05-28] view는 항상 'month' 로 진입.
     const now = new Date();
-    if (saved && saved.dateISO) {
-      _curDate = new Date(saved.dateISO + 'T00:00:00');
-      _curYear = saved.y || now.getFullYear();
-      _curMonth = saved.m || (now.getMonth() + 1);
-    } else {
-      _curYear = now.getFullYear();
-      _curMonth = now.getMonth() + 1;
-      _curDate = now;
-    }
+    _curYear = now.getFullYear();
+    _curMonth = now.getMonth() + 1;
+    _curDate = now;
     _curView = 'month';
     _miniMonth = { y: _curYear, m: _curMonth };
     _cachedIsPC = _isPC();

@@ -83,6 +83,40 @@
       return Array.isArray(data) ? data.length : (Array.isArray(data.items) ? data.items.length : 0);
     } catch (_e) { return 0; }
   }
+  // [2026-07-20 v785] 답 안 한 댓글 문의 N건 — "AI 잇비가 챙겼어요" 카드용.
+  //   비용 방어: 인스타 미연동이면 API 호출 자체를 안 함 (0 반환).
+  async function _fetchCommentQueueCount() {
+    // [2026-07-24] 인스타 연동 게이트 — 부팅 때 있는 신호로 판정한다.
+    //   예전엔 window.WorkspaceAdapter.instagram() 를 봤는데, WorkspaceAdapter 는 lazy 'photo'
+    //   그룹(맨 마지막 로드)이라 홈 최초 렌더 시점엔 없다 → 항상 0 → 미답 댓글이 있어도
+    //   부팅 홈에 안 떴다(재렌더도 안 돼서 수동 이동 전엔 영영 안 보임). 원장님이 지적한
+    //   '홈 실시간 반영 안 됨' 부류. ig_connected_cache 는 app-instagram.js(eager)가 부팅 때 쓴다.
+    try {
+      if (localStorage.getItem('itdasy:ig_connected_cache') !== '1') return 0;
+    } catch (_e) { return 0; }
+    const headers = _authHeaders();
+    if (!window.API || !headers) return 0;
+    // [v789] 자동 응대 마스터 꺼짐 → 홈 줄 숨김 + API 호출도 스킵 (비용 방어)
+    try {
+      const s0 = JSON.parse(localStorage.getItem('itdasy:crq_settings') || 'null');
+      if (s0 && s0.enabled === false) return 0;
+    } catch (_e) { /* ignore */ }
+    // [2026-07-21] 방해금지 시간대(운영시간 밖) → 홈 넛지·API 호출 스킵. 큐 열면 다 보임(유실 아님)
+    try { if (window.crqQuietNow && window.crqQuietNow()) return 0; } catch (_e) { /* ignore */ }
+    try {
+      const res = await apiFetch('/instagram/comment-queue', { headers });
+      if (!res.ok) return 0;
+      const data = await res.json();
+      const items = Array.isArray(data && data.items) ? data.items : [];
+      // 큐 화면과 같은 필터 적용 (설정에서 끈 문의 종류 제외 — itdasy:crq_settings, 기본 hours=off)
+      let intents = { hours: false };
+      try {
+        const s = JSON.parse(localStorage.getItem('itdasy:crq_settings') || 'null');
+        if (s && s.intents) intents = Object.assign(intents, s.intents);
+      } catch (_e) { /* ignore */ }
+      return items.filter(it => intents[it.intent] !== false).length;
+    } catch (_e) { return 0; }
+  }
 
   // [F1] _fetchProjectedTotal 제거 — 홈 상단 매출 표시 삭제됨
 
@@ -327,7 +361,8 @@
     container.querySelector('[data-home-reload]')?.addEventListener('click', () => location.reload());
   }
 
-  async function _doRender(containerId) {
+  async function _doRender(containerId, opts) {
+    const force = !!(opts && opts.force);
     const container = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
     if (!container) return;
     _lastContainerId = container.id || _lastContainerId;
@@ -338,17 +373,21 @@
       try {
         _hydrateHome(container, swr.d, swr.d._dmQueueCount || 0);
         _watchHeaderAvatar();
-        if (swr.fresh) return;
+        // [2026-07-24] force(=홈 복귀·앱 포그라운드·수동 새로고침)면 fresh 여도 네트워크 재요청.
+        //   안 그러면 DM/댓글이 60초 SWR 창에 갇혀 "최신 아님"으로 보였다(실측). refresh() 는
+        //   항상 force → 원장이 DM 보내고 홈 오면 즉시 반영.
+        if (swr.fresh && !force) return;
       } catch (_e) { /* fall through */ }
     }
 
     if (_inFlight) return;
     _inFlight = true;
     try {
-      const [brief, slots, dmQueueCount] = await Promise.all([
+      const [brief, slots, dmQueueCount, commentQueueCount] = await Promise.all([
         _fetchBrief().catch(() => null),
         _fetchSlots().catch(() => []),
         _fetchDMQueueCount().catch(() => 0),
+        _fetchCommentQueueCount().catch(() => 0),
       ]);
       // [2026-07-08] brief 실패 구분 — 실패인데 {}로 그리면 분석 카드가 전부
       //   "없어요/모두 정상" 가짜 초록불이 됨. 플래그 세워 재시도 카드로 렌더.
@@ -361,6 +400,7 @@
       }
       if (briefFailed) merged._briefFailed = true;
       merged._dmQueueCount = dmQueueCount;
+      merged._commentQueueCount = commentQueueCount;   // [v785] alertItems 가 brief 에서 읽음 (SWR 캐시에도 실림)
       // 실패한 빈 brief 는 SWR 캐시에 저장 금지 (캐시 오염 방지)
       if (!briefFailed) { try { _writeSWR(merged); } catch (_e) { void _e; } }
       _hydrateHome(container, merged, dmQueueCount);
@@ -406,9 +446,31 @@
   window.HomeV41 = {
     async render(containerId) { return _doRender(containerId || 'homeV41Root'); },
     async refresh() {
-      if (_lastContainerId) return _doRender(_lastContainerId);
+      if (_lastContainerId) return _doRender(_lastContainerId, { force: true });
     },
   };
+
+  // [2026-07-24] 홈 복귀 시 최신화 — 앱을 다른 앱에 갔다 돌아오거나(visibilitychange),
+  //   창 포커스가 돌아오면 홈이 활성일 때 강제 새로고침. 없으면 초기 로드 카운트가
+  //   60초 SWR 창 밖에서도 얼어붙어 DM/댓글이 "최신 아님"으로 보였다.
+  function _isHomeActive() {
+    const root = document.getElementById('homeV41Root');
+    if (!root) return false;
+    // 홈 탭이 화면에 보이는 상태인지(부모가 display:none 이 아닌지)
+    return root.offsetParent !== null || root.getClientRects().length > 0;
+  }
+  let _lastVisRefresh = 0;
+  function _refreshOnReturn() {
+    if (document.hidden) return;
+    if (!_isHomeActive()) return;
+    // 과도한 재요청 방지 — 2초 디바운스
+    const now = (window.performance && performance.now) ? performance.now() : 0;
+    if (now && _lastVisRefresh && now - _lastVisRefresh < 2000) return;
+    _lastVisRefresh = now;
+    try { if (window.HomeV41 && window.HomeV41.refresh) window.HomeV41.refresh(); } catch (_e) { /* ignore */ }
+  }
+  document.addEventListener('visibilitychange', _refreshOnReturn);
+  window.addEventListener('focus', _refreshOnReturn);
 
   // ─────────── 자동 부트스트랩 ───────────
   function _autoMount() {

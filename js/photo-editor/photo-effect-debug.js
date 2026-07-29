@@ -257,7 +257,8 @@
   }
 
   function comparePreset(presetId) {
-    var LOOKS = window.PhotoEditorBeautyLooks || (window.PhotoEditor && window.PhotoEditor._beautyLooks) || null;
+    // [2026-07-22] 옛 PhotoEditor._beautyLooks 폴백 제거(편집기 삭제) — 전역 Looks 만 사용.
+    var LOOKS = window.PhotoEditorBeautyLooks || null;
     var look = LOOKS && (Array.isArray(LOOKS) ? LOOKS.find(function (l) { return l.id === presetId; }) : LOOKS[presetId]);
     var patch = look ? (look.patch || look) : (typeof presetId === 'object' ? presetId : null);
     if (!patch) { console.warn('[PhotoEffectDebug] preset 미발견:', presetId); return null; }

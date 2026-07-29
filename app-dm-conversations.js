@@ -18,6 +18,12 @@
   const IG_GRADIENT = 'linear-gradient(135deg, #D58A95 0%, #BC6675 100%)';
 
   function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
+  /* [2026-07-22] 통합 인박스 채널 배지 — IG/네이버 톡톡/카카오. BE list_conversations 의 c.channel 사용. */
+  function _channelMark(c) {
+    return (window.ChannelMark && window.ChannelMark.mark)
+      ? window.ChannelMark.mark(c, { size: 18, pos: 'position:absolute;bottom:-1px;right:-1px;' })
+      : '';
+  }
   function _timeFmt(iso) {
     if (!iso) return '';
     try {
@@ -161,10 +167,11 @@
         const initial = (displayName.charAt(0) || '?');
         return `
           <div data-sender="${_esc(c.sender_igsid)}" class="dcv-row" style="display:flex;align-items:center;gap:12px;padding:8px 16px;cursor:pointer;${excluded ? 'background:#FAFAFA;' : ''}">
-            <div style="width:56px;height:56px;border-radius:50%;background:${IG_GRADIENT};padding:2px;flex-shrink:0;">
+            <div style="position:relative;width:56px;height:56px;border-radius:50%;background:${IG_GRADIENT};padding:2px;flex-shrink:0;">
               <div style="width:100%;height:100%;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;">
                 <div style="width:50px;height:50px;border-radius:50%;background:linear-gradient(135deg,#FCE7F3,#FBCFE8);display:flex;align-items:center;justify-content:center;font-weight:700;color:#9D174D;font-size:20px;">${_esc(initial)}</div>
               </div>
+              ${_channelMark(c.channel)}
             </div>
             <div style="flex:1;min-width:0;">
               <div style="display:flex;align-items:center;gap:6px;">

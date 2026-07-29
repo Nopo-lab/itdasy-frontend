@@ -27,6 +27,17 @@
   function _rbSw(target, cls) {
     return '<button type="button" class="' + (cls || 'itsw') + ' itsw--rb" data-colorpick="' + target + '" title="색 직접 고르기" aria-label="색 직접 고르기"></button>';
   }
+  // [팔레트 통일 2026-07-27] 색 스와치 한 줄 렌더 — 텍스트/도형/그리기/배경 팔레트 공용(파일 내 중복 렌더 제거).
+  function _swRow(colors, attr, cls, onIdx, extraCls) {
+    return colors.map(function (c, i) {
+      var x = extraCls ? (extraCls(c, i) || '') : '';
+      return '<button type="button" class="' + cls + (i === onIdx ? ' on' : '') + (x ? ' ' + x : '') + '" ' + attr + '="' + c + '" style="background:' + c + '"></button>';
+    }).join('');
+  }
+  // [스포이드] 파이펫 스와치 — 편집 중인 사진에서 색을 찍어 적용(EyeDropper API 미지원 모바일 대응, 자체 구현).
+  function _pipSw(target, cls) {
+    return '<button type="button" class="' + (cls || 'itsw') + ' itsw--pip" data-eyedrop="' + target + '" title="사진에서 색 추출" aria-label="사진에서 색 추출">' + IC.pipette + '</button>';
+  }
   // [#13-v2] HSV 커스텀 색상 피커 — SV 사각형 + 색조 바(네이티브 대신 화면 안 팔레트).
   function _hsvToRgb(h, s, v) {
     var c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c, r = 0, g = 0, b = 0;
@@ -47,7 +58,7 @@
   function _cpOutside(e) { if (_cpState && _cpState.el && !_cpState.el.contains(e.target) && e.target !== _cpState.anchor) _closeColorPicker(); }
   function _openColorPicker(anchor, target) {
     _closeColorPicker();
-    var cur = (target === 'text' ? (activeText() && activeText().color) : target === 'shape' ? S.shapeColor : target === 'draw' ? S.drawColor : S.collageBg) || '#BC6675';
+    var cur = (target === 'text' ? (activeText() && activeText().color) : target === 'shape' ? S.shapeColor : target === 'draw' ? S.drawColor : target === 'cutbg' ? (S.photoBg && S.photoBg[S.adjSel] && S.photoBg[S.adjSel].color) : S.collageBg) || '#BC6675';
     var hsv = _hexToHsv(cur);
     var box = el('div', 'itcp');
     // [스크린샷 매칭] 사각형: X=색조(무지개) · Y=채도(위=진함, 아래=흰색). 오른쪽 세로바=밝기.
@@ -97,6 +108,62 @@
     else if (t === 'shape') { S.shapeColor = v; if (refs.panels && refs.panels.shape) refs.panels.shape.querySelectorAll('[data-scolor]').forEach(function (x) { x.classList.remove('on'); }); applyShapeStyle(); }
     else if (t === 'draw') { S.drawColor = v; if (root) root.querySelectorAll('[data-dcolor]').forEach(function (x) { x.classList.remove('on'); }); }
     else if (t === 'layout') { S.collageBg = v; S.collageBgImg = null; saveBgPref(); if (refs.panels && refs.panels.layout) refs.panels.layout.querySelectorAll('[data-bg]').forEach(function (x) { x.classList.remove('on'); }); renderCollage(); applyFit(); recutWithBg(); }
+    // [스포이드/무지개] 누끼 배경색 — 이미 누끼면 매트 캐시 0초 재합성만(recutWithBg). 아직 안 했으면 색만 기억(드래그 중 유료 누끼 API 연발 방지).
+    else if (t === 'cutbg') { S.photoBg = S.photoBg || {}; S.photoBg[S.adjSel] = { color: v, img: null }; if (refs.adjCutBg) refs.adjCutBg.querySelectorAll('[data-cutbg],[data-cutbgimg]').forEach(function (x) { x.classList.remove('on'); }); applyFit(); recutWithBg(); }
+  }
+  /* ── [스포이드] 사진에서 색 추출 — 합성 스냅샷(exportComposite 재사용)의 픽셀을 getImageData 로 읽는다.
+     전부 클라이언트 처리(서버 호출 0). 파이펫 탭 → 사진 터치/드래그로 미리보기 원 → 떼면 그 색 확정. ── */
+  var _eyed = null;
+  function _closeEyedrop() {
+    if (!_eyed) return;
+    if (_eyed.ov && _eyed.ov.parentNode) _eyed.ov.parentNode.removeChild(_eyed.ov);
+    _eyed = null;
+  }
+  function _openEyedrop(target) {
+    if (_eyed) { var same = _eyed.target === target; _closeEyedrop(); if (same) return; }   // 같은 파이펫 재탭 = 취소
+    _closeColorPicker();
+    exportComposite(function (url) {
+      if (!url) { toastIt('사진 색을 읽지 못했어요'); return; }
+      loadImg(url).then(function (im) {
+        if (!im || !S || !root.classList.contains('is-open')) { if (!im) toastIt('사진 색을 읽지 못했어요'); return; }
+        var cv = document.createElement('canvas'); cv.width = im.width; cv.height = im.height;
+        var cx = cv.getContext('2d'); cx.drawImage(im, 0, 0);
+        var ov = el('div', 'iteyed');
+        ov.innerHTML = '<div class="iteyed__tip">사진을 눌렀다 떼면 그 색이 적용돼요</div><div class="iteyed__ring" data-eyering></div>';
+        refs.stage.appendChild(ov);
+        _eyed = { target: target, cv: cv, ctx: cx, ov: ov, ring: ov.querySelector('[data-eyering]'), hex: null, down: false };
+        ov.addEventListener('pointerdown', _eyedMove);
+        ov.addEventListener('pointermove', _eyedMove);
+        ov.addEventListener('pointerup', _eyedPick);
+        ov.addEventListener('pointercancel', _closeEyedrop);
+      });
+    });
+  }
+  function _eyedHexAt(e) {
+    var r = refs.stage.getBoundingClientRect();
+    var x = Math.max(0, Math.min(_eyed.cv.width - 1, Math.round((e.clientX - r.left) / (r.width || 1) * _eyed.cv.width)));
+    var y = Math.max(0, Math.min(_eyed.cv.height - 1, Math.round((e.clientY - r.top) / (r.height || 1) * _eyed.cv.height)));
+    var d = _eyed.ctx.getImageData(x, y, 1, 1).data;
+    return '#' + [d[0], d[1], d[2]].map(function (n) { return ('0' + n.toString(16)).slice(-2); }).join('').toUpperCase();
+  }
+  function _eyedMove(e) {
+    if (!_eyed) return;
+    e.preventDefault(); e.stopPropagation();   // 스테이지 핀치·선택해제(selectLayer(null))로 안 새게
+    if (e.type === 'pointerdown') { _eyed.down = true; try { _eyed.ov.setPointerCapture(e.pointerId); } catch (_) { void _; } }
+    else if (!_eyed.down) return;   // 누른 채 이동만 추적(마우스 hover 제외)
+    var r = refs.stage.getBoundingClientRect();
+    _eyed.hex = _eyedHexAt(e);
+    _eyed.ring.style.display = 'block';
+    _eyed.ring.style.left = (e.clientX - r.left) + 'px';
+    _eyed.ring.style.top = (e.clientY - r.top) + 'px';
+    _eyed.ring.style.background = _eyed.hex;
+  }
+  function _eyedPick(e) {
+    if (!_eyed || !_eyed.down) return;
+    e.preventDefault(); e.stopPropagation();
+    var hex = _eyed.hex || _eyedHexAt(e), t = _eyed.target;
+    _closeEyedrop();
+    _colorPickApply(t, hex);
   }
   var SHOP_STK = ['🌸', '✨', '💗', '🎀', '👑'];
   var EMOJI = ['💄', '💅', '🔥', '😍', '🥰', '💎', '🌟', '🫶', '💖', '🌿', '☁️', '🎉'];
@@ -135,7 +202,9 @@
   function svg(path, sw) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (sw || 1.8) + '" stroke-linecap="round" stroke-linejoin="round">' + path + '</svg>'; }
   var IC = {
     x: svg('<path d="M18 6L6 18M6 6l12 12"/>'),
-    text: 'Aa',
+    // [2026-07-27] 텍스트 도구 — 'Aa' 라벨 → lucide type(T)을 둥근 네모로 감싼 아이콘
+    text: svg('<rect x="3" y="3" width="18" height="18" rx="4.5"/><path d="M8 8.5h8M12 8.5V16"/>'),
+    pipette: svg('<path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"/>'),
     sticker: svg('<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4 4 0 0 0 7 0"/><circle cx="9" cy="10" r="1"/><circle cx="15" cy="10" r="1"/>'),
     layout: svg('<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 9v12"/>'),
     draw: svg('<path d="M12 19l7-7-3-3-7 7-1 4 4-1z"/><path d="M16 8l3 3"/>'),
@@ -186,7 +255,7 @@
     root = el('div', 'itded');
     root.innerHTML =
       '<div class="itded__stage" data-r="stage">' +
-        '<div class="itded__photowrap" data-r="photowrap"><div class="itded__photo" data-r="photo"></div><div class="itded__collage" data-r="collage" hidden></div></div>' +
+        '<div class="itded__photowrap" data-r="photowrap"><div class="itded__photo" data-r="photo"></div><div class="itded__photofx" data-r="photofx" hidden></div><div class="itded__collage" data-r="collage" hidden></div></div>' +
         '<div class="itded__scrim"></div>' +
         '<div class="itded__frame" data-r="frame"></div>' +
         '<canvas class="itded__draw" data-r="draw"></canvas>' +
@@ -203,10 +272,11 @@
         '<button class="itded__done" data-r="done">완료</button>' +
       '</div>' +
       '<div class="itded__rail" data-r="rail">' +
-        '<button class="itrb on" data-tool="text">Aa</button>' +
+        '<button class="itrb" data-tool="text" aria-label="글자 추가">' + IC.text + '</button>' +
         '<button class="itrb" data-tool="adjust">' + IC.adjust + '</button>' +
         '<button class="itrb" data-tool="sticker">' + IC.sticker + '</button>' +
-        '<button class="itrb" data-tool="layout">' + IC.layout + '</button>' +
+        // [요청4 2026-07-13] 레이아웃(상하좌우 등) 재선택 도구 제거 — 레이아웃은 업로드 직후 작업실 갤러리에서 이미 고름.
+        //   브리지(_matchItdPreset)로 넘어온 콜라주는 renderCollage 가 그대로 그리므로 도구 버튼만 숨김(panel/selectLayout/renderCollage 로직은 보존).
         '<button class="itrb" data-tool="shape">' + IC.shape + '</button>' +
         '<button class="itrb" data-tool="draw">' + IC.draw + '</button>' +
       '</div>' +
@@ -228,10 +298,9 @@
       var big = (f.key === 'pen' || f.key === 'gamja' || f.key === 'himelody' || f.key === 'gaegu') ? ';font-size:26px' : '';
       return '<button class="itfont' + (i === 0 ? ' on' : '') + '" data-font="' + f.key + '" aria-label="' + f.label + '" style="font-family:' + f.family + big + '">가나다</button>';
     }).join('');
-    var colors = COLORS.map(function (c, i) {
-      return '<button class="itsw' + (i === 0 ? ' on' : '') + '" data-color="' + c + '" style="background:' + c + '"></button>';
-    }).join('');
-    return '<div class="itpanel ittext is-open" data-panel="text">' +
+    var colors = _swRow(COLORS, 'data-color', 'itsw', 0);
+    // [2026-07-27] is-open 하드코딩 제거 — 폰트 패널은 기본 닫힘. Aa 탭/텍스트 레이어 선택 시에만 setTool 로 연다.
+    return '<div class="itpanel ittext" data-panel="text">' +
         '<div class="itgrip itgrip--p" data-pgrip></div>' +
                 '<div class="ittext__top">' +
           '<span class="italn" data-r="aln">' +
@@ -242,7 +311,7 @@
           '<span class="itsize">크기<input type="range" min="0.5" max="8" step="0.02" value="1" data-r="size"></span>' +
         '</div>' +
         '<div class="itfonts" data-r="fonts">' + fonts + '</div>' +
-        '<div class="itcolors" data-r="colors">' + colors + _rbSw('text', 'itsw') + '</div>' +
+        '<div class="itcolors" data-r="colors">' + colors + _rbSw('text', 'itsw') + _pipSw('text', 'itsw') + '</div>' +
       '</div>';
   }
   // [보정] 사진별 보정 패널 — 위 사진 스트립에서 사진 고르고 아래 슬라이더로 그 사진만 보정.
@@ -259,11 +328,15 @@
       '<div class="itadj__bgrow"><button class="itadj__bg" data-r="adjCut">' + IC.cut + ' 배경 지우기(누끼)</button>' +
         '<button class="itadj__bg itadj__bg--undo" data-r="adjUncut">원본</button></div>' +
       // [#4] 누끼 배경을 바로 옆에서 — 색 탭/사진 업로드. 한 번 누끼하면 색 변경은 0초(매트 캐시 재사용).
+      // [2026-07-26 원영] 팔레트 A안 — 기본 한 줄(주요 6색+검정+업로드+최근)만, 나머지는 '+'(data-cutmore)로 펼치기.
+      //   색이 두 줄로 줄바꿈되는 게 별로라는 피드백. 주요색 = BG_MAIN_IDX, 숨김색 = .itlaybg--x (open 시 표시).
       '<div class="itadj__cutbg" data-r="adjCutBg">' +
-        BG_COLORS.map(function (c, i) { return '<button class="itlaybg' + (i === 0 ? ' on' : '') + '" data-cutbg="' + c + '" style="background:' + c + '"></button>'; }).join('') +
+        _swRow(BG_COLORS, 'data-cutbg', 'itlaybg', 0, function (c, i) { return BG_MAIN_IDX.indexOf(i) < 0 ? 'itlaybg--x' : ''; }) +
+        _rbSw('cutbg', 'itlaybg') + _pipSw('cutbg', 'itlaybg') +
         '<label class="itlaybg itlaybg--up" aria-label="배경 사진"><input type="file" accept="image/*" data-r="adjBgImg" hidden>' + IC.addphoto + '</label>' +
         // [#2] 최근 업로드 배경 재사용 스와치(있을 때만 보임)
         (function () { try { var rb = localStorage.getItem('itdasy:itd_bgimg'); return rb ? '<button class="itlaybg itlaybg--recent" data-cutbgimg="1" aria-label="최근 배경 재사용" style="background-image:url(\'' + rb + '\')"></button>' : ''; } catch (_e) { return ''; } })() +
+        '<button class="itlaybg itlaybg--more" data-cutmore aria-label="색 더 보기">+</button>' +
       '</div>' +
       '<div class="itadj__row itadj__rotrow"><span>수평</span>' +
         '<input type="range" min="-15" max="15" step="0.5" value="0" data-r="adjRot"><b data-r="adjRotOut">0°</b></div>' +
@@ -273,7 +346,13 @@
   }
   // [#5] 스티커 시트 — 카테고리 탭 + 활성 탭 그리드 1개(탭 전환 = _renderStkTab).
   // [#10] '글자' 탭 제거 — 텍스트는 전용 Aa 도구로 넣음(스티커 글자와 중복). 배지는 '도형' 탭으로 이동.
-  var STK_TABS = [['reco', '추천'], ['beauty', '뷰티'], ['cute', '귀여움'], ['mz', '트렌디'], ['deco', '도형'], ['my', '내 스티커']];
+  /* [2026-07-23 보스] 피그마 아이콘 플러그인으로 쓰던 공개 세트를 스티커 탭으로 편입.
+     탭 목록은 itd-icon-stickers.js 가 정본 — 여기 하드코딩하지 않는다(세트가 늘면 그쪽만 고치면 됨).
+     데이터가 아직 안 실렸으면(지연 로드) 기존 탭만 보인다 — 편집기는 그대로 동작한다. */
+  var _ICS = window.ItdIconStickers || null;
+  var STK_TABS = [['reco', '추천'], ['beauty', '뷰티'], ['cute', '귀여움'], ['mz', '트렌디']]
+    .concat((_ICS && _ICS.tabs) ? _ICS.tabs : [])
+    .concat([['deco', '도형'], ['my', '내 스티커']]);
   function buildSticker() {
     var tabs = STK_TABS.map(function (t, i) {
       return '<button type="button" class="itstk__tab' + (i === 0 ? ' on' : '') + '" data-sttab="' + t[0] + '">' + t[1] + '</button>';
@@ -291,12 +370,6 @@
   function _svgGrid(cat, arr) {
     return '<div class="itsgrid">' + (arr || []).map(function (u, i) {
       return '<button class="itdeco" data-stkcat="' + cat + '" data-stkidx="' + i + '"><img src="' + u + '" alt="" draggable="false"></button>';
-    }).join('') + '</div>';
-  }
-  function _txtGrid(arr) {
-    return '<div class="itsgrid itsgrid--txt">' + (arr || []).map(function (o, i) {
-      var f = fontByKey(o.f) || FONTS[0];
-      return '<button class="ittxtstk" data-txtstk="' + i + '" style="font-family:' + f.family + ';font-weight:' + f.weight + '">' + o.t + '</button>';
     }).join('') + '</div>';
   }
   function _recoChips() {
@@ -319,6 +392,11 @@
       html = _emGrid(ST.cuteEmoji || SHOP_STK);
     } else if (key === 'mz') {
       html = _emGrid(ST.mzEmoji || EMOJI);   // [#10] 깨진 moodSvg(폴라로이드·필름 등) 제거 — 에러박스/빈칸 원인
+    } else if (_ICS && _ICS.tabSet && _ICS.tabSet[key]) {
+      // 아이콘 세트 탭 — data URL SVG 그리드(도형 데코와 같은 렌더/삽입 경로 재사용)
+      html = '<div class="itsgrid">' + (_ICS.sets[_ICS.tabSet[key]] || []).map(function (u, i) {
+        return '<button class="itdeco" data-icstk="' + key + ':' + i + '"><img src="' + u + '" alt="" draggable="false"></button>';
+      }).join('') + '</div>';
     } else if (key === 'deco') {
       // [#10] 도형 데코 + 배지(NEW/HOT/SALE 등, 옛 '글자' 탭에서 이동)
       html = '<div class="itsgrid">' + DECO.map(function (u, i) { return '<button class="itdeco" data-deco="' + i + '"><img src="' + u + '" alt="" draggable="false"></button>'; }).join('') + '</div>' +
@@ -343,7 +421,7 @@
     var L = makeLayer('text');
     L.font = fontByKey(fontKey) || FONTS[0]; L.color = COLORS[0]; L.align = 'center'; L.fontSize = 40; L.text = text; L.shadow = true;
     var t = el('div', 'itl-text'); t.textContent = text;
-    t.style.cssText = 'font-family:' + L.font.family + ';font-weight:' + L.font.weight + ';color:' + L.color + ';text-align:center;font-size:' + L.fontSize + 'px;white-space:pre-wrap;text-shadow:0 2px 8px rgba(0,0,0,.35)';
+    t.style.cssText = 'font-family:' + L.font.family + ';font-weight:' + L.font.weight + ';color:' + L.color + ';text-align:center;font-size:' + L.fontSize + 'px;white-space:pre;text-shadow:0 2px 8px rgba(0,0,0,.35)';
     L.el.appendChild(t); L.tx = t;
     placeCenter(L, 200, 60); selectLayer(L);
     _pushOp({ op: 'add', L: L });
@@ -355,9 +433,7 @@
     var chips = SHAPES.map(function (s) {
       return '<button class="itshp" data-shape="' + s.key + '" aria-label="' + s.label + '"><span class="itshp__ic itshp__ic--' + s.key + '"></span><em>' + s.label + '</em></button>';
     }).join('');
-    var colors = COLORS.map(function (c, i) {
-      return '<button class="itscw' + (i === 2 ? ' on' : '') + '" data-scolor="' + c + '" style="background:' + c + '"></button>';
-    }).join('');
+    var colors = _swRow(COLORS, 'data-scolor', 'itscw', 2);
     return '<div class="itpanel itshape" data-panel="shape">' +
         '<div class="itgrip itgrip--p" data-pgrip></div>' +
               '<div class="itshape__row">' + chips + '</div>' +
@@ -370,12 +446,14 @@
   }
   // [레이아웃 재설계] 도형 미니썸네일 피커(LAYOUTS 그대로) + 렌더된 사진을 순서대로 탭해 자리에 채움.
   var BG_COLORS = ['#FFFFFF', '#FBF7F5', '#F4E9E4', '#E8D3C2', '#F2D7DE', '#E6C9D2', '#D9B8C4', '#BC6675', '#E08A6E', '#E6B45A', '#BFD0C4', '#A7C4B5', '#9DB7C9', '#C9C2E0', '#7A6E78', '#2C2226', '#15181D'];
+  // [2026-07-26 원영] 팔레트 A안 — 기본 노출 주요색 인덱스(흰색·크림 2·로즈핑크 2·브랜드 로즈·검정). 나머지는 '+' 펼치기.
+  var BG_MAIN_IDX = [0, 1, 2, 4, 5, 7, 16];
   function buildLayout() {
     var chips = LAYOUTS.map(function (L, idx) {
       return '<button class="itlaytype' + (idx === 0 ? ' on' : '') + '" data-lay="' + idx + '" aria-label="' + L.label + '">' +
         '<span class="itlaytype__d">' + _layThumbSvg(L) + '</span><em>' + L.label + '</em></button>';
     }).join('');
-    var bg = BG_COLORS.map(function (c, i) { return '<button class="itlaybg' + (i === 0 ? ' on' : '') + '" data-bg="' + c + '" style="background:' + c + '"></button>'; }).join('');
+    var bg = _swRow(BG_COLORS, 'data-bg', 'itlaybg', 0);
     return '<div class="itpanel itlay2" data-panel="layout">' +
         '<div class="itgrip itgrip--p" data-pgrip></div>' +
       '<div class="itlay2__types">' + chips + '</div>' +
@@ -396,20 +474,18 @@
     var brushes = BRUSHES.map(function (b, i) {
       return '<button class="itbrush2' + (i === 0 ? ' on' : '') + '" data-brush="' + b + '" aria-label="' + (BRUSH_LABEL[b] || b) + '">' + IC[b] + '<em>' + (BRUSH_LABEL[b] || b) + '</em></button>';
     }).join('');
-    var colors = COLORS.map(function (c, i) {
-      return '<button class="itdsw' + (i === 2 ? ' on' : '') + '" data-dcolor="' + c + '" style="background:' + c + '"></button>';
-    }).join('');
+    var colors = _swRow(COLORS, 'data-dcolor', 'itdsw', 2);
     return '<div class="itpanel itdrawp" data-panel="draw">' +
       '<div class="itgrip itgrip--p" data-pgrip></div>' +
       '<div class="itdrawp__tools">' + brushes +
         '<button class="itdrawp__clear" data-r="drawClear">' + svg('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>', 2) + '전체 지우기</button></div>' +
       '<div class="itdrawp__size"><span class="itdrawp__lbl">굵기</span><input type="range" min="3" max="40" step="1" value="10" data-r="brushSize"></div>' +
-      '<div class="itdrawp__colors">' + colors + _rbSw('draw', 'itdsw') + '</div>' +
+      '<div class="itdrawp__colors">' + colors + _rbSw('draw', 'itdsw') + _pipSw('draw', 'itdsw') + '</div>' +
     '</div>';
   }
 
   function cacheRefs() {
-    ['stage', 'photowrap', 'photo', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkUpload', 'stkTabs', 'stkBody', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut', 'adjCutBg', 'adjBgImg', 'layFit', 'layBgImg', 'undo', 'redo', 'peek', 'drawClear', 'addText'].forEach(function (k) {
+    ['stage', 'photowrap', 'photo', 'photofx', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkUpload', 'stkTabs', 'stkBody', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut', 'adjCutBg', 'adjBgImg', 'layFit', 'layBgImg', 'undo', 'redo', 'peek', 'drawClear', 'addText'].forEach(function (k) {
       refs[k] = root.querySelector('[data-r="' + k + '"]');
     });
     refs.panels = {};
@@ -419,6 +495,7 @@
 
   /* ── 도구 전환 ── */
   function setTool(tool, _noAuto) {
+    _closeEyedrop();   // [스포이드] 도구 바꾸면 색 추출 모드 해제
     S.tool = tool;
     root.querySelectorAll('.itrb').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-tool') === tool); });
     Object.keys(refs.panels).forEach(function (k) { refs.panels[k].classList.toggle('is-open', k === tool); });
@@ -468,6 +545,15 @@
     var _rsB = box.querySelector('.itl__rs'); _rsB.addEventListener('pointerdown', function (e) { onRsDown(e, L); });
     // [#8] 핸들(× 복사 회전 크기)은 레이어가 커져도 아이콘 크기가 커지면 안 됨 → applyXf에서 역스케일.
     L._handles = [_delB, _dupB, _rotB, _rsB];
+    // [2026-07-26 원영] 텍스트 전용 '가로 늘리기' 핸들(우측 중앙, ⟷) — 폭(L.wrapW)을 정하면
+    //   white-space:pre-wrap 고정폭으로 전환돼 그 폭에서 자동 줄바꿈. 다른 핸들 위치는 그대로(모서리 고정).
+    if (type === 'text') {
+      var _wB = el('button', 'itl__w');
+      _wB.innerHTML = svg('<path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/>', 2.2);
+      _wB.setAttribute('aria-label', '가로 늘리기');
+      _wB.addEventListener('pointerdown', function (e) { onWDown(e, L); });
+      box.appendChild(_wB); L._handles.push(_wB);
+    }
     refs.layers.appendChild(box);
     S.layers.push(L);
     return L;
@@ -479,6 +565,12 @@
     applyXf(L);
   }
   function applyXf(L) {
+    // [#10 2026-07-18] 도형(선/사각/원)은 box 크기(w/h)를 직접 가져 '늘리기'(비균등)를 지원한다.
+    //   텍스트·스티커·이미지는 예전대로 균등 scale. w/h 가 있는 도형은 box 를 그 크기로 고정하고
+    //   scale 은 1 로 둔다(둘을 곱하면 이중 확대라 예측 불가).
+    if (L.type === 'shape' && L.w != null && L.h != null) {
+      L.el.style.width = L.w + 'px'; L.el.style.height = L.h + 'px';
+    }
     L.el.style.transform = 'translate(' + L.x + 'px,' + L.y + 'px) rotate(' + (L.rot || 0) + 'deg) scale(' + L.scale + ')';
     // [#8] 레이어가 커져도 조작 버튼(× 복사 회전 크기)은 화면상 같은 크기 유지 → 역스케일.
     if (L._handles) {
@@ -503,7 +595,27 @@
   function onRsDown(e, L) {
     e.preventDefault(); e.stopPropagation(); selectLayer(L);
     var b = L.el.getBoundingClientRect(); var cx = b.left + b.width / 2, cy = b.top + b.height / 2;
-    rsd = { L: L, cx: cx, cy: cy, d0: Math.max(8, Math.hypot(e.clientX - cx, e.clientY - cy)), s0: (L.scale || 1) };
+    // [#10] 도형은 '늘리기'(비균등 box 크기), 그 외는 예전대로 균등 scale.
+    var isShape = L.type === 'shape' && L.w != null && L.h != null;
+    rsd = { L: L, cx: cx, cy: cy, d0: Math.max(8, Math.hypot(e.clientX - cx, e.clientY - cy)), s0: (L.scale || 1),
+      shape: isShape, sx: e.clientX, sy: e.clientY, w0: L.w, h0: L.h, x0: L.x, y0: L.y, before: isShape ? { w: L.w, h: L.h, x: L.x, y: L.y } : null };
+    try { e.target.setPointerCapture(e.pointerId); } catch (_) { void _; }
+  }
+  // [2026-07-26 원영] 텍스트 가로 늘리기 — 폭을 정하면 pre-wrap 고정폭(그 폭에서 자동 줄바꿈),
+  //   해제(wrapW=null)면 원래 pre(엔터만 줄바꿈)로 복귀. 복제·undo 도 이 함수 하나로 상태 적용.
+  function _applyWrap(L) {
+    if (!L || !L.tx) return;
+    if (L.wrapW) {
+      L.tx.style.whiteSpace = 'pre-wrap'; L.tx.style.wordBreak = 'keep-all';
+      L.tx.style.overflowWrap = 'anywhere'; L.tx.style.width = L.wrapW + 'px';
+    } else {
+      L.tx.style.whiteSpace = 'pre'; L.tx.style.wordBreak = ''; L.tx.style.overflowWrap = ''; L.tx.style.width = '';
+    }
+  }
+  var wd = null;
+  function onWDown(e, L) {
+    e.preventDefault(); e.stopPropagation(); selectLayer(L);
+    wd = { L: L, sx: e.clientX, sy: e.clientY, w0: L.wrapW || (L.tx ? L.tx.offsetWidth : 100), before: { wrapW: L.wrapW || null } };
     try { e.target.setPointerCapture(e.pointerId); } catch (_) { void _; }
   }
   function selectLayer(L) {
@@ -512,12 +624,38 @@
     S.layers.forEach(function (x) { x.el.classList.toggle('is-active', x === L); });
     // [#8b] 새로 선택된 순간엔 삭제/복제 핸들 클릭을 잠깐 막는다 — 선택시키는 그 탭이 방금 나타난 ×를 눌러 사라지던 것 방지(타이밍 무관 방어).
     if (L && !wasActive && L.el) { L.el.classList.add('itl--guard'); clearTimeout(L._guardT); L._guardT = setTimeout(function () { try { L.el.classList.remove('itl--guard'); } catch (_e) { void _e; } }, 320); }
-    if (L && L.type === 'text') syncTextControls(L);
+    // [2026-07-27] 폰트 패널 조건부 노출 — 텍스트 레이어 선택 시에만 열고, 선택 해제/다른 레이어면 닫는다(기존 setTool/_closeToolPanel 재사용).
+    if (L && L.type === 'text') { syncTextControls(L); if (S.tool !== 'text') setTool('text', true); }
+    else if (S.tool === 'text') _closeToolPanel();
   }
   function removeLayer(L, track) {
     var i = S.layers.indexOf(L); if (i >= 0) S.layers.splice(i, 1);
     L.el.remove(); if (S.active === L) S.active = null;
-    if (track) _pushOp({ op: 'del', L: L, idx: i });   // [P1-3] 실수 삭제 되돌리기
+    if (track) { _pushOp({ op: 'del', L: L, idx: i }); _showDeleteToast(); }   // [P1-3] 실수 삭제 되돌리기 + [5차] 안내 토스트
+  }
+  // [5차] 실수 삭제 구제 — × 오탭 즉시삭제가 아무 안내 없이 사라지던 것. 지운 직후 "지웠어요 · 되돌리기"(3초).
+  //   되돌리기 = 기존 _undo()(del op 가 undo 스택에 이미 쌓임 — 새 복원 로직 안 만듦). 편집기 자체 구현(워크스페이스 토스트 의존 X).
+  var _delToastT = null;
+  function _showDeleteToast() {
+    if (!root) return;
+    var t = root.querySelector('.itl-deltoast');
+    if (!t) {
+      t = el('div', 'itl-deltoast');
+      var lbl = el('span', 'itl-deltoast__t'); lbl.textContent = '지웠어요';
+      var btn = el('button', 'itl-deltoast__u'); btn.type = 'button'; btn.textContent = '되돌리기';
+      t.appendChild(lbl); t.appendChild(btn);
+      root.appendChild(t);
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        clearTimeout(_delToastT);
+        t.classList.remove('is-show');
+        _undo();
+      });
+    }
+    // 연속 삭제 시 최신 것 하나만 — 타이머 리셋
+    clearTimeout(_delToastT);
+    t.classList.add('is-show');
+    _delToastT = setTimeout(function () { try { t.classList.remove('is-show'); } catch (_e) { void _e; } }, 3000);
   }
   // [P1-3] 구조적 undo/redo — 추가/삭제/복제만 추적(실제 DOM 노드 보존, 재생성 안 함 → 안전).
   //   이동·색변경 등 속성 변화는 드래그로 쉽게 재조정 가능하므로 제외. 가장 치명적인 '실수 삭제'를 확실히 커버.
@@ -529,6 +667,32 @@
       S.photos[pi] = st.url; S.cutSet = S.cutSet || {}; S.cutSet[pi] = !!st.cut;
       if (isSingleL(S.layout) && pi === S.adjSel) { S.photoUrl = st.url; S.photoCss = 'url("' + st.url + '")'; if (refs.photo) refs.photo.style.backgroundImage = S.photoCss; }
       renderAdjust(); renderLayoutStrip(); renderCollage(); applyAdjToDisplay();
+      return;
+    }
+    // [#9] 레이어 이동 되돌리기 — DOM 재생성 없이 x/y 만 원위치로(안전).
+    if (op.op === 'move') {
+      var mv = undo ? op.before : op.after;
+      if (op.L) { op.L.x = mv.x; op.L.y = mv.y; applyXf(op.L); selectLayer(op.L); }
+      return;
+    }
+    // [#10] 도형 늘리기 되돌리기 — w/h/x/y 복원.
+    if (op.op === 'resize') {
+      var rz = undo ? op.before : op.after;
+      if (op.L) { op.L.w = rz.w; op.L.h = rz.h; if (rz.x != null) op.L.x = rz.x; if (rz.y != null) op.L.y = rz.y; applyXf(op.L); selectLayer(op.L); }
+      return;
+    }
+    // [2026-07-26 원영] 텍스트 가로 늘리기(wrapW) 되돌리기.
+    if (op.op === 'wrap') {
+      var wz = undo ? op.before : op.after;
+      if (op.L) { op.L.wrapW = wz.wrapW || null; _applyWrap(op.L); applyXf(op.L); selectLayer(op.L); }
+      return;
+    }
+    // [#9] 셀 크롭(콜라주 칸 안 사진 위치) 되돌리기.
+    if (op.op === 'cellcrop') {
+      var cc = undo ? op.before : op.after;
+      S.cellCrop = S.cellCrop || [];
+      S.cellCrop[op.k] = { s: cc.s, tx: cc.tx, ty: cc.ty };
+      applyCrop(op.k);
       return;
     }
     var add = (op.op === 'add') === undo;   // undo: add→제거, del→복원 / redo: 반대
@@ -546,7 +710,7 @@
     if (!L) L = S.active; if (!L) return;
     var c = makeLayer(L.type);
     // [#3] 도형 굵기(strokeW)는 예전에 빠져 있어(엉뚱한 'thick' 키만 복사) 복제본이 '얇게 하기 전' 굵기로 나왔다.
-    ['font', 'color', 'align', 'fontSize', 'text', 'role', 'stroke', 'shadow', 'badge', 'emoji', 'src', 'shape', 'fill', 'strokeW', 'thick', 'fontSizePx'].forEach(function (k) { if (L[k] !== undefined) c[k] = L[k]; });
+    ['font', 'color', 'align', 'fontSize', 'text', 'role', 'stroke', 'shadow', 'badge', 'emoji', 'src', 'shape', 'fill', 'strokeW', 'thick', 'fontSizePx', 'w', 'h', 'radius', 'wrapW'].forEach(function (k) { if (L[k] !== undefined) c[k] = L[k]; });
     if (L.tx) { var node = L.tx.cloneNode(true); node.removeAttribute('contenteditable'); c.el.appendChild(node); c.tx = node; }
     // [#3] 도형은 복제한 DOM을 현재 strokeW/색/채움으로 다시 칠해 원본과 100% 일치시킨다.
     if (c.type === 'shape' && c.tx) { try { styleShape(c.tx, c); } catch (_e) { void _e; } }
@@ -556,6 +720,10 @@
   }
   var drag = null, lpinch = null;
   function onLayerDown(e, L) {
+    // [캐럿 버그 2026-07-27] 편집 중(contenteditable)엔 브라우저 기본 캐럿 배치/드래그 선택에 맡긴다.
+    //   preventDefault·포인터캡처·드래그 시작이 클릭 캐럿 이동을 막고 커서를 grab 으로 고정하던 원인.
+    //   blur(편집 종료)로 contenteditable 이 풀리면 자동으로 원래 드래그 동작 복귀.
+    if (L.tx && L.tx.isContentEditable) return;
     // [#8b] 몸통 탭이면 삭제/복제 핸들 disarm — 몸통 위에 겹친 ×가 눌려 레이어가 사라지던 것 방지(핸들 직접 탭에서만 동작).
     L._delArmed = false; L._dupArmed = false;
     e.preventDefault(); selectLayer(L);
@@ -570,7 +738,7 @@
     }
     if (L.type === 'text' && L._tapEdit && Date.now() - L._tapEdit < 350) { editText(L); return; }
     L._tapEdit = Date.now();
-    drag = { L: L, pid: e.pointerId, sx: e.clientX, sy: e.clientY, ox: L.x, oy: L.y };
+    drag = { L: L, pid: e.pointerId, sx: e.clientX, sy: e.clientY, ox: L.x, oy: L.y, moved: false };   // [#9] ox/oy=이동 전 위치(되돌리기용)
     L.el.style.cursor = 'grabbing';
   }
   document.addEventListener('pointermove', function (e) {
@@ -583,9 +751,28 @@
       if (L.type === 'text' && refs.size) refs.size.value = L.scale; return;
     }
     if (rsd) {
+      if (rsd.shape) {
+        // [#10] 늘리기 — 포인터 이동량을 도형의 '회전 안 된 축'으로 되돌려(dx=가로, dy=세로) box 크기에 반영.
+        //   중심 고정(양쪽으로 늘어남) → x/y 도 절반만큼 보정. 선은 세로(두께)는 굵기슬라이더 담당이라 가로만.
+        var mdx = e.clientX - rsd.sx, mdy = e.clientY - rsd.sy;
+        var rad = -(rsd.L.rot || 0) * Math.PI / 180, cs = Math.cos(rad), sn = Math.sin(rad);
+        var ldx = mdx * cs - mdy * sn, ldy = mdx * sn + mdy * cs;   // 로컬 축 이동량
+        var nw = Math.max(12, rsd.w0 + ldx * 2);
+        var nh = rsd.L.shape === 'line' ? rsd.h0 : Math.max(12, rsd.h0 + ldy * 2);
+        rsd.L.x = rsd.x0 - (nw - rsd.w0) / 2; rsd.L.y = rsd.y0 - (nh - rsd.h0) / 2;   // 중심 유지
+        rsd.L.w = nw; rsd.L.h = nh; applyXf(rsd.L); return;
+      }
       var d = Math.hypot(e.clientX - rsd.cx, e.clientY - rsd.cy);
       rsd.L.scale = Math.max(0.2, Math.min(6, rsd.s0 * d / rsd.d0)); applyXf(rsd.L);
       if (rsd.L.type === 'text' && refs.size) refs.size.value = rsd.L.scale; return;
+    }
+    if (wd) {
+      // [2026-07-26 원영] 가로 늘리기 — 이동량을 레이어 로컬 가로축으로 환산(회전 고려), scale 나눠 실제 폭 px 로.
+      var wdx = e.clientX - wd.sx, wdy = e.clientY - wd.sy;
+      var wrad = -(wd.L.rot || 0) * Math.PI / 180;
+      var wldx = (wdx * Math.cos(wrad) - wdy * Math.sin(wrad)) / (wd.L.scale || 1);
+      wd.L.wrapW = Math.max(40, Math.round(wd.w0 + wldx));
+      _applyWrap(wd.L); applyXf(wd.L); return;
     }
     if (rotd) {
       var a = Math.atan2(e.clientY - rotd.cy, e.clientX - rotd.cx);
@@ -595,6 +782,7 @@
     if (S) S._userMoved = true;   // [P2-1] 사용자가 직접 옮기면 자동 회피 우선권 해제
     drag.L.x = drag.ox + (e.clientX - drag.sx);
     drag.L.y = drag.oy + (e.clientY - drag.sy);
+    drag.moved = true;   // [#9] 실제로 움직였을 때만 되돌리기 스택에 남긴다(탭만 하면 안 남김)
     applyXf(drag.L);
   });
   document.addEventListener('pointerup', cleanupLayerPointer);
@@ -603,8 +791,22 @@
     // [#1 드래그 회귀] 어느 경로로 끝나든 모든 레이어의 포인터 추적을 지운다(안 지우면 stale 포인터로 다음 드래그가 핀치로 오인됨).
     (S && S.layers || []).forEach(function (L) { if (L._pts) delete L._pts[e.pointerId]; });
     if (lpinch && (!lpinch.L._pts || Object.keys(lpinch.L._pts).length < 2)) lpinch = null;
-    if (drag) { drag.L.el.style.cursor = 'grab'; drag = null; }
-    rotd = null; rsd = null;
+    if (drag) {
+      // [#9] 레이어를 실제로 옮겼으면 되돌리기(↩) 스택에 — 실수로 옮긴 글씨/스티커/도형을 원위치로.
+      if (drag.moved && (drag.L.x !== drag.ox || drag.L.y !== drag.oy)) {
+        _pushOp({ op: 'move', L: drag.L, before: { x: drag.ox, y: drag.oy }, after: { x: drag.L.x, y: drag.L.y } });
+      }
+      drag.L.el.style.cursor = 'grab'; drag = null;
+    }
+    // [#10] 도형 늘리기(크기 변경)도 되돌리기(↩) 스택에.
+    if (rsd && rsd.shape && rsd.before && (rsd.L.w !== rsd.before.w || rsd.L.h !== rsd.before.h)) {
+      _pushOp({ op: 'resize', L: rsd.L, before: rsd.before, after: { w: rsd.L.w, h: rsd.L.h, x: rsd.L.x, y: rsd.L.y } });
+    }
+    // [2026-07-26 원영] 텍스트 가로 늘리기도 되돌리기(↩) 스택에.
+    if (wd && wd.L.wrapW !== wd.before.wrapW) {
+      _pushOp({ op: 'wrap', L: wd.L, before: wd.before, after: { wrapW: wd.L.wrapW } });
+    }
+    rotd = null; rsd = null; wd = null;
   }
 
   /* ── 사진 핀치 확대/이동 (두 손가락, 빈 배경에서) ── */
@@ -654,7 +856,9 @@
   function addText() {
     var L = makeLayer('text');
     L.font = FONTS[0]; L.color = COLORS[0]; L.align = 'center'; L.fontSize = 30; L.text = '내용을 입력하세요';
-    var t = el('div', 'itl-text'); t.textContent = L.text; t.style.cssText = 'font-family:' + L.font.family + ';font-weight:' + L.font.weight + ';color:' + L.color + ';text-align:center;font-size:' + L.fontSize + 'px';
+    // [2026-07-26 원영] white-space:pre — 편집 중 자동 줄바꿈 금지(엔터 친 곳만 줄바꿈).
+    //   export 캔버스는 split('\n')으로 엔터만 줄바꿈이라, 편집 화면도 동일해야 WYSIWYG.
+    var t = el('div', 'itl-text'); t.textContent = L.text; t.style.cssText = 'font-family:' + L.font.family + ';font-weight:' + L.font.weight + ';color:' + L.color + ';text-align:center;font-size:' + L.fontSize + 'px;white-space:pre';
     L.el.appendChild(t); L.tx = t;
     placeCenter(L, 180, 50); selectLayer(L);
     _pushOp({ op: 'add', L: L });   // [P1-3] 추가 되돌리기
@@ -662,9 +866,11 @@
     return L;
   }
   function editText(L) {
+    L.el.classList.add('is-editing');   // [캐럿 버그] .itl 의 grab 커서 대신 text 커서(css .itl.is-editing)
     L.tx.setAttribute('contenteditable', 'true'); L.tx.focus();
     document.execCommand && document.execCommand('selectAll', false, null);
     L.tx.addEventListener('blur', function () {
+      L.el.classList.remove('is-editing');
       L.tx.removeAttribute('contenteditable');
       // [버그수정 2026-07-06] textContent 는 contenteditable 의 <br>/<div> 줄바꿈을 개행문자로 안 넣어
       //   두 줄 입력이 한 줄로 뭉쳤다(미리보기·export·재편집 3곳 불일치). innerText 는 개행을 \n 으로 보존.
@@ -702,7 +908,11 @@
     L.stroke = !!(spec.outline && spec.outline.on) || !!spec.stroke;
     L.shadow = isBadge || !!(spec.shadow && spec.shadow.on) || !!spec.shadow;
     var t = el('div', 'itl-text'); t.textContent = L.text;
-    var css = 'font-family:' + L.font.family + ';font-weight:' + (spec.weight || L.font.weight) + ';color:' + L.color + ';text-align:' + L.align + ';font-size:' + L.fontSize + 'px;white-space:pre-wrap';
+    /* [2026-07-23 보스] 한글 줄바꿈 — word-break:keep-all 로 **어절(띄어쓰기) 단위**로 끊는다.
+       기본값(normal)은 한글을 글자 단위로 끊어서 '속눈썹 연/장', '뿌리염/색' 처럼 어색하게 잘렸다.
+       overflow-wrap:anywhere 는 안전망 — 띄어쓰기 없이 아주 긴 한 덩어리(URL·영문)가 오면
+       keep-all 만으론 박스를 뚫고 나가므로 그때만 강제로 끊는다. */
+    var css = 'font-family:' + L.font.family + ';font-weight:' + (spec.weight || L.font.weight) + ';color:' + L.color + ';text-align:' + L.align + ';font-size:' + L.fontSize + 'px;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere';
     if (spec.w != null) css += ';max-width:' + Math.round(spec.w * R.width) + 'px';
     if (L.stroke) css += ';-webkit-text-stroke:1px rgba(0,0,0,.5)';
     if (L.shadow) css += ';text-shadow:0 2px 8px rgba(0,0,0,.35)';
@@ -719,27 +929,37 @@
   }
   // [#14] 우리샵 스타일에서 들어온 구분선 → 편집 가능한 line 도형 레이어로.
   function addShopLine(spec, R) {
-    var L = makeLayer('shape'); L.shape = 'line'; L.color = spec.color || '#ffffff'; L.fill = true; L.role = 'rule'; L.rot = spec.rot || 0;
+    var L = makeLayer('shape'); L.shape = 'line'; L.color = spec.color || '#ffffff'; L.fill = true; L.rot = spec.rot || 0;
+    // [버그수정 2026-07-17] role 을 spec 대로. 예전엔 무조건 'rule' 이라 원장이 직접 그린 선(role='')까지
+    //   '우리샵 구분선'으로 취급돼 얼굴 회피·겹침 해소 로직이 제멋대로 옮겼다(기억한 자리가 안 지켜짐).
+    L.role = (spec.role != null) ? spec.role : 'rule';
     L.strokeW = Math.max(2, Math.round((spec.size != null ? spec.size : 0.006) * R.height));
-    var w = Math.round((spec.w != null ? spec.w : 0.11) * R.width);
-    var d = el('div', 'itl-shape'); styleShape(d, L); d.style.width = w + 'px'; L.el.appendChild(d); L.tx = d;
-    var bh = Math.max(L.strokeW, 22);
-    L.x = (spec.x != null ? spec.x : 0.5) * R.width - w / 2;
-    L.y = (spec.y != null ? spec.y : 0.88) * R.height - bh / 2;
+    // [#10] box 크기로 저장(늘리기 지원). 선 길이=w, 세로=두께 기준 hit 영역.
+    L.w = Math.round((spec.w != null ? spec.w : 0.11) * R.width);
+    L.h = (spec.h != null ? Math.round(spec.h * R.height) : Math.max(L.strokeW, 22));
+    var d = el('div', 'itl-shape'); styleShape(d, L); L.el.appendChild(d); L.tx = d;
+    L.x = (spec.x != null ? spec.x : 0.5) * R.width - L.w / 2;
+    L.y = (spec.y != null ? spec.y : 0.88) * R.height - L.h / 2;
     applyXf(L);
     return L;
   }
   // [#1] 채움 '면'(반투명 패널/악센트 블록) — 텍스트 뒤 가독성·디자인용. 색은 rgba 권장(반투명).
   function addShopRect(spec, R) {
-    var L = makeLayer('shape'); L.shape = (spec.shape === 'rect' ? 'rect' : 'round'); L.fill = true;
+    var L = makeLayer('shape');
+    /* [버그수정 2026-07-17] spec 의 모양·채움·굵기를 존중한다. 예전엔 circle 을 round 로 뭉개고
+       fill 을 true 로 강제해, 원장이 만든 '테두리 원'이 복원 시 '채운 둥근 사각형'이 됐다.
+       ⚠️ 우리샵 스타일 패널 spec 은 fill 을 안 실어 보낸다 → null 이면 기존대로 채움(하위호환). */
+    L.shape = (spec.shape === 'rect' || spec.shape === 'circle') ? spec.shape : 'round';
+    L.fill = (spec.fill != null) ? !!spec.fill : true;
     L.color = spec.color || 'rgba(20,16,18,.30)'; L.role = spec.role || 'panel'; L.rot = spec.rot || 0;
-    var w = Math.round((spec.w != null ? spec.w : 0.8) * R.width);
-    var h = Math.round((spec.h != null ? spec.h : 0.12) * R.height);
-    var d = el('div', 'itl-shape');
-    d.style.cssText = 'box-sizing:border-box;width:' + w + 'px;height:' + h + 'px;background:' + L.color + ';border-radius:' + (spec.radius != null ? spec.radius : 16) + 'px';
-    L.el.appendChild(d); L.tx = d;
-    L.x = (spec.x != null ? spec.x : 0.5) * R.width - w / 2;
-    L.y = (spec.y != null ? spec.y : 0.85) * R.height - h / 2;
+    L.strokeW = (spec.strokeW != null) ? Math.max(1, Math.round(spec.strokeW * R.height)) : 6;
+    // [#10] box 크기로 저장(늘리기 지원). 안쪽 면/테두리는 box 를 100% 채운다(styleShape).
+    L.w = Math.round((spec.w != null ? spec.w : 0.8) * R.width);
+    L.h = Math.round((spec.h != null ? spec.h : 0.12) * R.height);
+    L.radius = (spec.radius != null ? spec.radius : 16);
+    var d = el('div', 'itl-shape'); styleShape(d, L); L.el.appendChild(d); L.tx = d;
+    L.x = (spec.x != null ? spec.x : 0.5) * R.width - L.w / 2;
+    L.y = (spec.y != null ? spec.y : 0.85) * R.height - L.h / 2;
     applyXf(L);
     return L;
   }
@@ -887,6 +1107,7 @@
   }
   // [#7] 하단 도구패널 전체 닫기 — 아무 도구도 선택 안 한 상태로(모든 패널 내림).
   function _closeToolPanel() {
+    _closeEyedrop();
     S.tool = null;
     root.querySelectorAll('.itrb').forEach(function (b) { b.classList.remove('on'); });
     Object.keys(refs.panels).forEach(function (k) { refs.panels[k].classList.remove('is-open'); });
@@ -951,12 +1172,14 @@
   function styleShape(d, L) {
     var c = L.color, sw = L.strokeW || 6;
     if (L.shape === 'line') {
-      // 박스는 잡기 쉽게(>=22px), 보이는 막대는 굵기(sw)만큼 가운데 — 내보내기도 sw 두께로 그림.
-      d.style.cssText = 'width:180px;height:' + Math.max(sw, 22) + 'px;border-radius:' + (sw / 2) + 'px;background:linear-gradient(' + c + ',' + c + ') center/100% ' + sw + 'px no-repeat';
+      // [#10] 안쪽 막대는 box 를 꽉 채운다(width/height:100%) — box 를 늘리면 선 길이가 늘어난다.
+      //   막대 두께는 굵기(sw)만큼 세로 가운데. 내보내기도 sw 두께로 그림.
+      d.style.cssText = 'width:100%;height:100%;border-radius:' + (sw / 2) + 'px;background:linear-gradient(' + c + ',' + c + ') center/100% ' + sw + 'px no-repeat';
     } else {
-      var base = 'box-sizing:border-box;width:120px;height:120px;';
+      // [#10] 사각/원도 box 를 꽉 채운다 → box 의 w/h 를 따로 늘리면 가로·세로 독립으로 늘어난다.
+      var base = 'box-sizing:border-box;width:100%;height:100%;';
       base += L.fill ? ('background:' + c + ';border:0;') : ('background:transparent;border:' + sw + 'px solid ' + c + ';');
-      base += L.shape === 'circle' ? 'border-radius:50%' : (L.shape === 'round' ? 'border-radius:18px' : 'border-radius:0');
+      base += L.shape === 'circle' ? 'border-radius:50%' : (L.shape === 'round' ? ('border-radius:' + (L.radius != null ? L.radius : 18) + 'px') : 'border-radius:0');
       d.style.cssText = base;
     }
   }
@@ -964,15 +1187,18 @@
     var L = makeLayer('shape');
     L.shape = kind; L.color = S.shapeColor; L.fill = !!S.shapeFill; L.strokeW = S.shapeThick;
     var d = el('div', 'itl-shape'); styleShape(d, L); L.el.appendChild(d); L.tx = d;
-    var w = kind === 'line' ? 180 : 120, h = kind === 'line' ? Math.max(L.strokeW || 6, 22) : 120;
-    placeCenter(L, w, h); selectLayer(L);
+    // [#10] box 크기를 명시적으로 — 이후 크기 핸들이 이 w/h 를 늘린다(비균등).
+    L.w = kind === 'line' ? 180 : 120; L.h = kind === 'line' ? Math.max(L.strokeW || 6, 22) : 120;
+    var r = refs.stage.getBoundingClientRect();
+    L.x = r.width / 2 - L.w / 2; L.y = r.height / 2 - L.h / 2; applyXf(L); selectLayer(L);
+    _pushOp({ op: 'add', L: L });   // [#10] 도형 추가도 되돌리기(↩) — 예전엔 addShape 만 _pushOp 가 빠져 있었음
   }
   // [#5] 활성 도형에 색/채움/굵기 즉시 반영(새로 만드는 것뿐 아니라 선택된 것에도).
   function applyShapeStyle() {
     var L = S.active; if (!L || L.type !== 'shape') return;
     L.color = S.shapeColor; L.fill = !!S.shapeFill; L.strokeW = S.shapeThick;
-    if (L.shape === 'line') { var cw = parseFloat(L.tx.style.width) || L.tx.offsetWidth || 180; styleShape(L.tx, L); L.tx.style.width = cw + 'px'; }
-    else styleShape(L.tx, L);
+    // [#10] 안쪽 막대/면은 box 를 꽉 채우므로(styleShape width/height:100%) 크기는 box(w/h)가 소유 → 여기선 스타일만 다시.
+    styleShape(L.tx, L);
   }
   // [①] PC/모바일 공통 — 가로 스크롤 줄(폰트/색/칩)을 드래그로 넘김(인스타식 스와이프).
   function enableDragScroll(elm) {
@@ -1031,6 +1257,7 @@
       if (idx !== S.adjSel) { _switchPhotoDraw(S.adjSel, idx); _switchPhotoLayers(S.adjSel, idx); S.adjSel = idx; }   // [#9] 그리기 + [#5/#6] 텍스트·스티커도 사진별로
       S.photoUrl = S.photos[idx]; S.photoCss = 'url("' + S.photos[idx] + '")';
       refs.photo.style.backgroundImage = S.photoCss;
+      applyAdjToDisplay();   // [#11] 사진 바꾸면 배경-제외 오버레이(photofx)도 이 사진 기준으로 다시
       renderLayoutStrip(); renderLayoutHint(); return;
     }
     var at = S.layoutOrder.indexOf(idx);
@@ -1066,6 +1293,7 @@
   function renderCollage() {
     var fit = S.fitMode || 'cover';
     if (isSingleL(S.layout)) { refs.collage.hidden = true; refs.collage.className = 'itded__collage'; refs.collage.innerHTML = ''; refs.photo.style.backgroundImage = S.photoCss; refs.photo.style.backgroundSize = fit; refs.photo.style.backgroundColor = (fit === 'contain' ? (S.collageBg || '#fff') : 'transparent'); return; }
+    if (refs.photofx) { refs.photofx.hidden = true; }   // [#11] 콜라주 모드 — 단일용 오버레이는 끈다(셀별 fx 는 셀 안에서 처리)
     // [SSOT] 셀 좌표 그대로 절대배치 — 비대칭(1+2·2+1) 포함 모든 모양 지원, export와 동일 좌표.
     var cellsSpec = _layCells(), pos = _layPosArr(), gap = (S.collageGap != null ? S.collageGap : 3), cells = '';
     for (var k = 0; k < cellsSpec.length; k++) {
@@ -1076,8 +1304,27 @@
       // [#2] 셀마다 그 사진의 수평보정(rot)을 개별 반영 — 콜라주 전체가 아니라 각 칸만 회전.
       var _rdeg = (idx != null ? (adjOf(idx).rot || 0) : 0);
       var _rot = _rdeg ? (' rotate(' + _rdeg + 'deg) scale(' + coverScaleForRot(_rdeg) + ')') : '';
-      if (idx != null && S.photos[idx]) cells += '<div class="itded__cell" data-ci="' + idx + '" data-cell="' + k + '" style="' + st + ';filter:' + filterStr(adjOf(idx)) + '"><img class="itcellimg" src="' + S.photos[idx] + '" draggable="false" style="object-fit:' + fit + ';transform:' + cropXf(k) + _rot + '"></div>';
-      else cells += '<div class="itded__cell itded__cell--empty" data-cell="' + k + '" style="' + st + '">' + (k + 1) + '번<br>' + (pos[k] || '') + '</div>';
+      if (idx != null && S.photos[idx]) {
+        var _flt = filterStr(adjOf(idx));
+        var _imgSt = 'object-fit:' + fit + ';transform:' + cropXf(k) + _rot;
+        // [#11 2026-07-18] 누끼 셀은 셀 전체에 보정하지 않는다 — 베이스 img(보정X) + fx 오버레이(보정+사람 마스크).
+        //   배경(마스크 밖)은 fx 가 투명 → 아래 베이스가 보여 배경 원래색 유지. fgMask 없으면 예전대로 셀 필터.
+        //   fx 는 <img> 가 아니라 background-image div — background-size 가 object-fit 과 같은 방식(cover/contain)으로
+        //   잘려서 베이스 img 와 픽셀 정렬된다(img+mask 는 object-fit 크롭과 mask-size 가 어긋남). transform 은 동일 적용.
+        if (_fgOn(idx)) {
+          var _m = 'url(&quot;' + S.fgMask[idx] + '&quot;)';
+          var _fxSt = 'position:absolute;inset:0;background-image:url(&quot;' + S.photos[idx] + '&quot;);background-size:' + fit +
+            ';background-position:center;background-repeat:no-repeat;transform:' + cropXf(k) + _rot + ';filter:' + _flt +
+            ';-webkit-mask-image:' + _m + ';mask-image:' + _m + ';-webkit-mask-size:' + fit + ';mask-size:' + fit +
+            ';-webkit-mask-position:center;mask-position:center;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;pointer-events:none';
+          cells += '<div class="itded__cell" data-ci="' + idx + '" data-cell="' + k + '" style="' + st + ';filter:none">' +
+            '<img class="itcellimg" src="' + S.photos[idx] + '" draggable="false" style="' + _imgSt + '">' +
+            '<div class="itcellfx" aria-hidden="true" style="' + _fxSt + '"></div>' +
+            '</div>';
+        } else {
+          cells += '<div class="itded__cell" data-ci="' + idx + '" data-cell="' + k + '" style="' + st + ';filter:' + _flt + '"><img class="itcellimg" src="' + S.photos[idx] + '" draggable="false" style="' + _imgSt + '"></div>';
+        }
+      } else cells += '<div class="itded__cell itded__cell--empty" data-cell="' + k + '" style="' + st + '">' + (k + 1) + '번<br>' + (pos[k] || '') + '</div>';
     }
     refs.collage.className = 'itded__collage is-abs';
     refs.collage.style.gap = '';
@@ -1110,14 +1357,19 @@
   function cropXf(k) { var c = (S.cellCrop && S.cellCrop[k]) || { s: 1, tx: 0, ty: 0 }; return 'translate(' + c.tx + 'px,' + c.ty + 'px) scale(' + c.s + ')'; }
   function cellElByK(k) { return refs.collage.querySelector('[data-cell="' + k + '"]'); }
   function clampCrop(k) { var c = cropOf(k), el2 = cellElByK(k); if (!el2) return; var r = el2.getBoundingClientRect(); var mx = (c.s - 1) * r.width / 2, my = (c.s - 1) * r.height / 2; c.tx = Math.max(-mx, Math.min(mx, c.tx)); c.ty = Math.max(-my, Math.min(my, c.ty)); }
-  function applyCrop(k) { clampCrop(k); var el2 = cellElByK(k); var im = el2 && el2.querySelector('.itcellimg'); if (im) im.style.transform = cropXf(k); }
+  function applyCrop(k) { clampCrop(k); var el2 = cellElByK(k); if (!el2) return; var xf = cropXf(k);
+    var im = el2.querySelector('.itcellimg'); if (im) im.style.transform = xf;
+    var fx = el2.querySelector('.itcellfx'); if (fx) fx.style.transform = xf;   // [#11] 누끼 셀 크롭 시 fx 오버레이도 같이 (안 그러면 마스크가 어긋남)
+  }
   function selectCell(k) { S.cellSel = k; refs.collage.querySelectorAll('[data-cell]').forEach(function (c) { c.classList.toggle('is-cellsel', +c.getAttribute('data-cell') === k); }); }
-  var cropDrag = null, cropPinch = null, cellPts = {};
+  var cropDrag = null, cropPinch = null, cellPts = {}, _cellBefore = null;
   function onCellDown(e) {
     if (refs.collage.hidden) return;
     var cell = e.target.closest && e.target.closest('[data-cell]'); if (!cell) return;
     e.preventDefault();
     var k = +cell.getAttribute('data-cell'); selectCell(k);
+    // [#9] 이 칸을 만지기 시작한 순간의 크롭(위치·확대) 스냅샷 — 손 떼면 바뀐 만큼 되돌리기 스택에.
+    if (!_cellBefore || _cellBefore.k !== k) { var _c0 = cropOf(k); _cellBefore = { k: k, s: _c0.s, tx: _c0.tx, ty: _c0.ty }; }
     cellPts[k] = cellPts[k] || {}; cellPts[k][e.pointerId] = { x: e.clientX, y: e.clientY };
     try { refs.collage.setPointerCapture(e.pointerId); } catch (_) { void _; }
     var ids = Object.keys(cellPts[k]); var c = cropOf(k);
@@ -1136,6 +1388,17 @@
     var kk; for (kk in cellPts) { if (cellPts[kk] && cellPts[kk][e.pointerId]) delete cellPts[kk][e.pointerId]; }
     if (cropPinch && (!cellPts[cropPinch.k] || Object.keys(cellPts[cropPinch.k]).length < 2)) cropPinch = null;
     cropDrag = null;
+    // [#9] 이 칸에 남은 손가락이 없으면(제스처 종료) 바뀐 만큼 되돌리기 스택에 — 실수로 옮긴 칸 사진 원위치.
+    if (_cellBefore) {
+      var bk = _cellBefore.k, still = cellPts[bk] && Object.keys(cellPts[bk]).length;
+      if (!still) {
+        var now = cropOf(bk), b = _cellBefore;
+        if (now.s !== b.s || now.tx !== b.tx || now.ty !== b.ty) {
+          _pushOp({ op: 'cellcrop', k: bk, before: { s: b.s, tx: b.tx, ty: b.ty }, after: { s: now.s, tx: now.tx, ty: now.ty } });
+        }
+        _cellBefore = null;
+      }
+    }
   }
 
   /* ── 사진별 보정(밝기/대비/채도/온도/선명도) ── */
@@ -1143,12 +1406,47 @@
   function adjReadout(c, v) { return (c.k === 'w' || c.k === 'sh') ? ('' + v) : ((v - 100 >= 0 ? '+' : '') + (v - 100)); }
   var _adjRaf = 0;
   function applyAdjThrottled() { if (_adjRaf) return; var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _adjRaf = raf(function () { _adjRaf = 0; applyAdjToDisplay(); }); }
+  /* [#11 2026-07-18] 누끼(배경 교체)한 사진은 기본 보정을 '사람'에만 건다.
+     배경은 원장이 고른 깨끗한 배경이라 밝기·대비·채도·온도·선명도가 먹으면 고른 색이 틀어진다.
+     방식(미리보기): refs.photo 는 보정 없이(=배경 원래색) + 위에 photofx 오버레이에 같은 사진 + 보정 +
+       사람 마스크(-webkit-mask). 마스크 밖(배경)은 오버레이가 투명 → 아래 원본이 그대로 보인다.
+       photofx 는 photowrap 안이라 pz 변형을 자동 상속, 같은 background-size 로 base 와 픽셀 정렬.
+     내보내기(exportComposite)는 canvas 에서 같은 마스크로 배경을 되돌린다(아래).
+     fgMask 없으면(누끼 안 함·구 매트) 이 경로를 안 타고 예전 그대로. */
+  // 보정 안 건 상태(항등) — filterStr 은 기본값도 'brightness(1.00)…' 라 'none' 이 아니다. 여기서 판정.
+  function _adjIsId(a) { return !a || ((a.b || 100) === 100 && (a.c || 100) === 100 && (a.s || 100) === 100 && !(a.w > 0) && !(a.sh > 0)); }
+  function _fgOn(i) { return !!(S.fgMask && S.fgMask[i]); }
+  function _fgActive(i) { return _fgOn(i) && !_adjIsId(adjOf(i)); }   // 누끼 + 실제 보정 있을 때만 2겹
+  function _syncSingleFx(idx) {
+    var fx = refs.photofx; if (!fx) { refs.photo.style.filter = filterStr(adjOf(idx < 0 ? 0 : idx)); return; }
+    var i = idx < 0 ? 0 : idx, flt = filterStr(adjOf(i)), fit = S.fitMode || 'cover';
+    if (_fgActive(i)) {
+      refs.photo.style.filter = 'none';                 // base = 보정 없음(배경 원래색)
+      fx.hidden = false;
+      fx.style.backgroundImage = S.photoCss;
+      fx.style.backgroundSize = fit; fx.style.backgroundPosition = 'center'; fx.style.backgroundRepeat = 'no-repeat';
+      fx.style.filter = flt;
+      var m = 'url("' + S.fgMask[i] + '")';
+      fx.style.webkitMaskImage = m; fx.style.maskImage = m;
+      fx.style.webkitMaskSize = fit; fx.style.maskSize = fit;
+      fx.style.webkitMaskPosition = 'center'; fx.style.maskPosition = 'center';
+      fx.style.webkitMaskRepeat = 'no-repeat'; fx.style.maskRepeat = 'no-repeat';
+    } else {
+      refs.photo.style.filter = flt;                    // 기존 동작(전체 보정)
+      fx.hidden = true; fx.style.webkitMaskImage = ''; fx.style.maskImage = '';
+    }
+  }
   function applyAdjToDisplay() {
     if ((S.layout.kind || 'single') === 'single') {
-      var idx = S.photos.indexOf(S.photoUrl); refs.photo.style.filter = filterStr(adjOf(idx < 0 ? 0 : idx));   // straighten 은 회전/사진전환 때만(여기선 호출 안 함 → 매 틱 reflow 제거)
+      _syncSingleFx(S.photos.indexOf(S.photoUrl));
     } else {
-      // [#1 끊김] 셀 innerHTML 재생성(배경이미지 재디코딩) 대신 필터만 in-place 갱신
-      refs.collage.querySelectorAll('.itded__cell[data-ci]').forEach(function (cell) { cell.style.filter = filterStr(adjOf(+cell.getAttribute('data-ci'))); });
+      // [#1 끊김] 셀 innerHTML 재생성(배경이미지 재디코딩) 대신 필터만 in-place 갱신.
+      //   [#11] 누끼 셀(fgMask 있음)은 fx 오버레이 img 의 필터를, 아니면 셀 자체 필터를 갱신.
+      refs.collage.querySelectorAll('.itded__cell[data-ci]').forEach(function (cell) {
+        var ci = +cell.getAttribute('data-ci'), flt = filterStr(adjOf(ci)), fxi = cell.querySelector('.itcellfx');
+        if (fxi) { cell.style.filter = 'none'; fxi.style.filter = _adjIsId(adjOf(ci)) ? 'none' : flt; }
+        else cell.style.filter = flt;
+      });
     }
   }
   function syncAdjSliders() {
@@ -1214,11 +1512,16 @@
     var _pb = S.photoBg[i];
     var bg = _pb ? (_pb.img ? { imageData: _pb.img } : { color: _pb.color || '#FFFFFF' }) : { color: '#FFFFFF' };
     var _sess = S;   // [audit] 세션 스냅샷 — 누끼 대기 중 back으로 닫고 재진입하면 옛 결과가 새 세션 사진을 덮던 버그 방지.
-    window.PhotoEditorBgCompose.compose({ srcUrl: src, bg: bg, targetRatio: '4:5', preRemovedBgUrl: cached }).then(function (r) {
+    // [2026-07-26 원영] targetRatio '4:5' → 'original' — 누끼는 배경만 바꾸고 구도(위치·크기)는 원본 그대로.
+    //   '4:5' 강제 크롭 + 인물 재배치가 "누끼 땄더니 확대·이동" 버그의 원인이었음.
+    window.PhotoEditorBgCompose.compose({ srcUrl: src, bg: bg, targetRatio: 'original', preRemovedBgUrl: cached }).then(function (r) {
       if (S !== _sess || !root.classList.contains('is-open')) return;   // 편집기 닫혔거나 다른 세션 → 무시(유령 반영 방지)
       if (!silent && refs.adjCut) { refs.adjCut.disabled = false; refs.adjCut.classList.remove('is-busy'); }
       if (!r || !r.composedDataUrl) { if (!silent) toastIt('배경 제거에 실패했어요'); return; }
       if (r.removedBgDataUrl) S.matte[i] = r.removedBgDataUrl;   // 매트 캐시
+      // [#11 2026-07-18] 합성본 정렬 사람 마스크 — 기본 보정(밝기·대비·채도·온도·선명도)을 사람에만 걸 때 쓴다.
+      //   removedBgDataUrl(누끼 PNG)은 자기 좌표계라 place 로 배치·크롭된 합성본과 안 맞음 → compose 가 정렬해 준 것만 씀.
+      if (r.personMaskDataUrl) S.fgMask[i] = r.personMaskDataUrl; else delete S.fgMask[i];
       S.cutSet[i] = true;
       S.photos[i] = r.composedDataUrl;
       // [#1] 누끼 대기 중 장을 바꿔도 어긋나지 않게 — 완료 시 '지금 보고 있는 장'을 항상 최신 S.photos 로 반영.
@@ -1230,7 +1533,15 @@
       renderAdjust(); renderLayoutStrip(); renderCollage(); applyAdjToDisplay(); applyPhotoTransform();   // [#7] 누끼 후에도 수평(회전) 유지·반영
       // [#9] 사용자가 직접 누른 누끼만 되돌리기 스택에 기록(배경변경 재합성=silent은 제외).
       if (!silent && _preUrl !== r.composedDataUrl) _pushOp({ op: 'photo', idx: i, before: { url: _preUrl, cut: _preCut }, after: { url: r.composedDataUrl, cut: true } });
-      if (!silent) toastIt('배경을 정리했어요');
+      // [2026-07-26 원영] ③ 누끼 = 배경 고르려고 하는 것 — 완료 즉시 배경 고르기 줄로 시선 유도(하이라이트 + 안내).
+      if (!silent) {
+        toastIt('배경을 지웠어요 — 아래에서 배경 색이나 사진을 고르세요');
+        if (refs.adjCutBg) {
+          try { refs.adjCutBg.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (_e) { void _e; }
+          refs.adjCutBg.classList.add('is-hint');
+          setTimeout(function () { if (refs.adjCutBg) refs.adjCutBg.classList.remove('is-hint'); }, 2400);
+        }
+      }
     }).catch(function (e) {
       if (S !== _sess || !root.classList.contains('is-open')) return;   // 닫힌/다른 세션 → 무시
       if (!silent && refs.adjCut) { refs.adjCut.disabled = false; refs.adjCut.classList.remove('is-busy'); }
@@ -1255,6 +1566,7 @@
     var wasShown = (S.photoUrl === S.photos[i]); var orig = S.origPhotos[i];
     var _preUrl = S.photos[i], _preCut = !!(S.cutSet && S.cutSet[i]);   // [#9] 되돌리기용 스냅샷
     S.photos[i] = orig; if (S.cutSet) S.cutSet[i] = false;
+    if (S.fgMask) delete S.fgMask[i];   // [#11] 원본 복원 = 배경 교체 해제 → 보정을 다시 사진 전체에
     if (wasShown) { S.photoUrl = orig; S.photoCss = 'url("' + orig + '")'; refs.photo.style.backgroundImage = S.photoCss; }
     renderAdjust(); renderLayoutStrip(); renderCollage(); applyAdjToDisplay();
     // [#9] '원본으로' 도 ↩ 되돌리기 스택에 — ↩ 누르면 다시 누끼 상태로.
@@ -1366,14 +1678,26 @@
       var sIdx = S.photos.indexOf(S.photoUrl);
       var sDeg = (adjOf(sIdx < 0 ? 0 : sIdx).rot) || 0, sCs = sDeg ? coverScaleForRot(sDeg) : 1;
       if (S.fitMode === 'contain') { c.fillStyle = S.collageBg || '#fff'; c.fillRect(0, 0, r.width, r.height); }   // [#5] 전체 모드 여백 배경
-      baseDone = loadImg(S.photoUrl).then(function (img) {
-        if (!img) return; var cr = fitRect(img, r.width, r.height);
-        c.save();
-        c.translate(S.pz.tx, S.pz.ty); c.translate(r.width / 2, r.height / 2);
-        c.scale(S.pz.scale * sCs, S.pz.scale * sCs); c.rotate(sDeg * Math.PI / 180); c.translate(-r.width / 2, -r.height / 2);
-        c.filter = filterStr(adjOf(sIdx < 0 ? 0 : sIdx));
-        c.drawImage(img, (r.width - cr.dw) / 2, (r.height - cr.dh) / 2, cr.dw, cr.dh);
-        c.restore();
+      var _sFlt = filterStr(adjOf(sIdx < 0 ? 0 : sIdx));
+      var _sFg = _fgActive(sIdx) ? S.fgMask[sIdx] : null;
+      var _xf = function (cx) { cx.translate(S.pz.tx, S.pz.ty); cx.translate(r.width / 2, r.height / 2);
+        cx.scale(S.pz.scale * sCs, S.pz.scale * sCs); cx.rotate(sDeg * Math.PI / 180); cx.translate(-r.width / 2, -r.height / 2); };
+      baseDone = Promise.all([loadImg(S.photoUrl), _sFg ? loadImg(_sFg) : Promise.resolve(null)]).then(function (res) {
+        var img = res[0], mk = res[1]; if (!img) return; var cr = fitRect(img, r.width, r.height);
+        var dx = (r.width - cr.dw) / 2, dy = (r.height - cr.dh) / 2;
+        if (mk) {
+          /* [#11 2026-07-18] 누끼 사진 = 배경 원래색 유지. ① 오프스크린에 '보정한 사진'을 같은 변형으로 그리고
+             사람 마스크로 destination-in(=보정된 사람만 남김) ② 본 캔버스엔 '보정 안 한 사진'(=배경 원래색)을
+             깐 뒤 그 위에 보정된 사람을 얹는다. 마스크는 합성본 정렬이라 사진과 같은 drawImage 로 정확히 겹친다. */
+          var fgc = document.createElement('canvas'); fgc.width = cv.width; fgc.height = cv.height;
+          var fc = fgc.getContext('2d'); fc.setTransform(dpr, 0, 0, dpr, 0, 0);
+          fc.save(); _xf(fc); fc.filter = _sFlt; fc.drawImage(img, dx, dy, cr.dw, cr.dh); fc.filter = 'none';
+          fc.globalCompositeOperation = 'destination-in'; fc.drawImage(mk, dx, dy, cr.dw, cr.dh); fc.restore();
+          c.save(); _xf(c); c.drawImage(img, dx, dy, cr.dw, cr.dh); c.restore();   // 배경 = 보정 전 원본
+          c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(fgc, 0, 0); c.restore();   // 보정된 사람만 위에
+        } else {
+          c.save(); _xf(c); c.filter = _sFlt; c.drawImage(img, dx, dy, cr.dw, cr.dh); c.restore();
+        }
       });
     } else {
       // [SSOT] 화면 renderCollage 와 동일한 셀 좌표로 내보내기 → WYSIWYG.
@@ -1382,24 +1706,74 @@
       // [버그수정 2026-07-09] 빈 셀을 photo0으로 강제채움하던 것 → null(빈칸 유지). 화면 renderCollage(빈 셀=플레이스홀더)와 일치, 사진 중복 방지.
       var idxs = []; for (var k = 0; k < cellsSpec.length; k++) { var oi = S.layoutOrder[k]; idxs.push((oi != null && S.photos[oi] != null) ? oi : null); }
       var urls = idxs.map(function (i) { return i != null ? S.photos[i] : null; });
-      baseDone = Promise.all(urls.map(function (u) { return u ? loadImg(u) : Promise.resolve(null); })).then(function (imgs) {
+      var mkUrls = idxs.map(function (i) { return (i != null && _fgActive(i)) ? S.fgMask[i] : null; });
+      baseDone = Promise.all([
+        Promise.all(urls.map(function (u) { return u ? loadImg(u) : Promise.resolve(null); })),
+        Promise.all(mkUrls.map(function (u) { return u ? loadImg(u) : Promise.resolve(null); })),
+      ]).then(function (both) {
+        var imgs = both[0], mks = both[1];
         imgs.forEach(function (img, k) {
           if (!img) return;
           var cc = cellsSpec[k];
           var x = cc[0] * r.width + gap / 2, y = cc[1] * r.height + gap / 2, w = cc[2] * r.width - gap, h = cc[3] * r.height - gap;
           var cr = fitRect(img, w, h);
-          c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip();
-          c.filter = filterStr(adjOf(idxs[k]));
+          var flt = filterStr(adjOf(idxs[k]));
           var cp = (S.cellCrop && S.cellCrop[k]) || { s: 1, tx: 0, ty: 0 };   // [셀 크롭] 재구도 반영(중심 기준 scale+translate)
-          if (cp.s !== 1 || cp.tx || cp.ty) { var ccx = x + w / 2, ccy = y + h / 2; c.translate(ccx + cp.tx, ccy + cp.ty); c.scale(cp.s, cp.s); c.translate(-ccx, -ccy); }
-          // [#2] 셀별 수평보정(rot) — 각 칸 중심 기준 회전 + cover 보정(모서리 빈틈 방지).
           var rdeg = (adjOf(idxs[k]).rot) || 0;
-          if (rdeg) { var rcx = x + w / 2, rcy = y + h / 2, rsc = coverScaleForRot(rdeg); c.translate(rcx, rcy); c.rotate(rdeg * Math.PI / 180); c.scale(rsc, rsc); c.translate(-rcx, -rcy); }
-          c.drawImage(img, x + (w - cr.dw) / 2, y + (h - cr.dh) / 2, cr.dw, cr.dh); c.restore();
+          var dx = x + (w - cr.dw) / 2, dy = y + (h - cr.dh) / 2;
+          // 셀의 clip+크롭+회전 변형을 그대로 재현하는 함수(본 캔버스·오프스크린 공용)
+          var setup = function (cx) {
+            cx.beginPath(); cx.rect(x, y, w, h); cx.clip();
+            if (cp.s !== 1 || cp.tx || cp.ty) { var ccx = x + w / 2, ccy = y + h / 2; cx.translate(ccx + cp.tx, ccy + cp.ty); cx.scale(cp.s, cp.s); cx.translate(-ccx, -ccy); }
+            if (rdeg) { var rcx = x + w / 2, rcy = y + h / 2, rsc = coverScaleForRot(rdeg); cx.translate(rcx, rcy); cx.rotate(rdeg * Math.PI / 180); cx.scale(rsc, rsc); cx.translate(-rcx, -rcy); }
+          };
+          if (mks[k]) {
+            // [#11] 누끼 셀 — 단일 사진과 같은 방식으로 배경만 원래색 유지(오프스크린에 보정된 사람만 남겨 위에 얹음).
+            var fgc = document.createElement('canvas'); fgc.width = cv.width; fgc.height = cv.height;
+            var fc = fgc.getContext('2d'); fc.setTransform(dpr, 0, 0, dpr, 0, 0);
+            fc.save(); setup(fc); fc.filter = flt; fc.drawImage(img, dx, dy, cr.dw, cr.dh); fc.filter = 'none';
+            fc.globalCompositeOperation = 'destination-in'; fc.drawImage(mks[k], dx, dy, cr.dw, cr.dh); fc.restore();
+            c.save(); setup(c); c.drawImage(img, dx, dy, cr.dw, cr.dh); c.restore();   // 배경 = 보정 전
+            c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(fgc, 0, 0); c.restore();   // 보정된 사람
+          } else {
+            c.save(); setup(c); c.filter = flt; c.drawImage(img, dx, dy, cr.dw, cr.dh); c.restore();
+          }
         });
       });
     }
-    baseDone.then(function () {
+    // [2026-07-26 원영] WYSIWYG 줄 추출 — split('\n')은 엔터만 알아서, 가로 늘리기(pre-wrap 자동 줄바꿈)
+  //   줄이 export 에 반영 안 된다. 편집 DOM 의 '실제 렌더된 줄'을 글자 단위 Range 로 읽어 그대로 쓴다.
+  //   측정 중 transform 임시 해제(회전·확대 상태면 top 비교가 깨짐) 후 복원. 실패 시 split('\n') 폴백.
+  function _textLines(L) {
+    var fallback = (L.text || '').split('\n');
+    try {
+      if (!L.tx || !L.tx.isConnected) return fallback;
+      var prevT = L.el.style.transform;
+      L.el.style.transform = 'none';
+      var lines = [], cur = '', lastTop = null;
+      var walker = document.createTreeWalker(L.tx, NodeFilter.SHOW_TEXT, null);
+      var rng = document.createRange(), tn;
+      while ((tn = walker.nextNode())) {
+        var s = tn.nodeValue || '';
+        for (var i = 0; i < s.length; i++) {
+          var ch = s.charAt(i);
+          if (ch === '\n') { lines.push(cur); cur = ''; lastTop = null; continue; }
+          rng.setStart(tn, i); rng.setEnd(tn, i + 1);
+          var rr = rng.getClientRects()[0];
+          if (rr && rr.height) {
+            if (lastTop != null && rr.top - lastTop > rr.height * 0.5) { lines.push(cur.replace(/\s+$/, '')); cur = ''; }
+            lastTop = rr.top;
+          }
+          cur += ch;
+        }
+        // contenteditable 이 <div>/<br> 로 줄을 나눈 경우도 top 비교가 잡는다(구조 줄바꿈 = top 점프).
+      }
+      if (cur !== '' || !lines.length) lines.push(cur.replace(/\s+$/, ''));
+      L.el.style.transform = prevT; applyXf(L);
+      return lines.length ? lines : fallback;
+    } catch (_e) { void _e; try { applyXf(L); } catch (_e2) { void _e2; } return fallback; }
+  }
+  baseDone.then(function () {
       c.drawImage(refs.draw, 0, 0, r.width, r.height);   // 드로잉
       S.layers.forEach(function (L) {
         var b = L.el.getBoundingClientRect();
@@ -1415,7 +1789,7 @@
           c.font = (L.fontSize * L.scale) + 'px serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
           c.fillText(L.emoji, 0, 0);
         } else {
-          var lines = (L.text || '').split('\n'); var fs = L.fontSize * L.scale;
+          var lines = _textLines(L); var fs = L.fontSize * L.scale;   // [2026-07-26] DOM 실제 줄 = 화면과 동일
           c.font = L.font.weight + ' ' + fs + 'px ' + L.font.family; c.fillStyle = L.color;
           // [fix] 편집기 정렬(L.align)을 export에도 반영 — 왼/오 정렬 텍스트(가격표·시술명)가 결과물서 중앙으로 어긋나던 버그.
           var _al = L.align || 'center';
@@ -1455,12 +1829,26 @@
       if (_cpState && _cpState.anchor === cp) { _closeColorPicker(); return; }
       _openColorPicker(cp, cp.getAttribute('data-colorpick'));
     });
+    // [스포이드] 파이펫 탭 → 사진에서 색 추출 모드(재탭 = 취소)
+    root.addEventListener('click', function (e) {
+      var pp = e.target.closest ? e.target.closest('[data-eyedrop]') : null; if (!pp) return;
+      e.preventDefault(); e.stopPropagation();
+      _openEyedrop(pp.getAttribute('data-eyedrop'));
+    });
     // [#5] 스티커 — 카테고리 탭 전환 + 이모지/글자스티커/SVG/우리샵칩/데코/내 스티커 → 레이어로 추가
     refs.stkSheet.addEventListener('click', function (e) {
       var tab = e.target.closest('[data-sttab]'); if (tab) { refs.stkTabs.querySelectorAll('[data-sttab]').forEach(function (x) { x.classList.toggle('on', x === tab); }); _renderStkTab(tab.getAttribute('data-sttab')); return; }
       var del = e.target.closest('[data-minedel]'); if (del) { e.stopPropagation(); delMyStk(+del.getAttribute('data-minedel')); return; }
       var mine = e.target.closest('[data-mine]'); if (mine) { var arr = loadMyStk(); var u = arr[+mine.getAttribute('data-mine')]; if (u) addImageSticker(u); return; }
       var sc = e.target.closest('[data-stkcat]'); if (sc) { var cat = sc.getAttribute('data-stkcat'); var list = (window.ItdStickers || {})[cat + 'Svg'] || []; var su = list[+sc.getAttribute('data-stkidx')]; if (su) addImageSticker(su); return; }
+      var ic = e.target.closest('[data-icstk]');
+      if (ic) {
+        var pr = ic.getAttribute('data-icstk').split(':');
+        var setKey = _ICS && _ICS.tabSet ? _ICS.tabSet[pr[0]] : null;
+        var iu = setKey ? (_ICS.sets[setKey] || [])[+pr[1]] : null;
+        if (iu) addImageSticker(iu);
+        return;
+      }
       var dc = e.target.closest('[data-deco]'); if (dc) { addImageSticker(DECO[+dc.getAttribute('data-deco')]); return; }
       var tx = e.target.closest('[data-txtstk]'); if (tx) { var o = ((window.ItdStickers || {}).textStk || [])[+tx.getAttribute('data-txtstk')]; if (o) addTextSticker(o.t, o.f); return; }
       var f = e.target.closest('[data-feat]'); if (f) { addFeatureLayer(f.getAttribute('data-feat')); return; }
@@ -1515,6 +1903,9 @@
     if (refs.adjUncut) refs.adjUncut.addEventListener('click', undoCutout);
     // [#4] 누끼 배경 색 — 탭하면 즉시 재합성(매트 캐시 있으면 0초). 누끼 전이면 배경만 기억.
     if (refs.adjCutBg) refs.adjCutBg.addEventListener('click', function (e) {
+      // [2026-07-26 원영] 팔레트 A안 — '+' 누르면 숨김색(.itlaybg--x) 펼침/접힘 토글
+      var mbtn = e.target.closest('[data-cutmore]');
+      if (mbtn) { var op = refs.adjCutBg.classList.toggle('open'); mbtn.textContent = op ? '−' : '+'; return; }
       var rbtn = e.target.closest('[data-cutbgimg]');   // [#2] 최근 배경 사진 재사용(원탭)
       if (rbtn) {
         var rb = ''; try { rb = localStorage.getItem('itdasy:itd_bgimg') || ''; } catch (_e) { rb = ''; }
@@ -1599,7 +1990,15 @@
     if (L.type === 'sticker') { base.type = 'sticker'; base.emoji = L.emoji; base.size = ((L.fontSize || 64) * (L.scale || 1)) / R.height; return base; }
     if (L.type === 'image') { base.type = 'image'; base.src = L.src; return base; }
     if (L.type === 'shape') {
-      base.color = L.color; base.h = b.height / R.height;
+      base.color = L.color;
+      /* [#10 2026-07-18] box 크기(w/h)를 상대값으로 저장 — 늘리기(비균등) 보존. 회전 도형은 bounding rect(AABB)가
+         실제 box 보다 커서 틀리므로 L.w/L.h 를 직접 쓴다(예전엔 b.width/b.height 라 회전 시 어긋났음).
+         [버그수정 2026-07-17] 채움·테두리 굵기도 함께 — 안 그러면 '테두리 원'이 '채운 사각형'으로 되살아남. */
+      base.w = (L.w != null ? L.w : b.width) / R.width;
+      base.h = (L.h != null ? L.h : b.height) / R.height;
+      base.fill = !!L.fill;
+      base.strokeW = (L.strokeW || 6) / R.height;
+      if (L.radius != null) base.radius = L.radius;
       if (L.shape === 'line') { base.type = 'line'; base.size = (L.strokeW || 3) / R.height; }
       else { base.type = 'rect'; base.shape = L.shape; }
       return base;
@@ -1678,6 +2077,7 @@
       adj: photos.map(function () { return defAdj(); }), adjSel: 0, collageGap: 3,
       collageBg: (loadBgPref().color || '#FFFFFF'), collageBgImg: null, cellCrop: [], cellSel: -1, fitMode: 'contain',   // [#5] 배경색만 기억, 배경'이미지'는 매번 초기화(예전 stale 배경이 누끼에 자동적용되던 문제)
       ratio: (opts.ratio || '4:5'), undo: [], redo: [], photoDraw: {}, photoBg: {}, layersByPhoto: {},   // [#5/#6] 사진별 레이어 보관
+      matte: {}, fgMask: {},   // [#11 2026-07-18] matte=누끼 PNG(재합성 캐시) · fgMask[i]=합성본 정렬 사람 마스크(배경 보정 제외용). 매트처럼 세션 전용.
       photoUrl: photo, photoCss: 'url("' + photo + '")', photos: photos,
       shopName: (opts.shopName || '').trim(),
       pz: { scale: 1, tx: 0, ty: 0 }, incoming: (opts.layers || []),
@@ -1688,6 +2088,7 @@
     if (refs.featLocTx) refs.featLocTx.textContent = S.shopName || '우리샵';   // [③] 위치 칩에 실제 샵 이름
     refs.layers.innerHTML = ''; refs.frame.className = 'itded__frame';
     refs.photo.style.backgroundImage = S.photoCss; refs.photo.style.filter = ''; refs.photo.style.backgroundSize = 'cover'; refs.photo.style.backgroundColor = 'transparent';
+    if (refs.photofx) { refs.photofx.hidden = true; refs.photofx.style.webkitMaskImage = ''; refs.photofx.style.maskImage = ''; }   // [#11] 새 세션 — 오버레이 초기화
     refs.collage.hidden = true; refs.collage.innerHTML = '';
     refs.photowrap.style.transform = '';
     root.classList.add('is-open');
@@ -1715,8 +2116,8 @@
       else { if (!isSingleL(S.layout)) renderCollage(); _renderMissingIncoming(S.incoming); }   // [#2a] 복원했어도 없는 역할의 시술 텍스트는 추가
       // [#5] 시술내용 텍스트가 이미 올라왔으면 그걸 선택 → setTool('text')이 빈 '내용을 입력하세요'를 덧붙이지 않음.
       var firstText = S.layers.filter(function (L) { return L.type === 'text'; })[0];
-      if (firstText) selectLayer(firstText);
-      setTool('text', true);   // [#1] 초기엔 자동 텍스트 생성 금지 — 업로드 편집기에 '내용을 입력하세요'가 박히던 문제
+      if (firstText) selectLayer(firstText);   // 텍스트 선택 → selectLayer 가 폰트 패널까지 연다(조건부 노출)
+      else _closeToolPanel();   // [2026-07-27] 폰트 패널 기본 닫힘 — Aa 탭/텍스트 선택 전엔 아무 패널도 안 연다
     });
   }
   // [#4/#8/#11/#16] 복원 렌더 — 레이아웃 버튼/콜라주/레이어 반영(동기 호출 가능).
@@ -1732,7 +2133,7 @@
     if (S && S._popHandler) { try { window.removeEventListener('popstate', S._popHandler); } catch (_e) { void _e; } S._popHandler = null; }
     if (!fromPop && S && S._histPushed) { S._histPushed = false; window.__seSwallowPop = true; setTimeout(function () { window.__seSwallowPop = false; }, 0); try { history.back(); } catch (_e2) { void _e2; } }
   }
-  function close() { if (!root || !root.classList.contains('is-open')) return; _teardownBack(false); root.classList.remove('is-open'); }
+  function close() { if (!root || !root.classList.contains('is-open')) return; _closeEyedrop(); _teardownBack(false); root.classList.remove('is-open'); }
 
   // [#2 단일화] 헤드리스 합성 — 캡션 미리보기를 '편집기와 동일한 렌더러'로 그린다(미리보기=편집기).
   //   화면 밖 고정크기로 렌더 → 폰트/줄바꿈/겹침방지까지 편집기와 100% 동일. 편집 중이면 스킵(상태 충돌 방지).

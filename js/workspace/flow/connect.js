@@ -41,19 +41,23 @@
           '<div class="linked-actions"><button class="lk-btn pink" data-fl="pickcust">+ 새 고객 등록</button><button class="lk-btn" data-fl="skipcust">연결 없이 진행</button></div></div>';
     }
     function loadRecent() {
-      if (D().recentLoaded || D()._recentLoading) return;
-      if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.recentCustomers)) { D().recentLoaded = true; return; }
-      D()._recentLoading = true;
+      var d0 = D();
+      if (d0.recentLoaded || d0._recentLoading) return;
+      if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.recentCustomers)) { d0.recentLoaded = true; return; }
+      d0._recentLoading = true;
       window.WorkspaceAdapter.recentCustomers(5).then(function (list) {
-        D().recent = list || []; D().recentLoaded = true; D()._recentLoading = false;
+        if (D() !== d0 || d0._dead) return;   // [v779 카오스QA] 세션 교체/닫힘 → 새 글에 안 씀
+        d0.recent = list || []; d0.recentLoaded = true; d0._recentLoading = false;
         if (CUR() === 'connect') setScreen('connect');
       });
     }
     function pickCustomer() {
       if (!window.WorkspaceAdapter) { toast('고객 모듈을 불러오지 못했어요'); return; }
-      window.WorkspaceAdapter.pickCustomer(D().customerId).then(function (r) {
+      var d0 = D();
+      window.WorkspaceAdapter.pickCustomer(d0.customerId).then(function (r) {
+        if (D() !== d0 || d0._dead) return;   // [v779 카오스QA] 피커 뜬 사이 세션 교체 → 엉뚱한 글에 고객 연결 방지
         if (r.ok) {
-          D().customerId = r.id; D().customerName = r.name; D().customerVc = r.vc || 0;
+          d0.customerId = r.id; d0.customerName = r.name; d0.customerVc = r.vc || 0;
           setScreen('connect'); toast(r.name + ' 고객과 연결했어요.');
         } else if (r.toast) toast(r.toast);
       });
@@ -70,9 +74,15 @@
         // vc 찾기 — recent 캐시에서
         var found = (D().recent || []).filter(function (c) { return String(c.id) === String(D().customerId); })[0];
         D().customerVc = found ? (found.vc || 0) : 0;
-        try { if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) window.WorkspaceAdapter.saveItem(ctx.buildSlot()); } catch (_ce) { void _ce; }
         toast(D().customerName + ' 고객과 연결했어요');
-        setScreen('preview'); return true;   // [보스] 고객 연결하면 인스타 업로드(미리보기)로 돌아오게
+        // [버그8 2026-07-14] 발행 후 고객연결이면 저장하고 작업실 홈으로 — 이미 올렸는데 캡션(미리보기) 화면으로
+        //   되돌아가던 문제. 아래 setScreen('caption')은 '고객연결이 발행 前' 이던 시절 동선([보스] 요청6)이라,
+        //   발행이 끝난 지금 경로에선 "다시 올리라는 건가?" 로 읽힌다.
+        //   ctx.save() 가 saveItem + close + WorkspaceV2.refresh 까지 하므로 여기서 별도 saveItem 은 중복.
+        var _pub = D().publish && D().publish.status === 'published';
+        if (_pub) { ctx.save(); return true; }
+        try { if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) window.WorkspaceAdapter.saveItem(ctx.buildSlot()); } catch (_ce) { void _ce; }
+        setScreen('caption'); return true;   // 발행 전(미리보기에서 고객 먼저 연결) — 기존 동선 유지
       }
       return false;
     }

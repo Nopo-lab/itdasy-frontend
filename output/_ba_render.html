@@ -1,0 +1,38 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body>
+<script src="../js/photo-editor/template-fit-text.js"></script>
+<script src="../js/photo-editor/template-slots.js"></script>
+<script src="../js/photo-editor/template-pack-beauty-data.js"></script>
+<script src="../js/photo-editor/template-market-data.js"></script>
+<script src="../js/photo-editor/template-renderer-beauty-pack.js"></script>
+<script src="../js/photo-editor/template-renderer-beauty-pack-draws.js"></script>
+<script>
+window.__renderBA = function (id, withPhotos) {
+  return new Promise(function (resolve) {
+    var MD = window.PhotoEditorTemplateMarketData;
+    var found = MD.lookupById(id);
+    var TS = window.PhotoEditorTemplateSlots;
+    var sv = TS.getDefaultValues(id, found, { shopName: '잇데이 청담점' });
+    var pal = found.palette;
+    var data = { type: 'beautyPack', kicker: found.prefillText, palette: pal,
+      head: sv.headline || found.prefillText, sub: sv.subtitle, shop: sv.shop_name, accent: pal && pal.accent,
+      cta: sv.cta, customer: sv.customer_label, serviceName: sv.service_name, review: sv.review_text,
+      beforeLabel: sv.before_label, afterLabel: sv.after_label, beforeCap: sv.before_caption, afterCap: sv.after_caption };
+    function go(beforeImg, afterImg) {
+      var cv = document.createElement('canvas'); cv.width = 1080; cv.height = 1350;
+      var ctx = cv.getContext('2d');
+      var state = afterImg ? { editedImg: afterImg, originalImg: afterImg, img: afterImg, secondImg: beforeImg } : null;
+      var tplObj = { id: id, slotValues: sv, imageSlots: {} };
+      window.PhotoEditorBeautyPack.draw(ctx, 1080, 1350, state, tplObj, data);
+      resolve(cv.toDataURL('image/png'));
+    }
+    if (!withPhotos) return go(null, null);
+    var b = new Image(); var a = new Image(); var n = 0;
+    function done() { if (++n === 2) go(b, a); }
+    b.onload = done; a.onload = done; b.onerror = done; a.onerror = done;
+    b.src = '../assets/workshop-cats/cat-1.jpg'; a.src = '../assets/workshop-cats/cat-2.jpg';
+  });
+};
+window.__ready = !!(window.PhotoEditorBeautyPack && window.PhotoEditorBeautyPack.has);
+window.__has = function (id) { return window.PhotoEditorBeautyPack.has(id); };
+</script>
+</body></html>
