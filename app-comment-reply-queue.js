@@ -58,6 +58,25 @@
   ];
 
   var ITEMS = SEED.slice();   // 렌더 대상 — 실연동 성공 시 실댓글로 교체
+
+  // [무시 영속화] 무시한 댓글 id 를 localStorage 에 남긴다. 예전엔 _removeItem 이 ITEMS.splice 만 해서
+  //   큐를 다시 열거나 자동갱신(_loadReal)하면 백엔드가 그 댓글을 다시 실어와 되살아났다(백엔드는
+  //   '답장한 댓글'만 제외하지 '무시한 댓글' 개념이 없음). 이제 id 를 저장해 표시 단계에서 영구 제외.
+  var _HIDDEN_KEY = 'itdasy:crq_hidden';
+  var _hidden = (function () {
+    try { var a = JSON.parse(localStorage.getItem(_HIDDEN_KEY) || '[]'); var m = {};
+      if (Array.isArray(a)) a.forEach(function (id) { m[id] = 1; }); return m; }
+    catch (_e) { return {}; }
+  })();
+  function _markHidden(id) {
+    if (!id) return; _hidden[id] = 1;
+    try { localStorage.setItem(_HIDDEN_KEY, JSON.stringify(Object.keys(_hidden))); } catch (_e) { void _e; }
+  }
+  function _isHidden(it) { return !!_hidden[(it && it.id)]; }
+
+  // [자동갱신] 큐가 열려 있는 동안 주기적으로 실댓글을 다시 불러온다(폴링). 예전엔 열 때 1회뿐이라
+  //   열어둔 채로는 새 댓글이 영영 안 떴다. 댓글은 DM 만큼 빠를 필요 없어 30초. (silent = 스켈레톤 안 띄움)
+  var _pollTimer = null;
   var _realMode = false;      // true = 실제 인스타 댓글 로드됨
   var _loading = false;
   var _weekReplied = 0;       // 이번 주 응대 건수(영업왕 체감)
@@ -405,7 +424,8 @@
       return _banner('#F2F4F6', '#E5E8EB', '#4E5968', '인스타에서 문의 댓글을 모으는 중이에요… (처음엔 10초쯤 걸려요)') +
         _skeletonHtml();
     }
-    var items = ITEMS.filter(function (it) { return _settings.intents[it.intent] !== false; })   // 설정에서 끈 의도 제외
+    var items = ITEMS.filter(function (it) { return !_isHidden(it); })   // [무시 영속화] 무시한 댓글 영구 제외
+      .filter(function (it) { return _settings.intents[it.intent] !== false; })   // 설정에서 끈 의도 제외
       .filter(function (it) { return !_isExcluded(it); })   // [2026-07-22] 제외 단어(협찬·광고 등) 걸러내기
       .slice().sort(function (a, b) {
         var ca = a.intent === 'complaint' ? 1 : 0, cb = b.intent === 'complaint' ? 1 : 0;
@@ -446,8 +466,8 @@
     var mtg = '<span class="crq-master" role="switch" aria-checked="' + (S.enabled ? 'true' : 'false') + '" style="cursor:pointer;flex-shrink:0;display:inline-block;width:32px;height:19px;border-radius:10px;position:relative;transition:background .15s;background:' + (S.enabled ? '#16B55E' : '#D1D6DB') + ';">' +
       '<span style="position:absolute;top:2px;left:' + (S.enabled ? '15px' : '2px') + ';width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.15);transition:left .15s;"></span></span>';
     return '<div style="' + CARD + 'display:flex;align-items:center;gap:10px;">' +
-        '<div style="flex:1;"><div style="' + TITLE + '">댓글 자동 응대</div>' +
-        '<div style="' + SUB + 'margin-top:3px;">' + (S.enabled ? '끄면 댓글 문의를 챙기지 않아요' : '꺼짐 · 홈에도 안 떠요') + '</div></div>' + mtg + '</div>' +
+        '<div style="flex:1;"><div style="' + TITLE + '">댓글 문의 응대</div>' +
+        '<div style="' + SUB + 'margin-top:3px;">' + (S.enabled ? '문의 댓글을 모아드려요 · 답장은 확인 후 직접 보내요' : '꺼짐 · 홈에도 안 떠요') + '</div></div>' + mtg + '</div>' +
       // 문의 종류 — 끄면 대기 목록·홈 숫자에서 제외(숨김). [2026-07-21] 시술종류·소요시간·이벤트·회원권 추가
       '<div style="' + CARD + '"><div style="' + TITLE + 'margin-bottom:4px;">이런 댓글에 답해요</div>' +
         '<div style="' + SUB + 'margin-bottom:12px;">끈 문의는 여기에 안 보여요 · 불만·건강문의는 항상 챙겨요</div>' +
@@ -596,6 +616,7 @@
   }
 
   function _removeItem(id) {
+    _markHidden(id);   // [무시 영속화] 다시 안 뜨게 저장 — 재진입·자동갱신에도 유지
     var i = ITEMS.findIndex(function (x) { return x.id === id; });
     if (i >= 0) ITEMS.splice(i, 1);
     _render();
@@ -637,11 +658,12 @@
   }
 
   // 실제 인스타 댓글 로드 — 연동+권한 있으면 문의 댓글로 큐 교체, 아니면 시드 유지.
-  function _loadReal() {
+  function _loadReal(silent) {
     var ig = window.WorkspaceAdapter && window.WorkspaceAdapter.instagram ? window.WorkspaceAdapter.instagram() : null;
     var connected = ig ? ig.connected : false;
-    if (!connected || !window.apiFetch) { _realMode = false; ITEMS = SEED.slice(); return; }
-    _loading = true; _render();
+    if (!connected || !window.apiFetch) { _realMode = false; if (!silent) ITEMS = SEED.slice(); return; }
+    if (_loading) return;                 // 이미 불러오는 중이면 폴링 중복 방지
+    if (!silent) { _loading = true; _render(); }   // silent(자동갱신)면 스켈레톤 안 띄움
     var auth = window.authHeader ? window.authHeader() : {};
     window.apiFetch(window.apiUrl('/instagram/comment-queue'), { headers: auth })
       .then(function (r) { return r.json().catch(function () { return {}; }); })
@@ -649,12 +671,30 @@
         _loading = false;
         _weekReplied = (j && j.week_replied) || 0;
         var arr = (j && j.items) || [];
-        if (arr.length) { ITEMS = arr.map(_mapReal); _realMode = true; }
-        else { ITEMS = SEED.slice(); _realMode = false; }   // 권한 없음/문의 댓글 0 → 시드 폴백
+        if (arr.length) {
+          ITEMS = arr.map(_mapReal).filter(function (x) { return !_isHidden(x); });   // [무시 영속화]
+          _realMode = true;
+        } else if (silent) {
+          if (_realMode) ITEMS = [];   // 실모드였는데 0건 = 다 처리됨 (자동갱신 중 데모로 깜빡이지 않게)
+        } else {
+          ITEMS = SEED.slice(); _realMode = false;   // 권한 없음/문의 댓글 0 → 시드 폴백
+        }
       })
-      .catch(function () { _loading = false; ITEMS = SEED.slice(); _realMode = false; })
+      .catch(function () { _loading = false; if (!silent) { ITEMS = SEED.slice(); _realMode = false; } })
       .then(function () { if (_view === 'queue') _render(); });
   }
+
+  // [자동갱신] 큐가 열려 있고 목록 화면일 때만 30초마다 조용히 새 댓글을 당겨온다.
+  function _startPoll() {
+    _stopPoll();
+    _pollTimer = setInterval(function () {
+      var el = document.getElementById(ID);
+      if (!el || el.getAttribute('aria-hidden') === 'true') { _stopPoll(); return; }   // 닫혔으면 정지
+      if (_view !== 'queue') return;                 // 설정 화면에선 재렌더 안 함(입력 포커스 보호)
+      _loadReal(true);
+    }, 30000);
+  }
+  function _stopPoll() { if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; } }
 
   function openCommentReplyQueue() {
     if (window.ITDASY_IG_COMMENT_REPLY === false) { _toast('댓글 응대는 준비 중이에요'); return; }
@@ -667,12 +707,14 @@
     //   설정이 초기화된 것처럼 보이던 걸 막는다. 실패/빈 값이면 로컬 설정 그대로(덮어쓰지 않음).
     _pullSettingsFromServer().then(function (changed) { if (changed) _render(); });
     _loadReal();   // 연동됐으면 실댓글로 교체(비동기)
+    _startPoll();  // [자동갱신] 열려 있는 동안 30초마다 새 댓글 반영
     el.classList.add('is-open');
     el.setAttribute('aria-hidden', 'false');
     if (window._registerSheet) window._registerSheet('crq', closeCommentReplyQueue);
     if (window._markSheetOpen) window._markSheetOpen('crq');
   }
   function closeCommentReplyQueue() {
+    _stopPoll();        // [자동갱신] 닫으면 폴링 정지
     _closePeek(true);   // history 는 아래 _markSheetClosed('crq') 가 자식 것까지 한 번에 정리
     var el = document.getElementById(ID);
     if (!el) return;
