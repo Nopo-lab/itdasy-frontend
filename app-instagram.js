@@ -853,8 +853,12 @@ async function connectInstagram() {
 
   const btn = document.getElementById('instaBtn');
 
-  // PWA(홈화면 추가) 모드인지 확인
-  const isPWA = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+  // PWA(홈화면 추가) 또는 네이티브 앱인지 확인
+  //   [2026-07-29 시뮬 검증] 네이티브 Capacitor 앱은 navigator.standalone/display-mode 로는 '설치됨'으로
+  //   안 잡혀서, 인스타 연동이 "홈 화면에 추가하세요" 안내에 막혀 OAuth 가 시작조차 안 됐다(실기기 iOS 앱도 동일).
+  //   네이티브면 이미 앱으로 설치된 것이므로 PWA 로 취급해 정상 진행시킨다.
+  const _isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const isPWA = _isNativeApp || window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   // 카톡 인앱브라우저: Safari로 열도록 안내
