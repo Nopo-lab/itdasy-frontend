@@ -292,17 +292,15 @@ async function _bootHydrateGate() {
     _secureMode = true;   // 플러그인 확인 → secure 모드 진입
   }
   try {
-    let timedOut = false;
+    // [보안감사 H-3 2026-07-29 수정] secure 모드에선 평문 localStorage 에 폴백할 토큰이 없다
+    //   (Keychain 으로 이관하며 제거됨). 기존 800ms→localStorage(빈값)→_tokenCache=null 폴백은
+    //   "로그인했는데 토큰 없음"을 만들어 홈이 첫 로드에서 "연결이 불안정해요"를 띄웠다(재시도하면 복구).
+    //   Keychain 읽기는 빠른 네이티브 동기연산이라 실제로 기다린다. 만일의 행 대비 안전상한(4s)만 둔다.
     await Promise.race([
       _hydrateToken(),
-      new Promise((r) => setTimeout(() => { timedOut = true; r(); }, 800)),
+      new Promise((r) => setTimeout(r, 4000)),
     ]);
-    if (timedOut && !_tokenReady) {
-      let t = null;
-      try { t = localStorage.getItem(_TOKEN_KEY) || localStorage.getItem(_LEGACY_TOKEN_KEY); } catch (_e) { t = null; }
-      _tokenCache = t || null;
-      _tokenReady = true;
-    }
+    _tokenReady = true;  // 안전상한 도달 시에도 부팅은 진행(캐시는 하이드레이션이 늦게라도 채움)
   } catch (_e) { /* ignore */ }
 }
 window._bootHydrateGate = _bootHydrateGate;
