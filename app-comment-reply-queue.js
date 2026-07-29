@@ -615,9 +615,23 @@
     return el;
   }
 
+  // [무시 영속화] 서버에도 무시 기록 — 백엔드가 큐·배지 카운트에서 영구 제외(다른 기기·홈 배지 동기화).
+  //   localStorage 는 이 기기 즉답용, 서버가 정본. 실패해도 localStorage 로 이 기기엔 남으므로 조용히 넘어감.
+  function _pushDismissToServer(it) {
+    if (!window.apiFetch || !window.authHeader || !window.apiUrl || !it) return;
+    try {
+      window.apiFetch(window.apiUrl('/instagram/comment-queue/dismiss'), {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, window.authHeader()),
+        body: JSON.stringify({ comment_id: it.commentId || it.id, media_id: it.mediaId || '', intent: it.intent || '' }),
+      }).catch(function () { void 0; });
+    } catch (_e) { void _e; }
+  }
   function _removeItem(id) {
-    _markHidden(id);   // [무시 영속화] 다시 안 뜨게 저장 — 재진입·자동갱신에도 유지
+    _markHidden(id);   // [무시 영속화] 이 기기 즉시 반영 (오프라인·즉답)
     var i = ITEMS.findIndex(function (x) { return x.id === id; });
+    var it = i >= 0 ? ITEMS[i] : null;
+    if (it && it._real) _pushDismissToServer(it);   // [무시 영속화] 서버에도 → 배지·다른기기 동기화
     if (i >= 0) ITEMS.splice(i, 1);
     _render();
   }
