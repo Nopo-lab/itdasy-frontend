@@ -1138,6 +1138,11 @@ function authHeader() {
       'instagram/publish',                                             // 인스타 발행(+ -file/-carousel-file/-story-file)
       'scheduled-posts',                                               // 예약 발행 등록
       'dm-confirm-queue/[^/]+/(send|send_edit|send-form|confirm-deposit|decline-with-alternatives)',
+      // [출시감사 P1-1 2026-07-31] 결제는 재시도하면 카드가 두 번 긁힌다.
+      //   서버가 호출마다 새 payment_id 로 PortOne 에 실청구하므로(billing.py:84-86,243)
+      //   멱등 검사(_already_processed)가 아예 걸리지 않는다. 실제 경로: 청구 성공 →
+      //   결제 재조회가 502 → 래퍼가 재시도 → 두 번째 청구. 버튼 disable 로는 못 막는다(네트워크 계층).
+      'billing/(issue|onetime/verify|cancel)',
     ].join('|') + ')'
   );
   function _isNoRetryPath(input) {
