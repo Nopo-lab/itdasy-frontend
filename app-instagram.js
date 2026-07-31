@@ -204,6 +204,12 @@ async function checkInstaStatus(fromLogin = false) {
         profile_picture_url: data.profile_picture_url || '',
         persona: data.persona || null,
         expires_at: data.expires_at || null,
+        // [출시감사 2026-07-31] 권한별 가용 여부 — 백엔드가 SCOPE 기준으로 내려준다.
+        //   Meta 심사가 권한마다 따로 통과해서(2026-07-31 기준 content_publish 심사 중),
+        //   연동돼 있어도 자동 발행이 안 되는 상태가 있다. 이 값을 안 담으면 백엔드가 줘도
+        //   작업실이 못 보고 되지도 않는 '인스타에 올리기' 버튼을 계속 띄운다.
+        //   백엔드가 아직 안 주는 경우(구버전) undefined → 소비 측에서 낙관적 true 로 처리.
+        capabilities: data.capabilities || null,
         ts: Date.now(),
       };
       window._lastIgState = next;

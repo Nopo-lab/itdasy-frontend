@@ -97,7 +97,19 @@
 	      pic = (s && (s.profile_picture_url || s.profilePic)) || localStorage.getItem('itdasy:ig_profile_pic') || '';
 	    } catch (_e2) { void _e2; }
 	    handle = String(handle || '').replace(/^@/, '');
-	    return { connected: connected, tokenValid: tokenValid, handle: handle ? ('@' + handle) : '', profilePic: pic, displayName: handle ? ('@' + handle) : '' };
+	    // [출시감사 2026-07-31] 백엔드가 내려주는 권한별 가용 여부(capabilities).
+	    //   Meta 심사는 권한마다 따로 통과한다 — 2026-07-31 기준 content_publish·manage_comments 는
+	    //   아직 심사 중이라, 연동돼 있어도 자동 발행이 안 된다. connected 만 보고 발행 버튼을 띄우면
+	    //   원장님이 누르고 실패를 보게 된다. 상태를 아직 못 받았으면(s===null) 낙관적으로 true —
+	    //   기존 동작을 바꾸지 않기 위해서다(백엔드가 값을 주기 시작하면 그때부터 정확해진다).
+	    var caps = (s && s.capabilities) || null;
+	    var canPublish = caps ? !!caps.publish : true;
+	    return {
+	      connected: connected, tokenValid: tokenValid,
+	      canPublish: canPublish,
+	      handle: handle ? ('@' + handle) : '', profilePic: pic,
+	      displayName: handle ? ('@' + handle) : ''
+	    };
 	  }
 	  function _eyeMasks(masks, img, b) {
     var MA = window.MaskApplication;
@@ -594,7 +606,11 @@
 	      var _p = _igProfile();
 	      // [버그수정] tokenValid 를 여기서 안 내려주면 publish() 게이트가 undefined(=falsy)를 보고
 	      //   정상 연결까지 전부 '연동 끊김'으로 막아버림 — _igProfile() 전체 결과를 그대로 전달.
-	      return { connected: _p.connected, tokenValid: _p.tokenValid, next: _p.connected ? 'publish' : 'prepare' };
+	      return {
+	        connected: _p.connected, tokenValid: _p.tokenValid,
+	        canPublish: _p.canPublish,   // [출시감사 2026-07-31] content_publish 심사 통과 여부
+	        next: _p.connected ? 'publish' : 'prepare'
+	      };
 	    },
 	    instagramProfile: _igProfile,
     // [Phase 5-2] V2 전용 실게시 — 레거시 baCanvas/previewFinalCaption/_captionSlotId 의존 제거.

@@ -2203,7 +2203,18 @@
     return ((editablePhotos() || []).length >= 2) ? 'carousel' : 'feed';
   }
   function _publishBlock() {
-	    var connected = window.WorkspaceAdapter ? window.WorkspaceAdapter.instagram().connected : false;
+	    var _ig = window.WorkspaceAdapter ? window.WorkspaceAdapter.instagram() : {};
+	    var connected = !!_ig.connected;
+	    // [출시감사 2026-07-31] 자동 발행 권한(content_publish)이 Meta 심사 중이면 발행 버튼을 안 띄운다.
+	    //   연동은 돼 있어서 예전엔 버튼이 보였고, 누르면 그냥 실패했다. 대신 캡션 복사를 안내한다 —
+	    //   원장님 입장에선 "인스타 앱에서 직접 올리면 되는" 일이라 막다른 길이 아니다.
+	    //   심사 통과하면 백엔드 capabilities.publish 가 true 로 바뀌며 자동으로 버튼이 돌아온다.
+	    if (connected && _ig.canPublish === false) {
+	      return '<div class="cap-pubnote" style="margin-top:10px;padding:12px;border-radius:12px;background:#fff7ed;color:#9a3412;font-size:12px;line-height:1.6;">' +
+	        '자동 발행은 <b>인스타그램 심사 중</b>이에요. 승인되면 여기 버튼이 자동으로 생겨요.<br>' +
+	        '지금은 아래 <b>복사</b>를 눌러 캡션을 가져간 뒤, 인스타 앱에서 사진과 함께 올려주세요 🙏' +
+	        '</div>';
+	    }
 	    // [cleanup] 스토리 발행 픽커 제거(2026-07-12) — 진입 버튼(publishstory)이 재설계로 사라져 도달 불가였음. 발행은 피드/여러 장만.
 	    if (connected) {
 	      // [스토리/캐러셀] 피드 + 스토리, 사진 2장 이상이면 캐러셀(여러 장) 버튼도.
