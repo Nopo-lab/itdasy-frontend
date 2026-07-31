@@ -31,7 +31,7 @@ Google Play Console → App content → **Data safety** 페이지 기입용.
 | **Device or other IDs** | ❌ | — | 미수집 | — |
 | **Location** | ❌ | — | 미수집 | — |
 | **Contacts** | ❌ | — | 주소록 스캔 안 함 | — |
-| **Health and fitness** | ❌ | — | — | — |
+| **Health and fitness** | ✅ | ❌ | App functionality — 손님 알러지·부작용 메모(시술 안전). 30일 후 본문 자동 삭제 | 선택 |
 
 ---
 

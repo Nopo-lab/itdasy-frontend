@@ -82,7 +82,7 @@ AI Instagram marketing for solo beauty salon owners. Captions, photo editing, sc
 |---|---|
 | Target age group | 13+ (Teen / Everyone) |
 | Contains ads | ❌ No |
-| In-app purchases | ✅ Yes — subscriptions ($2.99 / $5.99 monthly) |
+| In-app purchases | ✅ Yes — single subscription ($4.99 / ₩6,900 monthly) |
 | Access to sensitive permissions | Camera, Photos, Microphone, Face ID, Contacts (all with rationale) |
 | COPPA compliance | ✅ Not directed at children under 13 |
 | Government apps | ❌ No |
@@ -100,17 +100,16 @@ Both products are billed monthly with auto-renewal. 1-week free trial on first s
 
 | Product ID | Base Plan | Pricing (KR) | Pricing (US) | Description |
 |---|---|---|---|---|
-| `itdasy_pro_monthly_19900` | monthly-autorenew | ₩3,900 | $2.99 | Pro — unlimited captions, daily 20 bg removals, scheduled publishing |
-| `itdasy_premium_monthly_39900` | monthly-autorenew | ₩8,900 | $5.99 | Premium — Pro + unlimited bg removals + DM auto-reply + AI vision quotes |
+| `itdasy_membership_monthly_6900` | monthly-autorenew | ₩6,900 | $4.99 | Itdasy Membership — all features for solo beauty shop owners (7-day free trial) |
 
-**Note**: Product IDs kept from earlier build for backend compatibility. Actual displayed prices are ₩3,900 / ₩8,900 (T-355 pricing change).
+**Note**: Single membership only. The legacy IDs `itdasy_pro_monthly_19900` / `itdasy_premium_monthly_39900` remain in the backend (`routers/iap.py`) **solely as a compatibility mapping for users who already paid** — do not register them as new products.
 
 ### Real-Time Developer Notifications (RTDN)
 After creating Pub/Sub topic, configure notification endpoint:
 ```
 https://itdasy-backend-staging-644329093453.asia-northeast3.run.app/iap/google/webhook
 ```
-(Endpoint exists in `backend/routers/iap.py` — verify after Railway recovery.)
+(Endpoint exists in `backend/routers/iap.py` — verify after Cloud Run deploy.)
 
 ---
 
@@ -124,7 +123,7 @@ https://itdasy-backend-staging-644329093453.asia-northeast3.run.app/iap/google/w
 ### Closed Testing (required for new apps — 14-day rule)
 - **Minimum 20 testers for 14 days** (Google's 2023+ policy for new developer accounts)
 - Create Google Group `itdasy-testers@googlegroups.com` or use existing email list
-- Recommended: recruit beauty shop owners from KakaoTalk community, offer 3 months Premium free in exchange for testing
+- Recommended: recruit beauty shop owners from KakaoTalk community, offer 3 months membership free in exchange for testing
 
 ### Open Testing (optional, before Production)
 - Skip unless wide beta desired

@@ -29,7 +29,7 @@ Xcode → `ios/App/App/Info.plist` 에 다음 키 추가. 한국어는 UI 표시
 
 ## 네트워크 권한 (App Transport Security)
 
-Capacitor 는 기본적으로 ATS 강제. Railway staging 서버는 HTTPS 이므로 별도 예외 불필요.
+Capacitor 는 기본적으로 ATS 강제. Cloud Run staging 서버는 HTTPS 이므로 별도 예외 불필요.
 
 인스타그램 OAuth 는 api.instagram.com 을 쓰는데 Capacitor `allowNavigation` 에 이미 등록됨 (capacitor.config.json).
 

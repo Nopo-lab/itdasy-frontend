@@ -23,7 +23,21 @@
 | Physical Address | ⚠️ Optional (샵 주소) | App Functionality | Yes | No |
 | Other User Contact Info | ❌ No | — | — | — |
 
-### ✅ Health & Fitness — ❌ No
+### ✅ Health & Fitness — ⚠️ Yes (Health)
+
+| Data Type | Collected | Linked to User | Tracking | Purpose |
+|---|---|---|---|---|
+| Health | ✅ Yes | ✅ Linked | ❌ No | App Functionality |
+
+**[출시감사 2026-07-31] 이전엔 "❌ No" 로 신고돼 있었으나 미신고 수집이었다.**
+원장님이 손님별 메모에 알러지·시술 부작용·임신/수유 여부 등을 적을 수 있고
+(`CustomerMemo.text`, `is_medical` 플래그로 마킹), 이는 Apple 기준 Health 데이터다.
+
+- **수집 주체/대상**: 앱 사용자(원장님)가 **본인이 아닌 손님**에 대해 입력한다.
+- **용도**: 시술 안전(알러지 있는 약제 회피 등). 광고·트래킹에 일절 쓰지 않는다.
+- **보관**: `is_medical=True` 메모는 작성 30일 후 본문 자동 삭제
+  (`services/medical_memo_expiry.py`, 매일 03:40 UTC). 개인정보처리방침과 일치.
+- **한국 PIPA §23** 민감정보에 해당 — 개인정보처리방침에 별도 고지.
 
 ### ✅ Financial Info
 
@@ -142,7 +156,7 @@ Sentry, Gemini, 내부 로그 모두 "자사 서비스 내" 사용이며 광고 
 | Replicate / Remove.bg | AI 누끼 | 업로드 사진 (즉시 파기) | ❌ No | 미국/독일 |
 | Cloudflare R2 | 이미지 스토리지 | 업로드 사진 | — | 미국 |
 | Supabase | DB 관리 | 전체 DB 레코드 | — | 미국 |
-| Railway | 서버 호스팅 | 모든 개인정보 | — | 미국 |
+| Google Cloud Platform (Cloud Run) | 서버 호스팅 | 모든 개인정보 | — | 대한민국 (서울 asia-northeast3) |
 | Sentry | 크래시 로깅 | 에러 스택 (PII 스크러빙됨) | — | 미국 |
 
 ---

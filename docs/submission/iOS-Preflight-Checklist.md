@@ -16,10 +16,9 @@
   - Sign in with Apple 은 iOS에서 Google/카카오 로그인을 다시 노출할 때 추가
 - [ ] **App Store Connect 앱 생성**: 이름 "잇데이"
 - [ ] **IAP 상품 2개**
-  - `itdasy_pro_monthly` — ₩3,900 / $2.99 USD 자동갱신 구독 (1주 무료 체험)
-  - `itdasy_premium_monthly` — ₩8,900 / $5.99 USD 자동갱신 구독 (1주 무료 체험)
+  - `itdasy_membership_monthly_6900` — ₩6,900 / $4.99 USD 자동갱신 구독 (7일 무료 체험)
   - 두 상품 같은 Subscription Group ("Itdasy Subscriptions")
-- [ ] **App-Specific Shared Secret** 발급 → Railway env `APPLE_IAP_SHARED_SECRET=<값>` 주입
+- [ ] **App-Specific Shared Secret** 발급 → Cloud Run env `APPLE_IAP_SHARED_SECRET=<값>` 주입
 - [ ] **Privacy Policy URL**: `https://itdasy.com/privacy.html`
 - [ ] **Marketing/Support URL**: `https://itdasy.com/`
 
@@ -145,7 +144,7 @@ Organizer 창 → Distribute App → App Store Connect → Upload
 | Privacy Policy 누락 | `https://itdasy.com/privacy.html` ✅ |
 | Demo 계정 로그인 실패 | 시드 스크립트 최신화 확인 |
 | 카메라/마이크 권한 설명 모호 | `NSCameraUsageDescription` 구체 문구 |
-| 백엔드 서버 다운 | Railway Pro 업그레이드 고려 |
+| 백엔드 서버 다운 | Cloud Run min-instances 상향 (콜드스타트 방어) |
 | **"한국어만" 지원 시 "Localization" 확인 요구** | App Store Connect → Localization → Korean 명시 |
 | "일반적 앱 설명" (너무 포괄적) | "뷰티샵 원장님용 AI 비서" 처럼 구체화 |
 | AI 답변이 부적절·위험 | Gemini safety_settings 기본값 유지 |
