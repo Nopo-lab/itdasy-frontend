@@ -1,4 +1,4 @@
-package com.nopolab.itdasy;
+package com.y2do.itdasy;
 
 import com.getcapacitor.BridgeActivity;
 

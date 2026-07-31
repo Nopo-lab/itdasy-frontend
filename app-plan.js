@@ -30,6 +30,7 @@
     // 사용량/상태 로드 + 결제 가능여부(graceful)
     _loadUsage().catch(() => {});
     _loadStatus().then(() => _applyBillingAvailability()).catch(() => {});
+    _applyCancelPathText();   // 구독 고지의 해지 경로를 플랫폼에 맞게
 
     // 취소 버튼 바인딩 (idempotent)
     const cancelBtn = document.getElementById('planCancelBtn');
@@ -227,6 +228,18 @@
 
   function _isNative() {
     return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  }
+
+  // [출시감사 2026-07-31] 자동갱신 구독 고지의 '해지 방법'은 플랫폼마다 경로가 다르다.
+  //   Apple 3.1.2 는 해지 방법 안내를 요구하는데, 안드로이드에서 "Apple ID" 라고 적혀 있으면
+  //   틀린 안내가 된다. 기본 문구는 중립("기기 설정 → 구독")이고 네이티브에서만 정확한 경로로 교체.
+  function _applyCancelPathText() {
+    const el = document.getElementById('planCancelPathTxt');
+    if (!el || !_isNative()) return;
+    let p = '';
+    try { p = (window.Capacitor.getPlatform && window.Capacitor.getPlatform()) || ''; } catch (_e) { void 0; }
+    if (p === 'ios') el.textContent = 'iPhone 설정 → Apple 계정 → 구독';
+    else if (p === 'android') el.textContent = 'Play 스토어 → 프로필 → 결제 및 구독';
   }
 
   async function doPlanAction() {

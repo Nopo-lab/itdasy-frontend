@@ -1,5 +1,16 @@
 apply plugin: 'com.android.application'
 
+// ⚠️ 패키지명이 iOS 와 다르다 — 의도된 것이다. 되돌리지 말 것.
+//   Android = com.y2do.itdasy  (2026-04-23, Google Play 패키지명 충돌로 새 네임스페이스. CREDENTIALS_MAP.md:127)
+//   iOS     = com.nopolab.itdasy (Apple 업로드 완료 → 변경 불가. CREDENTIALS_MAP.md:126)
+//   루트 capacitor.config.json 의 appId(com.nopolab.itdasy)는 스캐폴딩용 기본값이라 iOS 쪽에 맞춰져 있고,
+//   Android 는 여기 applicationId 가 이긴다. 둘이 다르다고 한쪽을 맞추면 스토어 등록분과 어긋난다.
+//
+// [출시감사 P0-A 2026-07-31] 과거 사고: 9662a5d(nopolab→y2do) → dc9547b(되돌림) → 1fae78e 가
+//   이 파일만 다시 y2do 로 바꿔서, MainActivity.java 는 com/nopolab/itdasy/ 에 남았다.
+//   매니페스트의 android:name=".MainActivity" 는 namespace 기준으로 해석되므로
+//   존재하지 않는 com.y2do.itdasy.MainActivity 를 가리켰고 → APK 가 실행 즉시 크래시.
+//   namespace · applicationId · java 디렉토리 경로 · package 선언 4개는 항상 같이 움직여야 한다.
 android {
     namespace "com.y2do.itdasy"
     compileSdk rootProject.ext.compileSdkVersion

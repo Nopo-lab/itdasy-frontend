@@ -22,7 +22,7 @@ Xcode에서 Info.plist를 열면 GUI로 key 입력할 수 있음. 또는 텍스�
 스니펫: `android-manifest-snippets.xml`
 
 ### Gradle 추가 작업
-1. `android/app/build.gradle`의 `applicationId "com.nopolab.itdasy"` 확인
+1. `android/app/build.gradle`의 `applicationId "com.y2do.itdasy"` 확인 (Android 만 y2do)
 2. `android/build.gradle`에 Firebase 플러그인 추가 (FCM용)
 3. `google-services.json` 다운로드해서 `android/app/`에 복사
 4. `minSdkVersion 22, targetSdkVersion 34`로 설정
@@ -30,7 +30,7 @@ Xcode에서 Info.plist를 열면 GUI로 key 입력할 수 있음. 또는 텍스�
 ## FCM (Push Notifications) 별도 세팅
 
 1. https://console.firebase.google.com 에서 새 프로젝트 생성 (이름: `itdasy`)
-2. Android 앱 추가 — 패키지명 `com.nopolab.itdasy`
+2. Android 앱 추가 — 패키지명 `com.y2do.itdasy`
 3. `google-services.json` 다운로드 → `android/app/`에 복사
 4. iOS 앱 추가 — Bundle ID `com.nopolab.itdasy`
 5. APNs 키(Apple Developer → Keys)를 Firebase Console에 등록
