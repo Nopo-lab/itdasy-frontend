@@ -504,6 +504,17 @@
     _hideOfflineBanner();
     _setMutationLock(false);
   }
+  // [출시감사 2026-07-31] _markOffline 이 **정의된 적이 없는데 두 곳에서 호출**되고 있었다
+  //   (아래 _probeBackendOnline 의 else 분기와 .catch). 그래서 백엔드 프로브가 비정상 응답을
+  //   받으면 ReferenceError → .catch 가 그걸 또 받아 같은 함수를 부르고 → 또 throw →
+  //   unhandled rejection. 즉 "네트워크는 살아있는데 서버만 죽은" 상황을 감지하는 경로가
+  //   통째로 죽어 있어서 배너가 안 떴다. offline 이벤트 경로(_onOffline)만 살아 있었다.
+  //   _markOnline 의 대칭으로 정의한다 — 토스트는 일부러 뺐다(프로브는 반복 호출이라
+  //   _onOffline 을 그대로 쓰면 같은 토스트가 계속 뜬다).
+  function _markOffline() {
+    _showOfflineBanner(_lastSyncMs());
+    _setMutationLock(true);
+  }
 
   function _lastSyncMs() {
     try {

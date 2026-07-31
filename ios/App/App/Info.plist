@@ -31,18 +31,24 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>시술 사진을 찍거나 화면을 캡처할 때 카메라를 사용해요.</string>
-	<key>NSContactsUsageDescription</key>
-	<string>기존 연락처를 잇데이 고객 목록으로 가져올 때 사용해요(선택).</string>
-	<key>NSFaceIDUsageDescription</key>
-	<string>비밀번호 입력 없이 Face ID로 빠르게 로그인할 때 사용해요.</string>
+	<!-- [출시감사 2026-07-31] NSContactsUsageDescription · NSFaceIDUsageDescription 제거.
+	     Apple 5.1.1 은 **실제로 쓰지 않는 권한 문구**를 반려 사유로 본다.
+	       · 주소록: 관련 코드가 레포에 아예 없다(전수 grep 0건). 기능 자체가 없음.
+	       · Face ID: app-biometric.js 는 스켈레톤이고 @aparajita/capacitor-biometric-auth 가
+	         package.json 에 없다 = 플러그인 미설치 = 동작 안 함.
+	     마이크는 **남긴다** — app-voice-caption.js·js/assistant/voice-input.js·app-home-v41.js 가
+	     실제로 음성 입력에 쓴다. LAUNCH_REMAINING 이 3키 모두 삭제하라고 적었는데 그건 틀렸다. -->
 	<key>NSMicrophoneUsageDescription</key>
 	<string>고객·매출·예약을 음성으로 빠르게 기록할 때 마이크를 사용해요.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>AI가 만든 이미지를 사진 앨범에 저장할 때 사용해요.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>포트폴리오·인스타 게시용 시술 사진을 고를 때 사진 앨범에 접근해요.</string>
-	<key>NSUserTrackingUsageDescription</key>
-	<string>잇데이는 사용자를 추적하지 않아요.</string>
+	<!-- [출시감사 2026-07-31] NSUserTrackingUsageDescription 제거.
+	     문구가 "잇데이는 사용자를 추적하지 않아요" 였다 — 추적 권한을 요청하는 사유란에
+	     "추적 안 한다"고 적힌 모순. ATTrackingManager 호출 코드도 0건이라 실제로 뜨지도 않는다.
+	     더 문제는 Privacy Label 의 "Data Not Used to Track You" 신고와 이 키가 어긋나 보인다는 것.
+	     추후 광고·어트리뷰션을 붙이면 그때 ATT 호출 코드와 함께 다시 넣어야 한다. -->
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -64,5 +70,27 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<!-- [출시감사 2026-07-31] itdasy:// 커스텀 스킴 등록 — 이게 없어서 iOS 네이티브에서
+	     구글·카카오·네이버 로그인과 인스타 연동의 딥링크 복귀가 아예 불가능했다.
+	     프론트는 returnTo='itdasy://oauth/callback'(app-instagram.js:906)과
+	     'itdasy://oauth-return?...'(app-oauth-return.js:26)로 돌아오길 기대하는데
+	     OS 가 그 스킴을 이 앱에 매핑할 방법이 없었다.
+	     ⚠️ capacitor.config.json 의 plugins.App.urlScheme 은 @capacitor/app 이 읽지 않는
+	        존재하지 않는 옵션이다 — "설정해 뒀다"는 착각의 원인이었다. 등록은 여기서만 된다.
+	     CFBundleURLName 은 iOS 번들 ID 기준(com.nopolab.itdasy). Android 는 y2do 지만
+	     플랫폼별로 다른 게 정상이다(build.gradle 주석 참조). -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.nopolab.itdasy</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>itdasy</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
