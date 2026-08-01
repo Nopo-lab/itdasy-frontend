@@ -1101,7 +1101,6 @@
     S.tool = null;
     root.querySelectorAll('.itrb').forEach(function (b) { b.classList.remove('on'); });
     if (refs.panels.sticker) refs.panels.sticker.classList.remove('is-open');
-    if (refs.stkSheet) refs.stkSheet.classList.remove('is-tall');
     refs.draw.classList.remove('is-armed'); refs.draw.style.zIndex = '3';
     refs.layers.style.pointerEvents = '';
   }
@@ -1111,7 +1110,6 @@
     S.tool = null;
     root.querySelectorAll('.itrb').forEach(function (b) { b.classList.remove('on'); });
     Object.keys(refs.panels).forEach(function (k) { refs.panels[k].classList.remove('is-open'); });
-    if (refs.stkSheet) refs.stkSheet.classList.remove('is-tall');
     refs.draw.classList.remove('is-armed'); refs.draw.style.zIndex = '3'; refs.draw.style.pointerEvents = 'auto';
     refs.layers.style.pointerEvents = '';
     if (refs.collage) refs.collage.classList.remove('is-cropping');
