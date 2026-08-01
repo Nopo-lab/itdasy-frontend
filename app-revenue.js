@@ -258,6 +258,14 @@
       customer_name: payload.customer_name || null,
       memo: payload.memo ? String(payload.memo).slice(0, 200) : null,
       recorded_at: payload.recorded_at || _now(),
+      // [출시감사 2026-08-01 P0] 이 화이트리스트에 use_membership 이 빠져 있어서
+      //   호출부(:789)가 넘긴 플래그가 **여기서 통째로 버려졌다.** 그 결과:
+      //     · 백엔드 revenue.py:165 의 잔액 차감 블록이 통째로 스킵 → 회원권 잔액이 1원도 안 빠짐
+      //     · revenue.py:216 `_mem_use=False` → 전액이 매출로 또 기록 (충전 때 이미 잡혔는데 이중계상)
+      //   화면엔 "💳 회원권 차감 50,000원" 폭죽까지 떠서 원장님은 차감된 줄 안다.
+      //   손님은 선불금을 무한정 다시 쓸 수 있고 매출은 부풀려진다 — 방문마다 누적된다.
+      //   백엔드는 atomic UPDATE(잔액≥금액 조건)로 제대로 구현돼 있었다. 프론트만 안 보냈다.
+      use_membership: !!payload.use_membership,
     };
     if (_isOffline) {
       const record = { id: _uuid(), shop_id: localStorage.getItem('shop_id') || 'offline', ...data, created_at: _now() };
