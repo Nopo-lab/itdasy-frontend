@@ -36,12 +36,24 @@
     //   apiFetch 는 글로벌 재시도 래퍼를 안 거쳐서 1회 실패 시 그대로 null 이 됐고,
     //   로그인 직후 인증헤더가 아직 안 붙었거나 BE 콜드스타트 5xx 면 새로고침해야만 떴음.
     //   → 에러화면 띄우기 전 백오프로 최대 3회 재시도 (인증 대기 + 일시 5xx/네트워크 모두 흡수).
+    // [출시감사 2026-08-01] 인증 대기와 API 재시도를 **분리**한다.
+    //   예전엔 헤더가 아직 없으면 `continue` 로 재시도 횟수를 까먹었다. 로그인 직후처럼
+    //   헤더가 늦게 붙는 상황에서 attempt 0·1 이 대기로 소모되면 **진짜 API 시도는 1번뿐**이라
+    //   그 한 번이 삐끗하면 바로 "연결이 불안정해요" 카드가 떴다. 재시도 3회의 의미가 없었다.
+    //   → 헤더는 별도로 최대 3초 기다리고, 그 다음에 API 재시도 3회를 온전히 쓴다.
+    const AUTH_WAIT_MS = 3000, AUTH_POLL_MS = 100;
+    const _waitStart = Date.now();
+    while (!_authHeaders() && Date.now() - _waitStart < AUTH_WAIT_MS) {
+      await new Promise(r => setTimeout(r, AUTH_POLL_MS));
+    }
+    if (!_authHeaders()) console.warn('[brief] 인증 헤더가 3초 안에 안 붙음');
+
     const BACKOFF = [0, 800, 2000];
     for (let attempt = 0; attempt < BACKOFF.length; attempt++) {
       if (BACKOFF[attempt]) await new Promise(r => setTimeout(r, BACKOFF[attempt]));
       const headers = _authHeaders();
       if (!window.API || !headers) {
-        if (!headers) console.warn('[brief] 인증 헤더 대기 중 (attempt ' + attempt + ')');
+        if (!headers) console.warn('[brief] 인증 헤더 없음 (attempt ' + attempt + ')');
         continue;
       }
       try {
