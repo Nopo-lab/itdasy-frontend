@@ -141,16 +141,43 @@ gzip -dc restore/*/itdasy_PROD_*.sql.gz | psql -h /tmp -p 55432 -U drill -d rest
 👉 **결론: 백업에서 실제로 되살릴 수 있다.** 다만 위 3개 Supabase 확장은 자체 postgres 로
 옮길 땐 따로 챙겨야 한다(Supabase → Supabase 복구면 문제없음).
 
-### ⚠️ 리허설에서 발견한 것 — 운영/스테이징 스키마 격차
+### 🔴 리허설에서 발견한 것 — "운영 DB" 는 아무도 안 쓰는 유령이다
 
-운영 DB 에 **테이블 15개가 없다**: `treatments` · `customer_reviews` ·
-`workspace_slots`/`_slot_photos`/`_assets` · `comment_*` 3종 · `image_ocr_cache` ·
-`photo_ai_cache` · `user_corrections` · `dm_booking_links` · `backup_logs` 등.
+리허설 중 운영/스테이징 스키마가 갈린 걸 보고 파고들어 확인한 사실:
 
-- **자동 해소된다** — `main.py:209` 의 `Base.metadata.create_all` 이 부팅 시 없는 테이블을 만든다.
-  즉 운영 백엔드가 최신 코드로 배포되면 생긴다. → **운영 배포가 최신인지 확인할 것.**
-- 반대로 운영에만 있는 12개(`posts`·`profiles`·`comments`·`meta_connections` 등)는
-  **현재 코드에 모델이 없는 옛 잔재**다. 안 쓰이지만 개인정보가 남아 있을 수 있어 정리 대상.
+| 확인 항목 | 결과 |
+|---|---|
+| 운영 DB alembic revision | **`0012_customer_trust_fields`** |
+| 스테이징 DB revision | `0029_h4_token_epoch` — **17개 앞섬** |
+| 운영 레포(`itdasy_backend`) 코드 | alembic `0019` 까지 (코드조차 DB 보다 앞섬) |
+| 운영 Cloud Run 서비스 | **존재하지 않음** — `itdasy-495513` 에 `itdasy-backend-staging` 하나뿐 |
+| 운영 프론트(`itdasy-frontend`) 의 `PROD_API` | **스테이징 백엔드 주소** (라이브 파일에서 실측) |
+
+👉 **결론: 지금 스테이징 백엔드 하나가 모두를 서빙하고 있다. 그게 사실상 운영이다.**
+운영 DB 는 0012 시점에 멈춘 채 아무도 안 쓴다 — 그래서 스키마가 뒤처진 것이다.
+
+**출시 전에 반드시 정할 것 (연준님):**
+1. 이대로 스테이징 백엔드를 운영으로 쓸 것인가? → 그러면 **스테이징 전용 env 를 반드시 걷어내야 한다**
+   (`ITDASY_STAGING_BYPASS_ALL=1` 이 켜져 있으면 **모든 사용자가 premium + 한도 우회**)
+2. 별도 운영 백엔드를 세울 것인가? → 그러면 운영 DB 를 0029 까지 올려야 한다
+
+⚠️ **`Base.metadata.create_all` 이 격차를 메워준다고 생각하면 안 된다.**
+그건 **없는 테이블을 만들 뿐**이고 컬럼 추가·타입 변경·인덱스·제약은 하지 않는다.
+0013~0029 실제 내용: `add_column` 9 · `create_index` 5 · unique/제약 3 · `create_table` 2.
+게다가 이 9개 컬럼은 `_ensure_col` 로도 **하나도 커버되지 않는다**(실측 0/9) —
+`users.min_valid_iat`(로그아웃·비번변경 시 세션 무효화의 전제) 포함.
+**Alembic 을 실제로 돌려야만 생긴다.**
+다행히 Dockerfile CMD 가 `alembic upgrade head && uvicorn` 이라 컨테이너 부팅 시 자동 적용되고,
+실패하면 fail-loud 로 uvicorn 이 안 뜬다(옛 리비전 유지).
+
+### 운영 DB 에만 있는 옛 테이블 12개
+
+`posts` · `profiles` · `comments` · `blocks` · `reports` · `entitlements` · `eula_consents` ·
+`generated_images` · `meta_connections` · `webhook_events` · `access_logs` · `account_deletion_requests`
+
+현재 코드에 대응 모델이 없다(전수 grep 확인). **다만 바로 지우지 말 것** —
+Supabase Function·직접 SQL·cron 이 참조할 수 있으니 먼저 확인하고, deprecated 확정 후 삭제.
+개인정보가 남아 있을 수 있어 정리 대상이긴 하다. **출시 후 작업 권장.**
 
 ---
 

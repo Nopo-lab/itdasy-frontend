@@ -42,9 +42,13 @@
 ### 인프라·보안
 - [ ] **운영** Cloud Run `min-instances 0 → 1` (콜드스타트 51초 이력)
 - [ ] 운영 DB 비밀번호 교체 (2026-04-19 노출 이력)
-- [ ] **운영 백엔드가 최신 코드로 배포됐는지 확인** — Restore Drill 에서 운영 DB 에
-      테이블 15개(`treatments`·`workspace_slots`·`comment_*` 등)가 없는 걸 발견.
-      `create_all` 이 부팅 시 만들어주므로 배포만 되면 해소된다.
+- [ ] 🔴 **"어느 백엔드로 출시할지" 결정** — Restore Drill 에서 확인된 사실:
+      운영 Cloud Run 서비스가 **없고**, 운영 프론트도 스테이징 백엔드를 본다.
+      **지금은 스테이징 하나가 모두를 서빙 = 그게 사실상 운영이다.**
+      · 이대로 간다면 → 아래 스테이징 전용 env 정리가 **필수**
+      · 별도 운영을 세운다면 → 운영 DB 를 0012 → 0029 로 올려야 한다
+        (`create_all` 로는 안 된다. add_column 9·index 5·제약 3 이 들어있고
+         `_ensure_col` 커버리지는 0/9. Alembic 을 실제로 돌려야 한다)
 - [ ] **시크릿 재발급 3종**: Replicate 토큰 · Redis 비밀번호 · Instagram Verify Token
 - [ ] `REDIS_URL` 을 Cloud Run 에서 닿는 주소로 (현재 옛 Railway 주소 → rate limit 이 메모리 폴백)
 - [ ] GitHub org 2FA 필수화 + `main` 브랜치 보호
