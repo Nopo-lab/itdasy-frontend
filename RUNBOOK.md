@@ -15,7 +15,20 @@
 | 사용량·원가 | 같은 화면. 상한 사용률 90% 넘으면 빨강 |
 | 알림 이력 | [Uptime Alert 실행 기록](https://github.com/Nopo-lab/itdasy_backend-test/actions/workflows/uptime-alert.yml) |
 
-**Discord 알림은 5분마다** 온다(러너가 붐비면 5~15분 밀릴 수 있음). 조용하면 정상이다.
+**감시는 두 겹이다 — 성격이 다르다:**
+
+| 수단 | 실제 주기 | 알림 |
+|---|---|---|
+| GCP Uptime Check `itdasy-backend-staging-health` | **5분 (보장됨)** · 3개 대륙 | GCP 콘솔 인시던트. Discord/이메일은 알림 채널 연결 필요 |
+| GitHub Actions `Uptime Alert` | cron 은 `*/5` 지만 **실측 약 1시간** | Discord 웹훅 (즉시) |
+
+⚠️ **Actions cron 은 5분이 아니다.** 실측(2026-08-01): 11:00 → 12:08 → 13:53 → 14:58 → 16:08
+= 약 1~1.2시간 간격. private 레포라 러너가 크게 밀린다. Actions 만 믿으면 장애를 최대
+**70분 늦게** 안다. 그래서 GCP Uptime Check 를 따로 뒀다(무료, 5분 보장).
+
+🔴 **연준님 1회 작업**: GCP 콘솔 → 모니터링 → 알림 → 알림 채널에 이메일 추가 후 **인증 메일 클릭**.
+그래야 "잇데이 백엔드 다운 (5분 감지)" 정책이 실제로 통보한다. 지금은 콘솔에만 뜬다.
+(이메일 인증은 사람이 클릭해야 해서 자동화 불가)
 
 ---
 
