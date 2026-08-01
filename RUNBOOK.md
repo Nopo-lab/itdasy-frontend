@@ -102,8 +102,55 @@
 
 - 현재 **읽기 전용 모드는 없다.** DB 가 죽으면 `/health` 가 503 → 앱 전체가 멈춘다.
 - 할 수 있는 것: `MAINTENANCE_MODE=1` 로 점검 안내를 띄우고 Supabase 복구를 기다린다.
-- 백업: Supabase Daily Backup(Actions, UTC 18:00). **복구 리허설은 아직 안 해봤다** —
-  실제로 복구되는지 확인 필요(출시 전 숙제).
+
+### 백업에서 복구하기 — ✅ 리허설 완료 (2026-08-01)
+
+백업: Supabase Daily Backup (Actions, UTC 18:00 = 한국 03:00). **최근 5일 연속 성공 확인.**
+아티팩트 보관 30일. 운영 80KB · 스테이징 618KB(gz).
+
+**실제로 복구해봤다. 순서:**
+
+```bash
+# 1) 백업 내려받기 (프론트 레포 Actions)
+gh run list --workflow=supabase-backup.yml --limit 5      # 성공한 run id 확인
+gh run download <RUN_ID> -D ./restore
+
+# 2) 로컬 postgres 17 (Supabase 도 17)
+brew install postgresql@17
+export PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH"
+export LC_ALL="en_US.UTF-8"          # ← 없으면 "postmaster became multithreaded" 로 기동 실패
+initdb -D /tmp/pgdrill -U drill --encoding=UTF8 --locale=C
+pg_ctl -D /tmp/pgdrill -o "-p 55432 -k /tmp -c listen_addresses=''" -l /tmp/pgdrill/log start
+#   ⚠️ 소켓 경로가 103자를 넘으면 기동 실패 — 반드시 /tmp 같은 짧은 경로에
+
+# 3) 복원
+psql -h /tmp -p 55432 -U drill -d postgres -c "CREATE DATABASE restored;"
+gzip -dc restore/*/itdasy_PROD_*.sql.gz | psql -h /tmp -p 55432 -U drill -d restored
+```
+
+**실측 결과 (운영 백업 기준):**
+
+| 항목 | 결과 |
+|---|---|
+| 복원 소요 | **1초** (운영 516KB 기준. 데이터 늘면 비례) |
+| 에러 | 10건 — **전부 Supabase 전용**(`pg_cron`·`supabase_vault`·`cron` 스키마). 앱 데이터와 무관, 무시해도 됨 |
+| 복원된 테이블 | public 63개 + auth 23 + storage 8 |
+| 무결성 | FK 73 · PK 63 · 인덱스 250 · 시퀀스 49 — 전부 복원됨 |
+| 동작 확인 | JOIN 조회 ✅ · 매출 합계 ✅ · **신규 INSERT ✅** |
+
+👉 **결론: 백업에서 실제로 되살릴 수 있다.** 다만 위 3개 Supabase 확장은 자체 postgres 로
+옮길 땐 따로 챙겨야 한다(Supabase → Supabase 복구면 문제없음).
+
+### ⚠️ 리허설에서 발견한 것 — 운영/스테이징 스키마 격차
+
+운영 DB 에 **테이블 15개가 없다**: `treatments` · `customer_reviews` ·
+`workspace_slots`/`_slot_photos`/`_assets` · `comment_*` 3종 · `image_ocr_cache` ·
+`photo_ai_cache` · `user_corrections` · `dm_booking_links` · `backup_logs` 등.
+
+- **자동 해소된다** — `main.py:209` 의 `Base.metadata.create_all` 이 부팅 시 없는 테이블을 만든다.
+  즉 운영 백엔드가 최신 코드로 배포되면 생긴다. → **운영 배포가 최신인지 확인할 것.**
+- 반대로 운영에만 있는 12개(`posts`·`profiles`·`comments`·`meta_connections` 등)는
+  **현재 코드에 모델이 없는 옛 잔재**다. 안 쓰이지만 개인정보가 남아 있을 수 있어 정리 대상.
 
 ---
 

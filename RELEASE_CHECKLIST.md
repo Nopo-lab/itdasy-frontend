@@ -42,6 +42,9 @@
 ### 인프라·보안
 - [ ] **운영** Cloud Run `min-instances 0 → 1` (콜드스타트 51초 이력)
 - [ ] 운영 DB 비밀번호 교체 (2026-04-19 노출 이력)
+- [ ] **운영 백엔드가 최신 코드로 배포됐는지 확인** — Restore Drill 에서 운영 DB 에
+      테이블 15개(`treatments`·`workspace_slots`·`comment_*` 등)가 없는 걸 발견.
+      `create_all` 이 부팅 시 만들어주므로 배포만 되면 해소된다.
 - [ ] **시크릿 재발급 3종**: Replicate 토큰 · Redis 비밀번호 · Instagram Verify Token
 - [ ] `REDIS_URL` 을 Cloud Run 에서 닿는 주소로 (현재 옛 Railway 주소 → rate limit 이 메모리 폴백)
 - [ ] GitHub org 2FA 필수화 + `main` 브랜치 보호
@@ -76,7 +79,8 @@
 - [ ] 사진 20장 / 100MB+ 업로드 — OOM·행 없음
 - [ ] 오프라인 전환 → 복귀
 - [ ] PC(≥768px) 오버레이 사이드바 잘림 없음
-- [ ] **Restore Drill** — 백업이 실제로 복구되는지 리허설 (아직 미실시)
+- [x] **Restore Drill** — ✅ 2026-08-01 실시. 운영 백업을 로컬 postgres 17 에 실제 복원 성공
+      (1초 · FK 73·인덱스 250 복원 · JOIN/INSERT 동작 · 에러는 Supabase 전용 확장뿐)
 
 ---
 
