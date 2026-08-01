@@ -38,9 +38,19 @@
       console.warn('[loader] 알 수 없는 그룹:', group);
       return Promise.resolve(false);
     }
-    _inflight[group] = Promise.all(list.map(_loadOne)).then(() => {
-      _done[group] = true;
+    // [출시감사 2026-08-01] 예전엔 결과를 무시하고 무조건 `_done[group]=true` 로 굳혔다.
+    //   그래서 파일 하나가 네트워크 문제로 못 뜨면 그 화면이 **그 세션 내내 영영 안 열렸다** —
+    //   다시 눌러도 `_done` 이 true 라 재시도조차 안 하고, 스텁은 조용히 아무것도 안 했다.
+    //   원장님 눈엔 "예약 눌러도 안 열림"이고 원인 표시도 없다.
+    //   이제 하나라도 실패하면 _done 을 세우지 않고 _inflight 만 비워 **다음 탭에 재시도**된다.
+    _inflight[group] = Promise.all(list.map(_loadOne)).then((results) => {
+      const ok = results.every(Boolean);
       delete _inflight[group];
+      if (!ok) {
+        console.warn('[loader] 그룹 일부 실패 — 다음 시도에 재로드:', group);
+        return false;
+      }
+      _done[group] = true;
       try { window.dispatchEvent(new CustomEvent('apploader:loaded', { detail: { group } })); }
       catch (_e) { void _e; }
       return true;
@@ -64,6 +74,14 @@
       return ensure(group).then(() => {
         const real = window[name];
         if (typeof real === 'function' && real !== stub) return real.apply(null, args);
+        // [출시감사 2026-08-01] 여기 도달 = 로드 실패로 스텁이 자기 자신인 채 남았다는 뜻.
+        //   예전엔 조용히 undefined 를 반환하고 끝나서 화면이 안 열리는데 **아무 표시도 없었다.**
+        //   원장님은 손님 앞에서 몇 번을 눌러도 반응이 없는 걸 보게 된다.
+        //   실패를 말해주고, ensure 가 _done 을 안 세웠으니 다시 누르면 재시도된다.
+        if (window.showToast) {
+          window.showToast('화면을 불러오지 못했어요. 인터넷 확인 후 다시 눌러주세요');
+        }
+        return undefined;
       });
     };
     stub._loaderStub = true;

@@ -320,6 +320,21 @@
       const res = await fetch(_api() + '/shop/settings', { headers: { ..._auth() } });
       if (res.ok) {
         const data = await res.json();
+        // [출시감사 2026-08-01] 전화·주소를 서버에서 **한 번도 다시 읽지 않던** 것 수정.
+        //   _hydrate 는 두 값을 로컬(itdasy_shop_phone/addr)에서만 읽었는데, 그 키는
+        //   로그아웃 시 _USER_KEY_PREFIXES 로 전부 지워진다. 재로그인하거나 폰을 바꾸면
+        //   입력칸이 비어 보이고, 영업시간만 고쳐 저장하는 순간 빈 문자열이 PUT 돼
+        //   **서버에 있던 전화·주소가 지워졌다.** (백엔드 shop.py 의 exclude_none 은 "" 를 못 거른다)
+        //   그러면 DM 자동응답의 위치 안내가 주소를 못 찾는다.
+        //   로컬이 비어 있을 때만 서버값으로 채운다 — 방금 입력 중인 값을 덮지 않으려고.
+        try {
+          [['ssShopPhone', 'phone'], ['ssShopAddr', 'address']].forEach(([id, key]) => {
+            const el = document.getElementById(id);
+            const sv = (data && data[key] != null) ? String(data[key]) : '';
+            if (el && !el.value.trim() && sv.trim()) el.value = sv;
+          });
+        } catch (_e) { void _e; }
+
         let bh = data && data.business_hours_json;
         if (typeof bh === 'string') { try { bh = JSON.parse(bh); } catch (_e) { bh = null; } }
         if (bh && typeof bh === 'object' && !Array.isArray(bh)) {
@@ -369,14 +384,22 @@
       .map(k => `${_DAY_LABELS[k]} ${hoursObj[k].open}-${hoursObj[k].close}`).join(', ') : '';
     const payload = {
       shop_name: get('ssShopName'),
-      phone: get('ssShopPhone'),
-      address: get('ssShopAddr'),
       hours: _hrText,
       business_hours_json: hoursObj ? JSON.stringify(hoursObj) : null,
       auto_confirm: document.getElementById('ssAutoConfirmSwitch')?.classList.contains('is-on') ? 1 : 0,
       // [2026-07-25 예약QA F5] 예약 알림톡 자동발송 opt-in — 백엔드 ShopSettings.alimtalk_auto_enabled.
       alimtalk_auto_enabled: !!document.getElementById('ssAlimtalkSwitch')?.classList.contains('is-on'),
     };
+    // [출시감사 2026-08-01] 전화·주소는 **값이 있을 때만** 보낸다.
+    //   빈 문자열을 보내면 백엔드 shop.py 의 `exclude_none` 이 "" 를 못 걸러
+    //   `settings.phone = ""` 로 서버 값을 지워버린다. 입력칸이 비어 보이는 상황
+    //   (재로그인·기기 변경으로 로컬 캐시가 없을 때)에서 영업시간만 고쳐 저장해도
+    //   전화·주소가 날아가던 경로다. 정말 지우고 싶으면 그건 별도 동작이어야 한다.
+    const _phone = get('ssShopPhone');
+    const _addr = get('ssShopAddr');
+    if (_phone) payload.phone = _phone;
+    if (_addr) payload.address = _addr;
+
     if (!payload.shop_name) { _toast('샵 이름을 입력해주세요'); return; }
 
     // 로컬 저장 (즉시 반영)
@@ -401,10 +424,15 @@
         headers: { 'Content-Type': 'application/json', ..._auth() },
         body: JSON.stringify(payload),
       });
+      // [출시감사 2026-08-01] 예전엔 실패해도 "로컬에 저장됨 — 서버 연결 후 자동 동기화" 라고
+      //   안심시켰는데 **자동 동기화 코드가 어디에도 없다.** /shop/settings 재전송 큐도,
+      //   online 리스너도 없다. 게다가 알림톡·자동확정 토글은 로컬에도 안 남아서
+      //   화면을 나갔다 들어오면 그냥 꺼져 있다 — 원장님은 자기가 안 켠 줄 안다.
+      //   되지도 않는 약속을 하지 말고 사실대로 말한다.
       if (res.ok) _toast('저장됨');
-      else _toast('로컬에 저장됨 — 서버 연결 후 자동 동기화');
+      else _toast('저장하지 못했어요. 잠시 후 다시 시도해 주세요');
     } catch (_) {
-      _toast('로컬에 저장됨 — 서버 연결 후 자동 동기화');
+      _toast('저장하지 못했어요. 인터넷 연결을 확인해 주세요');
     }
   }
 
