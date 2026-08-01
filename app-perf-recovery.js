@@ -458,20 +458,6 @@
     b.setAttribute('role', 'status');
     b.setAttribute('aria-live', 'polite');
     b.innerHTML = `<i class="ph-duotone ph-wifi-slash" aria-hidden="true"></i><span data-banner-text>오프라인 모드 — 마지막 동기화 데이터로 보고 있어요</span>`;
-    // [출시감사 2026-08-01] **`.itdasy-offline-banner` CSS 가 어디에도 없었다.**
-    //   그래서 이 div 는 그냥 평범한 block 으로 항상 보였고, `.show` 클래스는 아무 의미가
-    //   없었다 → `_hideOfflineBanner()` 가 `.show` 를 떼도 **화면에선 안 사라졌다.**
-    //   "안테나가 한 번 뜨면 영영 안 없어진다"의 정체. 실측으로 확인:
-    //   온라인 복구로 잠금은 풀렸는데(itdasy-offline 제거) 배너는 height 35px 로 그대로였다.
-    //   CSS 파일에 기대지 않고 여기서 자체 완결시킨다(스타일시트 로드 순서·캐시에 안 흔들리게).
-    b.style.cssText = [
-      'position:fixed', 'left:0', 'right:0',
-      'top:calc(env(safe-area-inset-top, 0px) + 0px)',
-      'z-index:9500', 'display:none', 'align-items:center', 'justify-content:center',
-      'gap:6px', 'padding:8px 14px', 'background:#3f3f46', 'color:#fff',
-      'font-size:13px', 'font-weight:600', 'letter-spacing:-0.2px',
-      'box-shadow:0 2px 8px rgba(0,0,0,.18)',
-    ].join(';');
     document.body.appendChild(b);
     return b;
   }
@@ -509,13 +495,10 @@
       t.textContent = '오프라인 모드 — 추가/수정은 잠시 멈춰요' + suffix;
     }
     b.classList.add('show');
-    b.style.display = 'flex';    // 클래스가 아니라 display 로 확실히 (위 _ensureBanner 주석 참고)
   }
   function _hideOfflineBanner() {
     const b = document.getElementById('itdasy-offline-banner');
-    if (!b) return;
-    b.classList.remove('show');
-    b.style.display = 'none';    // `.show` 만 떼면 CSS 가 없어서 안 사라진다
+    if (b) b.classList.remove('show');
   }
   function _markOnline() {
     _hideOfflineBanner();
