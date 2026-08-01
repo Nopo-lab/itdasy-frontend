@@ -3709,12 +3709,21 @@
     if (!(window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function')) return false;
     try { if (window.ItdasySourceImage && photos && photos[0]) window.ItdasySourceImage.noteChatPhoto({ dataUrl: photos[0], messageId: 'chat-ws' }); } catch (_e) { void _e; }
     try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_e) { void _e; }
+    // [출시감사 2026-08-01 카오스QA] 10장 초과분을 조용히 버리던 것 → 안내한다.
+    //   작업실 파일선택 경로는 이미 안내가 있는데(workspace-v2-flow.js, 보안감사 M-16)
+    //   잇비로 사진을 던지는 경로만 빠져 있었다. 11장을 던지면 10장만 열리는데
+    //   원장님은 왜 한 장이 없어졌는지 알 길이 없다.
+    var _all = photos || [];
+    var _use = _all.slice(0, 10);
+    if (_all.length > 10) {
+      try { showToast('사진은 한 번에 10장까지만 열려요'); } catch (_e) { void _e; }
+    }
     // [2026-07-22] screen 'edit'(사진 편집)은 인스타식 편집기(ItdEditor) — storyedit 명령. 그 외는 일반 진입.
     if (screen === 'edit') {
-      window.WorkspaceFlow.command({ type: 'storyedit', photoUrls: (photos || []).slice(0, 10) });
+      window.WorkspaceFlow.command({ type: 'storyedit', photoUrls: _use });
       return true;
     }
-    var cmd = { type: 'open', photoUrls: (photos || []).slice(0, 10), cat: cat || null };
+    var cmd = { type: 'open', photoUrls: _use, cat: cat || null };
     if (screen) cmd.screen = screen;
     window.WorkspaceFlow.command(cmd);
     return true;
