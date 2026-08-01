@@ -1476,6 +1476,79 @@ function handle401() {
 // ──────────────────────────────────────────────
 // 계정 탈퇴 (Apple Guideline 5.1.1(ix) 필수)
 // ──────────────────────────────────────────────
+// ───── 비밀번호 변경 (2026-08-01 출시감사) ─────
+//   백엔드 POST /auth/change-password 는 예전부터 있었는데 화면이 없어서
+//   사장님이 앱에서 비번을 바꿀 방법이 아예 없었다. "누가 내 계정 쓰는 것 같다"의
+//   첫 대응이 비번 변경인데 그게 막혀 있던 셈.
+function openChangePwModal() {
+  const m = document.getElementById('changePwModal');
+  if (!m) return;
+  m.style.display = 'flex';
+  ['cpwCurrent', 'cpwNew', 'cpwConfirm'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  _cpwMsg('');
+  // 안드로이드 back 으로 닫히게 등록 — 안 하면 back 이 이 모달 대신 앱을 그대로 끈다.
+  //   _registerSheet 로 '닫는 방법'을 먼저 알려주고 _markSheetOpen 으로 열렸다고 표시한다.
+  if (typeof window._registerSheet === 'function') window._registerSheet('changePw', closeChangePwModal);
+  if (typeof window._markSheetOpen === 'function') window._markSheetOpen('changePw');
+  setTimeout(() => { const el = document.getElementById('cpwCurrent'); if (el) el.focus(); }, 100);
+}
+
+function closeChangePwModal() {
+  const m = document.getElementById('changePwModal');
+  if (m) m.style.display = 'none';
+  if (typeof window._markSheetClosed === 'function') window._markSheetClosed('changePw');
+}
+
+function _cpwMsg(text, kind) {
+  const el = document.getElementById('cpwMsg');
+  if (!el) return;
+  if (!text) { el.style.display = 'none'; el.textContent = ''; return; }
+  el.style.display = 'block';
+  el.textContent = text;
+  const ok = kind === 'ok';
+  el.style.background = ok ? '#e8f5e9' : '#fdecea';
+  el.style.color = ok ? '#0a7b3e' : '#b00020';
+}
+
+async function submitChangePw() {
+  const btn = document.getElementById('cpwSubmit');
+  const cur = (document.getElementById('cpwCurrent') || {}).value || '';
+  const nw = (document.getElementById('cpwNew') || {}).value || '';
+  const cf = (document.getElementById('cpwConfirm') || {}).value || '';
+
+  if (!cur || !nw) { _cpwMsg('현재 비밀번호와 새 비밀번호를 모두 입력해주세요'); return; }
+  if (nw !== cf) { _cpwMsg('새 비밀번호가 서로 달라요'); return; }
+  if (nw === cur) { _cpwMsg('지금 쓰는 비밀번호와 같아요'); return; }
+  // 서버(_validate_password)가 최종 판정하지만, 왕복 없이 바로 알려주는 게 친절하다
+  if (nw.length < 8) { _cpwMsg('새 비밀번호는 8자 이상이어야 해요'); return; }
+
+  if (btn) { btn.disabled = true; btn.textContent = '변경 중…'; }
+  _cpwMsg('');
+  try {
+    const res = await apiFetch('/auth/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current_password: cur, new_password: nw }),
+    });
+    if (res.ok) {
+      closeChangePwModal();
+      showToast('비밀번호를 바꿨어요. 다른 기기에서는 다시 로그인해주세요');
+      return;
+    }
+    // 400 = 현재 비번 불일치 / 규칙 위반. 서버 문구를 그대로 쓰는 게 가장 정확하다
+    let detail = '';
+    try { detail = (await res.json()).detail || ''; } catch (_e) { void _e; }
+    _cpwMsg(detail || '비밀번호를 바꾸지 못했어요. 잠시 후 다시 시도해주세요');
+  } catch (_e) {
+    _cpwMsg('연결이 불안정해요. 잠시 후 다시 시도해주세요');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '변경하기'; }
+  }
+}
+
 function openDeleteAccountModal() {
   const modal = document.getElementById('deleteAccountModal');
   if (!modal) return;
@@ -2917,6 +2990,15 @@ Object.assign(window, {
       if (typeof closeSettings === 'function') closeSettings();
       if (typeof openDeleteAccountModal === 'function') openDeleteAccountModal();
     });
+    on('changePwBtn', () => {
+      if (typeof closeSettings === 'function') closeSettings();
+      openChangePwModal();
+    });
+    on('cpwCancel', closeChangePwModal);
+    on('cpwSubmit', submitChangePw);
+    // 확인칸에서 엔터 = 변경하기 (모바일 키보드에서 버튼까지 안 내려가도 되게)
+    const _cpwCf = document.getElementById('cpwConfirm');
+    if (_cpwCf) _cpwCf.addEventListener('keydown', e => { if (e.key === 'Enter') submitChangePw(); });
     on('exportDataBtn', () => {
       if (typeof openDataExport === 'function') openDataExport();
     });
