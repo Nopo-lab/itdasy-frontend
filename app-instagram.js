@@ -919,10 +919,27 @@ async function connectInstagram() {
     //   복귀는 기존과 동일하게 itdasy://oauth/callback 딥링크(app-oauth-return.js connected=success)로 돌아온다.
     //   구글/카카오도 복귀 시 Browser.close() 를 명시 호출하지 않으므로 인스타도 별도 close 로직을 추가하지 않는다.
     //   else 분기는 원본 그대로 — 웹·플래그OFF 네이티브(현재 전부)는 100% 기존 동작.
+    // [출시감사 2026-08-01 카오스QA] 주소에 로그인 토큰을 싣지 않는다.
+    //   예전엔 `?token=<JWT>` 였는데, Cloud Run 액세스 로그에 그 JWT 가 전체 URL 째로
+    //   평문으로 남는 걸 실측했다 — 로그만 봐도 계정을 그대로 쓸 수 있었다.
+    //   대신 헤더 인증으로 60초짜리 1회용 티켓을 받아 그걸 주소에 싣는다.
+    //   티켓이 로그에 남아도 연동 화면 진입 외엔 아무것도 못 한다.
+    //   티켓 발급이 실패하면 옛 방식으로 폴백한다 — 연동이 아예 막히는 것보다 낫다.
+    let _entry = '';
+    try {
+      const tr = await apiFetch('/instagram/go-ticket', { method: 'POST' });
+      if (tr.ok) {
+        const tj = await tr.json();
+        if (tj && tj.ticket) _entry = `ticket=${encodeURIComponent(tj.ticket)}`;
+      }
+    } catch (_e) { void _e; }
+    if (!_entry) _entry = `token=${encodeURIComponent(token)}`;
+    const goUrl = `${API}/instagram/go?${_entry}&origin=${origin}&return_to=${returnToEnc}`;
+
     if (_IG_BROWSER && isNative && window.Capacitor?.Plugins?.Browser) {
-      window.Capacitor.Plugins.Browser.open({ url: `${API}/instagram/go?token=${encodeURIComponent(token)}&origin=${origin}&return_to=${returnToEnc}` });
+      window.Capacitor.Plugins.Browser.open({ url: goUrl });
     } else {
-      window.location.href = `${API}/instagram/go?token=${encodeURIComponent(token)}&origin=${origin}&return_to=${returnToEnc}`;
+      window.location.href = goUrl;
     }
 
   } catch(e) {
