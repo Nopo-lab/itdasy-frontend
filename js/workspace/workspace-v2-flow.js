@@ -2845,7 +2845,22 @@
       // [cleanup] publishstory/storypick/storypickcancel 제거 — 진입 버튼 없어 도달 불가였던 스토리 발행 세트. 발행은 피드/여러 장(carousel)만.
       if (a === 'publishcarousel') { return publish('carousel'); }
       if (a === 'copycap') { flushCaptionInputs(); window.WorkspaceAdapter && window.WorkspaceAdapter.copyText((d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '')); _markPrepared(); return; }   // [#6] copyText 가 이미 토스트 → 중복 토스트 제거(두 개 쌓여 ~5초 떠있던 문제)
-      if (a === 'saveimg') { window.WorkspaceAdapter && window.WorkspaceAdapter.saveImage(outputUrl(), d.service || 'itdasy'); _markPrepared(); _askPublishedSheet(); return; }   // [v547] 저장 후 게시 확인 sheet
+      // [v547] 저장 후 게시 확인 sheet
+      // [출시감사 2026-08-01 P0] 예전엔 saveImage 결과를 **안 기다리고** 곧바로
+      //   _markPrepared()+_askPublishedSheet() 를 불렀다. 저장이 실패해도(네이티브에서
+      //   `<a download>` 는 data URL 을 저장 못 한다) "게시했나요?" 가 떠서 원장님은
+      //   저장된 줄 알고 넘어갔고, 준비완료 통계까지 오염됐다.
+      //   이제 성공했을 때만 다음 단계로 넘긴다. 사용자가 공유 시트를 닫은 경우(aborted)도
+      //   실패로 보고 그냥 머문다 — 다시 누르면 된다.
+      if (a === 'saveimg') {
+        if (!window.WorkspaceAdapter) return;
+        Promise.resolve(window.WorkspaceAdapter.saveImage(outputUrl(), d.service || 'itdasy'))
+          .then(function (r) {
+            if (r && r.ok) { _markPrepared(); _askPublishedSheet(); }
+          })
+          .catch(function () { /* saveImage 가 토스트로 이미 알린다 */ });
+        return;
+      }
       if (a === 'pubnot') { return _closePublishSheet(); }
       if (a === 'pubdone') { return _markPublishedNow(); }
       if (a === 'igconnect') { window.WorkspaceAdapter && window.WorkspaceAdapter.connectInstagram(); return; }

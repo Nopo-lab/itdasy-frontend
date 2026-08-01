@@ -692,9 +692,61 @@
       } catch (_e) { /* ignore */ }
       return { ok: false, reason: 'no_clipboard' };
     },
+    // [출시감사 2026-08-01 P0] 예전엔 `<a download>` 하나로 끝내고 try 블록만 통과하면
+    //   무조건 toast('이미지를 저장했어요') + ok:true 였다. 그런데 **네이티브 WebView
+    //   (iOS WKWebView·Android Capacitor)는 `<a download>` 로 data:/blob: 를 저장하지 못한다.**
+    //   → 사진첩에도 파일 앱에도 아무것도 안 남는데 "저장했어요" 가 뜨고,
+    //     곧바로 "게시했나요?" 시트까지 떠서 원장님은 저장된 줄 알고 앱을 닫는다.
+    //     나중에 인스타에 올리려고 사진첩을 열면 사진이 없다.
+    //   Meta 발행 심사 중엔 발행 버튼이 숨겨져(_publishBlock) 이 저장이 작업실의
+    //   **유일한 출구**라 더 치명적이다.
+    //   같은 레포 app-gallery-finish.js:290 이 이미 올바른 패턴(navigator.share + canShare)을
+    //   쓰고 있었고 @capacitor/share 도 설치돼 있다 — 여기만 안 쓰고 있었다.
+    //   Promise 를 반환하도록 바꿨지만 호출부는 반환값을 안 쓰므로 호환된다(아래 확인함).
     saveImage: function (dataUrl, name) {
-      if (!dataUrl) return { ok: false, reason: 'no_image' };
-      try { var a = document.createElement('a'); a.href = dataUrl; a.download = (name || 'itdasy') + '.jpg'; document.body.appendChild(a); a.click(); a.remove(); toast('이미지를 저장했어요'); return { ok: true }; } catch (_e) { return { ok: false }; }
+      if (!dataUrl) return Promise.resolve({ ok: false, reason: 'no_image' });
+      var fname = (name || 'itdasy') + '.jpg';
+
+      // 1) 파일 공유 시트 — 네이티브에서 사진첩에 실제로 저장되는 유일한 경로
+      var viaShare = function () {
+        if (!(navigator.share && navigator.canShare)) return Promise.resolve(false);
+        return fetch(dataUrl)
+          .then(function (r) { return r.blob(); })
+          .then(function (blob) {
+            var files = [new File([blob], fname, { type: blob.type || 'image/jpeg' })];
+            if (!navigator.canShare({ files: files })) return false;
+            return navigator.share({ files: files, title: '사진 저장' }).then(function () { return true; });
+          })
+          .catch(function (e) {
+            // 사용자가 공유 시트를 닫은 건 실패가 아니다 — 성공 토스트만 안 띄운다.
+            if (e && e.name === 'AbortError') return 'aborted';
+            return false;
+          });
+      };
+
+      return viaShare().then(function (shared) {
+        if (shared === true) { toast('사진을 저장했어요'); return { ok: true, via: 'share' }; }
+        if (shared === 'aborted') return { ok: false, reason: 'aborted' };
+
+        // 2) 웹 폴백 — 데스크톱/모바일 브라우저에선 이게 정상 동작한다.
+        var isNative = false;
+        try { isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); } catch (_e) { void _e; }
+        if (isNative) {
+          // 네이티브인데 공유까지 막혔으면 저장할 방법이 없다. **거짓 성공을 띄우지 않는다.**
+          toast('사진을 저장하지 못했어요 — 화면을 길게 눌러 저장해 주세요');
+          return { ok: false, reason: 'native_no_share' };
+        }
+        try {
+          var a = document.createElement('a');
+          a.href = dataUrl; a.download = fname;
+          document.body.appendChild(a); a.click(); a.remove();
+          toast('사진을 저장했어요');
+          return { ok: true, via: 'download' };
+        } catch (_e2) {
+          toast('사진을 저장하지 못했어요');
+          return { ok: false, reason: 'download_failed' };
+        }
+      });
     },
 
     // 가격표 — 전용 OCR 흐름 (사진 편집/홍보 흐름과 분리)
