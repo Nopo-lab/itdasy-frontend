@@ -2031,9 +2031,12 @@ async function _oauthPkceStart() {
     localStorage.setItem('itdasy_oauth_pkce', JSON.stringify({ v: verifier, t: Date.now() }));
     return challenge;
   } catch (_e) {
-    // crypto 미지원 등 — challenge 없이 진행하면 백엔드가 레거시 token 방식으로 폴백
+    // [2026-08-03 P0-1-a] 예전엔 ''(challenge 없음)을 돌려줘서 백엔드가 레거시 `?token=` 으로
+    //   폴백했다 — 즉 **우리 손으로 세션 고정 경로를 유발**하는 설계였다. 레거시를 걷어냈으니
+    //   여기서 실패하면 로그인 자체를 중단시킨다. (Pages 는 항상 HTTPS = secure context 라
+    //   실제 발생 가능성은 낮지만, 경로를 완전히 닫으려면 이쪽도 막아야 한다.)
     void _e;
-    return '';
+    throw new Error('보안 로그인을 시작할 수 없어요. 브라우저를 업데이트해 주세요');
   }
 }
 window._oauthPkceStart = _oauthPkceStart;
@@ -2059,8 +2062,9 @@ window.startGoogleLogin = async function () {
     const returnTo = new URL('oauth-return.html', window.location.href).href;
     const _cc = await _oauthPkceStart();
     const res = await fetch(
+      // [P0-1-a] code_challenge 는 이제 필수 — 없으면 백엔드가 error=pkce_required 로 돌려보낸다.
       `${window.API}/auth/google/authorize?return_to=${encodeURIComponent(returnTo)}` +
-      (_cc ? `&code_challenge=${encodeURIComponent(_cc)}` : '')
+      `&code_challenge=${encodeURIComponent(_cc)}`
     );
     if (!res.ok) throw new Error('Google 로그인 준비 실패');
     const { url } = await res.json();
@@ -2079,7 +2083,7 @@ window.startKakaoLogin = async function () {
     const _cc = await _oauthPkceStart();
     const res = await fetch(
       `${window.API}/auth/kakao/authorize?return_to=${encodeURIComponent(returnTo)}` +
-      (_cc ? `&code_challenge=${encodeURIComponent(_cc)}` : '')
+      `&code_challenge=${encodeURIComponent(_cc)}`
     );
     if (!res.ok) throw new Error('카카오 로그인 준비 실패');
     const { url } = await res.json();
@@ -2097,7 +2101,7 @@ window.startNaverLogin = async function () {
     const _cc = await _oauthPkceStart();
     const res = await fetch(
       `${window.API}/auth/naver/authorize?return_to=${encodeURIComponent(returnTo)}` +
-      (_cc ? `&code_challenge=${encodeURIComponent(_cc)}` : '')
+      `&code_challenge=${encodeURIComponent(_cc)}`
     );
     if (!res.ok) throw new Error('네이버 로그인 준비 실패');
     const data = await res.json();
