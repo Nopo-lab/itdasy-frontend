@@ -72,7 +72,12 @@ p {
   background: rgba(242,244,246,0.97);
   border-bottom: 0.5px solid var(--border);
   /* [2026-06-07] 상하 여백 축소 — 홈 상단 공백 최소화 (16/12 → 12/10) */
-  padding: 12px 20px 10px;
+  /* [출시감사 2026-08-02] **safe-area 상단 인셋 추가.** iOS 시뮬레이터 QA 에서 잡았다 —
+     앱을 다시 열면 상태바가 헤더를 덮어 시계가 로고를, 배터리가 '체험' 버튼을 가렸다.
+     index.html 이 viewport-fit=cover 라 웹뷰가 상태바 영역까지 덮는데 이 헤더만
+     인셋을 안 쓰고 있었다(dashboard.css·details.css 등 다른 화면은 이미 쓴다).
+     env() 는 인셋이 없는 환경(웹·PC·안드로이드 non-notch)에서 0 이라 기존 동작 그대로다. */
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 20px 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
