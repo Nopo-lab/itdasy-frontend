@@ -114,6 +114,49 @@ window.__LATEST_BUILD__ = '20260705-v709-fillwide';
     }
     Promise.all(jobs).catch(function(err){ console.warn('[BUILD] cache reset failed', err); }).then(function(){ location.reload(); });
   }, 1500);
+
+  // ── [출시감사 2026-08-02] 서버 진실 대조 ──────────────────────────────────
+  // 위의 두 가드(HTML↔JS, SW↔번들)는 **내부 정합성**만 본다. 그래서 옛 index.html 과
+  // 그에 맞는 옛 JS 를 함께 받으면 셋이 서로 일치해 아무것도 안 걸리고 **조용히 구버전이 돈다.**
+  // 실측(2026-08-02, 갤럭시 에뮬): 배포 직후 앱이 이전 커밋을 로드했는데 경고가 하나도 없었고,
+  // "고쳤는데 안 고쳐졌다"로 한참 헤맸다. QA 결과를 통째로 오염시키는 지점이다.
+  //
+  // 원인: GitHub Pages 는 index.html 에 `cache-control: max-age=600` 을 강제한다(커스텀 헤더 불가,
+  // 실측 확인). 그래서 배포 후 최대 10분간 로컬 HTTP 캐시·CDN 엣지가 낡은 진입점을 줄 수 있다.
+  // `?v=` 는 하위 파일만 막아준다 — 정작 그 목록을 들고 있는 진입점 자신은 못 막는다.
+  //
+  // 대응: 부팅 직후 build.txt(수십 바이트)를 no-store 로 받아 서버 최신 버전과 대조하고,
+  // 다르면 캐시·SW 를 비우고 한 번만 리로드한다.
+  //  · 부팅 3초 시점에만 — 사용자가 작업 중인 상태를 리로드로 날리지 않으려고 의도적으로 여기서만 한다.
+  //  · sessionStorage 로 세션당 1회 — 무한 리로드 루프 방지.
+  //  · 실패(오프라인·404)하면 조용히 넘어간다 — 이 검사 때문에 앱이 못 뜨면 안 된다.
+  setTimeout(function () {
+    try {
+      if (sessionStorage.getItem('srv_build_checked')) return;
+      var mine = window.__LATEST_BUILD__;
+      if (!mine) return;
+      fetch('build.txt?_=' + Date.now(), { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.text() : null; })
+        .then(function (srv) {
+          if (!srv) return;
+          srv = srv.trim();
+          if (!srv || srv === mine) return;
+          console.warn('[BUILD] 서버가 더 최신 — 캐시 비우고 리로드. 내것=' + mine + ' / 서버=' + srv);
+          sessionStorage.setItem('srv_build_checked', '1');
+          var js = [];
+          if ('caches' in window) {
+            js.push(caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }));
+          }
+          if ('serviceWorker' in navigator) {
+            js.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
+              return Promise.all((rs || []).map(function (r) { try { return r.unregister(); } catch (e) { return Promise.resolve(); } }));
+            }));
+          }
+          Promise.all(js).catch(function () {}).then(function () { location.reload(); });
+        })
+        .catch(function () { /* 오프라인 등 — 조용히 넘어간다 */ });
+    } catch (e) { void e; }
+  }, 3000);
 </script>
 <link rel="manifest" href="manifest.json">
 <!-- iOS 홈 스크린 아이콘 (180x180 권장, 없으면 icon.svg 폴백) -->
