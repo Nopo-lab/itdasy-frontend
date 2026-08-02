@@ -2219,18 +2219,22 @@ window.addEventListener('load', async function() {
   });
   window.signup = signup;
 
-  // Chrome으로 이동 시 토큰 자동 복원 + 연동 자동 실행
-  (function() {
-    const params = new URLSearchParams(window.location.search);
-    const t = params.get('_t');
-    if (t) {
-      const tok = decodeURIComponent(t);
-      setToken(tok);
-      // 다른 사용자 토큰일 수 있으니 사용자 범위 캐시 정리 + 배지 동기화
-      try { window.applyNewSession && window.applyNewSession(tok); } catch (_) { /* ignore */ }
-      history.replaceState(null, '', window.location.pathname);
-    }
-  })();
+  // 🚫 `?_t=<JWT>` 자동 로그인은 제거됐다 (출시감사 2026-08-02, P0-1-b).
+  //    URL 파라미터를 **아무 검증 없이** setToken() 했다 — 공격자가 만든 링크
+  //    (…/?_t=<공격자JWT>) 를 원장님이 한 번 열면 그 세션으로 고정되고,
+  //    history.replaceState 가 주소창의 흔적까지 지워 눈치채지도 못했다.
+  //    (?token= 쪽은 그나마 /auth/me 로 대조라도 했는데 여기는 그것도 없었다.)
+  //
+  //    지워도 되는 근거 — 9개 표면 전수조사에서 **생성 측 0건**:
+  //      생성코드·딥링크/네이티브·OAuth 리다이렉트·CDN/Pages/워크플로·테스트/문서·
+  //      Analytics·형제 레포 전부 0건이고, `git log --all -S"?_t="` 도 0건.
+  //    인스타 연동(`/instagram/go?token=`)과는 **무관한 별개 경로**다.
+  //
+  // ⚠️ 다시 넣지 말 것. `_t` 는 흔한 캐시버스터 이름이라 실제로 충돌 사고가 났다:
+  //    인스타 해제 후 하드리로드용으로 `searchParams.set('_t', Date.now())` 를 붙였다가
+  //    그 타임스탬프가 여기서 **토큰으로 저장**된 적이 있다.
+  //    캐시 무효화가 필요하면 `_nc` 처럼 다른 이름을 쓰거나 ?v= 자동 범프를 쓴다.
+  //    (스테이징 반영: itdasy-frontend-test-yeunjun 6593678)
 
   // [2026-05-08 27차 [G]] 인스타 OAuth 충돌 처리 — BE 가 ig_conflict=1 로 리다이렉트
   (function() {
