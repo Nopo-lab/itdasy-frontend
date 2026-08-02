@@ -117,3 +117,11 @@ jobs:
       - id: deploy_try3
         if: steps.deploy_try1.outcome == 'failure' && steps.deploy_try2.outcome == 'failure'
         uses: actions/deploy-pages@v4
+      # [출시감사 2026-08-02] **배포가 라이브에 실제로 반영됐는지 SHA 로 검증한다.**
+      #   deploy-pages 가 성공해도 CDN 전파 전이면 옛 파일이 서빙된다. 그 상태에서 QA 를 시작하면
+      #   "고쳤는데 안 고쳐졌다"가 되고 그 회차 결과가 통째로 무효가 된다(2026-08-02 실제로 겪음).
+      #   build.txt · index.html(__LATEST_BUILD__) · 실제 내려오는 app-core.js(APP_BUILD)
+      #   **셋이 모두 이 커밋의 SHA** 여야 통과. 아니면 워크플로를 실패시킨다 —
+      #   사람이 따로 확인할 필요가 없게 만드는 게 목적이다.
+      - name: Verify live deployment (SHA)
+        run: bash scripts/verify_deploy.sh "$(echo "${GITHUB_SHA}" | cut -c1-7)"
