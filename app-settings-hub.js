@@ -311,6 +311,12 @@
     if (window.SheetAnim) window.SheetAnim.open(sheet, card);
     else sheet.style.display = 'block';
     _refreshLabels();
+    // [출시감사 2026-08-02] 안드로이드 뒤로가기 등록. 갤럭시 에뮬레이터 실측 —
+    //   이 시트를 열고 뒤로가기를 누르면 **아무 반응이 없다**(시트가 그대로 떠 있다).
+    //   계속 누르면 결국 앱 종료 확인이 뜬다. aiHub 와 같은 원인 — _registerSheet/
+    //   _markSheetOpen 미등록이라 백핸들러가 이 시트를 모른다.
+    if (typeof window._registerSheet === 'function') window._registerSheet('settingsHub', close);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('settingsHub');
   }
   function close() {
     const sheet = document.getElementById('settingsHubSheet');
@@ -318,6 +324,9 @@
     const card = sheet.querySelector('#shCard');
     if (window.SheetAnim) window.SheetAnim.close(sheet, card);
     else sheet.style.display = 'none';
+    // [출시감사 2026-08-02] 열 때 쌓은 history 엔트리 되돌리기. 안 부르면 닫은 뒤에도
+    //   스택에 남아 "눌러도 아무 일 없는 뒤로가기"가 누적된다.
+    if (typeof window._markSheetClosed === 'function') window._markSheetClosed('settingsHub');
   }
 
   window.openSettingsHub = open;
