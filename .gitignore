@@ -35,3 +35,4 @@ __pycache__/
 android/app/google-services.json
 android/app/google-services.json.*
 ios/App/App/GoogleService-Info.plist
+.qa-cycle-marker
