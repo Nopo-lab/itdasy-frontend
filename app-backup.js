@@ -124,8 +124,10 @@
           return;
         }
         const blob = await res.blob();
-        _downloadBlob(blob, filename);
-        _toast('내보내기 완료 (' + filename + ')');
+        const _r = await _downloadBlob(blob, filename);
+        if (_r && _r.ok) _toast('내보내기 완료 (' + filename + ')');
+        else if (_r && _r.reason === 'aborted') { /* 사용자가 공유 시트를 닫음 — 조용히 */ }
+        else _toast('파일을 저장하지 못했어요. 잠시 후 다시 시도해 주세요');
       } catch (e) {
         _toast('내보내기 실패 — ' + (e && e.message || ''));
       }
@@ -161,8 +163,10 @@
         _toast('내보낼 데이터가 없어요');
         return;
       }
-      _downloadCSV(filename, header, rows);
-      _toast(rows.length + '건 내보냈어요');
+      const _r = await _downloadCSV(filename, header, rows);
+      if (_r && _r.ok) _toast(rows.length + '건 내보냈어요');
+      else if (_r && _r.reason === 'aborted') { /* 공유 시트 닫음 — 조용히 */ }
+      else _toast('파일을 저장하지 못했어요. 잠시 후 다시 시도해 주세요');
     } catch (e) {
       console.warn('[backup] export error', e);
       _toast('내보내기 실패 — 잠시 후 다시 시도해주세요');
@@ -181,12 +185,12 @@
     return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate());
   }
 
+  // [출시감사 2026-08-01] 공용 saveFile 로 위임 — 네이티브 WebView 는 <a download> 로
+  //   blob 을 저장하지 못한다(아무 일도 안 일어나는데 "내보내기 완료" 가 떴다).
+  //   반환이 Promise 로 바뀌었으니 호출부는 결과를 보고 토스트를 띄울 것.
   function _downloadBlob(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click();
-    setTimeout(() => { try { document.body.removeChild(a); URL.revokeObjectURL(url); } catch (_e) { void _e; } }, 100);
+    if (typeof window.saveFile === 'function') return window.saveFile(blob, filename);
+    return Promise.resolve({ ok: false, reason: 'helper_missing' });
   }
 
   function _downloadCSV(filename, header, rows) {
@@ -197,11 +201,7 @@
     const lines = [header.map(escape).join(',')];
     for (const r of rows) lines.push(r.map(escape).join(','));
     const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click();
-    setTimeout(() => { try { document.body.removeChild(a); URL.revokeObjectURL(url); } catch (_e) { void _e; } }, 100);
+    return _downloadBlob(blob, filename);
   }
 
   function openBackupScreen() {

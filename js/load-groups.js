@@ -130,6 +130,9 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'app-assistant-actions-marketing.js?v=local-151154'
   ],
   extras: [
+  // [출시감사 2026-08-01] 파일 저장 공용 헬퍼 — app-backup·app-data-export 가 window.saveFile 을
+  //   쓰므로 **그 둘보다 먼저** 로드돼야 한다. (없으면 helper_missing 으로 안전 실패한다)
+  'app-save-file.js?v=local-151154',
   'app-backup.js?v=local-151154',
   'app-kakao-hub.js?v=local-151154',
   'app-naver-link.js?v=local-151154',

@@ -82,7 +82,12 @@
         const svc = it.service_name ? ` · ${(it.service_name + '').replace(/[<>&"]/g,'')}` : '';
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid #f3f3f3;">
           <div style="font-size:12px;color:#444;">${dt}${svc}</div>
-          <div style="font-size:13px;font-weight:700;color:${color};">${sign}${formatMoney(it.amount || 0)}</div>
+          <!-- [출시감사 2026-08-01] display_amount 우선 — 사용 기록은 회계상 amount=0(충전 때 이미
+               매출로 잡힘)이라 그대로 찍으면 이력이 전부 "−0원" 으로 보였다. 원장님이 "이 손님
+               얼마나 썼지?" 를 확인할 수 없고 손님이 잔액을 따지면 근거를 못 댔다.
+               백엔드가 memo 에서 실제 차감액을 뽑아 display_amount 로 내려준다.
+               (옛 백엔드면 undefined → amount 폴백이라 하위호환) -->
+          <div style="font-size:13px;font-weight:700;color:${color};">${sign}${formatMoney(it.display_amount != null ? it.display_amount : (it.amount || 0))}</div>
         </div>`;
       }).join('');
       container.innerHTML = `

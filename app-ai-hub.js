@@ -363,6 +363,13 @@
     else sheet.style.display = 'block';
     _refreshDmMenuToggle(sheet); // 백엔드 enabled 로 빠른 안내 토글 교정
     _refreshCommentCount(sheet); // '댓글 문의 응대' 대기 건수 뱃지(원장이 놓치지 않게)
+    // [출시감사 2026-08-02] 안드로이드 뒤로가기 등록. 갤럭시 에뮬레이터 실측에서 잡았다 —
+    //   이 시트를 열고 뒤로가기를 누르면 시트는 그대로 떠 있고 **뒤 배경의 탭만 홈으로 바뀌었다**
+    //   (app-haptic.js 백핸들러의 2단계 '홈으로'가 대신 먹은 것). 화면상 아무 일도 안 일어난 것처럼
+    //   보이고, 한 번 더 누르면 앱 종료 확인이 뜬다. kakaoHub·naverLink·revenue 등 다른 시트는
+    //   이미 이 두 줄을 갖고 있는데 여기만 빠져 있었다.
+    if (typeof window._registerSheet === 'function') window._registerSheet('aiHub', close);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('aiHub');
   }
 
   // 댓글 문의 대기 건수 → '댓글 문의 응대' 행에 뱃지(초안 생성 없이 count_only, 저비용)
@@ -391,6 +398,9 @@
     const card = sheet.querySelector('#aihCard');
     if (window.SheetAnim) window.SheetAnim.close(sheet, card);
     else sheet.style.display = 'none';
+    // [출시감사 2026-08-02] 열 때 쌓은 history 엔트리를 되돌린다. 안 부르면 닫은 뒤에도
+    //   스택에 남아 "눌러도 아무 일 없는 뒤로가기"가 한 칸씩 누적된다(app-core 주석 참조).
+    if (typeof window._markSheetClosed === 'function') window._markSheetClosed('aiHub');
   }
 
   window.openAiHub = open;

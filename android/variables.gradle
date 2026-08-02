@@ -1,6 +1,15 @@
 ext {
-    minSdkVersion = 22
-    compileSdkVersion = 34
+    // [출시감사 2026-08-02] 22 → 23. Google Play Billing 9.0.0 이 minSdk 23 을 요구해서
+    //   매니페스트 병합이 실패했다(= 결제가 들어간 APK 를 아예 빌드할 수 없었다).
+    //   빠지는 건 Android 5.1(2015) 뿐이고 현재 점유율은 0.1% 미만이라 실질 영향 없다.
+    minSdkVersion = 23
+    // [출시감사 2026-08-02] compileSdk 만 35 로. androidx.core:core-ktx 가 1.15.0 으로
+    //   해석되면서 "compile against version 35 or later" 로 빌드가 아예 실패했다.
+    //   ⚠️ targetSdk 는 34 로 유지 — 35 로 올리면 Android 15 가 edge-to-edge 를 강제해서
+    //   상태바가 헤더를 덮는다(iOS 에서 방금 같은 증상을 잡았다). 올리려면 안드로이드에서
+    //   safe-area 검증을 먼저 해야 한다. Play 신규 제출은 targetSdk 35 를 요구하므로
+    //   출시 전 별도 과제로 남긴다.
+    compileSdkVersion = 35
     targetSdkVersion = 34
     androidxActivityVersion = '1.8.0'
     androidxAppCompatVersion = '1.6.1'

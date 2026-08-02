@@ -882,6 +882,11 @@
     sheet.style.display = 'flex';
     sheet.classList.add('dt-shown');
     document.body.style.overflow = 'hidden';
+    // [출시감사 2026-08-02] 안드로이드 뒤로가기 등록. 갤럭시 에뮬레이터 실측 —
+    //   고객관리를 열고 뒤로가기를 누르면 **아무 반응이 없었다**(시트가 그대로).
+    //   계속 누르면 결국 앱 종료 확인이 뜬다. aiHub·연동·설정과 같은 원인.
+    if (typeof window._registerSheet === 'function') window._registerSheet('customers', window.closeCustomers);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('customers');
     // SWR 캐시 있으면 즉시 렌더, 없으면 first-load 만 placeholder
     const box = sheet.querySelector('#customerList');
     const swr = _readSWR();
@@ -908,6 +913,8 @@
     const sheet = document.getElementById('customerSheet');
     if (sheet) { sheet.style.display = 'none'; sheet.classList.remove('dt-shown'); }
     document.body.style.overflow = '';
+    // [출시감사 2026-08-02] 열 때 쌓은 history 엔트리 되돌리기.
+    if (typeof window._markSheetClosed === 'function') window._markSheetClosed('customers');
   };
 
   // [v212] 창 리사이즈로 PC↔모바일 모드 변경되면 자동 재생성

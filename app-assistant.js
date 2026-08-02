@@ -3709,12 +3709,21 @@
     if (!(window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function')) return false;
     try { if (window.ItdasySourceImage && photos && photos[0]) window.ItdasySourceImage.noteChatPhoto({ dataUrl: photos[0], messageId: 'chat-ws' }); } catch (_e) { void _e; }
     try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_e) { void _e; }
+    // [출시감사 2026-08-01 카오스QA] 10장 초과분을 조용히 버리던 것 → 안내한다.
+    //   작업실 파일선택 경로는 이미 안내가 있는데(workspace-v2-flow.js, 보안감사 M-16)
+    //   잇비로 사진을 던지는 경로만 빠져 있었다. 11장을 던지면 10장만 열리는데
+    //   원장님은 왜 한 장이 없어졌는지 알 길이 없다.
+    var _all = photos || [];
+    var _use = _all.slice(0, 10);
+    if (_all.length > 10) {
+      try { showToast('사진은 한 번에 10장까지만 열려요'); } catch (_e) { void _e; }
+    }
     // [2026-07-22] screen 'edit'(사진 편집)은 인스타식 편집기(ItdEditor) — storyedit 명령. 그 외는 일반 진입.
     if (screen === 'edit') {
-      window.WorkspaceFlow.command({ type: 'storyedit', photoUrls: (photos || []).slice(0, 10) });
+      window.WorkspaceFlow.command({ type: 'storyedit', photoUrls: _use });
       return true;
     }
-    var cmd = { type: 'open', photoUrls: (photos || []).slice(0, 10), cat: cat || null };
+    var cmd = { type: 'open', photoUrls: _use, cat: cat || null };
     if (screen) cmd.screen = screen;
     window.WorkspaceFlow.command(cmd);
     return true;
@@ -5293,6 +5302,26 @@
       if (ageMs >= PENDING_TIMEOUT_MS) { _clearChatPending(); return; }
       _pushPendingMessageIfNeeded(pending);
       _ensurePendingTick();
+      // [출시감사 2026-08-01] 여기서 **정리 타이머를 다시 걸지 않아** 로딩 말풍선이 영영 안 사라졌다.
+      //   _ensurePendingTick 은 '경과 N초' 숫자만 갱신하는 1초 interval 이고,
+      //   말풍선을 걷어내고 '응답이 너무 늦어요 + [다시 시도]' 로 바꿔주는 건 _pendingTimer 뿐이다.
+      //   그게 안 걸리니 "답변 생성 중 (487초 경과)" 가 끝없이 올라갔다.
+      //   게다가 :5181 이 role==='loading' 을 서버 히스토리 머지에서도 살려둬 스스로 못 지운다.
+      //   새로고침 뒤엔 in-flight fetch 가 없다는 게 확실하므로, 남은 시간만큼만 기다렸다가
+      //   기존 만료 로직과 똑같이 정리한다.
+      if (_pendingTimer) { clearTimeout(_pendingTimer); _pendingTimer = null; }
+      _pendingTimer = setTimeout(() => {
+        try {
+          _clearChatPending();
+          _history = _history.filter(m => m.role !== 'loading');
+          const _retryQ = (pending.kind === 'text' && pending.user_msg) ? String(pending.user_msg) : '';
+          _history.push({ role: 'assistant', text: '응답이 너무 늦어요. 다시 시도해 주세요.', retry_q: _retryQ || undefined });
+          _renderHistory();
+          if (typeof window.toast === 'function') {
+            window.toast('AI 잇비 응답이 너무 늦어요. 다시 시도해 주세요.');
+          }
+        } catch (_e2) { void _e2; }
+      }, Math.max(1000, PENDING_TIMEOUT_MS - ageMs));
     } catch (_e) { void _e; }
   }
 

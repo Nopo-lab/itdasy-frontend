@@ -50,6 +50,15 @@ jobs:
           rm -f app-core.js.bak
           sed -i.bak -E "s|window.__LATEST_BUILD__ = '[^']*';|window.__LATEST_BUILD__ = '${NEW_VERSION}';|" index.html
           rm -f index.html.bak
+          # [출시감사 2026-08-02] 서버 진실 파일. 앱이 부팅 때 no-store 로 이거 하나만 받아
+          #   자기가 로드한 __LATEST_BUILD__ 와 대조한다(수십 바이트라 부담 없음).
+          #   왜 필요한가: 기존 가드(HTML↔JS, SW↔번들)는 **내부 정합성**만 본다. 옛 index.html 과
+          #   그에 맞는 옛 JS 를 함께 받으면 셋이 서로 일치해서 아무 가드도 안 걸리고
+          #   **조용히 구버전이 돈다**. 실측(2026-08-02): 배포 직후 앱이 이전 커밋을 로드했는데
+          #   경고가 하나도 없었다. GitHub Pages 는 index.html 에 cache-control: max-age=600 을
+          #   강제하고 커스텀 헤더를 못 붙인다 → 최대 10분간 낡은 진입점이 서빙될 수 있다.
+          printf '%s' "${NEW_VERSION}" > build.txt
+          echo "✅ build.txt = ${NEW_VERSION}"
       # [2026-07-23 보스] ?v= 캐시 버스터 **자동 갱신** — 사람이 올리는 걸 그만둔다.
       #   왜: 손으로 올리면 반드시 빠뜨린다. 특히 index.html 의 js/load-groups.js?v= 를 빼먹으면
       #   그 안의 ?v= 를 아무리 올려도 브라우저가 옛 load-groups 를 써서 **버전 올리기가 통째로 무효**가 된다
@@ -72,6 +81,11 @@ jobs:
       # [핫픽스] Pages 아티팩트에서 node_modules 제외 — 22k+ 파일이 Pages 파일 한도를 넘겨
       #   tokens.css·app-core.js 등 정상 파일이 무작위 404 나던 문제 근본 해결(런타임 미참조라 안전).
       #   .nojekyll 보장으로 Jekyll 처리에 의한 파일 누락도 방지.
+      # [출시감사 2026-08-02] 배포 후 검증에 쓸 스크립트를 Trim 전에 러너 임시폴더로 대피시킨다.
+      #   Trim 은 보안상 scripts/ 를 통째로 지우므로(내부 스크립트 비공개), 그 뒤에 실행하려면
+      #   사본이 필요하다. 검증은 반드시 **배포 후**여야 의미가 있어서 순서를 바꿀 수는 없다.
+      - name: Stash deploy verifier before trim
+        run: cp scripts/verify_deploy.sh "$RUNNER_TEMP/verify_deploy.sh"
       - name: Trim Pages artifact (drop node_modules + internal files, ensure .nojekyll)
         run: |
           # node_modules: Pages 파일 한도 초과로 정상 파일 404 나던 것 방지(런타임 미참조).
@@ -108,3 +122,13 @@ jobs:
       - id: deploy_try3
         if: steps.deploy_try1.outcome == 'failure' && steps.deploy_try2.outcome == 'failure'
         uses: actions/deploy-pages@v4
+      # [출시감사 2026-08-02] **배포가 라이브에 실제로 반영됐는지 SHA 로 검증한다.**
+      #   deploy-pages 가 성공해도 CDN 전파 전이면 옛 파일이 서빙된다. 그 상태에서 QA 를 시작하면
+      #   "고쳤는데 안 고쳐졌다"가 되고 그 회차 결과가 통째로 무효가 된다(2026-08-02 실제로 겪음).
+      #   build.txt · index.html(__LATEST_BUILD__) · 실제 내려오는 app-core.js(APP_BUILD)
+      #   **셋이 모두 이 커밋의 SHA** 여야 통과. 아니면 워크플로를 실패시킨다 —
+      #   사람이 따로 확인할 필요가 없게 만드는 게 목적이다.
+      - name: Verify live deployment (SHA)
+        # ⚠️ scripts/ 는 위 Trim 스텝이 배포 산출물에서 지운다(보안: 내부 스크립트 비공개).
+        #    그래서 검증 스크립트는 Trim 전에 러너의 홈으로 빼둔 사본을 쓴다.
+        run: bash "$RUNNER_TEMP/verify_deploy.sh" "$(echo "${GITHUB_SHA}" | cut -c1-7)"

@@ -504,6 +504,17 @@
     _hideOfflineBanner();
     _setMutationLock(false);
   }
+  // [출시감사 2026-07-31] _markOffline 이 **정의된 적이 없는데 두 곳에서 호출**되고 있었다
+  //   (아래 _probeBackendOnline 의 else 분기와 .catch). 그래서 백엔드 프로브가 비정상 응답을
+  //   받으면 ReferenceError → .catch 가 그걸 또 받아 같은 함수를 부르고 → 또 throw →
+  //   unhandled rejection. 즉 "네트워크는 살아있는데 서버만 죽은" 상황을 감지하는 경로가
+  //   통째로 죽어 있어서 배너가 안 떴다. offline 이벤트 경로(_onOffline)만 살아 있었다.
+  //   _markOnline 의 대칭으로 정의한다 — 토스트는 일부러 뺐다(프로브는 반복 호출이라
+  //   _onOffline 을 그대로 쓰면 같은 토스트가 계속 뜬다).
+  function _markOffline() {
+    _showOfflineBanner(_lastSyncMs());
+    _setMutationLock(true);
+  }
 
   function _lastSyncMs() {
     try {
@@ -552,32 +563,86 @@
       _onOffline();
     }
   });
-  function _probeBackendOnline() {
+  // ═══ 백엔드 응답성 프로브 ═══════════════════════════════════════════════
+  // [출시감사 2026-08-01] "첫 로그인만 하면 연결 불안정 + 안테나" 신고의 진짜 원인.
+  //
+  //   이 경로는 원래 `_markOffline` 이 미정의라 **통째로 죽어 있었다.** 2026-07-31(506c0d7)에
+  //   그걸 정의해서 살렸더니, 살아나자마자 아래 설계 결함들이 그대로 사용자에게 터졌다.
+  //   배너만 뜨는 게 아니라 `_setMutationLock(true)` 로 **저장 버튼이 전부 잠긴다.**
+  //
+  //   결함 4가지:
+  //   1) **HTTP 에러를 오프라인으로 취급했다.** 서버가 429/500/503 을 돌려줬다는 건
+  //      네트워크가 멀쩡하다는 뜻이다. 그걸 "오프라인 모드 — 마지막 동기화 데이터"라고
+  //      말하는 건 거짓말이고, 쓰기를 잠글 이유도 없다.
+  //   2) **재시도가 0회였다.** 한 번 삐끗하면 즉시 배너 + 쓰기잠금. 홈 브리프는 3회
+  //      재시도하는데 이쪽만 무방비였다.
+  //   3) **자가복구가 없었다.** 한 번 잠기면 online 이벤트나 앱 전환 전까지 그대로 남는다.
+  //      가만히 보고 있으면 영영 안 풀린다.
+  //   4) **앱 복귀마다 무방비로 쐈다.** iOS PWA 는 복귀 즉시 visibilitychange 가 뜨는데
+  //      그때 네트워크가 아직 안 붙어 있으면 그대로 실패 → 잠금. "맨날" 의 정체.
+  const PROBE_TIMEOUT_MS = 12000;
+  const PROBE_RETRY_DELAYS = [0, 1200, 3000];   // 진짜 끊김이면 3번 다 실패한다
+  const HEAL_INTERVAL_MS = 15000;               // 잠긴 뒤에도 스스로 다시 확인
+  let _probeBusy = false;
+  let _healTimer = null;
+
+  function _probeOnce(auth) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => { try { ctl.abort(); } catch (_e) { void _e; } }, PROBE_TIMEOUT_MS);
+    return apiFetch('/auth/me', { cache: 'no-store', headers: auth, signal: ctl.signal })
+      // 상태코드가 뭐든 **응답이 왔다 = 네트워크 정상**. 오프라인 판정 대상이 아니다.
+      .then(() => ({ reached: true }))
+      .catch(() => ({ reached: false }))
+      .finally(() => clearTimeout(t));
+  }
+
+  async function _probeBackendOnline() {
     const auth = window.authHeader && window.authHeader();
     if (!navigator.onLine || !window.API || !auth || !auth.Authorization) return;
-    // /auth/me 로 실제 API 응답성 확인 (401도 서버 정상 신호)
-    // Railway cold start 최대 20s — 프로브 타임아웃도 20s로 맞춤
-    const ctl = new AbortController();
-    setTimeout(() => ctl.abort(), 20000);
-    apiFetch('/auth/me', { cache: 'no-store', headers: auth, signal: ctl.signal })
-      .then(r => {
-        if (r.ok || r.status === 401) {
+    if (_probeBusy) return;            // 복귀 연타로 프로브가 겹치지 않게
+    _probeBusy = true;
+    try {
+      for (let i = 0; i < PROBE_RETRY_DELAYS.length; i++) {
+        if (PROBE_RETRY_DELAYS[i]) await new Promise(r => setTimeout(r, PROBE_RETRY_DELAYS[i]));
+        if (!navigator.onLine) break;  // 진짜 끊긴 건 _onOffline 이 이미 처리한다
+        const { reached } = await _probeOnce(auth);
+        if (reached) {
           _markOnline();
+          _stopHealLoop();
           try {
             if (typeof window._clearAllSWRCache === 'function') window._clearAllSWRCache();
           } catch (_) { /* ignore */ }
-        } else {
-          _markOffline();
+          return;
         }
-      })
-      .catch(() => { _markOffline(); });
+      }
+      // 여기까지 왔으면 3번 다 서버에 못 닿았다 — 그때만 오프라인으로 본다
+      _markOffline();
+      _startHealLoop();
+    } finally {
+      _probeBusy = false;
+    }
   }
+
+  // 오프라인으로 판정된 뒤에도 주기적으로 다시 확인한다. 복구되면 사용자가
+  // 아무것도 안 해도 배너가 사라지고 저장 버튼이 풀린다.
+  function _startHealLoop() {
+    if (_healTimer) return;
+    _healTimer = setInterval(() => {
+      if (document.hidden) return;     // 숨겨진 탭에서 굳이 때리지 않는다
+      _probeBackendOnline();
+    }, HEAL_INTERVAL_MS);
+  }
+  function _stopHealLoop() {
+    if (_healTimer) { clearInterval(_healTimer); _healTimer = null; }
+  }
+
   window.addEventListener('online', _probeBackendOnline);
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) _probeBackendOnline();
+    // 복귀 직후엔 네트워크가 아직 안 붙어 있는 경우가 흔하다(iOS PWA). 살짝 늦춘다.
+    if (!document.hidden) setTimeout(_probeBackendOnline, 1200);
   });
-  // cold start 시 800ms 프로브가 즉시 실패해 오프라인 배너를 띄우는 문제 방지 — 3s 지연
-  document.addEventListener('DOMContentLoaded', () => setTimeout(_probeBackendOnline, 3000));
+  // 부팅 직후엔 로그인 버스트(_preloadTabs 8건 + brief)와 겹친다. 그게 끝난 뒤에 확인한다.
+  document.addEventListener('DOMContentLoaded', () => setTimeout(_probeBackendOnline, 5000));
   // SW v26+ activate 메시지 받으면 즉시 reload (cache busting)
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {

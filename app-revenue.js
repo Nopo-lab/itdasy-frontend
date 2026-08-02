@@ -258,6 +258,19 @@
       customer_name: payload.customer_name || null,
       memo: payload.memo ? String(payload.memo).slice(0, 200) : null,
       recorded_at: payload.recorded_at || _now(),
+      // [출시감사 2026-08-01 P0] 이 화이트리스트에 use_membership 이 빠져 있어서
+      //   호출부(:789)가 넘긴 플래그가 **여기서 통째로 버려졌다.** 그 결과:
+      //     · 백엔드 revenue.py:165 의 잔액 차감 블록이 통째로 스킵 → 회원권 잔액이 1원도 안 빠짐
+      //     · revenue.py:216 `_mem_use=False` → 전액이 매출로 또 기록 (충전 때 이미 잡혔는데 이중계상)
+      //   화면엔 "💳 회원권 차감 50,000원" 폭죽까지 떠서 원장님은 차감된 줄 안다.
+      //   손님은 선불금을 무한정 다시 쓸 수 있고 매출은 부풀려진다 — 방문마다 누적된다.
+      //   백엔드는 atomic UPDATE(잔액≥금액 조건)로 제대로 구현돼 있었다. 프론트만 안 보냈다.
+      use_membership: !!payload.use_membership,
+      // [출시감사 2026-08-01] 멱등키 — 저장 시도마다 새 uuid.
+      //   20초 타임아웃으로 끊기면 서버는 이미 저장했는데 프론트엔 '저장 실패' 가 뜬다.
+      //   원장님이 다시 누르면 매출이 2건이 되고 회원권 결제면 잔액도 두 번 빠졌다.
+      //   같은 키로 다시 오면 서버가 기존 레코드를 그대로 돌려준다(revenue.py 멱등 검사).
+      client_txn_id: payload.client_txn_id || _uuid(),
     };
     if (_isOffline) {
       const record = { id: _uuid(), shop_id: localStorage.getItem('shop_id') || 'offline', ...data, created_at: _now() };
@@ -279,7 +292,12 @@
     } catch (err) {
       _items = _items.filter(r => r.id !== optimistic.id);
       try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'create_revenue', optimistic: false, rollback: true } })); } catch (_e) { void _e; }
-      if (window.showToast) window.showToast('매출 저장 실패 — 다시 시도해주세요');
+      // [출시감사 2026-08-01] 예전 문구는 '다시 시도해주세요' 였는데, 타임아웃이면 서버엔
+      //   이미 저장돼 있을 수 있어 그 안내가 곧 중복 저장을 유도했다. 이제 멱등키(client_txn_id)가
+      //   중복을 막지만, 문구도 사실대로 — 결과를 모른다고 말한다.
+      if (window.showToast) {
+        window.showToast('저장 결과를 확인하지 못했어요. 목록을 새로고침해 확인해 주세요');
+      }
       throw err;
     }
   }

@@ -22,8 +22,9 @@
     return;
   }
 
-  // Google/Kakao OAuth 딥링크 처리
-  // 백엔드가 itdasy://oauth-return?token=JWT&provider=google|kakao 로 리다이렉트
+  // Google/Kakao/Naver OAuth 딥링크 처리
+  // 백엔드가 itdasy://oauth-return?code=1회용코드&provider=google|kakao|naver 로 리다이렉트
+  // ([2026-08-03 P0-1-a] 예전엔 ?token=JWT 를 직접 넘겼다 — 세션 고정이라 양쪽 다 제거)
   function _handleSocialLogin(u, fullUrl) {
     const isOAuthReturn =
       u.host === 'oauth-return' ||
@@ -40,19 +41,23 @@
       void _e;
       params = new URLSearchParams('');
     }
-    if ((!params.get('token') && !params.get('error')) && u.hash) {
+    if ((!params.get('code') && !params.get('error')) && u.hash) {
       try {
         params = new URLSearchParams(u.hash.replace(/^#/, ''));
       } catch (_e2) { void _e2; }
     }
 
-    const token = params.get('token');
     const code = params.get('code');
     const provider = params.get('provider') || 'oauth';
     const err = params.get('error');
     const api = (window.API || '');
 
     if (err) {
+      // pkce_required: 백엔드가 PKCE 없는 로그인을 거부했다(레거시 token 폴백 제거).
+      if (err === 'pkce_required') {
+        if (window.showToast) window.showToast('앱을 새로고침한 뒤 다시 로그인해 주세요.');
+        return true;
+      }
       if (window.showToast) window.showToast('로그인 실패: ' + decodeURIComponent(err));
       return true;
     }
@@ -91,32 +96,11 @@
       return true;
     }
 
-    if (!token) return true;
-
-    // [보안감사 H-2 2026-07-27] 레거시 폴백(전환기): 딥링크로 token 을 직접 받은 경우.
-    //   무검증 저장하면 세션 고정 공격이 되므로, 저장·세션적용 전에 백엔드 /auth/me 로
-    //   (1) 유효 토큰인지 + (2) 서버가 돌려준 user id 가 토큰 sub 와 일치하는지 확인한다.
-    //   (신규 code 교환 경로가 이 경로를 대체 — code_challenge 를 보내는 프론트는 항상 code 를 받는다.)
-    let claimedSub = '';
-    try { claimedSub = String(JSON.parse(atob(token.split('.')[1])).sub || ''); } catch (_e) { void _e; }
-
-    fetch(api + '/auth/me', { headers: { 'Authorization': 'Bearer ' + token } })
-      .then(function (res) { return res.ok ? res.json() : Promise.reject(new Error('invalid_token')); })
-      .then(function (me) {
-        const meId = String((me && (me.id != null ? me.id : me.user_id)) || '');
-        if (!claimedSub || !meId || meId !== claimedSub) throw new Error('token_user_mismatch');
-        // 검증 통과 → 저장 · 세션 적용 · 리로드
-        try {
-          const keySuffix = api.includes('staging') ? 'staging' : (api.includes('localhost') ? 'local' : 'prod');
-          localStorage.setItem('itdasy_token::' + keySuffix, token);
-        } catch (_e) { void _e; }
-        try { if (typeof window.applyNewSession === 'function') window.applyNewSession(token).catch(function () {}); } catch (_e) { void _e; }
-        if (window.showToast) window.showToast(provider + ' 로그인 완료!');
-        setTimeout(function () { window.location.reload(); }, 300);
-      })
-      .catch(function () {
-        if (window.showToast) window.showToast('로그인 정보를 확인하지 못했어요. 다시 시도해 주세요.');
-      });
+    // [2026-08-03 P0-1-a] 여기 있던 레거시 `?token=<JWT>` 분기를 **삭제**했다. 되살리지 말 것 —
+    //   딥링크로 받은 JWT 를 저장하면 세션 고정이다. 같은 스킴을 등록한 악성 앱이 사용자 클릭
+    //   없이 딥링크를 쏠 수 있어 웹보다 더 위험했다. 붙어 있던 /auth/me 대조는 방어가 아니었다
+    //   (sub 과 me.id 가 같은 토큰 출처라 공격자 자기 토큰이면 항상 일치).
+    //   백엔드도 같은 라운드에 폴백 제거(google_oauth.py _build_return_url — 3사 공용).
     return true;
   }
 

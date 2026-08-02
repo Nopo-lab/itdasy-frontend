@@ -89,11 +89,16 @@
       const cd = res.headers.get('Content-Disposition') || '';
       const match = cd.match(/filename="?([^";]+)"?/);
       const filename = (match && match[1]) || (`itdasy_export.${fmt === 'csv' ? 'zip' : 'json'}`);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click();
-      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+      // [출시감사 2026-08-01] 네이티브 WebView 는 <a download> 로 blob 을 저장하지 못한다.
+      //   여긴 **개인정보 열람·이동권 대응 경로**라 조용히 실패하면 심사·법무 문제가 된다.
+      //   저장에 성공했을 때만 창을 닫는다 — 실패했는데 닫히면 받은 줄 안다.
+      const _r = (typeof window.saveFile === 'function')
+        ? await window.saveFile(blob, filename)
+        : { ok: false, reason: 'helper_missing' };
+      if (!_r.ok) {
+        if (_r.reason === 'aborted') return;   // 사용자가 공유 시트를 닫음
+        throw new Error('파일을 저장하지 못했어요. 잠시 후 다시 시도해 주세요');
+      }
       closeDataExport();
     } catch (e) {
       err.textContent = e.message || '다운로드 중 오류';

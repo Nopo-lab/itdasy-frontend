@@ -1138,6 +1138,11 @@ function authHeader() {
       'instagram/publish',                                             // 인스타 발행(+ -file/-carousel-file/-story-file)
       'scheduled-posts',                                               // 예약 발행 등록
       'dm-confirm-queue/[^/]+/(send|send_edit|send-form|confirm-deposit|decline-with-alternatives)',
+      // [출시감사 P1-1 2026-07-31] 결제는 재시도하면 카드가 두 번 긁힌다.
+      //   서버가 호출마다 새 payment_id 로 PortOne 에 실청구하므로(billing.py:84-86,243)
+      //   멱등 검사(_already_processed)가 아예 걸리지 않는다. 실제 경로: 청구 성공 →
+      //   결제 재조회가 502 → 래퍼가 재시도 → 두 번째 청구. 버튼 disable 로는 못 막는다(네트워크 계층).
+      'billing/(issue|onetime/verify|cancel)',
     ].join('|') + ')'
   );
   function _isNoRetryPath(input) {
@@ -1471,6 +1476,79 @@ function handle401() {
 // ──────────────────────────────────────────────
 // 계정 탈퇴 (Apple Guideline 5.1.1(ix) 필수)
 // ──────────────────────────────────────────────
+// ───── 비밀번호 변경 (2026-08-01 출시감사) ─────
+//   백엔드 POST /auth/change-password 는 예전부터 있었는데 화면이 없어서
+//   사장님이 앱에서 비번을 바꿀 방법이 아예 없었다. "누가 내 계정 쓰는 것 같다"의
+//   첫 대응이 비번 변경인데 그게 막혀 있던 셈.
+function openChangePwModal() {
+  const m = document.getElementById('changePwModal');
+  if (!m) return;
+  m.style.display = 'flex';
+  ['cpwCurrent', 'cpwNew', 'cpwConfirm'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  _cpwMsg('');
+  // 안드로이드 back 으로 닫히게 등록 — 안 하면 back 이 이 모달 대신 앱을 그대로 끈다.
+  //   _registerSheet 로 '닫는 방법'을 먼저 알려주고 _markSheetOpen 으로 열렸다고 표시한다.
+  if (typeof window._registerSheet === 'function') window._registerSheet('changePw', closeChangePwModal);
+  if (typeof window._markSheetOpen === 'function') window._markSheetOpen('changePw');
+  setTimeout(() => { const el = document.getElementById('cpwCurrent'); if (el) el.focus(); }, 100);
+}
+
+function closeChangePwModal() {
+  const m = document.getElementById('changePwModal');
+  if (m) m.style.display = 'none';
+  if (typeof window._markSheetClosed === 'function') window._markSheetClosed('changePw');
+}
+
+function _cpwMsg(text, kind) {
+  const el = document.getElementById('cpwMsg');
+  if (!el) return;
+  if (!text) { el.style.display = 'none'; el.textContent = ''; return; }
+  el.style.display = 'block';
+  el.textContent = text;
+  const ok = kind === 'ok';
+  el.style.background = ok ? '#e8f5e9' : '#fdecea';
+  el.style.color = ok ? '#0a7b3e' : '#b00020';
+}
+
+async function submitChangePw() {
+  const btn = document.getElementById('cpwSubmit');
+  const cur = (document.getElementById('cpwCurrent') || {}).value || '';
+  const nw = (document.getElementById('cpwNew') || {}).value || '';
+  const cf = (document.getElementById('cpwConfirm') || {}).value || '';
+
+  if (!cur || !nw) { _cpwMsg('현재 비밀번호와 새 비밀번호를 모두 입력해주세요'); return; }
+  if (nw !== cf) { _cpwMsg('새 비밀번호가 서로 달라요'); return; }
+  if (nw === cur) { _cpwMsg('지금 쓰는 비밀번호와 같아요'); return; }
+  // 서버(_validate_password)가 최종 판정하지만, 왕복 없이 바로 알려주는 게 친절하다
+  if (nw.length < 8) { _cpwMsg('새 비밀번호는 8자 이상이어야 해요'); return; }
+
+  if (btn) { btn.disabled = true; btn.textContent = '변경 중…'; }
+  _cpwMsg('');
+  try {
+    const res = await apiFetch('/auth/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current_password: cur, new_password: nw }),
+    });
+    if (res.ok) {
+      closeChangePwModal();
+      showToast('비밀번호를 바꿨어요. 다른 기기에서는 다시 로그인해주세요');
+      return;
+    }
+    // 400 = 현재 비번 불일치 / 규칙 위반. 서버 문구를 그대로 쓰는 게 가장 정확하다
+    let detail = '';
+    try { detail = (await res.json()).detail || ''; } catch (_e) { void _e; }
+    _cpwMsg(detail || '비밀번호를 바꾸지 못했어요. 잠시 후 다시 시도해주세요');
+  } catch (_e) {
+    _cpwMsg('연결이 불안정해요. 잠시 후 다시 시도해주세요');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '변경하기'; }
+  }
+}
+
 function openDeleteAccountModal() {
   const modal = document.getElementById('deleteAccountModal');
   if (!modal) return;
@@ -1953,9 +2031,12 @@ async function _oauthPkceStart() {
     localStorage.setItem('itdasy_oauth_pkce', JSON.stringify({ v: verifier, t: Date.now() }));
     return challenge;
   } catch (_e) {
-    // crypto 미지원 등 — challenge 없이 진행하면 백엔드가 레거시 token 방식으로 폴백
+    // [2026-08-03 P0-1-a] 예전엔 ''(challenge 없음)을 돌려줘서 백엔드가 레거시 `?token=` 으로
+    //   폴백했다 — 즉 **우리 손으로 세션 고정 경로를 유발**하는 설계였다. 레거시를 걷어냈으니
+    //   여기서 실패하면 로그인 자체를 중단시킨다. (Pages 는 항상 HTTPS = secure context 라
+    //   실제 발생 가능성은 낮지만, 경로를 완전히 닫으려면 이쪽도 막아야 한다.)
     void _e;
-    return '';
+    throw new Error('보안 로그인을 시작할 수 없어요. 브라우저를 업데이트해 주세요');
   }
 }
 window._oauthPkceStart = _oauthPkceStart;
@@ -1981,8 +2062,9 @@ window.startGoogleLogin = async function () {
     const returnTo = new URL('oauth-return.html', window.location.href).href;
     const _cc = await _oauthPkceStart();
     const res = await fetch(
+      // [P0-1-a] code_challenge 는 이제 필수 — 없으면 백엔드가 error=pkce_required 로 돌려보낸다.
       `${window.API}/auth/google/authorize?return_to=${encodeURIComponent(returnTo)}` +
-      (_cc ? `&code_challenge=${encodeURIComponent(_cc)}` : '')
+      `&code_challenge=${encodeURIComponent(_cc)}`
     );
     if (!res.ok) throw new Error('Google 로그인 준비 실패');
     const { url } = await res.json();
@@ -2001,7 +2083,7 @@ window.startKakaoLogin = async function () {
     const _cc = await _oauthPkceStart();
     const res = await fetch(
       `${window.API}/auth/kakao/authorize?return_to=${encodeURIComponent(returnTo)}` +
-      (_cc ? `&code_challenge=${encodeURIComponent(_cc)}` : '')
+      `&code_challenge=${encodeURIComponent(_cc)}`
     );
     if (!res.ok) throw new Error('카카오 로그인 준비 실패');
     const { url } = await res.json();
@@ -2019,7 +2101,7 @@ window.startNaverLogin = async function () {
     const _cc = await _oauthPkceStart();
     const res = await fetch(
       `${window.API}/auth/naver/authorize?return_to=${encodeURIComponent(returnTo)}` +
-      (_cc ? `&code_challenge=${encodeURIComponent(_cc)}` : '')
+      `&code_challenge=${encodeURIComponent(_cc)}`
     );
     if (!res.ok) throw new Error('네이버 로그인 준비 실패');
     const data = await res.json();
@@ -2228,13 +2310,12 @@ window.addEventListener('load', async function() {
   //    지워도 되는 근거 — 9개 표면 전수조사에서 **생성 측 0건**:
   //      생성코드·딥링크/네이티브·OAuth 리다이렉트·CDN/Pages/워크플로·테스트/문서·
   //      Analytics·형제 레포 전부 0건이고, `git log --all -S"?_t="` 도 0건.
-  //    인스타 연동(`/instagram/go?token=`)과는 **무관한 별개 경로**다.
+  //      (형제 레포엔 소비 코드만 복제돼 있다 — 운영 app-core.js 도 같이 지워야 한다.)
   //
   // ⚠️ 다시 넣지 말 것. `_t` 는 흔한 캐시버스터 이름이라 실제로 충돌 사고가 났다:
-  //    인스타 해제 후 하드리로드용으로 `searchParams.set('_t', Date.now())` 를 붙였다가
-  //    그 타임스탬프가 여기서 **토큰으로 저장**된 적이 있다.
+  //    91612bc 가 인스타 해제 후 하드리로드용으로 `searchParams.set('_t', Date.now())`
+  //    를 붙였고, 그 타임스탬프가 여기서 **토큰으로 저장**됐다(d6ebdd8 에서 제거).
   //    캐시 무효화가 필요하면 `_nc` 처럼 다른 이름을 쓰거나 ?v= 자동 범프를 쓴다.
-  //    (스테이징 반영: itdasy-frontend-test-yeunjun 6593678)
 
   // [2026-05-08 27차 [G]] 인스타 OAuth 충돌 처리 — BE 가 ig_conflict=1 로 리다이렉트
   (function() {
@@ -2916,6 +2997,15 @@ Object.assign(window, {
       if (typeof closeSettings === 'function') closeSettings();
       if (typeof openDeleteAccountModal === 'function') openDeleteAccountModal();
     });
+    on('changePwBtn', () => {
+      if (typeof closeSettings === 'function') closeSettings();
+      openChangePwModal();
+    });
+    on('cpwCancel', closeChangePwModal);
+    on('cpwSubmit', submitChangePw);
+    // 확인칸에서 엔터 = 변경하기 (모바일 키보드에서 버튼까지 안 내려가도 되게)
+    const _cpwCf = document.getElementById('cpwConfirm');
+    if (_cpwCf) _cpwCf.addEventListener('keydown', e => { if (e.key === 'Enter') submitChangePw(); });
     on('exportDataBtn', () => {
       if (typeof openDataExport === 'function') openDataExport();
     });

@@ -22,11 +22,15 @@
   </div>
   <script>
     // [보안감사 C-2/C-3 2026-07-27] OAuth 복귀 처리 — 세션고정·토큰탈취 방어.
-    //  · 신규: 백엔드가 JWT 대신 1회용 code 만 넘김. 이 페이지가 로컬에 저장해둔
+    //  · 백엔드가 JWT 대신 1회용 code 만 넘김. 이 페이지가 로컬에 저장해둔
     //    code_verifier(app-core.js _oauthPkceStart)로 POST /auth/oauth/exchange 해서 JWT 교환.
     //    → 링크(?code=)만 가로챈 공격자는 verifier 없어 교환 불가(C-3),
     //      공격자 code 는 우리 verifier 와 challenge 불일치로 실패(C-2).
-    //  · 레거시(?token=): 전환기 구 백엔드 호환. /auth/me 로 최소 검증 후 저장.
+    //  · [2026-08-03 P0-1-a] 레거시 `?token=<JWT>` 분기 **삭제**. 다시 넣지 말 것 —
+    //    URL 로 받은 JWT 를 저장하면 세션 고정이 된다. 붙어 있던 /auth/me 대조는 방어가
+    //    아니었다(sub 과 me.id 가 같은 토큰에서 나와 공격자 자기 토큰이면 항상 일치).
+    //    공격자가 이 주소에 자기 JWT 를 달아 원장님께 보내면 그 세션에 고정됐다.
+    //    백엔드도 같은 라운드에 폴백 제거(google_oauth.py _build_return_url).
     //  ⚠️ API 오리진은 URL 파라미터가 아니라 여기 하드코딩 — 아니면 공격자가 ?api=evil 로
     //     verifier 를 탈취할 수 있다. (레포별 env: 이 레포 = staging 백엔드)
     (function () {
@@ -49,7 +53,13 @@
       }
       try {
         var err = params.get('error');
-        if (err) { fail('로그인 실패', decodeURIComponent(err)); return; }
+        if (err) {
+          // pkce_required: 백엔드가 PKCE 없는 로그인을 거부했다(레거시 token 폴백 제거).
+          //   구 앱 캐시가 code_challenge 를 안 보낸 경우 — 새로고침하면 새 코드로 다시 시작된다.
+          if (err === 'pkce_required') { fail('로그인 실패', '앱을 새로고침한 뒤 다시 로그인해 주세요.'); return; }
+          fail('로그인 실패', decodeURIComponent(err));
+          return;
+        }
 
         var code = params.get('code');
         if (code) {
@@ -62,22 +72,6 @@
           }).then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('exchange_failed')); })
             .then(function (d) { if (!d || !d.access_token) throw new Error('no_token'); store(d.access_token); })
             .catch(function () { fail('로그인 실패', '로그인 코드가 만료됐어요. 다시 로그인해 주세요.'); });
-          return;
-        }
-
-        var token = params.get('token');
-        if (token) {
-          // 레거시 폴백(전환기): /auth/me 로 유효성 + sub 일치만 확인 후 저장.
-          var sub = '';
-          try { sub = String(JSON.parse(atob(token.split('.')[1])).sub || ''); } catch (e) { void e; }
-          fetch(API + '/auth/me', { headers: { 'Authorization': 'Bearer ' + token } })
-            .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('invalid')); })
-            .then(function (me) {
-              var meId = String((me && (me.id != null ? me.id : me.user_id)) || '');
-              if (!sub || !meId || meId !== sub) throw new Error('mismatch');
-              store(token);
-            })
-            .catch(function () { fail('로그인 실패', '로그인 정보를 확인하지 못했어요. 다시 시도해 주세요.'); });
           return;
         }
 

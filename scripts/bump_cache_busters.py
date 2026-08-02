@@ -39,6 +39,19 @@ TARGETS = ("index.html", "js/load-groups.js")
 #   경로에 `//` 가 있으면(=절대 URL) [\w./-]+ 가 `:` 를 못 먹어 자연히 제외된다.
 PATTERN = re.compile(r"""(?P<q>["'])(?P<path>(?:\.{0,2}/)?[\w./-]+\.(?:js|css))\?v=[^"'?&]*""")
 
+# [출시감사 2026-08-02] **?v= 가 아직 안 붙은 로컬 js/css 에도 자동으로 붙인다.**
+#   예전엔 '이미 붙어 있는 것만' 갱신했다. 그래서 새 파일은 사람이 한 번 손으로 붙여야 했고,
+#   실측 결과 index.html 27개 · load-groups.js 7개, **총 34개가 버스터 없이** 로드되고 있었다.
+#   (사람이 기억해야 하는 절차는 반드시 빠진다 — 실제로 빠져 있었다.)
+#
+#   안전장치 — 아래는 절대 건드리지 않는다:
+#     · 절대 URL(http/https//, //cdn…)  → 경로 문자셋에 ':' 가 없어 자연히 제외되지만 명시적으로도 막는다
+#     · 이미 쿼리스트링이 붙은 것(?foo=)  → 뒤에 ?v= 를 또 붙이면 깨진다
+#     · srcset/integrity 등 값이 아닌 위치 → 따옴표 시작 고정으로 회피
+NO_VER = re.compile(
+    r"""(?P<q>["'])(?P<path>(?!https?:)(?!//)(?:\.{0,2}/)?[\w./-]+\.(?:js|css))(?P<end>["'])"""
+)
+
 
 def bump(version: str) -> int:
     total = 0
@@ -51,10 +64,14 @@ def bump(version: str) -> int:
         new_src, n = PATTERN.subn(
             lambda m: f"{m.group('q')}{m.group('path')}?v={version}", src
         )
-        if n:
+        # 아직 ?v= 가 없는 로컬 js/css 에 새로 부여 (신규 파일 자동 커버)
+        new_src, added = NO_VER.subn(
+            lambda m: f"{m.group('q')}{m.group('path')}?v={version}{m.group('end')}", new_src
+        )
+        if n or added:
             io.open(path, "w", encoding="utf-8").write(new_src)
-        print(f"  {path}: {n}건")
-        total += n
+        print(f"  {path}: 갱신 {n}건 · 신규부여 {added}건")
+        total += n + added
     return total
 
 
