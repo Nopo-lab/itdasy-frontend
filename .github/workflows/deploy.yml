@@ -81,6 +81,11 @@ jobs:
       # [핫픽스] Pages 아티팩트에서 node_modules 제외 — 22k+ 파일이 Pages 파일 한도를 넘겨
       #   tokens.css·app-core.js 등 정상 파일이 무작위 404 나던 문제 근본 해결(런타임 미참조라 안전).
       #   .nojekyll 보장으로 Jekyll 처리에 의한 파일 누락도 방지.
+      # [출시감사 2026-08-02] 배포 후 검증에 쓸 스크립트를 Trim 전에 러너 임시폴더로 대피시킨다.
+      #   Trim 은 보안상 scripts/ 를 통째로 지우므로(내부 스크립트 비공개), 그 뒤에 실행하려면
+      #   사본이 필요하다. 검증은 반드시 **배포 후**여야 의미가 있어서 순서를 바꿀 수는 없다.
+      - name: Stash deploy verifier before trim
+        run: cp scripts/verify_deploy.sh "$RUNNER_TEMP/verify_deploy.sh"
       - name: Trim Pages artifact (drop node_modules + internal files, ensure .nojekyll)
         run: |
           # node_modules: Pages 파일 한도 초과로 정상 파일 404 나던 것 방지(런타임 미참조).
@@ -124,4 +129,6 @@ jobs:
       #   **셋이 모두 이 커밋의 SHA** 여야 통과. 아니면 워크플로를 실패시킨다 —
       #   사람이 따로 확인할 필요가 없게 만드는 게 목적이다.
       - name: Verify live deployment (SHA)
-        run: bash scripts/verify_deploy.sh "$(echo "${GITHUB_SHA}" | cut -c1-7)"
+        # ⚠️ scripts/ 는 위 Trim 스텝이 배포 산출물에서 지운다(보안: 내부 스크립트 비공개).
+        #    그래서 검증 스크립트는 Trim 전에 러너의 홈으로 빼둔 사본을 쓴다.
+        run: bash "$RUNNER_TEMP/verify_deploy.sh" "$(echo "${GITHUB_SHA}" | cut -c1-7)"
