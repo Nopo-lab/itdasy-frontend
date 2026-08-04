@@ -101,6 +101,23 @@
       _num(base.booking_deposit_total),
       _num(agg && agg.confirmed_deposit_total)
     );
+    // [매출감사 2026-08-04] **이미 이 함수를 거친 객체에 다시 걸면 예약금이 두 번 더해진다.**
+    //
+    //   app-revenue-month.js 가 정확히 그렇게 하고 있었다:
+    //     _doFetchSummary : summary = await _withBookingOverlay(응답)   ← 보정본을
+    //                       _swrWriteKey(_monthSwrKey(), summary)        ← 그대로 캐시에 쓴다
+    //     캐시 히트       : return await _withBookingOverlay(cachedSummary)  ← 또 건다
+    //
+    //   실측(스테이징 user 5, 2026-08-04) — 매출 5만원을 UI 로 저장한 직후 화면:
+    //     매출 51,000 + 예약금 50,000 = 101,000 이어야 하는데 **151,000** 이 떴다.
+    //   원장님이 매출 화면을 다시 열 때마다 예약금이 계속 불어난다.
+    //
+    //   호출처를 하나씩 고치는 대신 **이 함수를 멱등하게** 만든다. 호출처는 3곳이고
+    //   (month · home · myshop) 앞으로 늘어난다. 한 곳만 놓쳐도 같은 버그가 돌아온다.
+    //   이미 얹은 금액(deposit_total)을 빼서 '차액만' 더한다 — 예약금이 그 사이 늘었으면
+    //   늘어난 만큼만 반영되고, 그대로면 0 이 더해진다.
+    const prev = base._booking_revenue_overlay;
+    if (prev) return { target, delta: target - _num(prev.deposit_total) };
     return { target, delta: target };
   }
 
@@ -151,6 +168,7 @@
     _mergePending(out, agg || {});
     _mergeBriefProjection(out, patch.delta);
     _mergePaymentBreakdown(out, patch.delta);
+    _mergeMomDelta(out, patch.delta);
     out._booking_revenue_overlay = _overlayMeta(patch, agg);
     return out;
   }
@@ -160,6 +178,28 @@
     const pace = current > 0 ? current + depositDelta : _num(out.this_month_total);
     const knownBookings = _num(out.this_month_total) + _num(out.pending_bookings_total);
     out.projected_total = Math.max(pace, knownBookings);
+  }
+
+  // [매출감사 2026-08-04] 예약금을 this_month_total 에 더했으면 **그 total 로 계산된 값들도**
+  //   같이 고쳐야 한다. mom_delta_pct 만 빠져 있었다.
+  //
+  //   백엔드(assistant.py:7098)의 mom_delta_pct 는 RevenueRecord 만으로 계산한다 — 예약금이 없다.
+  //   프론트는 this_month_total 에 예약금을 더한다. 그래서 홈 카드 한 줄 안에서
+  //   **앞 숫자와 뒤 숫자의 기준이 달라졌다.** 실측(2026-08-04, 스테이징 user 5):
+  //
+  //     화면      "5만원 · 전월대비 -100%"
+  //     5만원  ← 51,000 (매출 1,000 + 예약금 50,000)  ← 오버레이 적용값
+  //     -100%  ← (1,000 - 500,000) / 500,000          ← 오버레이 **미적용** 서버값
+  //     맞는 값 = (51,000 - 500,000) / 500,000 = -90%
+  //
+  //   원장님이 보면 "5만원 벌었는데 100% 줄었다"는 모순된 문장이 된다.
+  //   전월(prev_month_total)에는 예약금을 더하지 않는다 — 지난달 확정 예약은 이미 완료되어
+  //   RevenueRecord 로 잡혔거나 취소됐고, 어느 쪽이든 오버레이의 active 집합에 없다.
+  function _mergeMomDelta(out, depositDelta) {
+    if (!depositDelta) return;
+    const prev = _num(out.prev_month_total);
+    if (prev <= 0) return;   // 전월 0원이면 백엔드도 null 로 둔다(나눗셈 불가). 그대로 둔다.
+    out.mom_delta_pct = Math.round((_num(out.this_month_total) - prev) / prev * 1000) / 10;
   }
 
   function _mergePaymentBreakdown(out, depositDelta) {
