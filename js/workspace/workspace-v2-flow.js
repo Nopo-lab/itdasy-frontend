@@ -146,7 +146,14 @@
     if (fx && fx.onBack && fx.onBack() === true) return true;
     if (navStack.length) {
       if (_histDepth > 0) _histDepth--;
-      if (cur === 'caption') { flushCaptionInputs(); _genToken++; }   // [버그수정] 캡션 화면 이탈 시에도 재생성 응답 무효화
+      // [버그수정] 캡션 화면 이탈 시에도 재생성 응답 무효화
+      // [출시 QA 2026-08-07] `d.capLoading` 도 같이 끈다. 예전엔 토큰만 올려서, 생성 중에
+      //   뒤로 가면 **캡션 스텝(비활성 슬라이드)의 로딩 오버레이가 화면에 그대로 남았다.**
+      //   실측: '사진 확인' 화면인데 "잇비가 우리샵 말투로 쓰는 중…" 이 좌표 (652,405) 에
+      //   `onScreen:true · visibility:visible · opacity:1` 로 보였고, 그 요소는 활성 화면 밖이었다
+      //   (`active.contains(el) === false`). 2분 넘게 사라지지 않았다 — 워치독은 **마지막 토큰**
+      //   에만 걸려서, 토큰이 올라간 옛 요청의 로딩은 아무도 안 치운다.
+      if (cur === 'caption') { flushCaptionInputs(); _genToken++; if (d) d.capLoading = false; }
       setScreen(navStack.pop(), { push: false });
       return true;
     }
@@ -257,7 +264,14 @@
   // [#19] 샵정보(예약링크·전화)를 캡션 끝에 자동으로 붙일지는 사용자 선택(기본 OFF).
   //   예전엔 저장값 있으면 무조건 붙였는데("계속 알아서 하단에 놓지 말고") → 설정 토글로 opt-in 전환.
   function _shopInfoOn() { try { return localStorage.getItem('itdasy:caption_shopinfo') === '1'; } catch (_e) { return false; } }
-  function _shopInfoSaved() { try { return !!(String(localStorage.getItem('itdasy:shop_book') || '').trim() || String(localStorage.getItem('itdasy:shop_phone') || '').trim()); } catch (_e) { return false; } }
+  function _shopInfoSaved() {
+    // [출시 QA 2026-08-06] 가격·인스타도 저장 대상에 포함 — 예전엔 예약·전화만 봐서,
+    //   가격만 적어둔 원장님에겐 토글 자체가 안 보였다(켤 대상이 없다고 판단).
+    try {
+      return ['itdasy:shop_book', 'itdasy:shop_phone', 'itdasy:shop_price', 'itdasy:shop_handle']
+        .some(function (k) { return String(localStorage.getItem(k) || '').trim(); });
+    } catch (_e) { return false; }
+  }
   // [#18] 게시 크기(피드 규격) 선택 — 4:5(세로로 크게, 기본) / 1:1(정사각). 마지막 선택 기억.
   //   선택값이 편집기 캔버스→템플릿 출력→콜라주→IG 미리보기까지 관통. 스토리/릴스 9:16은 템플릿이 별도 처리.
   function _wsFormat() { try { return localStorage.getItem('itdasy:ws_format') === '11' ? '11' : '45'; } catch (_e) { return '45'; } }
@@ -283,16 +297,28 @@
   function _shopInfoToggleHtml() {
     if (!_shopInfoSaved()) return '';
     var on = _shopInfoOn();
-    return '<div class="cap-hash-row cap-shopinfo-row"><span class="cap-field-label" style="margin:0">샵정보 반영 <em style="font-weight:400;color:#9aa3ad;font-style:normal">· 예약·전화를 글 끝에</em></span>' +
+    return '<div class="cap-hash-row cap-shopinfo-row"><span class="cap-field-label" style="margin:0">샵정보 반영 <em style="font-weight:400;color:#9aa3ad;font-style:normal">· 매장 정보를 글 끝에</em></span>' +
       '<button type="button" class="cap-switch' + (on ? ' on' : '') + '" data-fl-cshopinfo role="switch" aria-checked="' + on + '"><span class="cap-switch__dot"></span></button></div>';
   }
   function _shopCTA() {
     if (!_shopInfoOn()) return '';   // 반영 OFF → 아무것도 안 붙임
+    /* [출시 QA 2026-08-06] **가격 안내·인스타 아이디가 어디에도 안 쓰이고 있었다.**
+       작업실 설정 > 매장 정보에 입력칸 3개(예약 링크·가격 안내·인스타 아이디)가 있고
+       저장도 정상인데, 소비하는 코드는 여기뿐이었고 여기는 book·phone 만 읽었다.
+       나머지 소비처로 보이던 편집기 '기능 스티커'(SHOP_INFO_KEY/addFeatureLayer)는
+       `_recoChips()` 가 빈 문자열을 돌려주면서 **버튼을 아예 안 그린다** → 도달 불가.
+       즉 원장님이 가격을 적어도 아무 일도 안 일어났다. 입력칸이 있으면 쓰여야 한다.
+       순서는 행동 유도가 강한 것부터: 예약 → 전화 → 가격 → 계정. */
     try {
-      var book = String(localStorage.getItem('itdasy:shop_book') || '').trim();
-      var phone = String(localStorage.getItem('itdasy:shop_phone') || '').trim();
-      if (book) return '\n\n📅 예약 → ' + book + (phone ? '\n☎ ' + phone : '');
-      if (phone) return '\n\n☎ 예약·문의 ' + phone;
+      var g = function (k) { return String(localStorage.getItem(k) || '').trim(); };
+      var book = g('itdasy:shop_book'), phone = g('itdasy:shop_phone');
+      var price = g('itdasy:shop_price'), handle = g('itdasy:shop_handle');
+      var lines = [];
+      if (book) lines.push('📅 예약 → ' + book);
+      if (phone) lines.push('☎ ' + (book ? '' : '예약·문의 ') + phone);
+      if (price) lines.push('💰 ' + price);
+      if (handle) lines.push('@' + handle.replace(/^@/, ''));
+      return lines.length ? '\n\n' + lines.join('\n') : '';
     } catch (_e) { void _e; }
     return '';
   }
@@ -4295,6 +4321,55 @@
 	      return;
 	    }
 	    if (d._publishing || d._preflight) return;   // [카오스 P2] 사전단계(hydrate/compose) 창 재탭 차단
+	    /* [출시 QA 2026-08-07] **이미 올린 글은 다시 올리지 않는다.**
+	       실측: 발행 성공 후 뒤로 가서 '인스타에 올리기' 를 다시 누르면 "인스타그램에 올렸어요" 가
+	       또 뜨고 **인스타에 같은 사진·캡션이 2개** 올라갔다. 게다가 슬롯의 igMediaId 는 마지막
+	       것으로 덮여서, 먼저 올라간 게시물은 앱이 추적조차 못 하는 고아가 된다
+	       (published 18→19 인데 인스타엔 2개). 원장님 피드에 중복이 남고 앱은 모른다.
+	       재발행이 필요한 경우(올렸는데 인스타에서 지웠다 등)가 있으므로 막지 말고 **확인을 받는다.** */
+	    /* 이미 올린 글인지 판정 — **세 곳을 본다.**
+	         ① d._publishedAt        이 세션에서 방금 올림
+	         ② d.slot.publish        슬롯 객체에 실려 있으면
+	         ③ 로컬 슬롯 저장소       새로고침·다른 탭·다른 브라우저에서도 남는 유일한 근거
+	       ③ 이 핵심이다. ①만 봤을 땐 새로고침 한 번이면 확인창이 사라져 또 중복 게시된다.
+	       로컬 슬롯의 publish 는 workspace-sync 의 pull 이 서버 값을 그대로 넣어준다
+	       (workspace-sync.js:241 `publish: rs.publish || null`) — 즉 서버가 진실의 원천이고
+	       다른 기기/브라우저에서도 같은 값이 내려온다. */
+	    /* ⚠️ 재진입 표식(`_pubGuardDone`)이 **반드시** 있어야 한다.
+	       앞 버전은 검사 후 `publish()` 를 다시 불렀는데, 재진입하면 이 조건이 또 참이라
+	       **무한 재귀**가 됐다 — 발행이 통째로 죽어서 "인스타 올리기 버튼이 안 먹는다" 가 됐다.
+	       (미발행 슬롯도 예외 없이 걸려서 정상 발행까지 막혔다.) */
+	    if (!d._pubGuardDone) {
+	      var _slotId = (d.slot && d.slot.id) || null;
+	      var _local = Promise.resolve(null);
+	      if (!d._publishedAt && _slotId && typeof window.loadSlotsFromDB === 'function') {
+	        _local = Promise.resolve(window.loadSlotsFromDB()).then(function (all) {
+	          var hit = (all || []).filter(function (x) { return x && String(x.id) === String(_slotId); })[0];
+	          return hit && hit.publish ? hit.publish : null;
+	        }).catch(function () { return null; });
+	      }
+	      var _kind = kind;
+	      _local.then(function (_remote) {
+	        var _st = (d.slot && d.slot.publish) || _remote || {};
+	        var _whenMs = d._publishedAt || _st.publishedAt;
+	        var _already = _st.status === 'published' || !!d._publishedAt;
+	        d._pubGuardDone = true;              // 이 시도에 대한 검사 끝 — 재진입은 곧장 통과
+	        if (!_already) { publish(_kind); return; }
+	        var _when = _whenMs ? new Date(_whenMs) : null;
+	        var _label = _when ? (_when.getMonth() + 1) + '월 ' + _when.getDate() + '일 ' +
+	          String(_when.getHours()).padStart(2, '0') + ':' + String(_when.getMinutes()).padStart(2, '0') : '이미';
+	        var _ask = window.nativeConfirm
+	          ? window.nativeConfirm('이미 올린 글이에요',
+	              _label + '에 인스타에 올라간 글이에요.\n다시 올리면 같은 글이 하나 더 올라가요.\n그래도 올릴까요?', '다시 올리기', '취소')
+	          : Promise.resolve(window.confirm(_label + '에 이미 올린 글이에요. 다시 올리면 하나 더 올라가요. 계속할까요?'));
+	        Promise.resolve(_ask).then(function (yes) {
+	          if (!yes) { d._pubGuardDone = false; toast('이미 올린 글이라 그대로 뒀어요'); return; }
+	          publish(_kind);
+	        });
+	      });
+	      return;
+	    }
+	    d._pubGuardDone = false;   // 실제 발행으로 넘어간다 — 다음 시도에선 다시 검사
 	    // [v779 보스] 콜라주(한장으로 합치기)를 골랐는데 합성본이 없으면 outputUrl() 이 '첫 원본 사진'으로
 	    //   조용히 폴백해, 3장 합쳐 올렸는데 첫 장만 올라갔다(편집 미리보기는 CSS라 콜라주로 보여 눈치 못 챔).
 	    //   발행 전에 다시 굽고, 그래도 없으면 발행을 멈추고 레이아웃으로 돌려보낸다(잘못된 사진 발행 방지).
@@ -4403,6 +4478,11 @@
           } catch (_le) { void _le; }
           // [v542] 게시 완료 상태를 저장소에 반영(이전엔 게시 전 slot 만 저장 → 새로고침 시 badge 사라짐).
           // [P0-3] buildSlot 은 한 번만 — saveItem·captureAndNotify 가 같은 슬롯을 공유(큰 객체 재구성 1회로).
+          // [출시 QA 2026-08-07] **이 세션에서 올렸다는 표식.** 재발행 확인창의 판정 근거다.
+          //   `d.slot.publish` 를 보려 했더니 클라이언트 `d.slot` 엔 publish 가 실려 있지 않아
+          //   (getActiveSlot 은 open/screen/cat/service/photoCount/coverUrl/hasCaption 요약만 준다)
+          //   조건이 절대 참이 되지 않았고, 그래서 3번째 발행까지 그대로 나갔다(실측).
+          d._publishedAt = Date.now();
           var _pubSlot = buildSlot();
           if (window.WorkspaceAdapter.saveItem) { try { window.WorkspaceAdapter.saveItem(_pubSlot); } catch (_e) { void _e; } }
           try { if (window.WorkMemory) window.WorkMemory.captureAndNotify(_pubSlot, d); } catch (_wm) { void _wm; }   // [T-115] 원장 작업 기억
@@ -4422,7 +4502,9 @@
 	        else {
 	          var m = { not_connected: '인스타 연결이 필요해요', blob: '이미지 생성에 실패했어요', api: '업로드 API 호출에 실패했어요', server: '서버가 업로드를 거부했어요' }[r.reason] || '업로드에 실패했어요';
 	          console.warn('[wsv2flow] instagram publish failed', r);
-	          toast(r.detail ? (m + ' — ' + r.detail) : m);
+	          // [출시 QA 2026-08-07] 어댑터가 원인별 안내(재연결·권한·한도)를 만들었으면 **그 문장만** 띄운다.
+	          //   앞에 "서버가 업로드를 거부했어요 —" 를 붙이면 정작 해야 할 일이 뒤로 밀린다.
+	          toast(r.userFacing ? r.detail : (r.detail ? (m + ' — ' + r.detail) : m));
 	        }
         setScreen('caption');
       });

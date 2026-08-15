@@ -3,7 +3,7 @@
   "appName": "잇데이 스튜디오",
   "webDir": "www",
   "server": {
-    "url": "https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/",
+    "url": "https://nopo-lab.github.io/itdasy-frontend/",
     "androidScheme": "https",
     "iosScheme": "https",
     "allowNavigation": [
