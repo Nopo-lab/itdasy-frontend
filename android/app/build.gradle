@@ -18,7 +18,12 @@ android {
         applicationId "com.y2do.itdasy"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        // [2026-08-15] versionCode 는 CI 가 주입한다(ANDROID_VERSION_CODE = github.run_number).
+        //   Play 는 업로드마다 이 값이 반드시 더 커야 하고, **한 번 쓴 번호는 영구 소진**된다.
+        //   되돌릴 수도, 재사용할 수도 없다. 사람이 기억해서 올리는 방식은 반드시 한 번은 빠뜨리고,
+        //   그때 업로드가 거부되면서 원인을 한참 찾게 된다 → 빌드 번호에 묶어 자동 증가시킨다.
+        //   로컬 빌드는 값이 없어 1 로 떨어지는데, 로컬 산출물은 어차피 업로드하지 않으므로 무해하다.
+        versionCode (System.getenv("ANDROID_VERSION_CODE") ?: "1").toInteger()
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

@@ -123,7 +123,16 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          # 빌드 번호에 묶어 자동 증가 — Play 는 versionCode 재사용을 거부한다.
+          # (근거는 android/app/build.gradle 의 versionCode 주석)
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
         run: ./gradlew bundleRelease --no-daemon
+
+      - name: 빌드된 versionCode 확인
+        if: ${{ inputs.build_type == 'release' }}
+        run: |
+          echo "이번 AAB 의 versionCode = ${{ github.run_number }}"
+          echo "다음 업로드는 이보다 큰 값이어야 합니다."
 
       # ── 산출물 업로드 ───────────────────────────────────
       - name: Upload Debug APK
