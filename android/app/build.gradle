@@ -23,7 +23,11 @@ android {
         //   되돌릴 수도, 재사용할 수도 없다. 사람이 기억해서 올리는 방식은 반드시 한 번은 빠뜨리고,
         //   그때 업로드가 거부되면서 원인을 한참 찾게 된다 → 빌드 번호에 묶어 자동 증가시킨다.
         //   로컬 빌드는 값이 없어 1 로 떨어지는데, 로컬 산출물은 어차피 업로드하지 않으므로 무해하다.
-        versionCode (System.getenv("ANDROID_VERSION_CODE") ?: "1").toInteger()
+        //   ⚠️ 괄호 앞에 공백을 두지 말 것. `versionCode (expr).toInteger()` 로 쓰면 Groovy 가
+        //   `versionCode(expr)` 메서드 호출로 먼저 파싱하고 그 결과에 .toInteger() 를 붙인다
+        //   → "A problem occurred evaluating project ':app'. > Value is null" 로 빌드가 죽는다.
+        //   실제로 그렇게 썼다가 debug/release 양쪽 빌드를 한 번 날렸다(2026-08-15).
+        versionCode Integer.parseInt(System.getenv("ANDROID_VERSION_CODE") ?: "1")
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
