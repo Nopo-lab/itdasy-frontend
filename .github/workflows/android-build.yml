@@ -63,6 +63,22 @@ jobs:
       - name: Install npm deps
         run: npm install --no-audit --no-fund
 
+      # google-services.json 은 .gitignore 로 레포에서 빠져 있다(보안감사 8bd456e 결정).
+      # 레포가 public 이라 그 판단을 유지하고, 키스토어와 같은 방식으로 시크릿에서 주입한다.
+      # 이 파일이 없으면 app/build.gradle:75 의 조건부 apply 가 플러그인을 건너뛰고,
+      # 그 상태로 푸시를 등록하면 앱이 죽는다(FATAL: Default FirebaseApp is not initialized).
+      # app-push.js 의 ANDROID_FIREBASE_READY 가 true 인 한, 여기서 반드시 성공해야 한다.
+      - name: Inject google-services.json
+        env:
+          GS_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$GS_JSON" ]; then
+            echo "::error::GOOGLE_SERVICES_JSON secret 누락 — 이대로 빌드하면 푸시 등록 시 앱이 죽는다"
+            exit 1
+          fi
+          printf '%s' "$GS_JSON" > android/app/google-services.json
+          python3 -c "import json;d=json.load(open('android/app/google-services.json'));print('Firebase project =',d['project_info']['project_id']);print('packages =',[c['client_info']['android_client_info']['package_name'] for c in d['client']])"
+
       - name: Capacitor sync
         run: npx cap sync android
 
