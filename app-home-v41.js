@@ -58,6 +58,14 @@
       }
       try {
         const res = await apiFetch('/assistant/brief', { headers });
+        /* [2026-08-17 보스] 401/403 은 네트워크 문제가 아니다 — "연결이 불안정해요" 오진 금지.
+           만료 토큰으로 부팅하면 재시도 3회가 전부 401 로 소모돼 실패 카드가 떴고, 세션 게이트가
+           로그인을 받아도 홈을 다시 안 그려 카드가 고정됐다(재렌더 훅은 app-core 로그인 성공부에 추가).
+           여기선 즉시 중단하고 AUTH 를 돌려줘 에러 카드를 안 띄운다. */
+        if (res.status === 401 || res.status === 403) {
+          console.warn('[brief] 인증 실패(' + res.status + ') — 세션 게이트에 맡기고 중단');
+          return 'AUTH';
+        }
         if (!res.ok) {
           console.warn('[brief] API 응답 실패:', res.status, '(attempt ' + attempt + ')');
           continue;
@@ -228,26 +236,27 @@
       });
     });
     _bindItbiCardInput(container);
-    // AI 캐러셀 paging (3-per-page)
-    _bindAiCarousel(container);
-    // [2026-07-05] 모바일 정상카드 접기 토글 — "나머지 N개는 문제 없어요"
-    const okToggle = container.querySelector('[data-hv-ok-toggle]');
-    if (okToggle) {
-      okToggle.addEventListener('click', (ev) => {
-        ev.preventDefault(); ev.stopPropagation();
-        const ai = okToggle.closest('.hv5-ai');
-        if (ai) ai.classList.toggle('show-ok');
-      });
-    }
+    // [2026-08-16] AI 캐러셀(_bindAiCarousel)·정상카드 접기 토글 삭제 — 실시간 분석이 잇비 카드로 흡수됨
   }
 
-  // [2026-05-28] 메인홈 잇비 카드 입력 — 카메라/음성/보내기 → 시트 진입
+  // [2026-05-28] 메인홈 잇비 카드 입력 — 카메라/스왑버튼(빈 상태=음성, 입력 중=전송) → 시트 진입
   function _bindItbiCardInput(container) {
     const input = container.querySelector('[data-itbi-input]');
     const fileInput = container.querySelector('[data-itbi-file]');
+    const bar = container.querySelector('.hv5-itbi-input');
+    const swapBtn = container.querySelector('[data-itbi-act="swap"]');
     const openSheet = (opts) => {
       const open = (window.AssistantSheet && window.AssistantSheet.open) || window.openAssistant;
       if (typeof open === 'function') open(opts || {});
+    };
+    const startVoice = () => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        if (window.showToast) window.showToast('이 브라우저는 음성 입력을 지원하지 않아요');
+        return;
+      }
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => { stream.getTracks().forEach(t => t.stop()); openSheet({ startVoice: true }); })
+        .catch(() => { if (window.showToast) window.showToast('마이크 권한이 필요해요'); });
     };
     container.querySelectorAll('[data-itbi-act]').forEach(btn => {
       btn.addEventListener('click', (ev) => {
@@ -255,28 +264,31 @@
         const act = btn.dataset.itbiAct;
         if (act === 'photo') {
           fileInput?.click();
-        } else if (act === 'voice') {
-          if (!navigator.mediaDevices?.getUserMedia) {
-            if (window.showToast) window.showToast('이 브라우저는 음성 입력을 지원하지 않아요');
-            return;
-          }
-          navigator.mediaDevices.getUserMedia({ audio: true })
-            .then(stream => { stream.getTracks().forEach(t => t.stop()); openSheet({ startVoice: true }); })
-            .catch(() => { if (window.showToast) window.showToast('마이크 권한이 필요해요'); });
-        } else if (act === 'send') {
+        } else if (act === 'swap') {
           const text = (input?.value || '').trim();
-          openSheet(text ? { sendImmediate: text } : {});
-          if (input) input.value = '';
+          if (!text) { startVoice(); return; }
+          openSheet({ sendImmediate: text });
+          input.value = '';
+          if (bar) bar.classList.remove('has-text');
+          if (swapBtn) swapBtn.setAttribute('aria-label', '음성 입력');
         }
       });
     });
     if (input) {
+      // 입력 여부에 따라 마이크 ↔ 전송 스왑
+      input.addEventListener('input', () => {
+        const has = Boolean(input.value.trim());
+        if (bar) bar.classList.toggle('has-text', has);
+        if (swapBtn) swapBtn.setAttribute('aria-label', has ? '보내기' : '음성 입력');
+      });
       input.addEventListener('keydown', (ev) => {
         if (ev.key === 'Enter' && !ev.shiftKey) {
           ev.preventDefault();
           const text = input.value.trim();
           openSheet(text ? { sendImmediate: text } : {});
           input.value = '';
+          if (bar) bar.classList.remove('has-text');
+          if (swapBtn) swapBtn.setAttribute('aria-label', '음성 입력');
         }
       });
       // 카드 자체 클릭 라우팅이 input 포커스 막지 않도록
@@ -296,57 +308,6 @@
     });
   }
 
-  function _bindAiCarousel(container) {
-    const track = container.querySelector('#hv5AiTrack');
-    if (!track) return;
-    const cards = Array.from(track.children);
-    if (cards.length === 0) return;
-    // 안전장치 — ok=0 먼저, ok=1 뒤로 재정렬 (renderer 가 이미 정렬했지만 보장)
-    cards.sort((a, b) => (+a.dataset.ok || 0) - (+b.dataset.ok || 0));
-    cards.forEach(c => track.appendChild(c));
-
-    // [2026-05-25] 모바일은 카드 1장씩 snap, PC 는 3장씩 그룹 페이징.
-    //   기존: perPage=3 고정 → 모바일 swipe 한번에 3장 넘어가 카드 못 봄.
-    const isMobile = window.matchMedia('(max-width: 540px)').matches;
-    const perPage = isMobile ? 1 : 3;
-    const pages = Math.max(1, Math.ceil(cards.length / perPage));
-    let page = 0;
-    const prevBtn = container.querySelector('#hv5AiPrev');
-    const nextBtn = container.querySelector('#hv5AiNext');
-    const dotsWrap = container.querySelector('#hv5AiDots');
-
-    function goTo(p) {
-      page = Math.max(0, Math.min(pages - 1, p));
-      const cardW = cards[0].getBoundingClientRect().width + 10;
-      track.scrollTo({ left: page * perPage * cardW, behavior: 'smooth' });
-      dotsWrap?.querySelectorAll('.hv5-ai-dot-nav').forEach((d, i) => {
-        d.classList.toggle('on', i === page);
-      });
-      if (prevBtn) prevBtn.disabled = page === 0;
-      if (nextBtn) nextBtn.disabled = page >= pages - 1;
-    }
-    prevBtn?.addEventListener('click', (e) => { e.stopPropagation(); goTo(page - 1); });
-    nextBtn?.addEventListener('click', (e) => { e.stopPropagation(); goTo(page + 1); });
-    dotsWrap?.querySelectorAll('.hv5-ai-dot-nav').forEach(d => {
-      d.addEventListener('click', (e) => {
-        e.stopPropagation();
-        goTo(parseInt(d.dataset.hvAiPage, 10) || 0);
-      });
-    });
-    // 모바일은 CSS scroll-snap 이 처리. JS 강제 페이지 이동은 PC 만.
-    if (!isMobile) {
-      let startX = 0;
-      track.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; }, { passive: true });
-      track.addEventListener('touchend', (e) => {
-        const diff = startX - e.changedTouches[0].clientX;
-        if (Math.abs(diff) > 40) {
-          if (diff > 0) goTo(page + 1);
-          else goTo(page - 1);
-        }
-      }, { passive: true });
-    }
-  }
-
   // ─────────── 메인 렌더 ───────────
   let _lastContainerId = null;
   let _inFlight = false;
@@ -360,6 +321,19 @@
     _runCountUps(container);
     // [2026-06-07] 고객 메시지 카드 줄 채우기 (DOM 재생성됐으니 매 렌더마다 갱신)
     try { window.HomeCustomerMsgs && window.HomeCustomerMsgs.refresh(); } catch (_e) { void _e; }
+  }
+
+  /* [2026-08-17 보스] "Instagram 다시 연결"(#metaReconnectRow)은 Meta 검수자 전용 —
+     일반 사용자 홈에 App Review 안내가 상시 노출되던 것 숨김. 검수자는 데모 계정으로
+     로그인하므로 자동 노출되고, 화면녹화(보스 계정)는 ?metareview=1 로 강제 노출. */
+  function _syncMetaReviewRow() {
+    try {
+      const row = document.getElementById('metaReconnectRow');
+      if (!row) return;
+      const demo = (localStorage.getItem('last_login_email') || '').toLowerCase() === 'review@itdasy.com';
+      const forced = /[?&]metareview=1/.test(location.search);
+      row.style.display = (demo || forced) ? '' : 'none';
+    } catch (_e) { /* ignore */ }
   }
 
   function _showConnectionError(container) {
@@ -378,6 +352,7 @@
     const container = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
     if (!container) return;
     _lastContainerId = container.id || _lastContainerId;
+    _syncMetaReviewRow();   // [2026-08-17] 홈 그릴 때마다 검수자 전용 행 노출 여부 동기화
 
     // SWR: 캐시 즉시 (DM 큐 카운트는 캐시에 없으니 0 으로 시작)
     const swr = _readSWR();
@@ -395,15 +370,19 @@
     if (_inFlight) return;
     _inFlight = true;
     try {
-      const [brief, slots, dmQueueCount, commentQueueCount] = await Promise.all([
+      const [briefRaw, slots, dmQueueCount, commentQueueCount] = await Promise.all([
         _fetchBrief().catch(() => null),
         _fetchSlots().catch(() => []),
         _fetchDMQueueCount().catch(() => 0),
         _fetchCommentQueueCount().catch(() => 0),
       ]);
+      // [2026-08-17 보스] 세션 만료(AUTH) — 에러 카드 금지. 게이트가 로그인 화면을 띄우고,
+      //   재로그인 훅(app-core)이 refresh() 로 다시 그린다. 캐시 있으면 그걸로 유지.
+      if (briefRaw === 'AUTH' && !(swr && swr.d)) return;
+      const brief = briefRaw === 'AUTH' ? null : briefRaw;
       // [2026-07-08] brief 실패 구분 — 실패인데 {}로 그리면 분석 카드가 전부
       //   "없어요/모두 정상" 가짜 초록불이 됨. 플래그 세워 재시도 카드로 렌더.
-      const briefFailed = !brief && !(swr && swr.d);
+      const briefFailed = !brief && !(swr && swr.d) && briefRaw !== 'AUTH';
       const merged = brief || (swr && swr.d) || {};
       // [A12] 모든 API 실패 시 에러 안내
       if (briefFailed && (!slots || !slots.length)) {
