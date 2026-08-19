@@ -204,7 +204,6 @@ window.__LATEST_BUILD__ = '20260705-v709-fillwide';
 <link rel="stylesheet" href="css/screens/settings-v2.css?v=local-151154">
 <link rel="stylesheet" href="css/screens/calendar.css">
 <link rel="stylesheet" href="css/screens/myshop-v3.css?v=local-151154">
-<link rel="stylesheet" href="css/screens/dm-autoreply-v3.css?v=local-151154">
 <!-- [2026-04-30] 예약관리 v4 — 모바일 + PC + 직원 필터 + now-line + 미니캘 + 통계 -->
 <link rel="stylesheet" href="css/screens/booking-v4.css?v=local-151154">
 <link rel="stylesheet" href="css/screens/booking-form.css?v=local-151154">
@@ -1050,7 +1049,7 @@ window.__LATEST_BUILD__ = '20260705-v709-fillwide';
     <span class="ms-side__label">내 샵 관리</span>
   </button>
 
-  <div class="ms-side__section">운영</div>
+  <div class="ms-side__section">운영 관리</div>
   <button type="button" class="ms-side__item" data-static-action="calendar" aria-label="예약관리">
     <span class="ms-side__icon"><span class="ic-box ic-box--teal"><svg width="20" height="20" aria-hidden="true"><use href="#ic-calendar-check"/></svg></span></span>
     <span class="ms-side__label">예약관리</span>
@@ -1063,24 +1062,28 @@ window.__LATEST_BUILD__ = '20260705-v709-fillwide';
     <span class="ms-side__icon"><span class="ic-box ic-box--amber"><svg width="20" height="20" aria-hidden="true"><use href="#ic-wallet"/></svg></span></span>
     <span class="ms-side__label">매출관리</span>
   </button>
+  <div class="ms-side__section">손님 문의</div>
+  <button type="button" class="ms-side__item" data-static-action="insta-dm" aria-label="인스타DM">
+    <span class="ms-side__icon"><span class="ic-box ic-box--pink"><svg width="20" height="20" aria-hidden="true"><use href="#ic-instagram"/></svg></span></span>
+    <span class="ms-side__label">인스타DM</span>
+  </button>
+  <button type="button" class="ms-side__item" data-static-action="insta-comment" aria-label="인스타 댓글">
+    <span class="ms-side__icon"><span class="ic-box ic-box--blue"><svg width="20" height="20" aria-hidden="true"><use href="#ic-message-circle"/></svg></span></span>
+    <span class="ms-side__label">인스타 댓글</span>
+  </button>
+
+  <div class="ms-side__section">내 정보</div>
   <button type="button" class="ms-side__item" data-static-action="integrations" aria-label="연동관리">
     <span class="ms-side__icon"><span class="ic-box ic-box--blue"><svg width="20" height="20" aria-hidden="true"><use href="#ic-link"/></svg></span></span>
     <span class="ms-side__label">연동관리</span>
   </button>
-  <div class="ms-side__section">통합 허브</div>
-  <button type="button" class="ms-side__item" data-static-action="ai-hub" aria-label="잇비 · 자동화">
-    <span class="ms-side__icon"><span class="ic-box ic-box--pink"><svg width="20" height="20" aria-hidden="true"><use href="#ic-bot"/></svg></span></span>
-    <span class="ms-side__label">잇비 · 자동화</span>
-  </button>
-  <button type="button" class="ms-side__item" data-static-action="settings-hub" aria-label="설정">
+  <button type="button" class="ms-side__item" data-static-action="settings-hub" aria-label="내 샵 정보">
     <span class="ms-side__icon"><span class="ic-box ic-box--gray"><i class="ph-duotone ph-gear-six" style="font-size:19px;"></i></span></span>
-    <span class="ms-side__label">설정</span>
+    <span class="ms-side__label">내 샵 정보</span>
   </button>
-
-  <div class="ms-side__section">계정</div>
-  <button type="button" class="ms-side__item" data-static-action="plan" aria-label="플랜 · 구독">
+  <button type="button" class="ms-side__item" data-static-action="plan" aria-label="내 요금제">
     <span class="ms-side__icon"><span class="ic-box ic-box--pink"><svg width="20" height="20" aria-hidden="true"><use href="#ic-id-card"/></svg></span></span>
-    <span class="ms-side__label">플랜 · 구독</span>
+    <span class="ms-side__label">내 요금제</span>
   </button>
 
   <button type="button" class="ms-side__fab" data-static-action="nav-workshop" aria-label="작업실" data-haptic="light">
@@ -1646,7 +1649,9 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
     <div id="homeV41Root"><!-- HomeV41 자동 마운트 --></div>
 
     <!-- [Meta Review v378] 연결 후에도 재연결 경로 노출 — 검수자가 Meta 로그인 플로우를 쉽게 찾도록.
-         기존 connect-instagram static-action 핸들러 재사용(신규 JS 없음). 게시/발행 기능 아님. -->
+         기존 connect-instagram static-action 핸들러 재사용(신규 JS 없음). 게시/발행 기능 아님.
+         [2026-08-17 보스] 일반 사용자에겐 숨김 — 검수 데모 계정(review@itdasy.com) 또는
+         화면녹화용 ?metareview=1 일 때만 노출(app-home-v41 _syncMetaReviewRow 가 토글). -->
     <div id="metaReconnectRow" style="display:none; text-align:center; padding:12px 0 2px;">
       <button type="button" data-static-action="connect-instagram" data-haptic="light"
         style="background:transparent; border:1px solid var(--border-strong); border-radius:12px; padding:9px 18px; font-size:13px; font-weight:600; color:var(--text-subtle); cursor:pointer;">Instagram 다시 연결</button>
@@ -2231,7 +2236,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
   </header>
   <!-- [2026-04-30] 13개 → 5개 핵심으로 통합. 하위 기능은 각 hub 진입 후 카드/버튼으로 노출. -->
   <nav class="drawer-nav" aria-label="내 샵 관리 메뉴">
-    <div class="drawer-group">운영</div>
+    <div class="drawer-group">운영 관리</div>
     <button type="button" class="drawer-item" data-drawer-route="bookings">
       <span class="ic-box ic-box--sm ic-box--teal" aria-hidden="true"><i class="ph-duotone ph-calendar-check"></i></span>
       <span class="lbl">예약관리</span>
@@ -2247,23 +2252,32 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
       <span class="lbl">매출관리</span>
       <i class="ph-duotone ph-caret-right" style="font-size:14px;color:var(--text-subtle);margin-left:auto;" aria-hidden="true"></i>
     </button>
+    <div class="drawer-group">손님 문의</div>
+    <button type="button" class="drawer-item" data-drawer-route="insta_dm">
+      <span class="ic-box ic-box--sm ic-box--pink" aria-hidden="true"><i class="ph-duotone ph-instagram-logo"></i></span>
+      <span class="lbl">인스타DM</span>
+      <i class="ph-duotone ph-caret-right" style="font-size:14px;color:var(--text-subtle);margin-left:auto;" aria-hidden="true"></i>
+    </button>
+    <button type="button" class="drawer-item" data-drawer-route="insta_comment">
+      <span class="ic-box ic-box--sm ic-box--blue" aria-hidden="true"><i class="ph-duotone ph-chat-circle-dots"></i></span>
+      <span class="lbl">인스타 댓글</span>
+      <i class="ph-duotone ph-caret-right" style="font-size:14px;color:var(--text-subtle);margin-left:auto;" aria-hidden="true"></i>
+    </button>
+
+    <div class="drawer-group">내 정보</div>
     <button type="button" class="drawer-item" data-drawer-route="integrations">
       <svg class="ic" aria-hidden="true"><use href="#ic-link"/></svg>
       <span class="lbl">연동관리</span>
       <i class="ph-duotone ph-caret-right" style="font-size:14px;color:var(--text-subtle);margin-left:auto;" aria-hidden="true"></i>
     </button>
-
-    <div class="drawer-group">통합 허브</div>
-    <button type="button" class="drawer-item" data-drawer-route="ai_hub">
-      <svg class="ic" aria-hidden="true"><use href="#ic-bot"/></svg>
-      <span class="lbl">잇비 · 자동화</span>
-      <i class="ph-duotone ph-caret-right" style="font-size:14px;color:var(--text-subtle);margin-left:auto;" aria-hidden="true"></i>
-    </button>
-
-    <div class="drawer-group">설정</div>
     <button type="button" class="drawer-item" data-drawer-route="settings_hub">
       <span class="ic-box ic-box--sm ic-box--gray" aria-hidden="true"><i class="ph-duotone ph-gear-six"></i></span>
-      <span class="lbl">설정</span>
+      <span class="lbl">내 샵 정보</span>
+      <i class="ph-duotone ph-caret-right" style="font-size:14px;color:var(--text-subtle);margin-left:auto;" aria-hidden="true"></i>
+    </button>
+    <button type="button" class="drawer-item" data-drawer-route="plan">
+      <span class="ic-box ic-box--sm ic-box--pink" aria-hidden="true"><i class="ph-duotone ph-identification-card"></i></span>
+      <span class="lbl">내 요금제</span>
       <i class="ph-duotone ph-caret-right" style="font-size:14px;color:var(--text-subtle);margin-left:auto;" aria-hidden="true"></i>
     </button>
   </nav>
@@ -2315,7 +2329,16 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
       'customer-dm': () => callFirst(['openDMConfirmQueue', 'openDMConversations']),
       'revenue': () => callFirst(['openRevenue', 'openRevenueHub']),
       'service-templates': () => call('openServiceTemplates'),
-      'ai-hub': () => call('openAiHub'),
+      // [2026-08-16] 인스타DM 화면 3개→1개 통합 — app-dm-menu.js '인스타DM 손님 응대' 직결.
+      'insta-dm': () => call('openDMMenuSettings'),
+      // 인스타 댓글 — app-comment-reply-queue.js 는 lazy(extras). 로드 보장 후 호출
+      //   (js/home/v41-actions.js openCommentQueue 와 같은 패턴).
+      'insta-comment': () => {
+        if (typeof window.openCommentReplyQueue === 'function') return call('openCommentReplyQueue');
+        const go = () => call('openCommentReplyQueue');
+        if (window.AppLoader && window.AppLoader.ensure) Promise.resolve(window.AppLoader.ensure('extras')).then(go).catch(go);
+        else go();
+      },
       'integrations': () => call('openIntegrationsHub'),
       'settings-hub': () => call('openSettingsHub'),
       'plan': () => callFirst(['openPlan', 'openPlanPopup']),
@@ -2496,7 +2519,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
 <script src="app-drawer.js?v=local-151154" defer></script>
 <script src="app-secure-storage.js?v=local-151154" defer></script>
 <script src="app-shop-settings.js?v=local-151154" defer></script>
-<script src="app-dm-menu.js?v=local-151154" defer></script>
+<script src="app-dm-menu.js?v=20260816-dmunify" defer></script>
 <script src="app-perf-recovery.js?v=20260805-customer-search-space" defer></script>
 <script src="app-spec-validator.js" defer></script>
 <script src="app-instagram.js?v=local-151154" defer></script>
@@ -2553,8 +2576,7 @@ window._lazyImgly = function _lazyImgly() {
 <!-- [P1-B 2026-06-09] 외부 가격표·홍보물 이미지 OCR → 우리 editable 템플릿 재구성 (/templates/extract-ocr) -->
 <!-- [2026-04-30] 챗봇 영구 메모 + 사장님 프로필 (A1+A4) -->
 <!-- [2026-04-30] 스마트 캡처 — 카톡 자동 임포트 (E3) + 명함 OCR (E4) -->
-<!-- [2026-04-30] AI 자동화 허브 — 사진편집/캡션/해시태그 중심 -->
-<script src="app-ai-hub.js?v=local-151154" defer></script>
+<!-- [2026-08-16] AI 허브·DM 오버뷰 파일 삭제 — 인스타DM 화면 3개→1개(app-dm-menu.js) 통합 -->
 <!-- [2026-04-30] 설정 · 연동 허브 — 샵정보/네이버/백업/실패/앱설정 통합 -->
 <script src="app-settings-hub.js?v=local-151154" defer></script>
 <!-- [2026-06-16] 연동관리 허브 — 인스타/네이버 톡톡/카톡 연동 분리 -->

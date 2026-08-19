@@ -19,7 +19,19 @@
  *
  * 저장소: localStorage
  *   - itdasy:work_memory:list    → 기억 배열(JSON, 최대 10)
- *   - itdasy:work_memory:default → 기본으로 쓸 기억 id
+ *   - itdasy:work_memory:default → ★(원장이 명시 지정한 기본) 기억 id
+ *
+ * [T2 2026-08-17] 레코드 schema 2 — **평면 유지 + 필드 추가(additive)**:
+ *   추가: photoCount(저장 시점 확정) · shopStyleId(T3 brandFit) ·
+ *         applyCount/lastAppliedAt(편집기에 실제 얹힘) · publishCount/lastPublishedAt(저장/발행 완료)
+ *   폐기(읽기 폴백만 유지): useCount·lastUsedAt — 캡션 결과 화면 헤드리스 굽기(markUsed)에서도 올라
+ *     화면 왕복만으로 부풀던 값(T2' 원인). 발행 카운트로만 승계.
+ *   왜 layout/deco 중첩이 아니라 평면인가: 중첩은 기존 소비자·테스트가 잠근 계약(rec.layers 등)을
+ *     전부 깨는데 얻는 건 의미 구분뿐이다. 소유권 분리는 저장 모양이 아니라 쓰기 규칙이 지킨다 —
+ *     칸 배치 필드는 캡처 시점에만 쓰고, 소비는 toEditState 의 layersOnly 게이트가 막는다(테스트로 잠김).
+ *     additive 라 마이그레이션이 자명하게 멱등이고, 실패해도 원본 필드가 그대로다.
+ *   schema 1 레코드는 list() 에서 lazy 승격(변경 있을 때만 1회 재저장). 구 필드는 지우지 않는다 —
+ *     롤백(옛 코드)이 lastUsedAt/useCount 를 계속 읽을 수 있게(스테일이지만 동작).
  *
  * 좌표계: editState 그대로 — 중심 기준 0..1 상대값(_serLayer 계약).
  */
@@ -28,12 +40,20 @@
 
   var K_LIST = 'itdasy:work_memory:list';
   var K_DEFAULT = 'itdasy:work_memory:default';
-  var SCHEMA = 1;
+  var SCHEMA = 2;
   var MAX = 10;
 
   // itd-editor.js LAYOUTS 의 인덱스 → 사진 칸 수. (0 single · 7 ba(전/후))
+  //   [T2] 신규 캡처는 이 값을 layout.photoCount 로 저장 시점에 박는다 — 읽기는 저장값 우선(_photoCountOf).
   var LAY_N = [1, 2, 2, 3, 4, 3, 3, 2];
   var LAY_BA = 7, LAY_SINGLE = 0;
+
+  // 사진 칸 수 — schema 2 는 저장값(photoCount), schema 1 폴백은 LAY_N 미러.
+  function _photoCountOf(r) {
+    return (r && r.photoCount != null) ? r.photoCount : (LAY_N[(r && r.layoutIdx) || 0] || 1);
+  }
+  // 최근 손댄 시각 — 밀어내기(eviction)·표시 공용. schema 1 은 lastUsedAt 폴백.
+  function _lastTouch(r) { return (r && (r.lastPublishedAt || r.lastAppliedAt || r.lastUsedAt || r.createdAt)) || 0; }
 
   // ── 저수준 저장 ───────────────────────────────────────────────
   function _read(key, fallback) {
@@ -64,7 +84,36 @@
   // ── 컬렉션 CRUD ───────────────────────────────────────────────
   function list() {
     var arr = _read(K_LIST, null);
-    return Array.isArray(arr) ? arr.filter(function (r) { return r && r.id; }) : [];
+    if (!Array.isArray(arr)) return [];
+    var out = [], changed = false;
+    arr.forEach(function (r) {
+      if (!r || !r.id) return;
+      var m = _migrate(r);
+      if (m !== r) changed = true;
+      out.push(m);
+    });
+    // 승격은 변경이 있을 때만 1회 재저장 — 이후엔 전부 schema 2 라 changed=false(매 호출 재저장은 quota 낭비).
+    //   재저장이 실패해도(quota) 반환값은 승격본이고 원본은 그대로 남아 다음 read 가 재시도한다.
+    if (changed) _writeRaw(K_LIST, out);
+    return out;
+  }
+  /* [T2] schema 1 → 2 lazy 승격. 원장 로컬에 이미 쌓인 기억을 절대 잃지 않는 게 목표 —
+     additive 라 원본 필드는 하나도 안 지운다(useCount·lastUsedAt 도 보존 → 롤백한 옛 코드가 계속 읽음).
+     publishCount 는 옛 useCount 승계 — 캡션 재렌더(markUsed)로 부풀려진 값이지만
+     T3 스코어가 min(publishCount,5) 캡으로 흡수한다. sig 는 색·폰트 포함 v2 로 재계산(신규 캡처와 dedup 일치). */
+  function _migrate(r) {
+    if (!r || (r.schema || 0) >= 2) return r;
+    var m = Object.assign({}, r, {
+      schema: 2,
+      photoCount: _photoCountOf(r),
+      shopStyleId: (r.shopStyleId === undefined ? null : r.shopStyleId),
+      applyCount: r.applyCount || 0,
+      lastAppliedAt: r.lastAppliedAt || 0,
+      publishCount: r.publishCount || r.useCount || 1,
+      lastPublishedAt: r.lastPublishedAt || r.lastUsedAt || r.createdAt || 0
+    });
+    m.sig = _sig(m);
+    return m;
   }
   function get(id) {
     var arr = list();
@@ -73,6 +122,10 @@
   }
   function getDefaultId() { return _read(K_DEFAULT, null); }
   function getDefault() { var id = getDefaultId(); return (id && get(id)) || null; }
+  // [T2] auto 게이트 — T3 자동 선택(select)의 ON/OFF. ★(:default, id 문자열)와 키·타입부터 분리.
+  var K_AUTO = 'itdasy:work_memory:auto';
+  function autoOn() { return _read(K_AUTO, true) !== false; }   // 기본 ON
+  function setAutoOn(v) { _writeRaw(K_AUTO, v !== false); return autoOn(); }
   function setDefault(id) {
     if (!get(id)) return false;
     _writeRaw(K_DEFAULT, id);
@@ -99,9 +152,7 @@
     var def = getDefaultId();
     var cands = arr.filter(function (r) { return r.id !== def; });
     if (!cands.length) return null;
-    return cands.slice().sort(function (a, b) {
-      return (a.lastUsedAt || a.createdAt || 0) - (b.lastUsedAt || b.createdAt || 0);
-    })[0];
+    return cands.slice().sort(function (a, b) { return _lastTouch(a) - _lastTouch(b); })[0];
   }
 
   // ── 이름짓기 (로컬 규칙 · 서버/AI 안 씀) ───────────────────────
@@ -150,10 +201,11 @@
     return out.join(' · ');
   }
   function formatWhen(rec) {
-    var t = rec && (rec.lastUsedAt || rec.createdAt); if (!t) return '';
+    var t = _lastTouch(rec); if (!t) return '';
     var days = Math.floor((_now() - t) / 86400000);
     var when = days <= 0 ? '오늘' : (days === 1 ? '어제' : (days < 7 ? days + '일 전' : (days < 14 ? '지난주' : days + '일 전')));
-    var used = rec.useCount > 1 ? ' · ' + rec.useCount + '번 씀' : '';
+    var n = (rec && (rec.publishCount || rec.useCount)) || 1;   // [T2] 표시 기준 = 발행 횟수(구 레코드는 useCount 폴백)
+    var used = n > 1 ? ' · ' + n + '번 씀' : '';
     return when + used;
   }
 
@@ -170,13 +222,126 @@
       return (ss && ss.logo && ss.logo.dataUrl) || null;
     } catch (_e) { return null; }
   }
+  /* ── [T6] 에셋 참조화 — 8KB 초과 이미지(내 스티커 등)를 IDB 한 벌 + 참조로 ─────
+     G2 수정: 예전엔 참조할 곳이 없다고 조용히 버려서(return null) 원장은 스티커가
+     기억된 줄 아는데 다음 글엔 없었다. 이제 바이트는 itdasy-gallery v4 'assets' 에
+     콘텐츠 해시 한 벌(기억 10개가 공유), 기억엔 assetRef 만.
+     toEditState 는 동기라 IDB 를 직접 못 읽는다 → 로드 시 웜업한 메모리 캐시에서 꺼내고,
+     캐시 미적재/자산 유실이면 그 레이어만 뺀다(깨진 이미지 방지 — 로고 srcRef 와 같은 규칙). */
+  var ASSET_PREFIX = 'img:';
+  var _assetCache = null;      // null = 미적재
+  var _assetWarmState = 0;     // 0=대기 1=진행 중 2=완료
+  function _assetHash(s) {     // djb2 — 콘텐츠 기반 결정적 id(같은 스티커 = 같은 자산)
+    var h = 5381;
+    for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    return (h >>> 0).toString(36) + '-' + s.length.toString(36);
+  }
+  function _assetWarm() {
+    if (_assetWarmState === 1 || !window.loadAssetsFromDB) return;
+    _assetWarmState = 1;
+    try {
+      window.loadAssetsFromDB().then(function (rows) {
+        _assetCache = _assetCache || {};
+        (rows || []).forEach(function (r) { if (r && r.id && r.dataUrl) _assetCache[r.id] = r.dataUrl; });
+        _assetWarmState = 2;
+      }).catch(function () { _assetWarmState = 0; });   // 실패 시 다음 요청 때 재시도
+    } catch (_e) { _assetWarmState = 0; void _e; }
+  }
+  function _assetPut(id, dataUrl) {
+    _assetCache = _assetCache || {}; _assetCache[id] = dataUrl;   // 같은 세션은 캐시로 즉시 사용 가능
+    try { if (window.saveAssetToDB) window.saveAssetToDB({ id: id, dataUrl: dataUrl, createdAt: _now() }); } catch (_e) { void _e; }
+  }
+  function _assetGet(id) {
+    if (_assetCache && _assetCache[id]) return _assetCache[id];
+    // 웜업 완료 후의 miss = 그 뒤 IDB 에 추가된 자산일 수 있다(다른 탭/기기 동기화) → 재웜업 허용.
+    //   미해소가 지속돼도 굽기 재시도당 getAll 1회 수준(자산 수 적음)이라 부담 없음.
+    if (_assetWarmState === 2) _assetWarmState = 0;
+    _assetWarm();   // 동기 경로라 이번엔 못 쓰고 다음 기회를 위한 적재만
+    return null;
+  }
+  _assetWarm();     // photo 그룹 로드 직후 적재 시작 — 편집기 열릴 때쯤엔 준비됨
+
+  // [T2] 캡처 당시 활성 우리샵 스타일 — T3 brandFit 스코어 근거.
+  function _activeShopStyleId() {
+    try { return (window.ShopStyle && window.ShopStyle.getActiveId && window.ShopStyle.getActiveId()) || null; }
+    catch (_e) { return null; }
+  }
+  /* ── [T5] 텍스트북 — role 없는 문구의 전역 관측·정책 ──────────────────────
+     왜 레코드별이 아니라 전역인가: "같은 문구를 서로 다른 게시물 3회" 는 게시물 단위의
+     전역 사실이다. 레코드별로 세면 기억 3개에 1회씩 흩어져 영영 승격이 안 된다.
+     identity = 정규화 문구(엔진 normalizeText) — index·memoryId 무관이라 순서변경·재적용에 안정.
+     { "<norm>": { n: 서로 다른 게시물 관측 수, st: 'obs'|'static'|'dismissed', at } }
+
+     [정책 계약 — T5 최종 확정 2026-08-17] dismissed 는 "이 문구를 **자동으로** 다시 얹지 않는다"의
+     **전역·영구** 거부다(보스/GPT 합의):
+       · 다른 기억·다른 서비스·다른 우리샵 스타일에서 같은 문구가 와도 막는다 — 문구 자체가 identity.
+       · 자동 해제 없음 — 원장이 같은 문구를 손으로 다시 써서 발행해도 veto 는 남는다
+         ("다시 썼다" ≠ "삭제 결정을 취소했다"). 해제 UI 는 출시 후 설정 화면 몫.
+       · 이게 과하지 않은 이유: veto 가 막는 건 '기억에서 온 자동 얹기'뿐이고,
+         원장이 손으로 쓰는 문구는 sanitize 대상이 아니라서 언제든 그냥 쓰면 된다. */
+  var K_TEXTBOOK = 'itdasy:work_memory:textbook';
+  var TB_MAX = 200;   // 상한 — 넘으면 관측(obs) 중 오래된 것부터 정리(static/dismissed 정책은 보존)
+  function textbook() { var v = _read(K_TEXTBOOK, null); return (v && typeof v === 'object') ? v : {}; }
+  function dismissText(norm) {
+    if (!norm) return false;
+    var tb = textbook();
+    tb[norm] = Object.assign({ n: 0 }, tb[norm], { st: 'dismissed', at: _now() });
+    _writeRaw(K_TEXTBOOK, tb);
+    return true;
+  }
+  // 발행 캡처 1회 = 게시물 1개 관측. unknown 만 센다(dynamic 은 예외 없이 제거 대상, static 패턴은 이미 유지).
+  //   같은 게시물 안의 중복 문구 = 1회. 3회 누적 시 obs → static 승격. dismissed 는 절대 안 건드림(veto).
+  function _noteTexts(state) {
+    try {
+      var E = window.WorkMemoryEngine;
+      if (!(E && E.classifyText && E.normalizeText)) return;   // 엔진 없으면 관측 스킵(보수적)
+      var seen = {}, tb = textbook(), changed = false;
+      (state.layers || []).forEach(function (l) {
+        if (!l || l.role || !(l.type === 'text' || l.type === 'badge') || !l.text) return;
+        if (E.classifyText(l.text) !== 'unknown') return;
+        var norm = E.normalizeText(l.text);
+        if (!norm || seen[norm]) return;
+        seen[norm] = 1;
+        var ent = tb[norm] || { n: 0, st: 'obs' };
+        ent.n = (ent.n || 0) + 1; ent.at = _now();
+        if (ent.st === 'obs' && ent.n >= 3) ent.st = 'static';
+        tb[norm] = ent; changed = true;
+      });
+      if (changed) { _tbPrune(tb); _writeRaw(K_TEXTBOOK, tb); }
+    } catch (_e) { void _e; }
+  }
+  function _tbPrune(tb) {
+    var keys = Object.keys(tb);
+    if (keys.length <= TB_MAX) return;
+    keys.filter(function (k) { return tb[k] && tb[k].st === 'obs'; })
+      .sort(function (a, b) { return (tb[a].at || 0) - (tb[b].at || 0); })
+      .slice(0, keys.length - TB_MAX)
+      .forEach(function (k) { delete tb[k]; });
+  }
+
+  // [T3] 게시물 성격 — 분류기는 엔진 소유(소프트 의존, 같은 로드그룹). 엔진이 없으면 unknown(보수적).
+  function _kindOf(state, service) {
+    try {
+      var E = window.WorkMemoryEngine;
+      if (!(E && E.classifyKind)) return 'unknown';
+      var texts = (state.layers || []).map(function (l) { return l && l.text; }).filter(Boolean);
+      return E.classifyKind(texts, service);
+    } catch (_e) { return 'unknown'; }
+  }
   function _shrinkLayer(l) {
     var c = Object.assign({}, l);
     if (c.type !== 'image' || typeof c.src !== 'string') return c;
     if (!/^data:/.test(c.src)) return c;                       // 에셋 경로 등 → 그대로(짧음)
     var logo = _shopLogoUrl();
     if (logo && c.src === logo) { delete c.src; c.srcRef = LOGO_REF; return c; }   // 우리샵 로고 → 참조로
-    if (c.src.length > INLINE_MAX) return null;                // 참조할 데 없는 큰 일회성 이미지 → 기억 안 함
+    if (c.src.length > INLINE_MAX) {
+      // [T6·G2] 예전엔 여기서 null(조용히 버림) — 원장은 스티커가 기억된 줄 알았다.
+      //   이제 IDB 자산 한 벌 + 참조. IDB 저장이 실패해도 세션 캐시로 이번 세션은 동작.
+      var ref = ASSET_PREFIX + _assetHash(c.src);
+      _assetPut(ref, c.src);
+      delete c.src; c.assetRef = ref;
+      return c;
+    }
     return c;
   }
   // editState 에서 '이 사진 전용' 값 제거 → 재사용 가능한 것만.
@@ -184,9 +349,11 @@
     if (!st || !Array.isArray(st.layers) || !st.layers.length) return null;
     var layers = st.layers.map(_shrinkLayer).filter(Boolean);
     if (!layers.length) return null;
+    var li = st.layoutIdx == null ? 0 : st.layoutIdx;
     return {
       ratio: st.ratio || '4:5',
-      layoutIdx: st.layoutIdx == null ? 0 : st.layoutIdx,
+      layoutIdx: li,
+      photoCount: LAY_N[li] || 1,   // [T2] 저장 시점 확정 — select(T3)가 하드코딩 미러 대신 이 값을 읽는다
       layoutOrder: (st.layoutOrder || []).slice(),
       collageBg: st.collageBg || null,
       collageGap: st.collageGap == null ? null : st.collageGap,
@@ -196,34 +363,48 @@
     };
   }
   // 같은 작업인지 — 레이아웃 + 레이어 배치 지문. 비슷한 글만 바꿔 연달아 발행해도 10칸이 안 찬다.
+  //   [T2·Q6 1차 2026-08-17] 색·폰트·굵기 포함 — 자리만 같고 색/폰트만 바꾼 작업이 '같은 작업'으로
+  //   dedup 되어 새 스타일이 어디에도 저장되지 않던 것(G1). 학습이 아니라 '다른 작업으로 인식'이 1차.
   function _sig(state) {
     var ls = (state.layers || []).map(function (l) {
       return [l.type, l.role || '', Math.round((l.x || 0) * 20), Math.round((l.y || 0) * 20),
-        Math.round((l.size || 0) * 100), l.align || ''].join(':');
+        Math.round((l.size || 0) * 100), l.align || '',
+        l.color || '', l.font || '', (l.weight == null ? '' : l.weight)].join(':');
     }).sort();
     return state.layoutIdx + '|' + state.ratio + '|' + ls.join(',');
   }
 
   // 슬롯에서 편집 결과를 찾아 기억으로. 이미 같은 작업이 있으면 새로 안 만들고 '또 썼다'고만 기록.
   //   호출: 작업실 저장 / 인스타 발행 성공 시. 실패해도 절대 안 던짐(호출부는 발행 흐름).
-  function captureFromSlot(slot, d) {
+  //   [T2] opts.publish:false = 발행이 아닌 캡처(성과 '이 스타일로 또') — dedup 시 카운트 안 올림(재클릭 중복 방지).
+  function captureFromSlot(slot, d, opts) {
     try {
       var st = _pickState(slot);
       var state = _distill(st);
       if (!state) return null;   // 원장이 만든 꾸밈이 없음 → 기억할 게 없음
 
+      var countPublish = !(opts && opts.publish === false);
+      if (countPublish) _noteTexts(state);   // [T5] 게시물 1회 관측(3회 승격 재료) — 발행/저장일 때만
       var arr = list(), sig = _sig(state);
       for (var i = 0; i < arr.length; i++) {
-        if (arr[i].sig === sig) {   // 같은 작업 재사용 → 카운트만
-          arr[i].lastUsedAt = _now(); arr[i].useCount = (arr[i].useCount || 1) + 1;
-          _persist(arr);
+        if (arr[i].sig === sig) {   // 같은 작업 재사용 → 발행 카운트만
+          if (countPublish) {
+            arr[i].lastPublishedAt = _now(); arr[i].publishCount = (arr[i].publishCount || 1) + 1;
+            // 롤백 호환 미러 — 옛 코드(useCount·lastUsedAt 소비)가 SW 캐시로 남은 탭을 위해 같이 올린다.
+            arr[i].lastUsedAt = _now(); arr[i].useCount = (arr[i].useCount || 1) + 1;
+            _persist(arr);
+          }
           return arr[i];
         }
       }
       var rec = Object.assign({
         id: _uid(), schema: SCHEMA, sig: sig,
         name: _makeName(state, (d && d.service) || (slot && slot.service), arr.map(function (r) { return r.name; })),
-        createdAt: _now(), lastUsedAt: _now(), useCount: 1, thumb: null
+        createdAt: _now(), thumb: null,
+        shopStyleId: _activeShopStyleId(),
+        kind: _kindOf(state, (d && d.service) || (slot && slot.service) || ''),   // [T3] select 의 kindFit 근거
+        applyCount: 0, lastAppliedAt: 0,
+        publishCount: 1, lastPublishedAt: _now()   // 캡처 = 저장/발행된 글에서 왔다 — publish:false 여도 사실
       }, state);
 
       arr.push(rec);
@@ -240,14 +421,29 @@
     } catch (_e) { return null; }
   }
 
-  // 슬롯 사진들 중 실제 꾸밈이 있는 editState 를 고른다(대표 우선).
+  // 슬롯 사진들 중 실제 꾸밈이 있는 editState 를 고른다 — 가장 공들인 장 우선.
+  //   [T3·G3 2026-08-17] 예전엔 '첫 번째로 layers 있는 사진'이라(주석만 "대표 우선") 1번 장을
+  //   대충 두고 2번 장을 공들인 경우 그 꾸밈이 통째로 버려졌다. 점수로 고르고 동점이면 앞 순서(기존 동작).
+  function _photoScore(p, st) {
+    var L = st.layers, s = 0;
+    if (L.some(function (l) { return l && (l.type === 'text' || l.type === 'badge'); })) s += 2;
+    if (L.some(function (l) { return l && l.type === 'sticker'; })) s += 1;
+    if (L.some(function (l) { return l && l.type === 'image'; })) s += 1;
+    if (L.length >= 2) s += 2;
+    if (p && p.role === 'hero') s += 2;
+    if (p && p.storyEdited) s += 2;
+    return s;
+  }
   function _pickState(slot) {
     var ps = (slot && slot.photos) || [];
+    var best = null, bestScore = -1;
     for (var i = 0; i < ps.length; i++) {
       var st = ps[i] && ps[i].editState;
-      if (st && st.v && Array.isArray(st.layers) && st.layers.length) return st;
+      if (!(st && st.v && Array.isArray(st.layers) && st.layers.length)) continue;
+      var s = _photoScore(ps[i], st);
+      if (s > bestScore) { bestScore = s; best = st; }
     }
-    return null;
+    return best;
   }
 
   // 설정 화면용 작은 썸네일 — 발행 결과 이미지를 96px 로 줄여 저장(장당 ~3KB).
@@ -325,13 +521,26 @@
       return window.ITDASY_WORK_MEMORY === true;
     } catch (_e) { return false; }
   }
-  function markUsed(id) {
+  // [T2'] 카운터 의미: applied = 편집기에 실제 얹힘 · published = 그 글이 저장/발행 완료.
+  //   옛 markUsed 는 캡션 결과 화면 헤드리스 굽기에서도 불려 화면 왕복만으로 부풀었다 → 폐기.
+  function _bump(id, patch) {
     var arr = list();
     for (var i = 0; i < arr.length; i++) {
-      if (arr[i].id === id) { arr[i].lastUsedAt = _now(); arr[i].useCount = (arr[i].useCount || 1) + 1; _persist(arr); return arr[i]; }
+      if (arr[i].id === id) { Object.assign(arr[i], patch(arr[i])); _persist(arr); return arr[i]; }
     }
     return null;
   }
+  function markApplied(id) {
+    return _bump(id, function (r) { return { lastAppliedAt: _now(), applyCount: (r.applyCount || 0) + 1 }; });
+  }
+  function markPublished(id) {
+    return _bump(id, function (r) { return { lastPublishedAt: _now(), publishCount: (r.publishCount || 0) + 1 }; });
+  }
+
+  // [T7 preflight] 직전 toEditState 에서 자산(assetRef) 미해소로 뺀 레이어 수 —
+  //   발행물 굽기(헤드리스)는 이 값이 0이 아닐 때 이번 굽기를 보류한다('조용히 일부 빠진 발행' 금지).
+  var _lastAssetMiss = 0;
+  function assetMissCount() { return _lastAssetMiss; }
 
   // 기억 → 편집기 editState. '어떻게 생겼나'만 주고 '이 사진 전용'은 안 준다.
   //   opts.incoming    = 이번 글의 우리샵 자동배치 레이어(role→text) — 같은 role 은 이번 글 문구로 갈아끼움.
@@ -339,6 +548,7 @@
   //   opts.photoCount  = 지금 사진 수. 기억의 레이아웃과 안 맞으면 레이아웃은 안 건드림
   //                      (예: '전후 2칸' 기억을 사진 1장에 씌우면 빈 칸이 생김).
   function toEditState(rec, opts) {
+    _lastAssetMiss = 0;   // [T7] 이번 변환의 자산 미해소 카운트 리셋
     if (!rec || !Array.isArray(rec.layers) || !rec.layers.length) return null;
     opts = opts || {};
     var incoming = opts.incoming || [];
@@ -359,6 +569,12 @@
         var url = _shopLogoUrl(); if (!url) return null;
         var c = Object.assign({}, l, { src: url }); delete c.srcRef; return c;
       }
+      // [T6] 스티커 등 큰 이미지는 IDB 자산 참조 → 캐시에서 복원. 미적재/유실이면 그 레이어만 뺀다
+      //   (편집기 = 원장이 눈으로 보는 단계라 허용). [T7] 발행물 굽기는 assetMissCount 로 보류 판정.
+      if (l.assetRef) {
+        var au = _assetGet(l.assetRef); if (!au) { _lastAssetMiss++; return null; }
+        var ac = Object.assign({}, l, { src: au }); delete ac.assetRef; return ac;
+      }
       return Object.assign({}, l);
     }).filter(Boolean);
     if (!layers.length) return null;
@@ -373,32 +589,55 @@
       if (rec.collageGap != null) st.collageGap = rec.collageGap;
       // 사진 수가 맞을 때만 레이아웃 복원. 안 맞으면 레이어(글씨·꾸밈)만 얹는다.
       var n = opts.photoCount;
-      if (rec.layoutIdx != null && (n == null || (LAY_N[rec.layoutIdx] || 1) === n)) st.layoutIdx = rec.layoutIdx;
+      if (rec.layoutIdx != null && (n == null || _photoCountOf(rec) === n)) st.layoutIdx = rec.layoutIdx;   // [T2] 저장값 우선
     }
     // photos·photoDraw·adj·pz 는 일부러 안 넣음 — 넣으면 지금 사진을 지난 사진으로 덮어쓴다(itd-editor _restoreState:1648).
     return st;
   }
 
-  // flow 가 쓰는 한 줄짜리 진입점 — 플래그 OFF·기본 없음이면 null(=지금까지와 100% 동일하게 깨끗이 열림).
-  function defaultEditState(opts) {
+  // [T2] '이 스타일로 또 만들기' 1회 적용 — ★(원장 명시 지정)를 덮어쓰지 않는다.
+  //   페이지 세션 메모리에만 둔다(성과 화면 → 새 글 플로우가 같은 페이지에서 이어지므로 충분).
+  var _onceId = null;
+  function applyOnce(id) { if (get(id)) { _onceId = id; return true; } return false; }
+  // [T3] 엔진(_resolveRec)이 쓰는 접근자 — 미리보기는 피크만, 편집기는 소비.
+  function peekOnce() { return _onceId ? get(_onceId) : null; }
+  function takeOnce() { var r = peekOnce(); _onceId = null; return r; }   // 스테일 id 도 함께 해제(고착 방지)
+
+  // 편집기/헤드리스 공용 선택. consumeOnce 는 편집기 경로만 true —
+  //   헤드리스(캡션 미리보기)가 1회 지정을 소비해 버리면 정작 편집기가 열릴 때 ★로 되돌아가
+  //   미리보기≠편집기가 된다. 그래서 미리보기는 '보되' 소비하지 않는다.
+  function _pick(opts, consumeOnce) {
     try {
       if (!_flagOn()) return null;
-      var rec = getDefault(); if (!rec) return null;
+      var rec = _onceId ? get(_onceId) : null;
+      if (rec && consumeOnce) _onceId = null;   // 소비 — 다음 글부터는 다시 ★
+      if (!rec) rec = getDefault();
+      if (!rec) return null;
       var st = toEditState(rec, opts); if (!st) return null;
-      markUsed(rec.id);
-      return st;
+      return { rec: rec, state: st };
     } catch (_e) { return null; }
+  }
+  // 편집기 경로(엔진 forEditor 전용) — 어떤 기억이 얹혔는지(rec)까지 돌려줘 markApplied 의 근거가 된다.
+  function resolveDefault(opts) { return _pick(opts, true); }
+  // flow/헤드리스가 쓰는 한 줄짜리 진입점 — 플래그 OFF·기본 없음이면 null(=지금까지와 100% 동일하게 깨끗이 열림).
+  //   [T2'] 순수 조회 — 예전엔 여기서 markUsed 를 해 캡션 화면 왕복마다 카운트가 부풀었다.
+  function defaultEditState(opts) {
+    var r = _pick(opts, false);
+    return r ? r.state : null;
   }
 
   window.WorkMemory = {
     SCHEMA: SCHEMA, MAX: MAX,
-    KEYS: { list: K_LIST, def: K_DEFAULT },
+    KEYS: { list: K_LIST, def: K_DEFAULT, auto: K_AUTO },
     list: list, get: get,
     getDefault: getDefault, getDefaultId: getDefaultId, setDefault: setDefault, clearDefault: clearDefault,
+    autoOn: autoOn, setAutoOn: setAutoOn, applyOnce: applyOnce, peekOnce: peekOnce, takeOnce: takeOnce,
+    textbook: textbook, dismissText: dismissText, assetMissCount: assetMissCount,
     rename: rename, remove: remove,
     describe: describe, formatWhen: formatWhen,
     captureFromSlot: captureFromSlot, captureAndNotify: captureAndNotify, showCaptureCard: showCaptureCard,
-    markUsed: markUsed, toEditState: toEditState, defaultEditState: defaultEditState, flagOn: _flagOn,
-    _distill: _distill, _makeName: _makeName, _sig: _sig   // 테스트용
+    markApplied: markApplied, markPublished: markPublished,
+    toEditState: toEditState, defaultEditState: defaultEditState, resolveDefault: resolveDefault, flagOn: _flagOn,
+    _distill: _distill, _makeName: _makeName, _sig: _sig, _migrate: _migrate   // 테스트용
   };
 })();

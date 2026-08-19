@@ -696,6 +696,16 @@
       applyCrop(op.k);
       return;
     }
+    // [T4] 작업 기억 한 덩어리 — wmApply(자동 적용) / wmRemove('이번엔 빼기'). 여러 레이어를 op 1개로:
+    //   undo 한 번이면 전부 원복돼야 하고, 레이어별로 undo 가 여러 번 생기면 안 된다(합의 조건 2).
+    if (op.op === 'wmApply' || op.op === 'wmRemove') {
+      var det = (op.op === 'wmApply') ? undo : !undo;   // det=true → 떼기, false → 붙이기
+      (op.Ls || []).forEach(function (WL) {
+        if (det) { var wi = S.layers.indexOf(WL); if (wi >= 0) S.layers.splice(wi, 1); if (WL.el) WL.el.remove(); if (S.active === WL) S.active = null; }
+        else { if (refs.layers && WL.el) refs.layers.appendChild(WL.el); if (S.layers.indexOf(WL) < 0) S.layers.push(WL); }
+      });
+      return;
+    }
     var add = (op.op === 'add') === undo;   // undo: add→제거, del→복원 / redo: 반대
     if (add) { if (refs.layers && op.L.el) refs.layers.appendChild(op.L.el); if (S.layers.indexOf(op.L) < 0) { var at = (op.idx != null && op.idx <= S.layers.length) ? op.idx : S.layers.length; S.layers.splice(at, 0, op.L); } selectLayer(op.L); }
     else { var i = S.layers.indexOf(op.L); if (i >= 0) S.layers.splice(i, 1); op.L.el.remove(); if (S.active === op.L) S.active = null; }
@@ -1920,6 +1930,9 @@
       exportComposite(function (url) {
         if (S !== _sess || _sess._cancelled) { _sess._saving = false; return; }   // [audit] 저장 중 back/취소로 닫혔거나 재진입 → onDone 이중발화 안 함
         var meta = { layers: metaLayers(), editState: _exportState() };   // [학습] close() 전에 좌표 계산(닫으면 stage rect=0 → NaN). editState=재편집 이어가기(#4/#8/#11/#16)
+        // [T5] 저장 시점에 남은 작업기억 레이어 수 — flow 의 dismissed(문구 veto) 판정 기준선.
+        //   0 = 통째 빼기(자동화 거부, 문구 판단 아님) / 1+ = 자동화는 수용했는데 특정 문구만 지움.
+        meta.wmKept = (S.layers || []).filter(function (L) { return L && L._src === 'wm'; }).length;
         meta.perPhoto = _collectPerPhoto();   // [#5/#6] 사진별 레이어(단일모드) — 플로우가 각 장을 자기 레이어로 합성
         // [캐러셀] 콜라주(다중 셀)가 아니면서 편집기에서 새로 추가한 사진 → 플로우가 여러 장 게시(캐러셀) 후보로 반영.
         //   콜라주면 이미 한 장으로 합성되므로 별도 추가 안 함.
@@ -2032,7 +2045,12 @@
   function _restoreLayers(specs) {
     var R = _stageWH(); if (!R.width) return;
     (specs || []).forEach(function (spec) {
-      try { var L2 = addShopLayer(spec, R); if (L2 && spec.rot) { L2.rot = spec.rot; applyXf(L2); } } catch (_e) { void _e; }
+      try {
+        var L2 = addShopLayer(spec, R); if (L2 && spec.rot) { L2.rot = spec.rot; applyXf(L2); }
+        // [T4] 작업 기억 출처 태그 — '이번엔 빼기'(undoWmApply)가 이 레이어만 골라 지운다.
+        //   _serLayer 화이트리스트엔 없어 저장/사진전환 직렬화엔 안 실린다(런타임 전용).
+        if (L2 && spec._src === 'wm') { L2._src = 'wm'; L2._wmTok = spec._wmTok || null; }
+      } catch (_e) { void _e; }
     });
     S.active = null; S.layers.forEach(function (x) { x.el.classList.remove('is-active'); });
   }
@@ -2085,6 +2103,11 @@
       initCanvas();
       if (!_ed) renderIncoming(S.incoming);   // 복원 모드가 아니면 우리샵 자동배치 레이어
       else { if (!isSingleL(S.layout)) renderCollage(); _renderMissingIncoming(S.incoming); }   // [#2a] 복원했어도 없는 역할의 시술 텍스트는 추가
+      // [T4] 작업 기억이 얹혔으면 undo 스택에 '한 덩어리'로 — ↩ 한 번이면 wm 레이어 전체가 원복된다
+      //   (배너를 놓쳐도 ↩ 가 회수 경로). 사진 전환으로 레이어가 직렬화 재생성되면 참조가 끊기지만
+      //   op 의 indexOf 가드로 무해 — 기존 add/del op 와 같은 한계.
+      var _wmLs = S.layers.filter(function (L) { return L._src === 'wm'; });
+      if (_wmLs.length) _pushOp({ op: 'wmApply', Ls: _wmLs });
       // [#5] 시술내용 텍스트가 이미 올라왔으면 그걸 선택 → setTool('text')이 빈 '내용을 입력하세요'를 덧붙이지 않음.
       var firstText = S.layers.filter(function (L) { return L.type === 'text'; })[0];
       if (firstText) selectLayer(firstText);   // 텍스트 선택 → selectLayer 가 폰트 패널까지 연다(조건부 노출)
@@ -2145,5 +2168,16 @@
     });
   }
 
-  window.ItdEditor = { open: open, close: close, compose: compose, isOpen: function () { return !!(root && root.classList.contains('is-open')); } };
+  /* [T4] '이번엔 빼기' — 작업 기억에서 얹힌 레이어만 외과적으로 제거. 사용자가 그 사이 만든 작업은 보존(합의 조건 4).
+     token = 적용 identity(엔진 _lastApply.token) — 오래된 배너가 최신 적용을 못 되돌린다(조건 6).
+     중복 클릭 = 남은 대상 0 → no-op, 0 반환(조건 5). 제거는 wmRemove op 1개로 쌓여 ↩ 로 복원 가능. */
+  function undoWmApply(token) {
+    if (!S || !root || !root.classList.contains('is-open')) return 0;
+    var Ls = (S.layers || []).filter(function (L) { return L && L._src === 'wm' && (!token || L._wmTok === token); });
+    if (!Ls.length) return 0;
+    Ls.forEach(function (L) { var i = S.layers.indexOf(L); if (i >= 0) S.layers.splice(i, 1); if (L.el) L.el.remove(); if (S.active === L) S.active = null; });
+    _pushOp({ op: 'wmRemove', Ls: Ls });
+    return Ls.length;
+  }
+  window.ItdEditor = { open: open, close: close, compose: compose, undoWmApply: undoWmApply, isOpen: function () { return !!(root && root.classList.contains('is-open')); } };
 })();

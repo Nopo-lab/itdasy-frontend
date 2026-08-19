@@ -84,9 +84,25 @@ function _hideLoadingOverlay() {
   setTimeout(function () { _loaderFadeOut(lo); }, wait);
 }
 
+// [2026-08-15 기기QA] preload 는 "캐시 미리 데우기"일 뿐인데 스플래시가 그 완료를 기다리고 있었다.
+//   → API 8건 중 하나만 느려도 첫 화면이 인질로 잡힌다. 실측(전 엔진, 429 없음)에서 첫 진입이
+//   4.6s ~ 15.2s 로 튀었고, 12초짜리는 정상 경로가 아니라 index.html 의 12s 워치독이 강제로 걷어낸 것이었다.
+//   preload 는 계속 백그라운드로 돌게 두고, 스플래시는 최대 _PRELOAD_CAP_MS 만 기다린다.
+var _PRELOAD_CAP_MS = 1500;
+function _preloadCapped() {
+  if (!window._preloadTabs) return Promise.resolve();
+  var p = Promise.resolve();
+  try { p = window._preloadTabs(); } catch (_) { return Promise.resolve(); }
+  // 실패해도 스플래시를 막지 않는다(캐시 워밍이므로).
+  return Promise.race([
+    Promise.resolve(p).catch(function () { }),
+    new Promise(function (r) { setTimeout(r, _PRELOAD_CAP_MS); }),
+  ]);
+}
+
 // [UX-LOAD] 로그인 직후: preload → 최소시간 → 인사(1회) → 쫀득 해제 (로그인/로딩/인사 한 화면 통일)
 async function _finishLoginLoad(withGreeting) {
-  try { if (window._preloadTabs) await window._preloadTabs(); } catch (_) { /* ignore */ }
+  try { await _preloadCapped(); } catch (_) { /* ignore */ }
   var rest = _LOAD_MIN_MS - (Date.now() - (window._loadShownAt || Date.now()));
   if (rest > 0) await new Promise(function (r) { setTimeout(r, rest); });
   if (withGreeting) {
@@ -415,6 +431,43 @@ function hideInstallGuide() {
   setTimeout(() => { el.style.display = 'none'; }, 300);
 }
 
+// [2026-08-16] 인스타 프사 로드 실패(대개 CDN 서명 oe= 만료 → 403) 공용 복구 —
+//   만료 캐시를 폐기하고 /instagram/status 를 세션당 1회만 재조회해 새 URL 로 다시 그린다.
+//   동시 다발 실패(헤더+홈 아바타)는 같은 Promise 를 공유해 status 중복 호출 0.
+//   재시도 후에도 실패하면 이니셜 폴백. 호출처: updateHeaderProfile ·
+//   js/home/v41-renderers.js syncAvatar — 같은 로직 복붙 금지, 반드시 이 함수 재사용.
+let _igPicRecoverPromise = null;
+function _recoverIgProfilePic() {
+  if (_igPicRecoverPromise) return _igPicRecoverPromise;
+  _igPicRecoverPromise = (async () => {
+    try { localStorage.removeItem('itdasy:ig_profile_pic'); } catch (_e) { void _e; }
+    try {
+      const res = await apiFetch('/instagram/status', { headers: authHeader() });
+      if (!res.ok) return '';
+      const data = await res.json();
+      const pic = (data && data.connected && data.profile_picture_url) || '';
+      if (pic) { try { localStorage.setItem('itdasy:ig_profile_pic', pic); } catch (_e) { void _e; } }
+      return pic;
+    } catch (_e) { return ''; }
+  })();
+  return _igPicRecoverPromise;
+}
+window.handleIgAvatarError = function (imgEl, slotEl, fallbackHTML) {
+  const oldSrc = (imgEl && imgEl.src) || '';
+  _recoverIgProfilePic().then((fresh) => {
+    if (!slotEl || !slotEl.isConnected) return;
+    if (fresh && fresh !== oldSrc) {
+      const retry = imgEl.cloneNode(false);  // 속성(referrerpolicy 등)만 복제 — onerror 는 property 라 미복제
+      retry.src = fresh;
+      retry.onerror = function () { slotEl.innerHTML = fallbackHTML; };  // 2차 실패 → 이니셜 확정(루프 없음)
+      slotEl.innerHTML = '';
+      slotEl.appendChild(retry);
+    } else {
+      slotEl.innerHTML = fallbackHTML;
+    }
+  });
+};
+
 function updateHeaderProfile(handle, tone, picUrl) {
   const el = document.getElementById('headerPersona');
   if (!el) return;
@@ -443,9 +496,10 @@ function updateHeaderProfile(handle, tone, picUrl) {
       // referrerpolicy: 인스타 CDN 은 referrer 있으면 403 → no-referrer 필수
       avatarEl.innerHTML = `<img src="${window._esc(picUrl)}" alt="" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
       // [2026-06-05] CDN 403/URL 만료 시 깨진 이미지 대신 이니셜로 폴백
+      // [2026-08-16] 폴백 전에 만료 캐시 폐기 + status 1회 재조회로 새 URL 재시도 (공용 복구).
       const _img = avatarEl.querySelector('img');
       if (_img) _img.onerror = function () {
-        avatarEl.innerHTML = `<span class="profile-avatar__initial">${window._esc(letter)}</span>`;
+        window.handleIgAvatarError(this, avatarEl, `<span class="profile-avatar__initial">${window._esc(letter)}</span>`);
       };
     } else {
       avatarEl.innerHTML = `<span class="profile-avatar__initial">${window._esc(letter)}</span>`;
@@ -454,7 +508,7 @@ function updateHeaderProfile(handle, tone, picUrl) {
 
   // 인스타 프레임 핸들 + 아바타 갱신 (미리보기용)
   const fh = document.getElementById('frameHandle');
-  if (fh && handle) fh.textContent = '@' + handle.replace('@','');
+  if (fh && handle) fh.textContent = window.igHandle(handle);
   const fi = document.getElementById('frameAvatarInner');
   if (fi) {
     const fLetter = (shopName || '사장님')[0]?.toUpperCase() || '✨';
@@ -817,7 +871,11 @@ window._clearAllSWRCache = _clearAllSWRCache;
 //   새 토큰을 구분 못 하므로 user_id 기준으로 비교.
 // ──────────────────────────────────────────────
 const _USER_KEY_PREFIXES = ['itdasy_', 'itdasy:', 'pv_cache::', 'persona_'];
-const _USER_KEY_EXACT = ['last_login_email', 'user_oauth_provider', 'last_user_id', 'shop_id'];
+// [연준님 2026-08-16] assistant_session_id 추가 — prefix 어디에도 안 걸려 계정 전환 후에도
+//   이전 계정의 잇비 세션 id 가 그대로 남았다. 서버가 user_id 로 걸러 유출은 없지만,
+//   그 상태 자체가 틀렸고 실측에서 UI 가 꼬였다(대화가 없는데 초기 추천칩이 숨겨짐).
+const _USER_KEY_EXACT = ['last_login_email', 'user_oauth_provider', 'last_user_id', 'shop_id',
+  'assistant_session_id'];
 // [2026-05-07 26차] user 변경 시 보존 키는 "디바이스 단위 UI 설정"만.
 // shop_* / onboarding_done 은 user 데이터 → 제거.
 // 잘못 보존되면 다른 user 로그인 시 옛 매장명/온보딩 상태가 남는다 (출시 블로커).
@@ -1750,6 +1808,9 @@ async function login() {
     checkCbt1Reset();
     checkOnboarding().catch(() => {});
     document.getElementById('lockOverlay').classList.add('hidden');
+    // [2026-08-17 보스] 재로그인 후 홈 강제 재렌더 — 만료 토큰으로 부팅해 홈 브리프가 401 로
+    //   실패 카드를 띄운 뒤엔, 로그인해도 재렌더 훅이 없어 카드가 고정됐다("맨날 연결 불안정" 신고).
+    if (window.HomeV41 && window.HomeV41.refresh) { try { window.HomeV41.refresh(); } catch (_e) { /* ignore */ } }
     // [UX-LOAD] 로그인 후 로딩 화면 표시 → preload + 최소시간 + 인사 후 쫀득 해제
     var _lo = document.getElementById('appLoadingOverlay');
     if (_lo) { _lo.style.display = 'flex'; window._loadShownAt = Date.now(); }
@@ -1843,7 +1904,12 @@ async function forgotPassword() {
 // 네트워크/타임아웃 등 친근한 에러 메시지
 function _friendlyErr(e, fallback) {
   const m = String(e && e.message || e || '').toLowerCase();
-  if (m.includes('failed to fetch') || m.includes('networkerror') || m.includes('network')) {
+  // [2026-08-15 기기QA] 'load failed' 는 사파리/WebKit 의 fetch 실패 문구 —
+  //   크롬('failed to fetch')만 잡고 있어서 iOS 에서만 한글 UI 에 "Load failed" 영문이 그대로 노출됐다.
+  //   (iPhone 시뮬레이터 실측: 로그인 실패 시 빨간 글씨 "Load failed")
+  //   'the network connection was lost' / 'cancelled' 도 WebKit 계열 문구라 같이 잡는다.
+  if (m.includes('failed to fetch') || m.includes('load failed') || m.includes('networkerror')
+      || m.includes('network connection was lost') || m.includes('cancelled') || m.includes('network')) {
     return '인터넷 연결을 확인해 주세요.';
   }
   if (m.includes('timeout')) return '응답이 지연되고 있어요. 잠시 후 다시 시도해 주세요.';
@@ -1975,6 +2041,7 @@ async function signup() {
     _setAuthGateLocked(false);
     checkOnboarding().catch(() => {});
     document.getElementById('lockOverlay').classList.add('hidden');
+    if (window.HomeV41 && window.HomeV41.refresh) { try { window.HomeV41.refresh(); } catch (_e) { /* ignore */ } }   // [2026-08-17] 가입 직후 홈 재렌더
     checkInstaStatus(true);
   } catch (e) {
     errEl.textContent = _friendlyErr(e, '가입 실패');
@@ -2339,6 +2406,7 @@ window.addEventListener('load', async function() {
         if (_lo2) { _lo2.style.display = 'flex'; window._loadShownAt = Date.now(); }
         _setAuthGateLocked(false);
         checkOnboarding().catch(() => {});
+        if (window.HomeV41 && window.HomeV41.refresh) { try { window.HomeV41.refresh(); } catch (_e) { /* ignore */ } }   // [2026-08-17] 생체 로그인 후 홈 재렌더
         checkInstaStatus(true);
         await _finishLoginLoad(true);
       }
@@ -2355,9 +2423,8 @@ window.addEventListener('load', async function() {
     checkOnboarding().catch(() => {});
     // [UX-LOAD] 필수 데이터 preload 완료 후 로딩 화면 해제
     (async () => {
-      try {
-        if (window._preloadTabs) await window._preloadTabs();
-      } catch (_) { /* ignore */ }
+      // [2026-08-15 기기QA] 여기도 preload 완료를 통째로 기다리면 첫 진입이 12초 워치독까지 간다. 상한 적용.
+      try { await _preloadCapped(); } catch (_) { /* ignore */ }
       _hideLoadingOverlay();
     })();
     // [2026-05-13 QA #blocker1] OAuth 직후 — 백엔드 BG 자동분석을 status 폴링으로 대기.
@@ -2430,6 +2497,22 @@ window.addEventListener('load', async function() {
         tsEl2.style.display = 'none';
       }
     }
+    // [2026-08-15 #38] 리로드 후 마지막 탭 복원 (_restoreLastTab).
+    //   iOS 백그라운드 리로드·SW 업데이트 리로드 뒤 무조건 홈으로 떨어지던 문제.
+    //   복원 대상은 상태 없이 열어도 안전한 메인 탭만 — caption/finish 처럼 진행 중
+    //   데이터(선택한 사진 등)가 필요한 화면은 빈 상태로 복원되면 더 이상해서 제외.
+    //   OAuth 복귀·보고서 복원 흐름 중엔 화면을 건드리지 않는다.
+    if (!_justOAuthed && !_pendingReport) {
+      try {
+        const _RESTORABLE = ['calendar', 'dashboard', 'workshop', 'gallery'];
+        const _lastTab = sessionStorage.getItem('itdasy_last_tab');
+        if (_lastTab && _RESTORABLE.indexOf(_lastTab) !== -1 && document.getElementById('tab-' + _lastTab)) {
+          const _lastBtn = document.querySelector('.tab-bar [data-tab="' + _lastTab + '"]')
+            || document.querySelector('.ms-side__item[data-side-tab="' + _lastTab + '"]');
+          showTab(_lastTab, _lastBtn);
+        }
+      } catch (_e) { void _e; }
+    }
     // [UX-LOAD] preload 완료 후 TodayBrief 렌더 — 캐시 히트로 즉시 표시
     setTimeout(() => {
       if (window.TodayBrief && typeof window.TodayBrief.render === 'function') {
@@ -2490,12 +2573,24 @@ function closeNavSheet() {
 function showTab(id, btn) {
   // [T-101] 잇비 컨텍스트용 현재 탭 노출 (context-resolver 가 읽음).
   try { window.__ITDASY_CURRENT_TAB__ = id; } catch (_e) { void 0; }
+  // [2026-08-15 #38] 마지막 탭 저장 — iOS 가 백그라운드 페이지를 메모리에서 내려 복귀 시
+  //   강제 리로드돼도(우리가 막을 수 없는 OS 동작) 부팅 때 이 값으로 화면을 복원한다.
+  //   sessionStorage 라 진짜 새로 켠 앱은 평소처럼 홈에서 시작. 복원 로직: _restoreLastTab().
+  try { sessionStorage.setItem('itdasy_last_tab', id); } catch (_e) { void 0; }
   // [v505] 작업실 탭에서만 헤더/네비를 프로토타입 따뜻한 톤으로 (body.ws-tab 스코프, 다른 탭 회귀 없음)
   try { document.body.classList.toggle('ws-tab', id === 'workshop'); } catch (_e) { void 0; }
   // P3.1 #2: .tab 바깥 요소 잔존 방지
   if (typeof closeSlotPopup === 'function') closeSlotPopup();
   const sg = document.getElementById('_nextSlotGuide');
   if (sg) sg.style.display = 'none';
+  // [2026-08-12 PC 갇힘] 열린 하위화면(subscreen)을 탭 전환 시 닫는다 — PC 에서 연동관리
+  //   (카카오/네이버톡톡 등)를 연 채 사이드바 탭을 누르면 오버레이가 콘텐츠를 계속 덮어
+  //   "메뉴가 안 넘어가는" 것처럼 보였다. 각 모듈의 뒤로가기(.ss-back)를 눌러주는 방식이라
+  //   모듈 자신의 close 로직(_markSheetClosed 등)을 그대로 탄다. captionWork 시트는
+  //   subscreen-overlay 가 아니라 영향 없음(아래 캡션 마커 특별 처리 유지).
+  try {
+    document.querySelectorAll('.subscreen-overlay.is-open .ss-back').forEach(b => b.click());
+  } catch (_sse) { void _sse; }
 
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
@@ -2712,11 +2807,38 @@ if ('serviceWorker' in navigator && !_isCapacitor) {
       });
     });
 
+  // 첫 상호작용 감지 — 아래 controllerchange 정책에서 "부팅 중 vs 사용 중" 구분에 쓴다.
+  window.addEventListener('pointerdown', () => { window._userInteracted = true; }, { once: true, capture: true });
+  window.addEventListener('keydown', () => { window._userInteracted = true; }, { once: true, capture: true });
+
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     // [2026-06-12] OAuth 복귀 직후 새 SW 활성화로 reload 되면 ?connected=success 가 날아가
     //   분석 오버레이가 못 뜬다. 연동 진행 중(itdasy_oauth_inflight)이면 reload 건너뜀.
     try { if (sessionStorage.getItem('itdasy_oauth_inflight')) return; } catch (_e) { void _e; }
-    window.location.reload();
+    // [2026-08-15 #38] 무조건 즉시 reload → "다른 앱 갔다 오면 새로고침 + 홈으로 리셋" 주범.
+    //   (포그라운드 복귀 때마다 _safeSwUpdate 가 돌고, 새 배포가 있으면 여기로 와서
+    //    사용자가 보는 앞에서 리로드됐다.) 정책 분리:
+    //   · 부팅 직후(첫 상호작용 전 + 로드 30초 이내) = 기존대로 즉시 reload — 배포 직후
+    //     '옛 코드 + 새 캐시' 불일치를 그 자리에서 정리 (캐시버스팅 사고 이력 유지).
+    //   · 사용 중 = 즉시 리로드하지 않고, 앱이 백그라운드로 갈 때 조용히 reload.
+    //     구버전 페이지가 잠시 더 돌지만 SW 캐시는 not-found 시 network fallback 이라 즉사하지 않고,
+    //     다음 복귀 땐 이미 새 버전. 가드: 세션당 1회(_sw_reloaded, 루프 방지).
+    if (window._sw_reloaded) return;
+    const _sinceLoad = (window.performance && performance.now) ? performance.now() : Infinity;
+    if (!window._userInteracted && _sinceLoad < 30000) {
+      window._sw_reloaded = true;
+      window.location.reload();
+      return;
+    }
+    if (window._swReloadDeferred) return;
+    window._swReloadDeferred = true;
+    document.addEventListener('visibilitychange', function _deferredSwReload() {
+      if (document.visibilityState !== 'hidden') return;
+      document.removeEventListener('visibilitychange', _deferredSwReload);
+      try { if (sessionStorage.getItem('itdasy_oauth_inflight')) return; } catch (_e) { void _e; }
+      window._sw_reloaded = true;
+      try { window.location.reload(); } catch (_e) { void _e; }
+    });
   });
 } else if (_isCapacitor) {
   console.warn('[SW] Capacitor 네이티브 — SW 미사용 (WebView 자체 캐시)');
@@ -2952,6 +3074,22 @@ async function loadStatsCard() {
   };
 })();
 
+/**
+ * 인스타 핸들 표시 정본 — `@` 는 **정확히 하나**. 값이 없으면 빈 문자열.
+ *
+ * [연준님 2026-08-17 · B] 실측: 잇비가 "연동돼 있어요 — @@disabled_offitial".
+ * 저장할 때 `@` 를 붙이는데 보여줄 때 또 붙여서 생긴다. 화면 곳곳에서
+ * `'@' + handle` 을 직접 쓰고 있었고 절반만 `.replace(/^@/,'')` 로 막고 있었다.
+ * 표시 문자열을 만들 땐 이걸 써라 — 직접 붙이지 마라.
+ *   igHandle('x') · igHandle('@x') · igHandle('@@x') → '@x'   ·   igHandle('') → ''
+ */
+window.igHandle = function (v) {
+  var b = String(v == null ? '' : v).trim().replace(/^@+/, '');
+  if (b.indexOf('instagram.com/') >= 0) b = b.split('instagram.com/')[1] || '';
+  b = b.split('?')[0].split('/')[0].replace(/[^A-Za-z0-9._]/g, '').slice(0, 60);
+  return b ? '@' + b : '';
+};
+
 // Module에서 접근 가능하도록 window에 노출
 window.API = API;
 window.apiUrl = apiUrl;
@@ -3064,11 +3202,15 @@ window._preloadTabs = async function () {
     { url: '/revenue?period=month', swrKey: 'pv_cache::revenue::month' },
     /* INVENTORY_HIDDEN */ // { url: '/inventory', swrKey: 'pv_cache::inventory' },
     { url: '/services',             swrKey: 'pv_cache::service' },
+  ];
+  // [2026-08-12 첫로그인 3분] AI 2종은 LLM 경로(타임아웃 120s) — 첫 계정은 서버 캐시가 없어
+  //   실제 Gemini 호출로 수십 초~2분 걸린다. 이걸 await 하면 로그인 로딩이 그만큼 멈춘다(실측 3분).
+  //   → 로딩 대기에서 빼고 백그라운드로만 굽는다. 홈 브리핑/제안 카드는 SWR 라 도착하면 갱신됨.
+  const bgTabs = [
     { url: '/today/brief',          swrKey: 'pv_cache::today' },
     { url: '/assistant/suggestions', swrKey: 'pv_cache::ai_suggest' },
   ];
-  // Promise.allSettled → 일부 실패해도 나머지 진행. localStorage persistent
-  await Promise.allSettled(tabs.map(async t => {
+  const _prefetchOne = async t => {
     try {
       const res = await apiFetch(t.url, { headers });
       if (!res.ok) return;
@@ -3083,7 +3225,11 @@ window._preloadTabs = async function () {
         try { sessionStorage.setItem(t.swrKey, payload); } catch (_e) { void _e; }
       }
     } catch (_) { /* silent */ }
-  }));
+  };
+  // AI 2종: fire-and-forget — 로그인 로딩을 붙잡지 않는다
+  bgTabs.forEach(t => { _prefetchOne(t); });
+  // Promise.allSettled → 일부 실패해도 나머지 진행. localStorage persistent
+  await Promise.allSettled(tabs.map(_prefetchOne));
 };
 
 // [UX-LOAD] 자동 preload 제거 — if(getToken()) / login() 에서 직접 await 하므로 중복 방지
@@ -3145,7 +3291,8 @@ window.safeFetch = async function (url, opts = {}) {
 window._humanError = function (e) {
   if (e && e.timeout) return '서버 응답이 너무 느려요. 잠시 후 다시 시도해주세요';
   const raw = (e && (e.message || e.detail)) || String(e || '');
-  if (/HTTP\s*5\d\d|Failed to fetch|NetworkError|timeout|aborted/i.test(raw))
+  // [2026-08-15 기기QA] Load failed = 사파리/WebKit 의 fetch 실패 문구. 빠져 있어서 iOS 에서 영문 노출.
+  if (/HTTP\s*5\d\d|Failed to fetch|Load failed|NetworkError|network connection was lost|timeout|aborted|cancelled/i.test(raw))
     return '네트워크 연결을 확인해주세요';
   if (/HTTP\s*401|unauthor/i.test(raw))
     return '로그인이 만료됐어요. 다시 로그인해주세요';
@@ -3401,10 +3548,55 @@ window.refreshLastSyncBadges = function () {
     }
   });
 
+  // ── [연준님 2026-08-17 · C] 잇비에서 연 화면은 닫을 때 잇비 채팅으로 돌아간다 ──
+  //   실측: 잇비 → "고객 화면 열기" → 뒤로가기 → **홈**. 원장님은 하던 대화를 잃는다.
+  //   화면이 11개라 각자 고치면 또 빠뜨린다 — 시트 라우터인 여기 한 곳에서 처리한다.
+  //   `_nav()` 가 arm 을 걸면 **그 다음 열리는 시트 하나**만 표시를 받고, 그 시트가
+  //   닫힐 때 복귀한다. 중첩(목록 위 상세)은 arm 이 이미 풀려서 표시를 못 받으므로
+  //   상세는 목록으로, 목록이 닫힐 때 잇비로 — 순서가 자연스럽게 지켜진다.
+  //   history 는 건드리지 않는다. 기존 pushState/go(-n) 로직 뒤에 복귀만 붙인다.
+  let _itbiReturnFor = null;
+  window.__itbiArmReturn = function () { window.__ITBI_RETURN_ARM__ = true; };
+
+  // [연준님 2026-08-18] **닫기가 건 history.go(-n) 이 착지한 뒤에** 다음 화면을 연다.
+  //
+  //   실측(375px 모바일, 3회 중 2회 재현): 잇비 → "고객 화면 열기" 를 누르면
+  //   목록은 열리는데 주소의 `#customers` 가 **사라지고**, 그 뒤 뒤로가기가 아예 안 먹었다
+  //   (잇비로도 못 돌아가고 목록이 그대로 남는다).
+  //
+  //   원인 — `history.go(-n)` 은 **비동기**다. `_nav()` 가 잇비를 닫자마자 다음 줄에서
+  //   화면을 열면, 목록이 `pushState('#customers')` 를 한 *뒤에* 잇비의 popstate 가
+  //   도착해서 그걸 되돌려 버린다. 스택엔 'customers' 가 남아 있는데 hash 는 비어 있으니
+  //   popstate 매칭이 실패하고 뒤로가기가 죽는다.
+  //   462px 데스크톱에선 우연히 타이밍이 맞아 통과했다 — 느린 기기일수록 잘 터진다.
+  //
+  //   `_progBack` 은 "아직 안 착지한 프로그램적 back" 개수다. 그게 0 이 될 때까지만
+  //   기다렸다 연다(최대 300ms 폴백 — 영영 안 오는 경우에도 화면은 반드시 열린다).
+  window.__afterHistorySettles = function (fn) {
+    if (typeof fn !== 'function') return;
+    if (_progBack <= 0) { fn(); return; }
+    const t0 = Date.now();
+    (function poll() {
+      if (_progBack <= 0 || Date.now() - t0 > 300) { try { fn(); } catch (_e) { void _e; } return; }
+      setTimeout(poll, 16);
+    })();
+  };
+
   // 시트 open 시 호출 — history.pushState
   window._markSheetOpen = function (name) {
     try {
+      if (window.__ITBI_RETURN_ARM__) {
+        window.__ITBI_RETURN_ARM__ = false;
+        _itbiReturnFor = name;
+      }
       const hash = '#' + name;
+      // [연준님 2026-08-18] 스택 맨 위가 같은 시트면 **아무것도 하지 않는다**(멱등).
+      //   실측 누수: 뒤로가기로 잇비에 복귀할 때 openAssistant() 가 여기를 다시 부르는데,
+      //   그때 hash 는 이미 '#assistant' 로 복원돼 있어 pushState 는 건너뛰면서
+      //   stack.push 만 일어났다 → 닫아도 유령 'assistant' 가 스택에 남는다.
+      //   유령이 남으면 다음 뒤로가기가 그걸 pop 하려다 아무 일도 안 한다("뒤로가기 한 번 먹통").
+      //   app-customer-dashboard 는 이 방어를 자기 쪽에서 직접 하고 있었다 — 라우터로 옮긴다.
+      if (stack.length && stack[stack.length - 1] === name) return;
       // 이미 같은 hash 면 push 안 함 (중복 방지)
       let didPush = false;
       if (window.location.hash !== hash) {
@@ -3445,6 +3637,16 @@ window.refreshLastSyncBadges = function () {
         // push 는 안 했는데 hash 가 내 것 → 흔적만 지운다.
         // (사용자 back 으로 닫히는 중이면 여기 안 온다 — 부모 hash 를 지워버리면 안 되므로)
         history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+      // 잇비에서 연 화면이 닫혔다 → 채팅으로 복귀. (뒤로가기·✕·바깥탭 전부 여기를 지난다)
+      //   부모를 닫으며 자식까지 정리되는 경우도 names 에 들어 있으니 같이 본다.
+      if (_itbiReturnFor && names.indexOf(_itbiReturnFor) !== -1) {
+        _itbiReturnFor = null;
+        const _sheet = document.getElementById('assistantSheet');
+        const _alreadyOpen = _sheet && _sheet.style.display !== 'none' && _sheet.style.display !== '';
+        if (!_alreadyOpen && typeof window.openAssistant === 'function') {
+          try { window.openAssistant(); } catch (_e2) { void _e2; }
+        }
       }
     } catch (_e) { void _e; }
   };

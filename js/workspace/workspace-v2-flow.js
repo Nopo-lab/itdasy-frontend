@@ -317,7 +317,7 @@
       if (book) lines.push('📅 예약 → ' + book);
       if (phone) lines.push('☎ ' + (book ? '' : '예약·문의 ') + phone);
       if (price) lines.push('💰 ' + price);
-      if (handle) lines.push('@' + handle.replace(/^@/, ''));
+      if (handle) lines.push(window.igHandle(handle));
       return lines.length ? '\n\n' + lines.join('\n') : '';
     } catch (_e) { void _e; }
     return '';
@@ -413,6 +413,51 @@
     if (!ids.length) return false;
     return (d.photos || []).some(function (p) { return p && p.storyEdited && ids.indexOf(p.id) >= 0; });
   }
+  /* [T4 2026-08-17] 자동 적용 배너 — "평소처럼 만들었어요 · N장" + 되돌리기.
+     설정처럼 보이지 않게(합의 UX): 인라인 카드(wm-cap 재사용), 팝업 아님, 5초 뒤 스스로 사라짐.
+     되돌리기 = ItdEditor.undoWmApply(token) — **그 적용의 레이어만** 외과적으로 제거, 사용자 작업 보존.
+     5초는 실제 노출 시점 기준(Date.now 가드) — 백그라운드 탭에서 hide 타이머가 밀려 배너가 남아도
+     늦은 클릭은 무시한다. 놓친 뒤의 회수 경로는 편집기 ↩(wmApply 가 op 1개로 스택에 있음). */
+  function _showWmBanner(photoN) {
+    try {
+      var ap = window.WorkMemoryEngine && window.WorkMemoryEngine._lastApply;
+      if (!ap || !ap.token) return;
+      _hideWmBanner();
+      var elB = document.createElement('div');
+      elB.id = 'wmApplyBanner'; elB.className = 'wm-cap wm-cap--editor';
+      elB.innerHTML =
+        '<div class="wm-cap__c"><div class="wm-cap__k"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#ic-layers"/></svg>평소처럼 만들었어요' + (photoN > 1 ? ' · ' + photoN + '장' : '') + '</div>' +
+        '<div class="wm-cap__m">마음에 안 들면 바로 빼드려요</div></div>' +
+        '<button type="button" class="wm-cap__undo" data-haptic="light">되돌리기</button>';
+      var shownAt = Date.now(), tok = ap.token;
+      elB.querySelector('.wm-cap__undo').addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (Date.now() - shownAt > 5000) { _hideWmBanner(); return; }   // 노출 5초 경과 → 무시(편집기 ↩ 로만)
+        var n = (window.ItdEditor && window.ItdEditor.undoWmApply) ? window.ItdEditor.undoWmApply(tok) : 0;
+        if (n) { try { ap.undone = true; } catch (_ue) { void _ue; } }   // [T5] 통째 빼기 표식 — dismissed(문구별 veto) 오판 방지
+        _hideWmBanner();
+        if (n) toast('빼뒀어요 — 되돌리려면 위 ↩');
+      });
+      document.body.appendChild(elB);
+      void elB.offsetWidth; elB.classList.add('is-on');
+      d._wmBannerT = setTimeout(_hideWmBanner, 5000);
+    } catch (_e) { void _e; }
+  }
+  function _hideWmBanner() {
+    try {
+      if (d && d._wmBannerT) { clearTimeout(d._wmBannerT); d._wmBannerT = null; }
+      var o = document.getElementById('wmApplyBanner');
+      if (o) { o.classList.remove('is-on'); setTimeout(function () { if (o.parentNode) o.parentNode.removeChild(o); }, 260); }
+    } catch (_e) { void _e; }
+  }
+  /* [T3 2026-08-17] 기억 선택 ctx — 사진 수·시술명·전/후 역할 여부. 전후는 사진 수(2장)만으론
+     못 가려서 role 지정을 본다. 선택 규칙 본체는 work-memory-engine.js select() — flow 는 ctx 만 만든다. */
+  function _wmSelectCtx() {
+    var eps = editablePhotos() || [];
+    var hasB = false, hasA = false;
+    eps.forEach(function (p) { if (p && p.role === 'before') hasB = true; else if (p && p.role === 'after') hasA = true; });
+    return { photoCount: eps.length, service: (d && d.service) || '', hasBeforeAfter: hasB && hasA };
+  }
   function _autoComposeTemplate() {
     if (!(window.ItdEditor && window.ItdEditor.compose)) return;
     var outs = (d && d.templateOutputs) || [];
@@ -422,13 +467,10 @@
     // [v779 보스] '이 스타일로 또'로 지정한 작업 기억(선·도형·스티커·글씨 등)도 결과 사진에 자동으로 굽는다.
     //   예전엔 사진편집을 열어야만 보였다. 편집기와 같은 병합 규칙 — role 겹치는 텍스트만 제외(이번 글 문구 보호),
     //   role 없는 꾸밈(선/스티커)은 얹는다. 편집기는 굽기 전 원판(_autoBase)을 열어 이중으로 안 구워진다.
+    // [T1 엔진 2026-08-17] role 중복 제거를 자체 재구현하던 것 → 편집기와 같은 병합 규칙(work-memory-engine)으로.
     try {
-      var _wm = (window.WorkMemory && window.WorkMemory.defaultEditState)
-        ? window.WorkMemory.defaultEditState({ incoming: layers, photoCount: (editablePhotos() || []).length, layersOnly: true }) : null;
-      if (_wm && _wm.layers && _wm.layers.length) {
-        var _have = {}; layers.forEach(function (L) { if (L && L.role) _have[L.role] = 1; });
-        layers = layers.concat(_wm.layers.filter(function (L) { return !(L && L.role && _have[L.role]); }));
-      }
+      layers = (window.WorkMemoryEngine && window.WorkMemoryEngine.decorateLayers)
+        ? window.WorkMemoryEngine.decorateLayers(layers, _wmSelectCtx()) : layers;
     } catch (_wmE) { void _wmE; }
     if (!layers.length) return;
     // 텍스트·자리·크기만으로 지문 — 로고 dataUrl 은 넣지 않는다(길이만 커지고 판별력은 role/좌표로 충분).
@@ -440,11 +482,9 @@
     //   원장 요청: 여러 장 게시할 때 모든 사진에 시술내용이 박히지 않게 — 첫 장만 자동 텍스트,
     //   나머지 장은 원장이 직접(위치/크기는 편집기서). 로고·워터마크·라인·스티커·작업기억 꾸밈은
     //   역할이 시술내용이 아니므로 전 장 그대로 유지된다.
-    var SERVICE_TEXT_ROLES = { title: 1, sub: 1, hashtag: 1 };
+    // [T1 엔진 2026-08-17] 규칙 본체는 work-memory-engine.js — 편집기 경로(_openStoryEditor)와 한 몸.
     function _stripServiceText(ls) {
-      return ls.filter(function (L) {
-        return !(L && SERVICE_TEXT_ROLES[L.role] && (L.type === 'text' || L.type === 'badge' || L.type == null));
-      });
+      return (window.WorkMemoryEngine && window.WorkMemoryEngine.stripServiceText) ? window.WorkMemoryEngine.stripServiceText(ls) : ls;
     }
     var jobs = outs.map(function (o, idx) {
       var _layersForO = (idx === 0) ? layers : _stripServiceText(layers);
@@ -501,16 +541,11 @@
     return curPhoto();
   }
   /* [2026-07-17] 레이아웃(콜라주) editState + ★기본 작업 기억의 꾸밈 합치기.
-     레이아웃은 칸 배치(layoutIdx·photos·layoutOrder)의 주인이고, 기억은 그 위에 얹는 꾸밈의 주인이다.
-     같은 role 을 둘 다 갖고 있으면 레이아웃 것을 남긴다 — 이번 글의 문구가 지난 글 문구로 되돌아가면 안 되므로. */
+     [T1 엔진 2026-08-17] 규칙 본체는 work-memory-engine.js 로 이관 — 이 이름은
+       배선 테스트(work-memory-layout.test.js)가 잠근 호출부 계약이라 위임으로 유지. */
   function _mergeWmLayers(base, wm) {
-    if (!wm || !Array.isArray(wm.layers) || !wm.layers.length) return base;
-    if (!base) return wm;
-    var have = {};
-    (base.layers || []).forEach(function (l) { if (l && l.role) have[l.role] = 1; });
-    var add = wm.layers.filter(function (l) { return !(l && l.role && have[l.role]); });
-    if (!add.length) return base;
-    return Object.assign({}, base, { layers: (base.layers || []).concat(add) });
+    return (window.WorkMemoryEngine && window.WorkMemoryEngine.mergeEditState)
+      ? window.WorkMemoryEngine.mergeEditState(base, wm) : (base || wm || null);
   }
   function _openStoryEditor(o) {
     o = o || {};
@@ -560,9 +595,8 @@
       var _actP = _activeEditPhoto();
       var _pIdx = _actP ? _eps0.map(function (p) { return p && p.id; }).indexOf(_actP.id) : 0;
       if (_pIdx > 0) {
-        layers = layers.filter(function (L) {
-          return !(L && { title: 1, sub: 1, hashtag: 1 }[L.role] && (L.type === 'text' || L.type === 'badge' || L.type == null));
-        });
+        // [T1 엔진 2026-08-17] 발행 미리보기 bake(_autoComposeTemplate)와 같은 규칙을 엔진에서 — 한쪽만 고쳐 어긋나던 구조 제거.
+        layers = (window.WorkMemoryEngine && window.WorkMemoryEngine.stripServiceText) ? window.WorkMemoryEngine.stripServiceText(layers) : layers;
       }
     } catch (_svcE) { void _svcE; }
     // [2026-07-22 오케스트레이션] 잇비 브리핑(파싱)에서 온 텍스트·스티커 레이어. layers(신규편집) + editState.layers(콜라주 복원) 양쪽에 얹어야 함.
@@ -579,20 +613,12 @@
          원장이 스티커·글씨·도형을 ★기본으로 지정해도 새 글에서 아무것도 안 올라오던 원인.
        이제 레이아웃이 있어도 기억을 계산하되 layersOnly=true 로 '꾸밈만' 가져온다
          (칸 배치는 방금 고른 레이아웃이 소유 — 안 그러면 레이아웃이 기억에 덮여 사라진다). */
-    var _wmEd = null;
-    if (!_restore && window.WorkMemory) {
-      var _wmPhotoN = (editablePhotos() || []).length;
-      // [2026-07-22 원장 스타일] "최근 원장 작업으로" 브리핑이면 플래그(ITDASY_WORK_MEMORY)와 무관하게
-      //   ★기본 작업 기억(꾸밈/폰트/위치)을 base 로 적용. orch 가 텍스트를 주면 기억의 텍스트역할은 비워
-      //   중복 방지(incoming:[]) — 시술내용 텍스트는 orch 레이어가 소유.
-      if (d._orch && d._orch.useRecentStyle && window.WorkMemory.getDefault && window.WorkMemory.toEditState) {
-        try {
-          var _rec = window.WorkMemory.getDefault();
-          if (_rec) _wmEd = window.WorkMemory.toEditState(_rec, { incoming: (d._orch.wantsText ? [] : layers), photoCount: _wmPhotoN, layersOnly: !!_wsEd });
-        } catch (_we) { _wmEd = null; }
-      }
-      if (!_wmEd) _wmEd = window.WorkMemory.defaultEditState({ incoming: layers, photoCount: _wmPhotoN, layersOnly: !!_wsEd });
-    }
+    // [T1 엔진 2026-08-17] ★기본/잇비 지정 기억 계산은 work-memory-engine 으로 이관(경로 3곳 중복 제거).
+    //   restore(재편집 이어가기)면 안 얹고, 잇비 "평소 하던 대로"의 플래그 우회 규칙까지 엔진 소유.
+    // [T3] once('이 스타일로 또') > auto(상황 스코어) > ★(auto OFF) — ctx 는 _wmSelectCtx 가 만든다.
+    var _wmEd = (window.WorkMemoryEngine && window.WorkMemoryEngine.forEditor)
+      ? window.WorkMemoryEngine.forEditor(Object.assign({ restore: !!_restore, orch: d._orch, incoming: layers, layersOnly: !!_wsEd }, _wmSelectCtx()))
+      : null;
     // [v590] 진입 시 올린 텍스트 역할 기록 — 저장 시 빠진 역할(사용자가 지움)을 스타일에서 비활성화하는 비교 기준.
     // [audit#3] 텍스트 역할 레이어는 type 필드가 없다(roleText 배치) — 'text'로만 필터하면 항상 빈 배열이라 '지운 레이어 기억' 기능이 죽어 있었음.
     d._editorOpenRoles = layers.filter(function (l) { return l.role && (l.type === 'text' || l.type == null); }).map(function (l) { return l.role; });
@@ -617,6 +643,24 @@
       // [2026-07-17] 콜라주(레이아웃)엔 기억의 '꾸밈'만 합쳐 얹는다 — 칸 배치는 레이아웃 것 그대로.
       editState: _finalEs,
       onDone: function (dataUrl, meta) {
+        _hideWmBanner();   // [T4] 편집기가 닫히면 배너·타이머 정리(다음 세션에 낡은 배너 금지)
+        /* [T5] dismissed veto 기록 — 원장이 '기억에서 온 role 없는 문구'를 지운 채 **저장 완료**했으면
+           그 문구를 다시는 자동으로 안 얹는다(3회 조건을 재충족해도). 취소로 닫힌 세션은 판정 안 함.
+           통째 빼기 판정은 meta.wmKept(남은 wm 레이어 수, 스티커·선 포함) —
+           0 = 자동화 거부(배너 되돌리기/↩)라 문구 판단 아님 / 1+ = 자동화는 수용, 그 문구만 싫다.
+           (텍스트 개수 비교로 하면 wm 문구가 1개뿐일 때 지워도 '전부 사라짐'이 되어 veto 가 영영 안 걸린다 —
+            브라우저 실측으로 잡은 결함.) */
+        try {
+          var ap = window.WorkMemoryEngine && window.WorkMemoryEngine._lastApply;
+          if (ap && ap.texts && ap.texts.length && !ap.undone && meta && meta.editState && window.WorkMemory && window.WorkMemory.dismissText) {
+            var _fin = {};
+            (meta.editState.layers || []).forEach(function (l) {
+              if (l && !l.role && (l.type === 'text' || l.type === 'badge') && l.text) _fin[window.WorkMemoryEngine.normalizeText(l.text)] = 1;
+            });
+            var gone = ap.texts.filter(function (t) { return !_fin[t]; });
+            if (gone.length && meta.wmKept > 0) gone.forEach(function (t) { window.WorkMemory.dismissText(t); });
+          }
+        } catch (_tde) { void _tde; }
         var p = p0 || _activeEditPhoto();   // [#5] 열 때 잡은 '보던 장'에 저장(편집 중 바뀌지 않게 고정)
         if (p) { p.editedDataUrl = dataUrl; p.storyEdited = true; if (meta && meta.editState) p.editState = meta.editState; }   // [#11] 편집 상태 보존 → 재편집 이어가기
         if (_wsEd) { d.templateOutput = dataUrl; d.previewUrl = null; }   // [ws-hyper] 편집한 레이아웃 합성본을 대표 이미지로 → 미리보기/발행/저장에 반영
@@ -663,8 +707,15 @@
         }
         toast('사진을 꾸몄어요');
       },
-      onCancel: function () { d._editorNext = null; }   // 편집기 취소 시 라우팅 플래그 정리(다음 편집이 엉뚱히 미리보기로 안 가게)
+      onCancel: function () { _hideWmBanner(); d._editorNext = null; }   // 편집기 취소 시 배너+라우팅 플래그 정리
     });
+    // [T4] 자동 적용 배너 — 이번 오픈에 wm 레이어가 실제로 실렸을 때만(사진 editState 가 이긴 경우 제외).
+    try {
+      if (window.WorkMemoryEngine && window.WorkMemoryEngine._lastApply &&
+          _finalEs && _finalEs.layers && _finalEs.layers.some(function (l) { return l && l._src === 'wm'; })) {
+        _showWmBanner((editablePhotos() || []).length);
+      }
+    } catch (_be) { void _be; }
   }
   // [통합 편집기] 업로드 직후도 '옛 crop 화면'이 아니라 같은 ItdEditor 를 연다 → 완료하면 캡션 화면으로.
   //   새 업로드 사진은 editState=null 이라 자동으로 깨끗하게 열림(옛 편집 안 꺼냄).
@@ -4343,10 +4394,17 @@
 	      var _slotId = (d.slot && d.slot.id) || null;
 	      var _local = Promise.resolve(null);
 	      if (!d._publishedAt && _slotId && typeof window.loadSlotsFromDB === 'function') {
-	        _local = Promise.resolve(window.loadSlotsFromDB()).then(function (all) {
-	          var hit = (all || []).filter(function (x) { return x && String(x.id) === String(_slotId); })[0];
-	          return hit && hit.publish ? hit.publish : null;
-	        }).catch(function () { return null; });
+	        /* [T7 실측 2026-08-17] IDB 가 잠겨 있으면(다른 탭이 계정 전환 purge 를 걸어 delete 가
+	           blocked 되는 멀티탭 케이스 — 실발행 E2E 에서 실제로 발생) 이 조회가 영원히 안 끝나
+	           발행 버튼이 '올리는 중…' 채로 영구 먹통이 됐다. 3초 안에 못 읽으면 로컬 근거 없이 진행 —
+	           ①세션(_publishedAt) ②슬롯(d.slot.publish) 근거는 그대로 살아 있고 서버 idempotency 가 최후 방어선. */
+	        _local = Promise.race([
+	          Promise.resolve(window.loadSlotsFromDB()).then(function (all) {
+	            var hit = (all || []).filter(function (x) { return x && String(x.id) === String(_slotId); })[0];
+	            return hit && hit.publish ? hit.publish : null;
+	          }),
+	          new Promise(function (res) { setTimeout(function () { res(null); }, 3000); })
+	        ]).catch(function () { return null; });
 	      }
 	      var _kind = kind;
 	      _local.then(function (_remote) {
