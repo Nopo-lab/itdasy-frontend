@@ -363,6 +363,16 @@
   const _CH_LABEL = { all: '전체', instagram: '인스타', kakao: '카톡', naver: '네이버 톡톡' };
 
   // 채널 마크/정규화 — 공유 모듈(js/channel-mark.js) 정본 사용(중복 정의 금지). 폴백 instagram.
+  /* [2026-08-15] 대기 시간을 사람 말로. 예전엔 분을 그대로 찍어서 나흘 묵은 카드가
+     "5846분 전" 이었다(실계정 실측). 원장님이 그걸 보고 얼마나 오래됐는지 바로 못 읽는다 —
+     오래 기다린 손님일수록 급한데 말이다. */
+  function _waitKo(min) {
+    var m = Number(min);
+    if (!isFinite(m) || m <= 0) return '방금';
+    if (m < 60) return Math.round(m) + '분 전';
+    if (m < 1440) return Math.floor(m / 60) + '시간 전';
+    return Math.floor(m / 1440) + '일 전';
+  }
   function _normChannel(c) { return (window.ChannelMark && window.ChannelMark.norm) ? window.ChannelMark.norm(c) : 'instagram'; }
   function _channelMark(c) { return (window.ChannelMark && window.ChannelMark.mark) ? window.ChannelMark.mark(c) : ''; }
 
@@ -505,7 +515,7 @@
               <span style="font-size:14px;font-weight:700;color:#191F28;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(name)}</span>
               ${_gradeBadge(it.customer_grade)}
             </div>
-            <div style="font-size:11px;color:#8B95A1;margin-top:1px;">${(it.minutes_waiting <= 0 ? '방금' : it.minutes_waiting + '분 전')} · ${_esc(_intentKo(it.intent))}</div>
+            <div style="font-size:11px;color:#8B95A1;margin-top:1px;">${_waitKo(it.minutes_waiting)} · ${_esc(_intentKo(it.intent))}</div>
             ${summary ? `<div style="font-size:11px;color:#8B95A1;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(summary)}</div>` : ''}
           </div>
         </div>
