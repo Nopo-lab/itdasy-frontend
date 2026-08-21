@@ -1937,6 +1937,9 @@
         // [캐러셀] 콜라주(다중 셀)가 아니면서 편집기에서 새로 추가한 사진 → 플로우가 여러 장 게시(캐러셀) 후보로 반영.
         //   콜라주면 이미 한 장으로 합성되므로 별도 추가 안 함.
         meta.newPhotos = (isSingleL(S.layout) && S.photos && S.photos.length > (S._initPhotoN || 0)) ? S.photos.slice(S._initPhotoN || 0) : [];
+        // [관측 전용] 겹침 baseline 측정. close() 전에만 rect 가 유효하다. 배치는 안 바꾼다.
+        try { if (window.WMMetrics) window.WMMetrics.observePublish(meta.layers, S.photoUrl, metaGeometry()); }
+        catch (_mx) { void _mx; }
         S._saving = false;
         close(); refs.done.textContent = '완료'; refs.done.disabled = false;
         if (cb) cb(url, meta);   // StoryEditor 계약 호환(meta.layers)
@@ -1944,6 +1947,31 @@
     });
   }
   // 저장 시 레이어를 ShopStyle 학습 계약으로 — role·정규화 중심좌표(x/y)·폭·폰트·색·크기·외곽선/그림자.
+  /* [관측 전용 2026-08-22] 겹침 측정용 **실제 렌더 geometry**.
+     metaLayers 는 학습 계약이라 필드를 늘리지 않고 분리했다. 여기 결과는 어디에도 저장되지 않고
+     지표(WMMetrics)로만 간다. 편집 결과에는 **아무 영향도 주지 않는다.**
+
+     🔑 `h`(박스 높이)가 핵심 — metaLayers 는 폭과 폰트 크기만 준다. 높이를 폰트로 추정하면
+        실측 대비 1.36배 과대였다(측정값). getBoundingClientRect 는 지금 그려진 실제 박스다.
+     🔑 회전 요소의 rect 는 회전 후 AABB 라 실제 글자 박스보다 크다(15°→2.21배). 소비 쪽이
+        `rot` 을 보고 판정에서 제외한다. */
+  function metaGeometry() {
+    var R = refs.stage.getBoundingClientRect();
+    if (!R.width || !R.height) return [];
+    return S.layers.map(function (L, i) {
+      if (!L || !L.el) return null;
+      var b = L.el.getBoundingClientRect();
+      if (!b.width || !b.height) return null;
+      return {
+        idx: i, type: L.type, role: L.role || null,
+        origin: L._src === 'wm' ? 'system' : (L.role ? 'restored' : 'user'),
+        x: (b.left - R.left) / R.width, y: (b.top - R.top) / R.height,
+        w: b.width / R.width, h: b.height / R.height,
+        rot: L.rot || 0
+      };
+    }).filter(Boolean);
+  }
+
   function metaLayers() {
     var R = refs.stage.getBoundingClientRect();
     return S.layers.map(function (L) {

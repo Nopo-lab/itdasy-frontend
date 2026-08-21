@@ -8,6 +8,12 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'app-gallery-workshop.js?v=local-151154',
   'js/workspace/workspace-state.js?v=local-151154',
   'js/workspace/blob-url.js?v=local-151154',
+  /* [관측 전용 2026-08-22] 사진 문맥 · 계측 · 겹침 판정.
+     **화면·편집 결과를 바꾸지 않는다** — 재고 지표만 남긴다(applied:false).
+     되돌리기: 이 3줄을 지우면 전체 비활성(다른 코드가 이들을 참조하지 않는다). */
+  'js/photo/photo-context.js?v=20260822-obs1',
+  'js/workspace/wm-metrics.js?v=20260822-obs1',
+  'js/photo/safety-shadow.js?v=20260822-obs1',
   'js/workspace/shop-style.js?v=local-151154',
   'js/workspace/work-memory.js?v=local-151154',
   'js/workspace/work-memory-engine.js?v=local-151154',
@@ -140,7 +146,11 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'app-naver-talk-link.js?v=local-151154',
   'app-dm-settings-cache.js?v=local-151154',
   'app-dm-booking-form.js?v=local-151154',
-  'app-dm-preview.js?v=20260816-dmpreview',
+  /* [2026-08-22 라이브 404 수습] `app-dm-preview.js` 를 여기서 뺐다.
+     매니페스트엔 등록돼 있는데 **운영 레포에 파일이 없어 배포본에서 404** 였다.
+     증상이 조용해서 안 보였다: loader.ensure() 는 하나라도 실패하면 `_done` 을 안 세우므로
+     원장이 편집기를 열 때마다 photo 그룹 **161개를 통째로 재요청**한다.
+     참조하는 코드는 0건이라 이미 죽은 항목이었다 — 빼도 동작 변화가 없다. */
   'js/dm/ig-thread-link.js?v=local-151154',
   'app-dm-confirm-queue.js?v=20260815-devqa-tap',
   'app-comment-reply-queue.js?v=20260723-nestback',
