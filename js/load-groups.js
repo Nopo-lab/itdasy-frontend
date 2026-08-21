@@ -15,7 +15,9 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/workspace/wm-metrics.js?v=20260822-obs1',
   'js/photo/safety-shadow.js?v=20260822-obs1',
   // 지표 읽기 — URL `?safetyReport=1` 로만 표시. 네트워크 0·자동전송 0.
-  'js/photo/safety-readout.js?v=20260822-obs2',
+  'js/photo/safety-readout.js?v=20260822-obs3',
+  // 증거 모니터 — 게이트별 상태·필요 표본량 계산. 판정/안내만.
+  'js/photo/evidence-monitor.js?v=20260822-obs3',
   'js/workspace/shop-style.js?v=local-151154',
   'js/workspace/work-memory.js?v=local-151154',
   'js/workspace/work-memory-engine.js?v=local-151154',
