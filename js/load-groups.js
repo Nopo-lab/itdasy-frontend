@@ -24,6 +24,8 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/photo/content-intent.js?v=local-c1',
   // [STAGE C] 글자가 배경에 묻히는지 WCAG 대비비로 확인 → 색·외곽선·그림자 최소 수정.
   'js/photo/text-readability.js?v=local-c2',
+  // [STAGE D] 자동 초안 품질 — 원장이 되돌렸는지로 잰다. 저장소·네트워크 0.
+  'js/photo/draft-quality.js?v=local-d1',
   'js/photo/shop-baseline.js?v=20260822-sc1',
   'js/photo/safety-gate.js?v=20260822-sc1',
   'js/photo/edit-plan.js?v=20260822-sc1',
