@@ -26,6 +26,8 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/photo/text-readability.js?v=local-c2',
   // [STAGE D] 자동 초안 품질 — 원장이 되돌렸는지로 잰다. 저장소·네트워크 0.
   'js/photo/draft-quality.js?v=local-d1',
+  // [STAGE E] 원장별 개입 강도 — WMPrefs 를 EditPlan 언어로 번역만. 저장소·이벤트 신설 0.
+  'js/photo/draft-personalization.js?v=local-e1',
   'js/photo/shop-baseline.js?v=20260822-sc1',
   'js/photo/safety-gate.js?v=20260822-sc1',
   'js/photo/edit-plan.js?v=20260822-sc1',
