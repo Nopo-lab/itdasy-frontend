@@ -22,6 +22,8 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/photo/category-prior.js?v=20260822-sc1',
   // [STAGE C] 게시물 종류(인물/전후비교/후기캡처) — 브라우저 실측 25셀로 임계값 정함. EditPlan(기본 OFF)만 소비.
   'js/photo/content-intent.js?v=local-c1',
+  // [STAGE C] 글자가 배경에 묻히는지 WCAG 대비비로 확인 → 색·외곽선·그림자 최소 수정.
+  'js/photo/text-readability.js?v=local-c2',
   'js/photo/shop-baseline.js?v=20260822-sc1',
   'js/photo/safety-gate.js?v=20260822-sc1',
   'js/photo/edit-plan.js?v=20260822-sc1',

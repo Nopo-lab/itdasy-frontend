@@ -452,11 +452,22 @@
   }
   /* [T3 2026-08-17] 기억 선택 ctx — 사진 수·시술명·전/후 역할 여부. 전후는 사진 수(2장)만으론
      못 가려서 role 지정을 본다. 선택 규칙 본체는 work-memory-engine.js select() — flow 는 ctx 만 만든다. */
-  function _wmSelectCtx() {
+  /* [T8-H+ V2] texts 는 **게시물 성격(kind) 판정용**이다. 안 넘기면 classifyKind 가
+     service/unknown 밖에 못 내서 프로모션·가격표·안내가 전부 시술과 같은 바구니로 학습된다
+     (실계정 실험 준비 중 발견 — 분류기는 멀쩡한데 입력이 안 가고 있었다).
+     캡션 원문이 아니라 **화면에 얹은 문구**만 넘긴다 — 짧고, 성격을 직접 드러내고, PII 가 적다.
+     canonicalContext 는 이걸 kind 계산에만 쓰고 결과에는 안 남긴다(화이트리스트). */
+  function _wmSelectCtx(texts) {
     var eps = editablePhotos() || [];
     var hasB = false, hasA = false;
     eps.forEach(function (p) { if (p && p.role === 'before') hasB = true; else if (p && p.role === 'after') hasA = true; });
-    return { photoCount: eps.length, service: (d && d.service) || '', hasBeforeAfter: hasB && hasA };
+    return { photoCount: eps.length, service: (d && d.service) || '', hasBeforeAfter: hasB && hasA,
+      texts: Array.isArray(texts) ? texts.filter(Boolean).slice(0, 8) : undefined };
+  }
+  // 편집기에 얹히는 레이어에서 문구만 추려낸다(선택·학습이 **같은 입력**을 보게).
+  function _wmTexts(ls) {
+    return (ls || []).map(function (l) { return l && l.text; })
+      .filter(function (t) { return typeof t === 'string' && t.trim(); }).slice(0, 8);
   }
   function _autoComposeTemplate() {
     if (!(window.ItdEditor && window.ItdEditor.compose)) return;
@@ -470,7 +481,7 @@
     // [T1 엔진 2026-08-17] role 중복 제거를 자체 재구현하던 것 → 편집기와 같은 병합 규칙(work-memory-engine)으로.
     try {
       layers = (window.WorkMemoryEngine && window.WorkMemoryEngine.decorateLayers)
-        ? window.WorkMemoryEngine.decorateLayers(layers, _wmSelectCtx()) : layers;
+        ? window.WorkMemoryEngine.decorateLayers(layers, _wmSelectCtx(_wmTexts(layers))) : layers;
     } catch (_wmE) { void _wmE; }
     if (!layers.length) return;
     // 텍스트·자리·크기만으로 지문 — 로고 dataUrl 은 넣지 않는다(길이만 커지고 판별력은 role/좌표로 충분).
@@ -617,7 +628,7 @@
     //   restore(재편집 이어가기)면 안 얹고, 잇비 "평소 하던 대로"의 플래그 우회 규칙까지 엔진 소유.
     // [T3] once('이 스타일로 또') > auto(상황 스코어) > ★(auto OFF) — ctx 는 _wmSelectCtx 가 만든다.
     var _wmEd = (window.WorkMemoryEngine && window.WorkMemoryEngine.forEditor)
-      ? window.WorkMemoryEngine.forEditor(Object.assign({ restore: !!_restore, orch: d._orch, incoming: layers, layersOnly: !!_wsEd }, _wmSelectCtx()))
+      ? window.WorkMemoryEngine.forEditor(Object.assign({ restore: !!_restore, orch: d._orch, incoming: layers, layersOnly: !!_wsEd }, _wmSelectCtx(_wmTexts(layers))))
       : null;
     // [v590] 진입 시 올린 텍스트 역할 기록 — 저장 시 빠진 역할(사용자가 지움)을 스타일에서 비활성화하는 비교 기준.
     // [audit#3] 텍스트 역할 레이어는 type 필드가 없다(roleText 배치) — 'text'로만 필터하면 항상 빈 배열이라 '지운 레이어 기억' 기능이 죽어 있었음.
@@ -632,6 +643,27 @@
         _finalEs.layers = _esL.concat(_orchLayers);
       } catch (_me) { void _me; }
     }
+    /* [STAGE C] 자동 초안의 **배치·타이포**는 편집기 안에서 적용된다(`_applyPlanSafety`) —
+       레이어가 렌더되기 전이라 여기엔 실제 rect 가 없고, 추정으로 원장 화면을 바꾸지 않는다.
+
+       다만 '이 사진에 글자를 더 얹을까' 는 **레이어를 만들기 전에** 정해져야 해서 여기서 묻는다.
+       후기 캡처처럼 이미 글자가 꽉 찬 사진에 시술 텍스트를 또 올리면 도움이 아니라 훼손이다.
+       ⚠️ 판정이 아직 안 데워졌으면 **기다리지 않는다** — 편집기 여는 걸 늦추느니 기존 동작이 낫다. */
+    try {
+      if (window.EditPlan && window.EditPlan.autoDraftOn && window.EditPlan.autoDraftOn() &&
+          window.ContentIntent && !_restore) {
+        var _ci = window.ContentIntent.peek(photo);
+        if (_ci && _ci.layout && _ci.layout.canAddText === false) {
+          var _before = layers.length;
+          layers = layers.filter(function (L) { return !(L && L.type === 'text' && L.role); });
+          if (layers.length !== _before) { d._planSkippedText = _before - layers.length; }
+        }
+        // 다음 번(다른 장·재오픈)을 위해 데워둔다
+        window.ContentIntent.warm(photo);
+      } else if (window.ContentIntent && window.ContentIntent.warm) {
+        window.ContentIntent.warm(photo);   // 플래그와 무관하게 캐시만 채워둔다(비용 0 — 이미 뜬 통계)
+      }
+    } catch (_pe) { void _pe; }
     Editor.open({
       photoUrl: photo,
       photos: (_wsEd && _wsEd.mode === 'collage') ? _wsEd.photos : (editablePhotos() || []).map(function (p) { return p.editedDataUrl || _cleanBase(p) || photoUrl(p); }),   // [itd][#5] 콜라주 셀은 편집본 우선 · [ws-hyper] 레이아웃 매칭 시 슬롯 순서대로
@@ -642,8 +674,29 @@
       // [#17] 이어서 편집 · [ws-hyper] 레이아웃 매칭 시 콜라주 상태 주입(슬롯 재조정) · [T-115 P2] 없으면 ★기본 작업 기억
       // [2026-07-17] 콜라주(레이아웃)엔 기억의 '꾸밈'만 합쳐 얹는다 — 칸 배치는 레이아웃 것 그대로.
       editState: _finalEs,
+      /* [T8-G] 🔴 관찰에 붙일 상황(context). 안 넘기면 WMSignals.begin 이 {} 를 받아
+         contextKey 가 전부 '||' 한 바구니가 된다 — 시술·사진수·성격이 다 뭉개져서
+         T8-C 의 context 별 집계도, T8-E 의 exact/service/kind 계층도 통째로 죽는다.
+         (실제 플로우 실측으로 잡음 — 유닛테스트는 ctx 를 직접 넣어서 못 봤다.)
+         **선택(sctx)과 같은 identity 를 써야** 학습한 자리에서 다시 꺼내 쓸 수 있다. */
+      wmContext: (function () {
+        // [T8-H] 선택과 **같은** canonical builder. 여기서 손으로 조립하면 또 어긋난다.
+        try {
+          return (window.WorkMemoryEngine && window.WorkMemoryEngine.canonicalContext)
+            ? window.WorkMemoryEngine.canonicalContext(_wmSelectCtx(_wmTexts(layers))) : _wmSelectCtx(_wmTexts(layers));
+        } catch (_ke) { void _ke; return _wmSelectCtx(_wmTexts(layers)); }
+      })(),
       onDone: function (dataUrl, meta) {
         _hideWmBanner();   // [T4] 편집기가 닫히면 배너·타이머 정리(다음 세션에 낡은 배너 금지)
+        /* [T8-F] 관찰 세션을 닫아 **보관만** 한다 — 여기서 학습하지 않는다.
+           발행할지 저장할지 그냥 닫을지가 증거 강도를 좌우하는데 그건 아직 모른다.
+           undo(통째 되돌리기) 여부는 _lastApply.undone 이 들고 있다(T4·T5 와 같은 출처). */
+        try {
+          if (window.WMLearn) {
+            var _apL = window.WorkMemoryEngine && window.WorkMemoryEngine._lastApply;
+            window.WMLearn.hold({ undone: !!(_apL && _apL.undone) });
+          }
+        } catch (_t8f) { void _t8f; }
         /* [T5] dismissed veto 기록 — 원장이 '기억에서 온 role 없는 문구'를 지운 채 **저장 완료**했으면
            그 문구를 다시는 자동으로 안 얹는다(3회 조건을 재충족해도). 취소로 닫힌 세션은 판정 안 함.
            통째 빼기 판정은 meta.wmKept(남은 wm 레이어 수, 스티커·선 포함) —
@@ -707,7 +760,11 @@
         }
         toast('사진을 꾸몄어요');
       },
-      onCancel: function () { _hideWmBanner(); d._editorNext = null; }   // 편집기 취소 시 배너+라우팅 플래그 정리
+      onCancel: function () {
+        _hideWmBanner(); d._editorNext = null;   // 편집기 취소 시 배너+라우팅 플래그 정리
+        // [T8-F] 취소 = 결론. 원장이 **실제로 바꾼 것**만 약하게 남고 자동적용 유지분은 증거가 아니다.
+        try { if (window.WMLearn) { window.WMLearn.hold({}); window.WMLearn.commitAsync('cancelled'); } } catch (_t8c) { void _t8c; }
+      }
     });
     // [T4] 자동 적용 배너 — 이번 오픈에 wm 레이어가 실제로 실렸을 때만(사진 editState 가 이긴 경우 제외).
     try {
@@ -4288,6 +4345,8 @@
     var done = function () {
       toast(d.customerName ? (d.customerName + ' 고객 기록에 저장했어요.') : '작업실에 저장했어요.');
       try { if (window.WorkMemory) window.WorkMemory.captureAndNotify(slot, d); } catch (_wm) { void _wm; }   // [T-115] 원장 작업 기억
+      // [T8-F] 작업실 저장 = 원장이 결과를 받아들였다. 다만 '발행' 보다 약한 증거다.
+      try { if (window.WMLearn) window.WMLearn.commitAsync('saved', 'save:' + slot.id); } catch (_t8s) { void _t8s; }
       close();
       if (window.WorkspaceV2 && window.WorkspaceV2.refresh) window.WorkspaceV2.refresh();
     };
@@ -4329,6 +4388,8 @@
     var _pubSlot = buildSlot();
     if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) { try { window.WorkspaceAdapter.saveItem(_pubSlot); } catch (_e) { void _e; } }
     try { if (window.WorkMemory) window.WorkMemory.captureAndNotify(_pubSlot, d); } catch (_wm) { void _wm; }   // [T-115] 원장 작업 기억
+    // [T8-F] '올렸어요' 수동 표시도 발행이다. key 로 같은 슬롯의 중복 결론을 막는다.
+    try { if (window.WMLearn) window.WMLearn.commitAsync('published', 'pub:' + _pubSlot.id); } catch (_t8p) { void _t8p; }
     _closePublishSheet();
     toast('게시물이 저장되었습니다');
     // [v548] 게시 완료 시 작업이 끝났음을 명확히 — 플로우 닫고 작업실 홈으로(카드 게시완료 badge 갱신).
@@ -4544,6 +4605,9 @@
           var _pubSlot = buildSlot();
           if (window.WorkspaceAdapter.saveItem) { try { window.WorkspaceAdapter.saveItem(_pubSlot); } catch (_e) { void _e; } }
           try { if (window.WorkMemory) window.WorkMemory.captureAndNotify(_pubSlot, d); } catch (_wm) { void _wm; }   // [T-115] 원장 작업 기억
+          /* [T8-F] 실제 인스타 발행 성공 = 가장 강한 positive. 응답을 기다리지 않는다(commitAsync)
+             — 학습 계산·IDB 쓰기로 발행 완료 UI 가 늦어지면 안 된다. 실패해도 발행은 성공 그대로. */
+          try { if (window.WMLearn) window.WMLearn.commitAsync('published', 'pub:' + _pubSlot.id); } catch (_t8i) { void _t8i; }
           _pubFinish(function () {
             // [P1#1] 완료 애니메이션(~1.5s) 도중에도 세션이 바뀔 수 있다 — 그때 setScreen 하면
             //   원장이 보고 있던 새 글 화면을 강제로 낚아챈다.

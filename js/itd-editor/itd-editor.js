@@ -600,6 +600,7 @@
     var isShape = L.type === 'shape' && L.w != null && L.h != null;
     rsd = { L: L, cx: cx, cy: cy, d0: Math.max(8, Math.hypot(e.clientX - cx, e.clientY - cy)), s0: (L.scale || 1),
       shape: isShape, sx: e.clientX, sy: e.clientY, w0: L.w, h0: L.h, x0: L.x, y0: L.y, before: isShape ? { w: L.w, h: L.h, x: L.x, y: L.y } : null };
+    try { rsd._serSnap = _serLayer(L); } catch (_rs) { void _rs; rsd._serSnap = null; }   // [T8-H+ V2] 정규화 기준
     try { e.target.setPointerCapture(e.pointerId); } catch (_) { void _; }
   }
   // [2026-07-26 원영] 텍스트 가로 늘리기 — 폭을 정하면 pre-wrap 고정폭(그 폭에서 자동 줄바꿈),
@@ -617,6 +618,7 @@
   function onWDown(e, L) {
     e.preventDefault(); e.stopPropagation(); selectLayer(L);
     wd = { L: L, sx: e.clientX, sy: e.clientY, w0: L.wrapW || (L.tx ? L.tx.offsetWidth : 100), before: { wrapW: L.wrapW || null } };
+    try { wd._serSnap = _serLayer(L); } catch (_ws) { void _ws; wd._serSnap = null; }   // [T8-H+ V2] 정규화 기준
     try { e.target.setPointerCapture(e.pointerId); } catch (_) { void _; }
   }
   function selectLayer(L) {
@@ -745,11 +747,16 @@
       drag = null;
       var q1 = L._pts[ids[0]], q2 = L._pts[ids[1]];
       lpinch = { L: L, ids: [ids[0], ids[1]], d0: Math.max(8, Math.hypot(q1.x - q2.x, q1.y - q2.y)), a0: Math.atan2(q2.y - q1.y, q2.x - q1.x), s0: L.scale || 1, r0: L.rot || 0 };
+      try { lpinch._serSnap = _serLayer(L); } catch (_ps) { void _ps; lpinch._serSnap = null; }   // [T8-H+ V2] 정규화 기준 스냅샷
       return;
     }
     if (L.type === 'text' && L._tapEdit && Date.now() - L._tapEdit < 350) { editText(L); return; }
     L._tapEdit = Date.now();
     drag = { L: L, pid: e.pointerId, sx: e.clientX, sy: e.clientY, ox: L.x, oy: L.y, moved: false };   // [#9] ox/oy=이동 전 위치(되돌리기용)
+    /* [T8-H+ V2] 관측용 스냅샷 — **_serLayer 와 같은 정규화 기준**으로 찍는다.
+       런타임 L.x 는 스테이지 픽셀이고 저장 스키마의 x 는 0~1 이다. 픽셀을 그대로 학습하면
+       personalize 가 "선호 x=137" 을 0~1 좌표에 적용해 화면 밖으로 날려버린다. */
+    try { drag._serSnap = _serLayer(L); } catch (_ss) { void _ss; drag._serSnap = null; }
     L.el.style.cursor = 'grabbing';
   }
   document.addEventListener('pointermove', function (e) {
@@ -801,21 +808,50 @@
   function cleanupLayerPointer(e) {
     // [#1 드래그 회귀] 어느 경로로 끝나든 모든 레이어의 포인터 추적을 지운다(안 지우면 stale 포인터로 다음 드래그가 핀치로 오인됨).
     (S && S.layers || []).forEach(function (L) { if (L._pts) delete L._pts[e.pointerId]; });
-    if (lpinch && (!lpinch.L._pts || Object.keys(lpinch.L._pts).length < 2)) lpinch = null;
+    /* [T8-H+] 핀치 확대/축소가 **끝났을 때** 크기 취향 1건. lpinch 가 null 되기 전에 읽어야 한다.
+       pointermove 마다 남기면 한 번 조작에 수백 건이 쌓여 IDB·배터리가 죽는다. */
+    if (lpinch && (!lpinch.L._pts || Object.keys(lpinch.L._pts).length < 2)) {
+      var _pl = lpinch.L;
+      if (_pl && lpinch.s0 != null && _pl.scale !== lpinch.s0) {
+        // scale(배율)이 아니라 정규화 size 로 — 저장 스키마와 같은 축이어야 적용이 맞는다.
+        var _pa = null; try { _pa = _serLayer(_pl); } catch (_pe) { void _pe; }
+        if (lpinch._serSnap && _pa && _pa.size != null) {
+          _sig('size_changed', { layerKey: _pl.role || _pl.type,
+            before: lpinch._serSnap.size, after: _pa.size });
+        }
+      }
+      lpinch = null;
+    }
     if (drag) {
       // [#9] 레이어를 실제로 옮겼으면 되돌리기(↩) 스택에 — 실수로 옮긴 글씨/스티커/도형을 원위치로.
       if (drag.moved && (drag.L.x !== drag.ox || drag.L.y !== drag.oy)) {
         _pushOp({ op: 'move', L: drag.L, before: { x: drag.ox, y: drag.oy }, after: { x: drag.L.x, y: drag.L.y } });
+        // [T8-H+] 이동이 끝났을 때 위치 취향 1건. _pushOp 계약(op 종류)은 안 건드린다.
+        var _sa = null; try { _sa = _serLayer(drag.L); } catch (_se) { void _se; }
+        if (drag._serSnap && _sa) {
+          _sig('position_changed', { layerKey: drag.L.role || drag.L.type,
+            before: { x: drag._serSnap.x, y: drag._serSnap.y }, after: { x: _sa.x, y: _sa.y } });
+        }
       }
       drag.L.el.style.cursor = 'grab'; drag = null;
     }
     // [#10] 도형 늘리기(크기 변경)도 되돌리기(↩) 스택에.
     if (rsd && rsd.shape && rsd.before && (rsd.L.w !== rsd.before.w || rsd.L.h !== rsd.before.h)) {
       _pushOp({ op: 'resize', L: rsd.L, before: rsd.before, after: { w: rsd.L.w, h: rsd.L.h, x: rsd.L.x, y: rsd.L.y } });
+      var _ra = null; try { _ra = _serLayer(rsd.L); } catch (_re2) { void _re2; }
+      if (rsd._serSnap && _ra) {
+        _sig('shape_geometry_changed', { layerKey: rsd.L.role || rsd.L.type,
+          before: { w: rsd._serSnap.w, h: rsd._serSnap.h }, after: { w: _ra.w, h: _ra.h } });
+      }
     }
     // [2026-07-26 원영] 텍스트 가로 늘리기도 되돌리기(↩) 스택에.
     if (wd && wd.L.wrapW !== wd.before.wrapW) {
       _pushOp({ op: 'wrap', L: wd.L, before: wd.before, after: { wrapW: wd.L.wrapW } });
+      var _wa = null; try { _wa = _serLayer(wd.L); } catch (_we) { void _we; }
+      if (wd._serSnap && _wa) {
+        _sig('shape_geometry_changed', { layerKey: wd.L.role || wd.L.type,
+          before: { w: wd._serSnap.w }, after: { w: _wa.w } });
+      }
     }
     rotd = null; rsd = null; wd = null;
   }
@@ -1051,29 +1087,95 @@
   function _applyPlanTypography(plan) {
     if (!plan || !plan.typography || !S) return 0;
     var t = plan.typography, n = 0;
+    var R = _stageWH();
     S.layers.forEach(function (L) {
       if (!L || !L.tx) return;
       if (L.type !== 'text' && L.type !== 'badge') return;
       if (L.role) return;                       // 역할 레이어는 템플릿 소유
       if (L._src === 'wm') return;              // 작업기억이 얹은 건 그쪽 소관
-      // 폰트 — 지원 키만. 모르는 키가 오면 기존 폰트를 유지한다(외부 문자열 직접 주입 금지)
-      if (t.font && t.font.value && !L._planFont) {
-        var f = fontByKey(t.font.value);
-        if (f && (!L.font || !L.font.key)) {
+      var own = L._own || {};
+
+      /* 🔑 "값이 비었나" 가 아니라 **"원장이 골랐나"** 로 판단한다.
+         새 텍스트는 흰색·가운데정렬·40px 로 미리 채워져 나오는데 그건 편집기 기본값이다.
+         값으로 판단하면 이 축들은 영영 안 채워진다 — 실제로 그 상태였다. */
+      if (t.font && t.font.value && !own.font && !L._planFont) {
+        var f = fontByKey(t.font.value);        // 지원 키만. 모르는 키면 기존 폰트 유지
+        if (f) {
           L.font = f; L.tx.style.fontFamily = f.family; L.tx.style.fontWeight = f.weight;
           L._planFont = true; L._src = L._src || 'plan'; n++;
         }
       }
-      if (t.color && t.color.value && (L.color == null || L.color === '')) {
+      if (t.color && t.color.value && !own.color) {
         L.color = t.color.value; L.tx.style.color = t.color.value;
         L._src = L._src || 'plan'; n++;
       }
-      if (t.align && t.align.value && (L.align == null || L.align === '')) {
+      if (t.align && t.align.value && !own.align) {
         L.align = t.align.value; L.tx.style.textAlign = t.align.value;
         L._src = L._src || 'plan'; n++;
       }
+      /* 크기 — 업종 실측 비율(스테이지 높이 대비). **이미 비슷하면 안 건드린다**:
+         자동 초안이 매번 몇 px 씩 흔들면 원장 눈엔 그냥 버그다. */
+      if (t.size && t.size.value && !own.size && R.height) {
+        var want = Math.max(12, Math.round(t.size.value * R.height));
+        var cur = L.fontSize || 0;
+        if (cur && Math.abs(want - cur) / cur > 0.15) {
+          L.fontSize = want; L.tx.style.fontSize = want + 'px';
+          L._src = L._src || 'plan'; n++;
+        }
+      }
     });
     return n;
+  }
+
+  /* [STAGE C] 가독성 — **자리가 정해진 뒤에** 그 자리 배경으로 판정한다.
+     Safety 가 글자를 옮기면 배경이 바뀐다. 옮기기 전에 재면 틀린 배경으로 판정한다.
+     그래서 이 패스는 반드시 Safety **다음**이다.
+
+     고치는 순서는 색 → 외곽선 → 그림자. 원장 디자인을 덜 건드리는 쪽부터다. */
+  function _planReadabilityPass(url, alive) {
+    if (!(window.TextReadability && window.PhotoContext)) return Promise.resolve(0);
+    if (!window.EditPlan || !window.EditPlan.SCOPE.readability) return Promise.resolve(0);
+    return window.PhotoContext.of(url).then(function (pctx) {
+      if (!pctx || !pctx.lumGrid || (alive && !alive())) return 0;
+      var R = refs.stage.getBoundingClientRect(); if (!R.width || !R.height) return 0;
+      var fixed = 0;
+      S.layers.forEach(function (L) {
+        if (!L || !L.tx || (L.type !== 'text' && L.type !== 'badge')) return;
+        if (L._src === 'wm') return;
+        /* 🔑 역할(role) 레이어도 **여기서는** 본다. 타이포와 다른 점이다.
+           브라우저에서 실제로 열어보고 알았다: 자동 초안이 올리는 시술 텍스트는 전부 role 이라
+           role 을 건너뛰면 실사용 경로에서 이 기능이 **한 번도 안 돈다**.
+           단, 색은 템플릿(ShopStyle)이 정한 원장의 선택이므로 **절대 안 바꾼다** —
+           외곽선·그림자로만 띄운다. 안 보이는 문구를 그대로 두는 것보다 낫고,
+           원장이 고른 색을 바꾸는 것보다 덜 침범한다. */
+        var isRole = !!L.role;
+        var own = L._own || {};
+        var b = L.el.getBoundingClientRect();
+        if (!b.width || !b.height) return;
+        var rect = { x: (b.left - R.left) / R.width, y: (b.top - R.top) / R.height,
+          w: b.width / R.width, h: b.height / R.height };
+        /* 🔑 스테이지 좌표를 **사진 좌표로 옮긴다.** 게시물 비율이 사진 비율과 다르면
+           cover 가 사진을 잘라서, 안 옮기면 엉뚱한 자리의 밝기를 읽는다.
+           (실측: 같은 사진이 4:5 에선 외곽선이 붙고 1:1 에선 안 붙었다) */
+        var pRect = window.PhotoContext.mapStageRect(pctx, rect, R.width / R.height, S.fitMode);
+        if (!pRect) return;                     // contain 레터박스 위 — 사진이 아니라 판정 불가
+        var bg = window.PhotoContext.regionLum(pctx, pRect);
+        if (!bg) return;
+        var fix = window.TextReadability.resolve({
+          color: L.color, colorIsDefault: !isRole && !own.color, bg: bg,
+          hasStroke: !!L.stroke, hasShadow: !!L.shadow
+        });
+        if (!fix) return;                       // 이미 잘 보인다 — 아무것도 안 한다
+        if (fix.color && !isRole && !own.color) { L.color = fix.color; L.tx.style.color = fix.color; }
+        if (fix.stroke && !L.stroke) { L.stroke = true; L.tx.style.webkitTextStroke = '1px rgba(0,0,0,.5)'; }
+        if (fix.shadow && !L.shadow) { L.shadow = true; L.tx.style.textShadow = '0 2px 8px rgba(0,0,0,.35)'; }
+        L._src = L._src || 'plan';
+        L._planRead = fix;                      // 왜 바꿨는지 남긴다(디버그·되돌리기)
+        fixed++;
+      });
+      if (fixed) { try { S._planRead = fixed; } catch (_e) { void _e; } }
+      return fixed;
+    }).catch(function () { return 0; });
   }
 
   /* [STAGE C] 원장이 **직접 놓은 텍스트**가 피사체를 가리면 안전한 자리로 옮긴다.
@@ -1094,6 +1196,14 @@
     if (S.layout && (S.layout.kind || 'single') !== 'single') return;   // 콜라주는 칸이 배치를 소유
     S._planApplied = true;
 
+    /* 🔴 세션 토큰 — 편집기를 닫고 **바로 다시 열면** 이전 세션의 비동기 체인이
+       아직 날아다닌다. 그 체인은 모듈 전역 `S` 를 보므로, 가드를 `!S` 로만 두면
+       **새 세션 레이어를 이전 세션의 판단으로 건드린다.**
+       브라우저 실측으로 잡았다: 닫고 바로 여니 외곽선이 붙었다가 사라졌다.
+       (이 레포에서 이미 나온 패턴이다 — 비동기 결과는 자기 세대인지 확인하고 쓴다) */
+    var mySession = S;
+    var alive = function () { return S === mySession && !S._userMoved; };
+
     /* 🔑 순서: 타이포 먼저 → 렌더 → **그 다음에** geometry 측정 → Safety.
        타이포가 글자 박스 크기를 바꾸므로, 바꾸기 전 rect 로 Safety 를 정하면 틀린 자리로 옮긴다. */
     var planCtx = {
@@ -1102,20 +1212,24 @@
       photoCount: (S.photos || []).length
     };
     window.EditPlan.compute(planCtx).then(function (plan) {
-      if (!plan || !S || S._userMoved) return;
+      if (!plan || !alive()) return;
       var typoN = _applyPlanTypography(plan);
       if (typoN) { try { S._planTypo = typoN; } catch (_e) { void _e; } }
       // 타이포 반영 뒤의 **실제** rect 로 다시 잰다
       var geoms = metaGeometry();
       if (!geoms.length) return;
-      return _planSafetyPass(geoms, url);
+      // Safety 로 자리가 정해진 **다음에** 가독성을 본다 — 옮기면 배경이 바뀐다
+      return _planSafetyPass(geoms, url, alive).then(function () {
+        if (!alive()) return 0;
+        return _planReadabilityPass(url, alive);
+      });
     }).catch(function () { /* 초안 실패는 조용히 — 편집기는 정상 동작 */ });
   }
 
   /* Safety 패스 — 타이포 반영 **후의** geometry 로만 판정한다. */
-  function _planSafetyPass(geoms, url) {
+  function _planSafetyPass(geoms, url, alive) {
     return window.PhotoContext.of(url).then(function (pctx) {
-      if (!pctx || !pctx.subjectRegion || !S || S._userMoved) return;
+      if (!pctx || !pctx.subjectRegion || (alive && !alive())) return;
       var R = refs.stage.getBoundingClientRect(); if (!R.width || !R.height) return;
       var det = window.SafetyShadow.detect(geoms, pctx);
       if (!det.verdictReliable) return;
@@ -1171,9 +1285,17 @@
     refs.aln.querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-aln') === L.align); });
     refs.size.value = L.scale;
   }
-  function applyFont(key) { var L = activeText(); if (!L) return; var f = FONTS.filter(function (x) { return x.key === key; })[0]; L.font = f; L.tx.style.fontFamily = f.family; L.tx.style.fontWeight = f.weight; }
-  function applyColor(c) { var L = activeText(); if (!L) return; L.color = c; L.tx.style.color = c; }
-  function applyAlign(a) { var L = activeText(); if (!L) return; L.align = a; L.tx.style.textAlign = a; }
+  /* [T8-A 2026-08-19] 원장 조작 관찰 — undo 스택(_pushOp)과 완전히 분리된 경로다.
+     _pushOp 에 속성변경을 넣으면 ↩ 동작이 바뀌어 T4 계약이 깨지므로 여기서만 기록한다.
+     system 스코프(자동적용·복원·undo) 안에서는 WMSignals 가 알아서 무시한다. */
+  function _sig(ev, p) { try { if (window.WMSignals) window.WMSignals.note(ev, p); } catch (_e) { void _e; } }
+  /* [STAGE C] `_own` = **원장이 직접 고른 축**. 자동 초안은 여기 표시된 축을 절대 안 덮는다.
+     값으로 추측하면 틀린다 — 새 텍스트는 흰색·가운데정렬로 **미리 채워져** 나오는데
+     그건 편집기 기본값이지 취향이 아니다. 그래서 고르는 순간에 도장을 찍는다. */
+  function _own(L, k) { if (L) { (L._own || (L._own = {}))[k] = 1; } }
+  function applyFont(key) { var L = activeText(); if (!L) return; var f = FONTS.filter(function (x) { return x.key === key; })[0]; _sig('font_changed', { layerKey: L.role || L.type, before: L.font && L.font.key, after: key }); L.font = f; L.tx.style.fontFamily = f.family; L.tx.style.fontWeight = f.weight; _own(L, 'font'); }
+  function applyColor(c) { var L = activeText(); if (!L) return; _sig('color_changed', { layerKey: L.role || L.type, before: L.color, after: c }); L.color = c; L.tx.style.color = c; _own(L, 'color'); }
+  function applyAlign(a) { var L = activeText(); if (!L) return; _sig('alignment_changed', { layerKey: L.role || L.type, before: L.align, after: a }); L.align = a; L.tx.style.textAlign = a; _own(L, 'align'); }
   function applyScale(v) { var L = S.active; if (!L) return; L.scale = parseFloat(v); applyXf(L); }
   function activeText() { return S.active && S.active.type === 'text' ? S.active : null; }
 
@@ -1738,7 +1860,31 @@
   function drawUp() { dpos = null; }
 
   /* ── 합성 내보내기 (사진 줌·콜라주·레이어 회전 반영) ── */
-  function loadImg(url) { return new Promise(function (res) { var im = new Image(); im.crossOrigin = 'anonymous'; im.onload = function () { res(im); }; im.onerror = function () { res(null); }; im.src = url; }); }
+  /* [신뢰성 2026-08-21] 이미지가 load 도 error 도 안 주면 예전엔 **영영 pending** 이었다.
+     그러면 exportComposite 콜백이 안 불리고 S._saving 이 true 로 굳어 완료 버튼이 영구 잠긴다
+     — 원장이 편집물을 저장도 발행도 못 하고 앱을 껐다 켜야 했다(브라우저 실측으로 재현).
+     느린 회선·CDN 지연·큰 스티커 자산(T6 assetRef)에서 충분히 발생한다.
+     load / error / timeout 셋 중 하나로 **반드시** 정착하고, 늦게 온 이벤트는 무시한다. */
+  /* 매직넘버를 함수 안에 박지 않는다 — 회선 상황에 따라 조정할 수 있어야 한다.
+     너무 짧으면 멀쩡한 저장이 깨지고, 너무 길면 그동안 원장이 갇힌다. */
+  var IMG_LOAD_TIMEOUT_MS = 8000;    // 이미지 1장이 응답을 안 줄 때 포기하는 시점
+  var SAVE_WATCHDOG_MS = 20000;      // export 가 끝내 응답 없을 때 저장 상태를 강제로 푸는 최후 안전망
+
+  function loadImg(url) {
+    return new Promise(function (res) {
+      var im = new Image(), done = false, tid = null;
+      var settle = function (v) {
+        if (done) return;                      // 이중 정착 금지 — 타임아웃 직후 온 load 가 결과를 못 뒤집는다
+        done = true; if (tid) clearTimeout(tid); tid = null;
+        res(v);
+      };
+      im.crossOrigin = 'anonymous';
+      im.onload = function () { settle(im); };
+      im.onerror = function () { settle(null); };
+      tid = setTimeout(function () { settle(null); }, IMG_LOAD_TIMEOUT_MS);
+      try { im.src = url; } catch (_e) { void _e; settle(null); }
+    });
+  }
   function coverRect(im, w, h) { var sc = Math.max(w / im.width, h / im.height); return { dw: im.width * sc, dh: im.height * sc }; }
   function containRect(im, w, h) { var sc = Math.min(w / im.width, h / im.height); return { dw: im.width * sc, dh: im.height * sc }; }
   function fitRect(im, w, h) { return (S.fitMode === 'contain') ? containRect(im, w, h) : coverRect(im, w, h); }
@@ -1762,6 +1908,10 @@
     else { rrPath(c, -ow / 2 + sw / 2, -oh / 2 + sw / 2, ow - sw, oh - sw, Math.max(0, rad - sw / 2)); c.stroke(); }
   }
   function exportComposite(cb) {
+    // 콜백은 **정확히 한 번**. 성공·실패·예외 어느 경로로 와도 한 번만 부른다.
+    var _cbDone = false;
+    var _photoDrawn = 0;   // 실제로 그려진 사진 수 — 0 이면 저장 실패로 본다(아래 참조)
+    var _fire = function (url) { if (_cbDone) return; _cbDone = true; try { cb(url); } catch (_e) { void _e; } };
     var r = refs.stage.getBoundingClientRect();
     var dpr = Math.min(window.devicePixelRatio || 1, 2.5);
     var cv = document.createElement('canvas'); cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
@@ -1776,7 +1926,7 @@
       var _xf = function (cx) { cx.translate(S.pz.tx, S.pz.ty); cx.translate(r.width / 2, r.height / 2);
         cx.scale(S.pz.scale * sCs, S.pz.scale * sCs); cx.rotate(sDeg * Math.PI / 180); cx.translate(-r.width / 2, -r.height / 2); };
       baseDone = Promise.all([loadImg(S.photoUrl), _sFg ? loadImg(_sFg) : Promise.resolve(null)]).then(function (res) {
-        var img = res[0], mk = res[1]; if (!img) return; var cr = fitRect(img, r.width, r.height);
+        var img = res[0], mk = res[1]; if (!img) return; _photoDrawn++; var cr = fitRect(img, r.width, r.height);
         var dx = (r.width - cr.dw) / 2, dy = (r.height - cr.dh) / 2;
         if (mk) {
           /* [#11 2026-07-18] 누끼 사진 = 배경 원래색 유지. ① 오프스크린에 '보정한 사진'을 같은 변형으로 그리고
@@ -1807,6 +1957,7 @@
         var imgs = both[0], mks = both[1];
         imgs.forEach(function (img, k) {
           if (!img) return;
+          _photoDrawn++;
           var cc = cellsSpec[k];
           var x = cc[0] * r.width + gap / 2, y = cc[1] * r.height + gap / 2, w = cc[2] * r.width - gap, h = cc[3] * r.height - gap;
           var cr = fitRect(img, w, h);
@@ -1895,7 +2046,15 @@
         }
         c.restore();
       });
-      try { cb(cv.toDataURL('image/jpeg', 0.92)); } catch (e) { void e; cb(null); }
+      /* [신뢰성] 사진이 **하나도** 안 실렸으면 성공으로 치지 않는다.
+         예전엔 이미지가 전부 타임아웃돼도 글씨만 있는 합성본을 만들어 저장했고,
+         원장이 그걸 그대로 발행할 수 있었다(브라우저 실측). 일부만 실패한 콜라주는
+         기존대로 나머지를 살린다 — 여기서 막는 건 '사진이 통째로 없는' 경우뿐이다. */
+      if (!_photoDrawn) { _fire(null); return; }
+      try { _fire(cv.toDataURL('image/jpeg', 0.92)); } catch (e) { void e; _fire(null); }
+    }).catch(function (_e) {
+      // 체인 어디서 터져도 콜백이 증발하면 안 된다 — 증발 = 저장 영구 잠김.
+      void _e; _fire(null);
     });
   }
 
@@ -2038,8 +2197,28 @@
       if (S._saving) return;   // [audit] 완료 더블탭 방지(저장 중 재클릭 무시)
       S._saving = true;
       var cb = S.onDone, _sess = S; refs.done.textContent = '저장 중…'; refs.done.disabled = true;
+      /* [신뢰성 2026-08-21] 저장 실패는 **데드락이 아니어야 한다.**
+         예전엔 export 콜백이 안 오면 _saving 이 true 로 굳어 재클릭이 전부 막혔다.
+         이제 성공·실패·예외·타임아웃 어느 경로로 끝나도 여기서 상태를 되돌린다.
+         워치독은 최후 안전망 — export 가 끝내 응답이 없어도 원장을 풀어준다. */
+      var _restored = false;
+      var _restoreSaveUi = function () {
+        if (_restored) return; _restored = true;
+        if (_wd) { clearTimeout(_wd); _wd = null; }
+        _sess._saving = false;
+        try { refs.done.textContent = '완료'; refs.done.disabled = false; } catch (_e) { void _e; }
+      };
+      var _wd = setTimeout(function () {
+        _restoreSaveUi();                       // 편집기는 열어 둔 채 재시도 가능하게
+        try { toastIt('저장이 오래 걸려요 — 다시 눌러 주세요'); } catch (_e) { void _e; }
+      }, SAVE_WATCHDOG_MS);
       exportComposite(function (url) {
-        if (S !== _sess || _sess._cancelled) { _sess._saving = false; return; }   // [audit] 저장 중 back/취소로 닫혔거나 재진입 → onDone 이중발화 안 함
+        if (S !== _sess || _sess._cancelled) { _restoreSaveUi(); return; }   // [audit] 저장 중 back/취소로 닫혔거나 재진입 → onDone 이중발화 안 함
+        if (!url) {                             // 합성 실패 — 닫지 않는다. 작업물을 잃지 않게.
+          _restoreSaveUi();
+          try { toastIt('저장에 실패했어요 — 다시 눌러 주세요'); } catch (_e) { void _e; }
+          return;
+        }
         var meta = { layers: metaLayers(), editState: _exportState() };   // [학습] close() 전에 좌표 계산(닫으면 stage rect=0 → NaN). editState=재편집 이어가기(#4/#8/#11/#16)
         // [T5] 저장 시점에 남은 작업기억 레이어 수 — flow 의 dismissed(문구 veto) 판정 기준선.
         //   0 = 통째 빼기(자동화 거부, 문구 판단 아님) / 1+ = 자동화는 수용했는데 특정 문구만 지움.
@@ -2048,41 +2227,17 @@
         // [캐러셀] 콜라주(다중 셀)가 아니면서 편집기에서 새로 추가한 사진 → 플로우가 여러 장 게시(캐러셀) 후보로 반영.
         //   콜라주면 이미 한 장으로 합성되므로 별도 추가 안 함.
         meta.newPhotos = (isSingleL(S.layout) && S.photos && S.photos.length > (S._initPhotoN || 0)) ? S.photos.slice(S._initPhotoN || 0) : [];
-        // [관측 전용] 겹침 baseline 측정. close() 전에만 rect 가 유효하다. 배치는 안 바꾼다.
+        // [Phase 5.1] Safety baseline 관측. metaGeometry() 는 close() 전에만 유효(닫히면 rect=0).
+        //   재기만 하고 배치는 안 바꾼다. 무거운 계산은 observePublish 안에서 유휴로 미룬다.
         try { if (window.WMMetrics) window.WMMetrics.observePublish(meta.layers, S.photoUrl, metaGeometry()); }
         catch (_mx) { void _mx; }
-        S._saving = false;
-        close(); refs.done.textContent = '완료'; refs.done.disabled = false;
+        _restoreSaveUi();
+        close();
         if (cb) cb(url, meta);   // StoryEditor 계약 호환(meta.layers)
       });
     });
   }
   // 저장 시 레이어를 ShopStyle 학습 계약으로 — role·정규화 중심좌표(x/y)·폭·폰트·색·크기·외곽선/그림자.
-  /* [관측 전용 2026-08-22] 겹침 측정용 **실제 렌더 geometry**.
-     metaLayers 는 학습 계약이라 필드를 늘리지 않고 분리했다. 여기 결과는 어디에도 저장되지 않고
-     지표(WMMetrics)로만 간다. 편집 결과에는 **아무 영향도 주지 않는다.**
-
-     🔑 `h`(박스 높이)가 핵심 — metaLayers 는 폭과 폰트 크기만 준다. 높이를 폰트로 추정하면
-        실측 대비 1.36배 과대였다(측정값). getBoundingClientRect 는 지금 그려진 실제 박스다.
-     🔑 회전 요소의 rect 는 회전 후 AABB 라 실제 글자 박스보다 크다(15°→2.21배). 소비 쪽이
-        `rot` 을 보고 판정에서 제외한다. */
-  function metaGeometry() {
-    var R = refs.stage.getBoundingClientRect();
-    if (!R.width || !R.height) return [];
-    return S.layers.map(function (L, i) {
-      if (!L || !L.el) return null;
-      var b = L.el.getBoundingClientRect();
-      if (!b.width || !b.height) return null;
-      return {
-        idx: i, type: L.type, role: L.role || null,
-        origin: L._src === 'wm' ? 'system' : (L.role ? 'restored' : 'user'),
-        x: (b.left - R.left) / R.width, y: (b.top - R.top) / R.height,
-        w: b.width / R.width, h: b.height / R.height,
-        rot: L.rot || 0
-      };
-    }).filter(Boolean);
-  }
-
   function metaLayers() {
     var R = refs.stage.getBoundingClientRect();
     return S.layers.map(function (L) {
@@ -2100,6 +2255,41 @@
         font: L.font && L.font.key, color: L.color, align: L.align,
         size: fs / R.height, weight: L.font && L.font.weight,
         stroke: !!L.stroke, shadow: !!L.shadow };
+    }).filter(Boolean);
+  }
+
+  /* [Phase 5 Safety] 겹침 판정용 **실제 렌더 geometry**. metaLayers 와 분리한 이유가 있다.
+     metaLayers 는 학습(WorkMemory)으로 흘러가는 계약이라 필드를 늘리면 그쪽 레코드가 커지고
+     의미도 섞인다. 여기는 **관측 전용**이고 아무 데도 저장되지 않는다.
+
+     🔑 핵심은 `h` 다. metaLayers 는 폭(`w`)과 **폰트 크기**(`size`)만 준다 — 박스 높이가 없다.
+        그래서 기존 겹침 계산이 `size × 1.6` 으로 추정할 수밖에 없었고, 그 근사값으로는
+        자동 판단을 할 수 없다(과대·과소 어느 쪽으로 틀렸는지도 모른다).
+        `getBoundingClientRect()` 는 지금 이 순간 화면에 그려진 **실제 박스**를 준다.
+
+     🔑 회전(`rot`): 회전된 요소의 getBoundingClientRect 는 **회전 후 AABB** 다 —
+        실제 글자 박스(OBB)보다 크다. 겹침 판정에서 이건 **과대검출**이므로 안전한 방향이다
+        (놓칠 위험 < 과하게 잡을 위험). OBB 가 필요할 만큼 회전이 흔한지는 실데이터로 재야 한다.
+        (같은 사실을 _serLayer 도 알고 있다 — 회전 도형은 AABB 가 틀려서 L.w/L.h 를 직접 쓴다) */
+  function metaGeometry() {
+    var R = refs.stage.getBoundingClientRect();
+    if (!R.width || !R.height) return [];
+    return S.layers.map(function (L, i) {
+      if (!L || !L.el) return null;
+      var b = L.el.getBoundingClientRect();
+      if (!b.width || !b.height) return null;
+      return {
+        idx: i,
+        type: L.type,
+        role: L.role || null,
+        origin: L._src === 'wm' ? 'system' : (L.role ? 'restored' : 'user'),
+        // 좌상단 기준 정규화 — PhotoContext.subjectRegion 과 **같은 좌표계**
+        x: (b.left - R.left) / R.width,
+        y: (b.top - R.top) / R.height,
+        w: b.width / R.width,
+        h: b.height / R.height,          // ← 추정이 아니라 실제 렌더 높이
+        rot: L.rot || 0
+      };
     }).filter(Boolean);
   }
 
@@ -2182,6 +2372,11 @@
     return { width: w, height: h, left: r.left, top: r.top };
   }
   function _restoreLayers(specs) {
+    // [T8-A] 시스템 복원 — 이 안의 변경은 원장 취향 signal 이 아니다(try/finally 로 반드시 해제).
+    if (window.WMSignals && window.WMSignals.system) { return window.WMSignals.system(function () { return _restoreLayersInner(specs); }); }
+    return _restoreLayersInner(specs);
+  }
+  function _restoreLayersInner(specs) {
     var R = _stageWH(); if (!R.width) return;
     (specs || []).forEach(function (spec) {
       try {
@@ -2189,6 +2384,11 @@
         // [T4] 작업 기억 출처 태그 — '이번엔 빼기'(undoWmApply)가 이 레이어만 골라 지운다.
         //   _serLayer 화이트리스트엔 없어 저장/사진전환 직렬화엔 안 실린다(런타임 전용).
         if (L2 && spec._src === 'wm') { L2._src = 'wm'; L2._wmTok = spec._wmTok || null; }
+        /* [STAGE C] 복원된 레이어는 **전부 원장 소유**로 본다.
+           클릭 기록(`_own`)은 런타임 값이라 저장에 안 실린다. 그렇다고 "표시가 없으니
+           기본값이겠지" 라고 보면, 이어서 편집하는 원장의 작업물을 자동 초안이 덮는다.
+           되돌리기 어려운 쪽으로 틀리지 않게 **안 건드리는 쪽**을 택한다. */
+        if (L2 && !L2._src) { L2._own = { font: 1, color: 1, align: 1, size: 1 }; L2._restored = true; }
       } catch (_e) { void _e; }
     });
     S.active = null; S.layers.forEach(function (x) { x.el.classList.remove('is-active'); });
@@ -2212,6 +2412,27 @@
       onDone: opts.onDone, onCancel: opts.onCancel };
     var _ed = (opts.editState && opts.editState.v) ? opts.editState : null;   // [#4/#8/#11/#16] 재편집 이어가기
     if (_ed) { try { _restoreState(_ed); } catch (_re) { _ed = null; } }   // 복원 실패 시 일반 열기로 폴백(앱 안전)
+    // [T8-A] 관찰 세션 시작 — 이 편집기 오픈 = 게시물 1개 작업 = observation 1개(batch).
+    //   baseline 은 자동적용 직후 상태(diff 기준). 학습 계산은 여기서 안 한다(critical path 보호).
+    try {
+      if (window.WMSignals) {
+        var _ap = window.WorkMemoryEngine && window.WorkMemoryEngine._lastApply;
+        window.WMSignals.begin({ memoryId: _ap && _ap.memoryId, context: opts.wmContext || {}, baseline: (_ed && _ed.layers) || [] });
+      }
+    } catch (_t8) { void _t8; }
+    /* [Phase 1 2026-08-21] 사진 문맥 **관측만**. 결과를 쓰는 코드는 아직 없다 — 일부러 없다.
+       왜: 2026-08-21 Phase 0 실측에서 실사용 원장 edit_state 가 0건(테스트 계정 1개뿐)이라
+       "무엇을 자동 배치할지" 를 정할 근거가 아직 없다. 지금 필요한 건 **원장이 실제로 어떻게
+       편집하는지** 와 **이 계산이 실기기에서 몇 ms 인지**(목표 p90<400ms)뿐이다.
+       critical path 를 막지 않게 다음 프레임으로 미루고, 실패는 통째로 무시한다. */
+    try {
+      if (window.PhotoContext && S.photoUrl) {
+        var _pcUrl = S.photoUrl;
+        (window.requestIdleCallback || window.setTimeout)(function () {
+          try { window.PhotoContext.of(_pcUrl); } catch (_p1) { void _p1; }
+        }, 1);
+      }
+    } catch (_pc) { void _pc; }
     S._initPhotoN = (S.photos || []).length;   // [캐러셀] 진입 시 사진 수 — 편집 중 추가된 사진만 플로우로 되돌리기 위한 기준
     if (refs.featLocTx) refs.featLocTx.textContent = S.shopName || '우리샵';   // [③] 위치 칩에 실제 샵 이름
     refs.layers.innerHTML = ''; refs.frame.className = 'itded__frame';
