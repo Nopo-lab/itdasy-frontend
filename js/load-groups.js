@@ -18,6 +18,11 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/photo/safety-readout.js?v=20260822-obs3',
   // 증거 모니터 — 게이트별 상태·필요 표본량 계산. 판정/안내만.
   'js/photo/evidence-monitor.js?v=20260822-obs3',
+  'js/photo/shop-style-candidate.js?v=20260822-sc1',
+  'js/photo/category-prior.js?v=20260822-sc1',
+  'js/photo/shop-baseline.js?v=20260822-sc1',
+  'js/photo/safety-gate.js?v=20260822-sc1',
+  'js/photo/edit-plan.js?v=20260822-sc1',
   'js/workspace/shop-style.js?v=local-151154',
   'js/workspace/work-memory.js?v=local-151154',
   'js/workspace/work-memory-engine.js?v=local-151154',
