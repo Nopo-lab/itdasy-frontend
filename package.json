@@ -56,5 +56,11 @@
     "*.css": [
       "stylelint"
     ]
+  },
+  "jest": {
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/\\.claude/"
+    ]
   }
 }

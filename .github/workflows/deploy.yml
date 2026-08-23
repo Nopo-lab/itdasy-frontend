@@ -71,6 +71,11 @@ jobs:
       - name: Smoke check
 
         run: npm run smoke
+      # [출시 전 동결 2026-08-23] 테스트를 배포 게이트에 넣는다.
+      #   그전까지 jest 가 CI 에서 한 번도 안 돌았다 — 가드가 자동으로는 아무것도 못 막았다.
+      #   ⚠️ 파이프를 붙이지 않는다 — 파이프를 타면 실패 코드가 가려져 초록불이 뜬다.
+      - name: Tests (photo editor guards included)
+        run: npm test
       # [기능별 연결 그래프] 코드 변경이 공유용 graph.html 에 자동 반영되게 매 배포마다 재생성.
       #   AST 만 쓰므로 API 키 불필요. 비치명적(continue-on-error) — 실패해도 커밋된 graph.html 이 서빙됨.
       - name: Rebuild feature graph (non-fatal)
