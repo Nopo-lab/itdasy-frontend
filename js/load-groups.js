@@ -19,6 +19,8 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   // 증거 모니터 — 게이트별 상태·필요 표본량 계산. 판정/안내만.
   'js/photo/evidence-monitor.js?v=20260822-obs3',
   'js/photo/shop-style-candidate.js?v=20260822-sc1',
+  // [2026-08-23] 인스타 기존 게시물의 글자 배치 습관 — 콜드스타트 개인화.
+  'js/photo/instagram-text-style.js?v=local-igt1',
   'js/photo/category-prior.js?v=20260822-sc1',
   // [STAGE C] 게시물 종류(인물/전후비교/후기캡처) — 브라우저 실측 25셀로 임계값 정함. EditPlan(기본 OFF)만 소비.
   'js/photo/content-intent.js?v=local-c1',
