@@ -13,6 +13,8 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
      되돌리기: 이 3줄을 지우면 전체 비활성(다른 코드가 이들을 참조하지 않는다). */
   'js/photo/photo-context.js?v=20260822-obs1',
   'js/workspace/wm-metrics.js?v=20260822-obs1',
+  // [Phase 2] shadow 비교기 — 계산만 한다(호출부 없음).
+  'js/workspace/edit-plan-shadow.js?v=20260823-t8prod',
   'js/photo/safety-shadow.js?v=20260822-obs1',
   // 지표 읽기 — URL `?safetyReport=1` 로만 표시. 네트워크 0·자동전송 0.
   'js/photo/safety-readout.js?v=20260822-obs3',
@@ -20,7 +22,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/photo/evidence-monitor.js?v=20260822-obs3',
   'js/photo/shop-style-candidate.js?v=20260822-sc1',
   // [2026-08-23] 인스타 기존 게시물의 글자 배치 습관 — 콜드스타트 개인화.
-  'js/photo/instagram-text-style.js?v=local-igt1',
+  'js/photo/instagram-text-style.js?v=20260823-t8prod',
   'js/photo/category-prior.js?v=20260822-sc1',
   // [STAGE C] 게시물 종류(인물/전후비교/후기캡처) — 브라우저 실측 25셀로 임계값 정함. EditPlan(기본 OFF)만 소비.
   'js/photo/content-intent.js?v=local-c1',
@@ -32,10 +34,25 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/photo/draft-personalization.js?v=local-e1',
   'js/photo/shop-baseline.js?v=20260822-sc1',
   'js/photo/safety-gate.js?v=20260822-sc1',
+  // [Phase 5.4] OBB 사전검증 — 순수함수.
+  'js/photo/obb-geometry.js?v=20260823-t8prod',
   'js/photo/edit-plan.js?v=20260822-sc1',
   'js/workspace/shop-style.js?v=local-151154',
   'js/workspace/work-memory.js?v=local-151154',
   'js/workspace/work-memory-engine.js?v=local-151154',
+  /* [2026-08-23] T8 학습 체인 — 여기 9개가 **운영에만 빠져 있었다.**
+     파일은 일부 있었는데 로더가 안 불러서 `window.WMSignals`·`WMPrefs` 가 아예 undefined 였다.
+     편집기는 `if (window.WMSignals)` 로 감싸고 있어서 **조용히 관측 0** 이었다 —
+     원장이 아무리 편집해도 배우는 게 없었고, 그래서 개인화도 영원히 안 붙었다.
+     순서가 곧 의존성이다: signals(관측) → decay·store(저장) → preferences(집계)
+     → persona·personalize(적용) → learn(폐루프). 스테이징과 **같은 순서**로 둔다. */
+  'js/workspace/work-memory-signals.js?v=20260823-t8prod',
+  'js/workspace/work-memory-decay.js?v=20260823-t8prod',
+  'js/workspace/work-memory-store.js?v=20260823-t8prod',
+  'js/workspace/work-memory-preferences.js?v=20260823-t8prod',
+  'js/workspace/work-memory-persona.js?v=20260823-t8prod',
+  'js/workspace/work-memory-personalize.js?v=20260823-t8prod',
+  'js/workspace/work-memory-learn.js?v=20260823-t8prod',
   'js/itd-editor/data/itd-decos.js?v=local-151154',
   // [2026-07-23] 아이콘 스티커 세트 — itd-editor.js 보다 **먼저** 실려야 STK_TABS 가 탭을 만든다.
   'js/itd-editor/data/itd-icon-stickers.js?v=local-151154',
