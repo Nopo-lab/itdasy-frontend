@@ -139,7 +139,17 @@
   //   photoFit 40 이 최우선 신호: 최근+자주+브랜드(20+10+5=35)를 합쳐도 못 뒤집는다.
   //   promotion→service 감점 -30 은 최근+자주(30)를 이긴다 — 어제 이벤트가 오늘 시술에 안 튀어나오게(F).
   function _touch(m) { return (m && (m.lastPublishedAt || m.lastAppliedAt || m.lastUsedAt || m.createdAt)) || 0; }
-  function scoreMemory(m, ctx) {
+  /* [T8-E] personalization — 순수 가산 축. 기존 6축은 손대지 않는다.
+     snapshot 은 select() 가 한 번 읽어 넘긴다(후보마다 IDB 를 열지 않기 위해).
+     snap 을 안 넘기면 여기서 한 번 조회 — 직접 호출 경로 방어. */
+  function _persona(m, ctx, snap) {
+    var P = window.WMPersona;
+    if (!P) return null;                                        // 미로드 → 기존 T3 그대로
+    var sn = (snap !== undefined) ? snap : P.snapshot();
+    if (!sn) return null;
+    try { return P.score(m, ctx, sn); } catch (_e) { void _e; return null; }
+  }
+  function scoreMemory(m, ctx, snap) {
     m = m || {}; ctx = ctx || {};
     var pc = (m.photoCount != null) ? m.photoCount : 1;   // list() 가 마이그레이션하므로 항상 있음(직접 호출 방어만)
     var parts = {
@@ -160,8 +170,12 @@
       var days = Math.floor((Date.now() - t) / 86400000);
       parts.recency = Math.max(0, Math.min(20, 20 - days * 2));   // 오늘 20 → 하루 -2 → 10일이면 0. 미래값은 20 상한.
     }
-    var total = parts.photoFit + parts.baFit + parts.kindFit + parts.recency + parts.publishWeight + parts.brandFit;
-    return { parts: parts, total: total };
+    // [T8-E] 마지막에 더한다 — 앞의 6축 계산에 개입하지 않는다는 걸 구조로 보이려고.
+    var pr = _persona(m, ctx, snap);
+    parts.personalization = pr ? pr.bonus : 0;
+    var total = parts.photoFit + parts.baFit + parts.kindFit + parts.recency + parts.publishWeight
+      + parts.brandFit + parts.personalization;
+    return { parts: parts, total: total, persona: pr };
   }
 
   function _activeSSID() {
@@ -176,13 +190,12 @@
     ctx = ctx || {};
     var WM = window.WorkMemory;
     var mems = (WM && WM.list) ? WM.list() : [];
-    var sctx = {
-      photoCount: ctx.photoCount,
-      hasBeforeAfter: ctx.hasBeforeAfter,
-      kind: ctx.kind || classifyKind(ctx.texts, ctx.service),
-      shopStyleId: (ctx.shopStyleId !== undefined) ? ctx.shopStyleId : _activeSSID()
-    };
-    var scored = mems.map(function (m) { return { m: m, s: scoreMemory(m, sctx) }; });
+    // [T8-H] 학습과 **같은** builder 를 통과시킨다 — 여기서 축을 하나라도 빠뜨리면
+    //   "학습한 자리에서 다시 못 꺼내는" 조용한 실패가 된다(실제로 두 번 겪음).
+    var sctx = canonicalContext(ctx);
+    // [T8-E 성능] 스냅샷은 select 당 **한 번만** 읽고 후보 전체가 재사용한다.
+    var snap = (window.WMPersona && window.WMPersona.snapshot()) || null;
+    var scored = mems.map(function (m) { return { m: m, s: scoreMemory(m, sctx, snap) }; });
     scored.sort(function (a, b) {
       if (b.s.total !== a.s.total) return b.s.total - a.s.total;
       var dt = _touch(b.m) - _touch(a.m);
@@ -190,14 +203,159 @@
       return a.m.id < b.m.id ? -1 : (a.m.id > b.m.id ? 1 : 0);
     });
     var win = scored[0] || null;
+    /* QA·회귀용 — select 가 **실제로 쓴** context key. 학습 쪽 key 와 대조해 parity 를 잠근다.
+       _lastSelect 는 _resolveRec 이 via/memoryId 로 덮어쓰므로 별도 필드로 둔다
+       (처음엔 _lastSelect 에 실었다가 실측에서 undefined 로 나와 잡았다). */
+    try { window.WorkMemoryEngine._lastContextKey = contextKey(sctx); } catch (_ck) { void _ck; }
     return {
       memory: win ? win.m : null,
-      reason: win ? { parts: win.s.parts, total: win.s.total } : { via: 'none' },
+      // [T8-E] 숫자는 parts 에, 설명은 reason.personalization 에 — parts 합 === total 을 안 깨려고.
+      reason: win ? { parts: win.s.parts, total: win.s.total, personalization: win.s.persona || null } : { via: 'none' },
       candidates: scored.map(function (x) { return { id: x.m.id, total: x.s.total }; })
     };
   }
 
   // ── 선택 해석 [T3] — 세 경로 공용 ─────────────────────────────
+  /* [T8-H] 상황(context)의 **단일 진입점**. 선택(select)과 학습(learn)이 반드시 이걸 통과한다.
+     왜 구조로 강제하나: 두 곳에서 각자 조립하면 언젠가 어긋나고, 실제로 두 번 어긋났다 —
+     ① select 의 sctx 가 service 를 빠뜨림(증상 없음, personalization 만 조용히 폴백)
+     ② flow 가 wmContext 를 아예 안 넘겨 학습 context 가 {} (전 상황이 한 바구니로 뭉갬).
+     둘 다 기존 6축은 그 값을 안 써서 **아무 증상이 없었다.** 그래서 테스트 한 줄이 아니라
+     "출처를 하나로" 가 답이다.
+     화이트리스트다 — 고객명·전화번호·캡션·토큰·이미지 URL 은 절대 통과 못 한다. */
+  var SERVICE_MAX = 64;
+  function _canonService(v) {
+    if (v == null) return 'unknown';
+    var s = String(v).replace(/\s*,\s*/g, ', ').replace(/\s+/g, ' ').trim().toLowerCase();
+    if (!s) return 'unknown';                       // 못 알아내면 **추론하지 않는다**
+    return s.slice(0, SERVICE_MAX);
+  }
+  function canonicalContext(raw) {
+    raw = raw || {};
+    var n = Number(raw.photoCount);
+    return {
+      photoCount: isFinite(n) && n > 0 ? Math.floor(n) : 0,
+      service: _canonService(raw.service),
+      hasBeforeAfter: raw.hasBeforeAfter === true,
+      kind: raw.kind || classifyKind(raw.texts, raw.service),
+      shopStyleId: (raw.shopStyleId !== undefined) ? raw.shopStyleId : _activeSSID()
+    };
+  }
+  /* preference identity 의 열쇠. prefs·persona 가 각자 만들면 드리프트가 생기므로 여기서만 만든다.
+     before/after 는 사진 수가 같아도 다른 상황이라 축에 포함한다. */
+  /* [2026-08-23] 맨 앞에 **스타일**이 들어간다.
+     원장 한 명이 스타일을 여러 개 쓴다 — 같은 '펌 1장' 인데 어떤 날은 미니멀(흰 글씨 좌하단),
+     어떤 날은 포스터(검정 굵은 글씨 상단)다. 예전 키는 둘을 같은 칸에 넣었고, 그러면
+     `resolve` 가 "갈렸다" 며 그 축을 통째로 비웠다(안전하긴 한데 두 스타일 다 못 쓴다).
+
+     🔑 스타일 개념을 새로 만들지 않는다 — 원장이 이미 고른 `ShopStyle` 이 곧 스타일이다.
+        원장이 "이건 이 스타일" 이라고 눌러서 알려준 정보라 추측보다 정확하다.
+     ⚠️ 칸이 늘면 칸당 표본이 준다 → `resolve` 의 계층 조회(§11)가 반드시 같이 있어야 한다.
+        스타일별 증거가 없으면 스타일 무관 증거로 내려간다. */
+  function contextKey(c) {
+    c = c || {};
+    return [c.shopStyleId || '', c.service || '', c.photoCount == null ? '' : c.photoCount,
+      c.kind || '', c.hasBeforeAfter ? 'ba' : ''].join('|');
+  }
+  /* 계층 조회용(§11) — 좁은 칸부터 넓은 칸 순으로 **어떤 키들을 볼지** 정한다.
+
+     🔴 키를 하나씩 만들어 정확히 일치시키면 아래 칸이 **영원히 비어 있다.**
+        학습은 항상 스타일을 달고 저장되므로 `|perm|1|service|` 같은 무스타일 키는
+        아무도 안 만든다. 실제로 그렇게 짰다가 새 스타일이 아무것도 못 쓰는 걸 브라우저에서 봤다.
+     → 그래서 아래 칸은 **자리별 매칭**이다. 스타일 자리를 비워두면 '스타일 무관'이라는 뜻이고,
+        그 칸에 해당하는 저장분을 전부 모아서 본다(모아 보면 갈릴 수 있는데, 갈리면 그게 답이다 —
+        원장이 스타일마다 다르게 하는 축이라는 뜻이므로 개입하지 않는다).
+
+     자리: shopStyleId | service | photoCount | kind | ba      (null = 아무거나) */
+  function contextKeyLadder(c) {
+    c = c || {};
+    var ss = c.shopStyleId || '';
+    var sv = c.service || '';
+    var pc = c.photoCount == null ? '' : String(c.photoCount);
+    var kd = c.kind || '';
+    var ba = c.hasBeforeAfter ? 'ba' : '';
+    var out = [];
+    if (ss) {
+      out.push({ via: 'style_exact', want: [ss, sv, pc, kd, ba] });
+      out.push({ via: 'style_service', want: [ss, sv, null, null, null] });
+    }
+    out.push({ via: 'exact', want: [null, sv, pc, kd, ba] });
+    out.push({ via: 'service', want: [null, sv, null, null, null] });
+    // 같은 조건이 두 번 나오면(상황이 비어 style_service 와 style_exact 가 같아지는 경우) 하나만
+    var seen = {};
+    return out.filter(function (r) {
+      var k = r.want.join('\u0001');
+      if (seen[k]) return false; seen[k] = 1; return true;
+    });
+  }
+  /* 저장된 contextKey 문자열이 이 칸에 해당하는가. null 자리는 통과(아무거나). */
+  function contextKeyMatches(storedKey, want) {
+    var f = String(storedKey == null ? '' : storedKey).split('|');
+    for (var i = 0; i < want.length; i++) {
+      if (want[i] == null) continue;
+      if ((f[i] || '') !== want[i]) return false;
+    }
+    return true;
+  }
+
+  /* 후보 전원 스코어 → 승자. 후보 0개는 { memory:null, candidates:[] } — 절대 안 던진다.
+     동점 tie-break 은 결정론: total ↓ → 최근 손댄 시각 ↓ → id 사전순 ↑.
+     (랜덤·삽입순 의존이면 같은 입력으로 오늘과 내일 결과가 달라진다.) */
+  function select(ctx) {
+    ctx = ctx || {};
+    var WM = window.WorkMemory;
+    var mems = (WM && WM.list) ? WM.list() : [];
+    // [T8-H] 학습과 **같은** builder 를 통과시킨다 — 여기서 축을 하나라도 빠뜨리면
+    //   "학습한 자리에서 다시 못 꺼내는" 조용한 실패가 된다(실제로 두 번 겪음).
+    var sctx = canonicalContext(ctx);
+    // [T8-E 성능] 스냅샷은 select 당 **한 번만** 읽고 후보 전체가 재사용한다.
+    var snap = (window.WMPersona && window.WMPersona.snapshot()) || null;
+    var scored = mems.map(function (m) { return { m: m, s: scoreMemory(m, sctx, snap) }; });
+    scored.sort(function (a, b) {
+      if (b.s.total !== a.s.total) return b.s.total - a.s.total;
+      var dt = _touch(b.m) - _touch(a.m);
+      if (dt) return dt;
+      return a.m.id < b.m.id ? -1 : (a.m.id > b.m.id ? 1 : 0);
+    });
+    var win = scored[0] || null;
+    /* QA·회귀용 — select 가 **실제로 쓴** context key. 학습 쪽 key 와 대조해 parity 를 잠근다.
+       _lastSelect 는 _resolveRec 이 via/memoryId 로 덮어쓰므로 별도 필드로 둔다
+       (처음엔 _lastSelect 에 실었다가 실측에서 undefined 로 나와 잡았다). */
+    try { window.WorkMemoryEngine._lastContextKey = contextKey(sctx); } catch (_ck) { void _ck; }
+    return {
+      memory: win ? win.m : null,
+      // [T8-E] 숫자는 parts 에, 설명은 reason.personalization 에 — parts 합 === total 을 안 깨려고.
+      reason: win ? { parts: win.s.parts, total: win.s.total, personalization: win.s.persona || null } : { via: 'none' },
+      candidates: scored.map(function (x) { return { id: x.m.id, total: x.s.total }; })
+    };
+  }
+
+  // ── 선택 해석 [T3] — 세 경로 공용 ─────────────────────────────
+  /* [T8-H] 상황(context)의 **단일 진입점**. 선택(select)과 학습(learn)이 반드시 이걸 통과한다.
+     왜 구조로 강제하나: 두 곳에서 각자 조립하면 언젠가 어긋나고, 실제로 두 번 어긋났다 —
+     ① select 의 sctx 가 service 를 빠뜨림(증상 없음, personalization 만 조용히 폴백)
+     ② flow 가 wmContext 를 아예 안 넘겨 학습 context 가 {} (전 상황이 한 바구니로 뭉갬).
+     둘 다 기존 6축은 그 값을 안 써서 **아무 증상이 없었다.** 그래서 테스트 한 줄이 아니라
+     "출처를 하나로" 가 답이다.
+     화이트리스트다 — 고객명·전화번호·캡션·토큰·이미지 URL 은 절대 통과 못 한다. */
+  var SERVICE_MAX = 64;
+  function _canonService(v) {
+    if (v == null) return 'unknown';
+    var s = String(v).replace(/\s*,\s*/g, ', ').replace(/\s+/g, ' ').trim().toLowerCase();
+    if (!s) return 'unknown';                       // 못 알아내면 **추론하지 않는다**
+    return s.slice(0, SERVICE_MAX);
+  }
+  /* preference identity 의 열쇠. prefs·persona 가 각자 만들면 드리프트가 생기므로 여기서만 만든다.
+     before/after 는 사진 수가 같아도 다른 상황이라 축에 포함한다. */
+  /* [2026-08-23] 맨 앞에 **스타일**이 들어간다.
+     원장 한 명이 스타일을 여러 개 쓴다 — 같은 '펌 1장' 인데 어떤 날은 미니멀(흰 글씨 좌하단),
+     어떤 날은 포스터(검정 굵은 글씨 상단)다. 예전 키는 둘을 같은 칸에 넣었고, 그러면
+     `resolve` 가 "갈렸다" 며 그 축을 통째로 비웠다(안전하긴 한데 두 스타일 다 못 쓴다).
+
+     🔑 스타일 개념을 새로 만들지 않는다 — 원장이 이미 고른 `ShopStyle` 이 곧 스타일이다.
+        원장이 "이건 이 스타일" 이라고 눌러서 알려준 정보라 추측보다 정확하다.
+     ⚠️ 칸이 늘면 칸당 표본이 준다 → `resolve` 의 계층 조회(§11)가 반드시 같이 있어야 한다.
+        스타일별 증거가 없으면 스타일 무관 증거로 내려간다. */
   function _setLast(info) { try { window.WorkMemoryEngine._lastSelect = info; } catch (_e) { void _e; } }
   /* once('이 스타일로 또') > auto(select) > ★(auto OFF 일 때만).
      consumeOnce: 편집기 경로만 true — 헤드리스(미리보기)가 1회 지정을 소비하면
@@ -263,6 +421,23 @@
     var pick = _resolveRec(o, { ignoreFlag: orch, consumeOnce: true });
     if (!pick) return null;
     var wm = _toSafeState(WM, pick.rec, { incoming: incoming, photoCount: o.photoCount, layersOnly: !!o.layersOnly });   // [T5] 텍스트 안전 정책 공용
+    /* [T8-H+] 고른 기억의 **feature 를 원장 취향으로 보정**한다 — _src 태깅 직전이 유일한 자리.
+       여기서 하면 결과가 _restoreLayers(= WMSignals.system 래핑)를 지나 자가강화가 자동 차단되고,
+       대상이 wm 레이어뿐이라 T4 undo 가 patch 까지 통째로 되돌린다.
+       실패하면 보정 없이 기억 그대로 — 개인화는 optional enhancement 다. */
+    try { window.WorkMemoryEngine._lastPersonalize = null; } catch (_e3) { void _e3; }
+    if (wm && wm.layers && wm.layers.length && window.WMPersonalize) {
+      try {
+        var snapP = (window.WMPersona && window.WMPersona.snapshot()) || null;
+        if (snapP) {
+          var pz = window.WMPersonalize.resolveFeaturePatch(pick.rec, wm, o, snapP);
+          if (pz && Array.isArray(pz.layers) && pz.layers.length) {
+            wm.layers = pz.layers;
+            try { window.WorkMemoryEngine._lastPersonalize = pz; } catch (_e4) { void _e4; }
+          }
+        }
+      } catch (_pz) { void _pz; }
+    }
     if (wm && WM.markApplied) WM.markApplied(pick.rec.id);
     // [T4] 얹는 레이어에 출처+적용 토큰 — 배너 '되돌리기'/편집기 undoWmApply 가 이 identity 로만 지운다.
     //   사용자 레이어·우리샵 레이어는 안 건드리는 게 목표(오염 금지 — 합의 조건 3).
@@ -279,10 +454,13 @@
   }
 
   window.WorkMemoryEngine = {
+    contextKeyLadder: contextKeyLadder, contextKeyMatches: contextKeyMatches,
     stripServiceText: stripServiceText,
     mergeEditState: mergeEditState,
     mergeLayers: mergeLayers,
     classifyKind: classifyKind,
+    canonicalContext: canonicalContext,
+    contextKey: contextKey,
     normalizeText: normalizeText,
     classifyText: classifyText,
     sanitizeLayers: sanitizeLayers,
@@ -290,7 +468,9 @@
     select: select,
     decorateLayers: decorateLayers,
     forEditor: forEditor,
-    _lastSelect: null,   // QA·잇비 역추적 — 마지막 선택의 via/후보 점수
+    _lastSelect: null,       // QA·잇비 역추적 — 마지막 선택의 via/후보 점수
+    _lastContextKey: null,   // [T8-H] 마지막 select 가 쓴 context key — 학습 key 와의 parity 검증용
+    _lastPersonalize: null,  // [T8-H+] 마지막 feature 보정 { layers, applied, skipped, reasons } — QA 역추적
     _lastApply: null,    // [T4] 마지막 편집기 적용 { token, memoryId, count, texts, undone } — 배너·되돌리기·dismissed identity
     _lastSanitize: null  // [T5] 마지막 텍스트 정책 { kept:[{raw,norm,cls,why}], dropped:[...] } — 승격/제거 역추적
   };
