@@ -68,6 +68,9 @@ jobs:
         env:
           BUILD_V: ${{ env.NEW_VERSION }}
         run: python3 scripts/bump_cache_busters.py "$BUILD_V"
+      # [출고 감사] lint 게이트 — `npm run lint` 는 폴백이 있어 항상 exit 0 이라 안 쓴다.
+      - name: Lint (errors fail, warnings reported)
+        run: npm run lint:ci
       - name: Smoke check
 
         run: npm run smoke
