@@ -4,7 +4,7 @@
 window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   photo: [
   'app-gallery-utils.js',
-  'app-gallery-db.js?v=local-151154',
+  'app-gallery-db.js?v=20260823-t8store',
   'app-gallery-workshop.js?v=local-151154',
   'js/workspace/workspace-state.js?v=local-151154',
   'js/workspace/blob-url.js?v=local-151154',
