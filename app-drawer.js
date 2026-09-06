@@ -19,12 +19,14 @@
     bookings:     () => _call(['openCalendarView']),
     customer:     () => _call(['openCustomerHub']),
     revenue:      () => _call(['openRevenue', 'openRevenueHub']),
-    // 통합 허브 (AI 자동화 / 연동관리 / 설정)
-    ai_hub:       () => _call(['openAiHub']),
+    // [2026-09-06 자동화 승격] "통합 허브" 폐지 — app-ai-hub.js 를 지웠다.
+    //   ai_hub 라우트는 외부 링크 호환으로 남기되 인스타DM 설정으로 직결한다
+    //   (openAiHub 는 이제 없다 — 그대로 두면 조용히 아무 일도 안 일어난다).
+    ai_hub:       () => _call(['openDMMenuSettings']),
     integrations: () => _call(['openIntegrationsHub']),
     settings_hub: () => _call(['openSettingsHub']),
     // 레거시 라우트 호환 (외부 링크가 직접 호출하는 경우)
-    dm:        () => _call(['openDMAutoreplySettings']),
+    dm:        () => _call(['openDMMenuSettings']),
     kakao:     () => _call(['openKakaoHub']),
     persona:   () => _call(['openPersonaSurveyModal']),
     posts:     () => _call(['openFinishTab']),

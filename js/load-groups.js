@@ -181,15 +181,16 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'app-naver-link.js?v=local-151154',
   'app-naver-talk-link.js?v=local-151154',
   'app-dm-settings-cache.js?v=local-151154',
-  'app-dm-booking-form.js?v=local-151154',
-  /* [2026-08-22 라이브 404 수습] `app-dm-preview.js` 를 여기서 뺐다.
-     매니페스트엔 등록돼 있는데 **운영 레포에 파일이 없어 배포본에서 404** 였다.
-     증상이 조용해서 안 보였다: loader.ensure() 는 하나라도 실패하면 `_done` 을 안 세우므로
-     원장이 편집기를 열 때마다 photo 그룹 **161개를 통째로 재요청**한다.
-     참조하는 코드는 0건이라 이미 죽은 항목이었다 — 빼도 동작 변화가 없다. */
+  'app-dm-booking-form.js?v=20260906-automation-promote',
+  /* [2026-09-06 자동화 승격] `app-dm-preview.js` 를 되살렸다.
+     2026-08-22 에 뺀 이유는 **운영 레포에 파일이 없어 404** 였기 때문이고
+     (loader.ensure() 가 _done 을 못 세워 photo 그룹을 매번 재요청했다),
+     이번 승격에서 파일을 같이 가져왔으므로 등록을 복구한다.
+     부르는 곳: app-dm-menu.js 의 [손님 화면 미리보기] 버튼(window.openDMPreview). */
+  'app-dm-preview.js?v=20260906-automation-promote',
   'js/dm/ig-thread-link.js?v=local-151154',
   'app-dm-confirm-queue.js?v=20260815-devqa-tap',
-  'app-comment-reply-queue.js?v=20260723-nestback',
+  'app-comment-reply-queue.js?v=20260906-automation-promote',
   'app-dm-conversations.js?v=local-151154',
   'app-dm-manual-replies.js?v=20260723-dmback',
   'app-persona-survey.js',

@@ -62,7 +62,6 @@ const STATIC_ASSETS = [
   './workers/photo-filter-worker.js',
   './app-photo-enhance.js',
   './app-pricelist.js',
-  './app-ai-hub.js',
   './app-settings-hub.js',
   './app-integrations-hub.js',
   './app-naver-talk-link.js',
