@@ -82,7 +82,19 @@ jobs:
             exit 1
           fi
           printf '%s' "$GS_JSON" > android/app/google-services.json
-          python3 -c "import json;d=json.load(open('android/app/google-services.json'));print('Firebase project =',d['project_info']['project_id']);print('packages =',[c['client_info']['android_client_info']['package_name'] for c in d['client']])"
+          # 파일이 있어도 applicationId 가 그 안에 없으면 플러그인은 적용되는데 런타임에
+          # 초기화가 실패한다 — 같은 벽돌이 조용히 나가므로 여기서 잘라낸다.
+          python3 - <<'PYCHK'
+          import json, sys
+          d = json.load(open('android/app/google-services.json'))
+          pkgs = [c['client_info']['android_client_info']['package_name'] for c in d['client']]
+          print('Firebase project =', d['project_info']['project_id'])
+          print('packages =', pkgs)
+          if 'com.y2do.itdasy' not in pkgs:
+              print('::error::google-services.json 에 com.y2do.itdasy 가 없다 '
+                    '— Firebase 콘솔에서 이 패키지를 등록하고 시크릿을 다시 넣어라')
+              sys.exit(1)
+          PYCHK
 
       - name: Capacitor sync
         run: npx cap sync android
