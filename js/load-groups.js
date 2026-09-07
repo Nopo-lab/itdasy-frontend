@@ -195,7 +195,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'app-dm-manual-replies.js?v=20260723-dmback',
   'app-persona-survey.js',
   'app-support.js',
-  'app-membership.js?v=20260805-membership-expiry',
+  'app-membership.js?v=20260908-money-idem',
   'app-template-import.js?v=local-151154',
   'app-smart-capture.js?v=local-151154',
   'app-import.js?v=local-151154',
