@@ -1,4 +1,4 @@
-# itdasy-frontend-test-yeunjun (연준 스테이징)
+# itdasy-frontend — 🔴 운영 프론트
 
 ## 📇 앱 기능 인덱스 (먼저 볼 것)
 
@@ -138,10 +138,20 @@ PC(`@media (width >= 768px)`)엔 고정 사이드바 `#sideNav`(`.side-nav.ms-si
 
 **언어**: 한국말, 쉬운말. 원영님은 코딩 초보.
 
-- 역할: 연준 전용 프론트 검증 레포. 배포 `https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/`
-- 백엔드: `itdasy_backend-test` (Cloud Run staging). `PROD_API` = `https://itdasy-backend-staging-644329093453.asia-northeast3.run.app` (app-core.js:57). 토큰 키: `itdasy_token::staging`
+- 🔴 **역할: 운영 프론트다.** 배포 `https://nopo-lab.github.io/itdasy-frontend/` — 원장님들이 실제로 쓰는 앱.
+  (이 파일은 2026-09-08 이전까지 `itdasy-frontend-test-yeunjun` 의 CLAUDE.md 가 통째로 복사돼 있었다.
+   제목이 "연준 스테이징" 이라 이 레포를 검증용으로 오인하게 만들었다.)
+- 백엔드: **`itdasy_backend-test`** 레포가 배포하는 Cloud Run **`itdasy-backend-staging`**.
+  `PROD_API` = `https://itdasy-backend-staging-644329093453.asia-northeast3.run.app` (app-core.js:128)
+  🔴 이름은 staging 이지만 `ENVIRONMENT=production` 이고 실사용자 DB
+  (Supabase `itdasy-staging` / `hsxxqomfbdernepykils`) 를 본다. 여기서 움직이는 돈은 진짜 돈이다.
+  토큰 키: `itdasy_token::staging` (키 이름도 이름만 staging)
 - 상속: 루트 `../CLAUDE.md` + `../AGENTS.md §3, §4`
-- 워크플로우: 1) 여기서 먼저 → 2) 검증 후 `itdasy-frontend`(운영) 승격
+- 워크플로우: 1) `itdasy-frontend-test-yeunjun` 에서 먼저 검증 → 2) **여기(운영)로 승격**
+  ⚠️ 단 test-yeunjun 도 같은 운영 백엔드·운영 DB 를 본다. "스테이징에서 먼저" 는 코드 검증이지
+  데이터 격리가 아니다.
+- 💾 운영 DB 백업 소유자는 `itdasy-frontend-test-yeunjun` 이다. **이 레포에 백업 워크플로를 두지 마라** —
+  시크릿이 없어 7일 연속 "success + 0바이트" 였던 전례가 있다.
 - 트랙: 4줄 이상 / API / Capacitor = 표준(티켓→플랜→승인→코드→T4→T1→머지), 문서·1~3줄 = 경량
 - 코드 룰: **줄수 제한 없음**(2026-07-14 폐기, 루트 CLAUDE.md 참조). 분할은 재사용·독립테스트·동시작업 같은 실제 이유가 있을 때만. 큰 파일은 먼저 지울 게 없는지 본다
 - 서버 호출: 직접 주소를 붙이지 말고 `window.apiUrl()` / `window.apiFetch()` 사용
