@@ -1353,7 +1353,13 @@ function authHeader() {
   //   GET(?쿼리)·PATCH/{id}·DELETE/{id} 는 읽기/멱등이라 안전 → 재시도 유지. 컬렉션 POST 만 막는다.
   //   [미디어감사 2026-09-07] portfolio·background 추가 — 둘 다 컬렉션 POST 로 **DB 행을 만든다.**
   //   위에서 FormData 재시도를 열었으므로 여기 안 넣으면 응답만 유실된 경우 사진이 2장 생긴다.
-  const CREATE_NO_RETRY_RE = /\/(bookings|revenue|customers|portfolio|background)(\?|$)/;
+  //   [전기종 파괴검증 2026-09-12] `support/messages` 추가. 실측: 무응답(타임아웃)에서 **1탭 → POST 3회**,
+  //     네트워크 끊김에서 **1탭 → POST 4회**. 관리자 답장(support/admin/reply)은 이미 위 목록에 있는데
+  //     **원장이 보내는 문의만 빠져 있었다.** 타임아웃은 '안 갔다'가 아니라 '모른다' 라서(서버가 이미
+  //     받아 Discord 알림까지 쐈을 수 있다) 자동 재시도하면 같은 문의가 2~4건 등록된다.
+  //     ⚠️ 끝을 `(\?|$)` 로 막는 게 핵심이다 — 이러면 **컬렉션 POST 만** 걸리고
+  //        `POST /support/messages/read`(읽음 처리, 멱등)와 `GET /support/messages`(목록)는 재시도가 살아 있다.
+  const CREATE_NO_RETRY_RE = /\/(bookings|revenue|customers|portfolio|background|support\/messages)(\?|$)/;
   function _isNonIdempotentCreate(input, init) {
     try {
       const m = (init && init.method ? String(init.method).toUpperCase() : 'GET');
