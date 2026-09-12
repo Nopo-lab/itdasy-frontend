@@ -223,13 +223,16 @@ function _galleryItemDetail(galleryId) {
       pop.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,0.7);display:flex;align-items:flex-end;justify-content:center;';
       pop.onclick = e => { if (e.target === pop) pop.style.display = 'none'; };
       document.body.appendChild(pop);
+      /* [2026-09-09] 뒤로가기 등록 — 전체화면 오버레이는 back 으로 자기가 닫혀야 한다.
+         안 하면 back 이 이 창 대신 뒤 화면을 닫아 작성 중이던 내용이 날아간다. */
+      try { window._bindSheetBack && window._bindSheetBack('galleryfinish1', pop, () => { pop.remove(); }); } catch (_bsb) { void _bsb; }
     }
     const escapedCaption = escapeHtml(item.caption);
     pop.innerHTML = `
       <div style="width:100%;max-width:480px;background:#fff;border-radius:20px 20px 0 0;max-height:90vh;overflow-y:auto;padding:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div style="font-size:14px;font-weight:800;">${escapeHtml(item.label)} <span style="font-size:11px;color:var(--text3);font-weight:400;">${escapeHtml(item.date)}</span></div>
-          <button data-gallery-detail-close style="background:transparent;border:none;font-size:20px;color:var(--text-subtle);cursor:pointer;">×</button>
+          <button class="ss-close" data-gallery-detail-close style="background:transparent;border:none;font-size:20px;color:var(--text-subtle);cursor:pointer;"><svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
         ${_buildPeekCarousel(photos, 'gd_carousel')}
         ${escapedCaption ? `<div style="margin-top:12px;font-size:13px;color:#333;white-space:pre-wrap;line-height:1.6;">${escapedCaption}</div>` : ''}
@@ -411,6 +414,9 @@ function _showPublishOptions(slotId) {
     pop.style.cssText = 'display:none;position:fixed;inset:0;z-index:9500;background:rgba(15,20,25,0.5);align-items:flex-end;justify-content:center;';
     pop.onclick = e => { if (e.target === pop) pop.style.display = 'none'; };
     document.body.appendChild(pop);
+    /* [2026-09-09] 뒤로가기 등록 — 전체화면 오버레이는 back 으로 자기가 닫혀야 한다.
+       안 하면 back 이 이 창 대신 뒤 화면을 닫아 작성 중이던 내용이 날아간다. */
+    try { window._bindSheetBack && window._bindSheetBack('galleryfinish2', pop, () => { pop.remove(); }); } catch (_bsb) { void _bsb; }
   }
 
   pop.innerHTML = `
@@ -499,6 +505,9 @@ function _previewSlotOnInsta(slotId) {
     pop.style.cssText = 'display:none;position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,0.82);align-items:center;justify-content:center;padding:14px;';
     pop.onclick = e => { if (e.target === pop) pop.style.display = 'none'; };
     document.body.appendChild(pop);
+    /* [2026-09-09] 뒤로가기 등록 — 전체화면 오버레이는 back 으로 자기가 닫혀야 한다.
+       안 하면 back 이 이 창 대신 뒤 화면을 닫아 작성 중이던 내용이 날아간다. */
+    try { window._bindSheetBack && window._bindSheetBack('galleryfinish3', pop, () => { pop.remove(); }); } catch (_bsb) { void _bsb; }
   }
 
   const hashHtml = hashtags ? hashtags.split(/\s+/).filter(Boolean).map(h => {

@@ -19,13 +19,35 @@
   const _assistantGroupActions = window.ItdasyAssistantGroupActions || {};
   const _assistantSuggestionControls = window.ItdasyAssistantSuggestionControls || {};
   const _assistantCardRenderers = window.ItdasyAssistantCardRenderers || {};
+  // [연준님 2026-08-15 · A] 빈 채팅방 초기 추천질문.
+  //   예전엔 여기 5개가 하드코딩('오늘 예약 알려줘 / … / 캡션 만들어줘 / 사진 보정해줘')이라
+  //   인스타를 한 번도 연동 안 한 원장님한테도 몇 달째 같은 문구가 떴다.
+  //   이제 GET /assistant/starters 가 계정 상태(오늘 예약·매출·고객 수·인스타·대기 DM)를 보고
+  //   내려준다. LLM 0회이고, 내려오는 문구는 전부 즉답 경로라 눌러도 돈이 안 나간다.
+  //   아래 배열은 **서버 응답 전/실패 시 폴백**일 뿐이라 상태 무관하게 안전한 것만 남긴다.
   const SUGGESTIONS = _assistantCore.SUGGESTIONS || [
     '오늘 예약 알려줘',
-    '내일 예약 뭐 있어?',
-    '이번 달 매출',
-    '캡션 만들어줘',
-    '사진 보정해줘',
+    '이번 달 매출 얼마야?',
+    '단골 누구야?',
   ];
+  let _starters = null;          // 서버가 준 초기 추천질문 (null = 아직 못 받음)
+  let _quickSuggestSig = '';     // 초기칩 재렌더 방지(표시상태+목록 지문)
+  let _startersAt = 0;
+
+  async function _loadStarters() {
+    try {
+      if (!window.API || !window.authHeader) return;
+      if (_starters && Date.now() - _startersAt < 60000) return;   // 1분 내 재요청 방지
+      const res = await apiFetch('/assistant/starters', { headers: window.authHeader() });
+      if (!res.ok) return;
+      const d = await res.json();
+      if (Array.isArray(d.items) && d.items.length) {
+        _starters = d.items;
+        _startersAt = Date.now();
+        _syncQuickSuggestVisibility();   // 이미 빈 화면이면 바로 갈아끼운다
+      }
+    } catch (_e) { void _e; }
+  }
 
   function _categoryOptionsHtml(selected) {
     if (typeof _assistantCore.categoryOptionsHtml === 'function') {
@@ -119,6 +141,27 @@
   let _sessionId = null;
   try { _sessionId = parseInt(localStorage.getItem('assistant_session_id') || '', 10) || null; }
   catch (_e) { _sessionId = null; }
+
+  // [연준님 2026-08-16] 계정이 바뀌면 잇비 대화 상태를 버린다 (app-plan.js _resetIfUserChanged 와 같은 원칙).
+  //   app-core 의 _purgeUserScopedStorage 가 localStorage 는 지우지만 **requestIdleCallback 으로 미뤄서**
+  //   돌고, 리로드 없는 계정 전환(토큰 만료 후 다른 계정 로그인)에서는 **이 클로저 변수들이 그대로 남는다**.
+  //   그러면 이전 원장의 session_id 로 서버에 물어보게 된다 — 서버가 user_id 로 걸러 유출은 없지만,
+  //   대화가 안 이어지고 UI 가 꼬인다(실측: 대화 0건인데 초기 추천칩이 숨겨짐).
+  let _lastSeenUid = (() => { try { return localStorage.getItem('last_user_id'); } catch (_e) { return null; } })();
+  function _resetIfUserChanged() {
+    let uid = null;
+    try { uid = localStorage.getItem('last_user_id'); } catch (_e) { uid = null; }
+    if (uid === _lastSeenUid) return;
+    _lastSeenUid = uid;                     // 먼저 갱신 — 아래 경로가 다시 들어와도 재귀 안 함
+    _sessionId = null;
+    _history = [];
+    _historyLoadedFromServer = false;
+    _starters = null;
+    _startersAt = 0;
+    _quickSuggestSig = '';
+    _lastRenderedSig = '';
+    try { localStorage.removeItem('assistant_session_id'); } catch (_e) { void _e; }
+  }
 
   // [2026-04-26 백그라운드 픽스] in-flight 메시지 직렬화 / 미확인 답변 알림
   // 사진 업로드·답변 대기 중에 챗봇 닫고 딴 일 해도, 다시 열었을 때 보낸 내역과 답변이 보이도록.
@@ -308,8 +351,9 @@
         <div id="asstFooter" style="display:flex;gap:8px;margin-top:8px;align-items:center;">
           <button id="asstPhoto" aria-label="사진 업로드" title="사진 업로드" style="flex-shrink:0;width:40px;height:40px;border:none;border-radius:50%;background:#F2F4F6;color:#4E5968;cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;transition:background 0.15s;">${_svg('ic-camera', 18)}</button>
           <input id="asstInput" placeholder="샵 관련해서 물어보세요…" maxlength="300" data-no-voice style="flex:1;padding:11px 16px;border:none;border-radius:999px;font-size:14px;min-width:0;background:#F2F4F6;color:#191F28;outline:none;" />
-          <button id="asstMicBtn" type="button" aria-label="음성 입력" title="음성 입력" style="flex-shrink:0;width:40px;height:40px;border:none;border-radius:50%;background:#F2F4F6;color:#4E5968;cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;transition:background 0.15s, color 0.15s;">${_svg('ic-mic', 18)}</button>
-          <button id="asstSend" aria-label="보내기" title="보내기" style="flex-shrink:0;width:40px;height:40px;padding:0;border:none;border-radius:50%;background:#191F28;color:#FFFFFF;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">${_svg('ic-send', 16)}</button>
+          <!-- [2026-08-16] 마이크↔전송 스왑 — 빈 상태=마이크(검정), 입력·사진 펜딩=전송(로즈). 표시는 _updateComposerSwap 이 토글 -->
+          <button id="asstMicBtn" type="button" aria-label="음성 입력" title="음성 입력" style="flex-shrink:0;width:40px;height:40px;border:none;border-radius:50%;background:#191F28;color:#FFFFFF;cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;transition:background 0.15s, color 0.15s;">${_svg('ic-mic', 18)}</button>
+          <button id="asstSend" aria-label="보내기" title="보내기" style="flex-shrink:0;width:40px;height:40px;padding:0;border:none;border-radius:50%;background:#C96A78;color:#FFFFFF;cursor:pointer;font-weight:700;display:none;align-items:center;justify-content:center;">${_svg('ic-send', 16)}</button>
         </div>
         <input id="asstCamera" type="file" accept="image/*" capture="environment" multiple style="display:none;" />
         <input id="asstGallery" type="file" accept="image/*" multiple style="display:none;" />
@@ -330,6 +374,8 @@
       st.textContent = [
         '#assistantSheetPanel button { touch-action: manipulation; transition: background .12s ease, transform .08s ease; }',
         '#assistantSheetPanel button:active { transform: scale(.96); }',
+        // [2026-08-16] 전송(비행기) 아이콘 광학정렬 — lucide send 는 NE 방향이라 좌하로 1px 보정
+        '#asstSend svg { transform: translate(-1px, 1px); }',
         // [2026-05-26] 메시지·액션 카드 등장 — slide-up + fade
         '#asstBody .asst-msg, #asstBody .asst-card { animation: asstSlideUp .4s ease both; }',
         '@keyframes asstSlideUp { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }',
@@ -434,7 +480,23 @@
       if (_typeTimer) clearTimeout(_typeTimer);
       const v = (e.target.value || '').trim();
       _typeTimer = setTimeout(() => _renderTypeahead(v), 200);
+      _updateComposerSwap();
     });
+  }
+
+  // [2026-08-16] 마이크↔전송 스왑 — 텍스트 입력 중이거나 사진 펜딩이 있으면 전송(로즈),
+  // 빈 상태면 마이크(검정). 버튼 DOM 은 둘 다 유지하고 display 만 토글
+  // (voice-input.js 가 #asstMicBtn 참조를 잡고 있고, AssistantSheet.open 의 startVoice 도 click() 호출).
+  function _updateComposerSwap() {
+    const input = document.getElementById('asstInput');
+    const mic = document.getElementById('asstMicBtn');
+    const send = document.getElementById('asstSend');
+    if (!input || !mic || !send) return;
+    const pend = document.getElementById('asstPending');
+    const hasPending = !!(pend && pend.style.display !== 'none' && pend.children.length);
+    const showSend = !!(input.value || '').trim() || hasPending;
+    send.style.display = showSend ? 'inline-flex' : 'none';
+    mic.style.display = showSend ? 'none' : 'inline-flex';
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -513,14 +575,27 @@
     const promoResultHtml = _renderPromoResult(m, idx);
     const photoResultHtml = _renderPhotoResult(m, idx);
     // [2026-06-10] LLM 마크다운 볼드(**텍스트**)가 별표 그대로 노출되던 버그 — escape 후 <strong> 변환 (XSS 안전)
-    const looseTextHtml = promoResultHtml ? '' : `<div style="padding:2px 2px 0;font-size:14px;line-height:1.55;color:#191F28;font-weight:500;white-space:pre-wrap;letter-spacing:-0.2px;">${_esc(_normMsg(m.text)).replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')}</div>`;
+    // [2026-08-16] 브리핑은 말풍선 규격(fit-content, 회색 버블) — 전폭으로 꽉 채우던 것 교정.
+    //   body 가 이미 max-width:85% 라 버블은 그 안에서 fit → 화면 기준 70~80% 규격 준수.
+    const _textInner = _esc(_normMsg(m.text)).replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+    const looseTextHtml = promoResultHtml ? '' : (m.briefing_day
+      ? `<div style="background:#F2F4F6;border-radius:16px;border-top-left-radius:4px;padding:10px 14px;width:fit-content;max-width:100%;box-sizing:border-box;font-size:14px;line-height:1.55;color:#191F28;font-weight:500;white-space:pre-wrap;letter-spacing:-0.2px;">${_textInner}</div>`
+      : `<div style="padding:2px 2px 0;font-size:14px;line-height:1.55;color:#191F28;font-weight:500;white-space:pre-wrap;letter-spacing:-0.2px;">${_textInner}</div>`);
     // [2026-06-10] 타임아웃 메시지에 [다시 시도] 버튼 — 같은 질문 재타이핑 없이 1탭 재시도
     const retryHtml = m.retry_q ? `<div style="margin-top:8px;"><button type="button" data-asst-retry="${idx}" style="padding:9px 18px;border:1px solid #E5E8EB;border-radius:999px;background:#fff;color:#191F28;font-size:13px;font-weight:600;cursor:pointer;">다시 시도</button></div>` : '';
+    // [잇비 관측 2026-09-11] 신고에 **재현 좌표**를 같이 싣는다(대화·턴·intent·빌드·마스킹된 질문).
+    //   이게 없으면 "답이 틀렸어요" 를 받아도 다음 업데이트에 반영할 방법이 없다.
+    const _tr = (m && m.trace) || {};
     const reportHtml = promoResultHtml ? '' : `<div style="margin-top:4px;padding-left:2px;">
           <button data-report-ai="chat_answer" data-snippet="${_esc(m.text).replace(/"/g,'&quot;')}" data-source="/assistant/chat" aria-label="AI 답변 신고"
+            data-trace="${_esc(JSON.stringify(_tr)).replace(/"/g,'&quot;')}"
             style="background:transparent;border:none;cursor:pointer;font-size:11px;color:#C5CBD2;padding:2px 4px;display:inline-flex;align-items:center;gap:3px;">${_svg('ic-flag', 11)} 신고</button>
         </div>`;
-    return `<div class="asst-msg asst-msg--ai" style="display:flex;gap:10px;margin-bottom:14px;align-items:flex-start;">
+    // [2026-08-16] 오늘의 브리핑 — 메시지 앞 중앙 날짜칩 (카톡 날짜칩 스타일)
+    const briefChipHtml = m.briefing_day
+      ? `<div data-asst-briefing style="display:flex;justify-content:center;margin:6px 0 12px;"><span style="padding:5px 12px;border-radius:999px;background:#F2F4F6;color:#8B95A1;font-size:11.5px;font-weight:600;">오늘의 브리핑</span></div>`
+      : '';
+    return `${briefChipHtml}<div class="asst-msg asst-msg--ai" style="display:flex;gap:10px;margin-bottom:14px;align-items:flex-start;">
       <div style="width:40px;height:40px;border-radius:50%;background:#F7EFF0;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#BC6675;">${_svg('ic-bot', 22)}</div>
       <div style="max-width:85%;min-width:0;flex:1;">
         ${promoResultHtml}
@@ -693,6 +768,13 @@
   // [T-115] Daily Briefing 추천 버튼 (안전 — 화면 이동/초안 경로만). intent-chip 패턴 미러링.
   function _renderBriefingActions(m, idx) {
     if (!Array.isArray(m.briefing_actions) || !m.briefing_actions.length) return '';
+    // [2026-08-16] 오늘의 브리핑(카톡식) — 말풍선 아래 세로 버튼 최대 2개.
+    //   첫 번째=로즈(행동), 두 번째=회색. 클릭 경로는 기존 data-asst-brief-act(runAction) 재사용.
+    if (m.briefing_day) {
+      return `<div class="asst-chips asst-chips--brief" style="margin-top:8px;display:flex;flex-direction:column;gap:6px;max-width:240px;">
+        ${m.briefing_actions.slice(0, 2).map((a, i) => `<button data-asst-brief-act="${idx}:${_esc(a.id)}" style="padding:11px 16px;border:none;border-radius:12px;cursor:pointer;font-size:13.5px;font-weight:700;text-align:center;${i === 0 ? 'background:#C96A78;color:#FFFFFF;' : 'background:#F2F4F6;color:#4E5968;'}">${_esc(a.label)}</button>`).join('')}
+      </div>`;
+    }
     // [J-1] Action Hub 규격으로 렌더(phase 라벨링). 클릭은 기존 data-asst-brief-act 경로(T-115 runAction) 유지.
     if (window.ItdasyActionHub && typeof window.ItdasyActionHub.renderActionHub === 'function') {
       return window.ItdasyActionHub.renderActionHub(m.briefing_actions, { idx, defaultRoute: 'brief' });
@@ -1631,6 +1713,7 @@
   function _renderPending() {
     const pending = _getPhotoPending();
     if (pending) pending.render();
+    _updateComposerSwap();   // [2026-08-16] 사진 펜딩 생기면 전송 버튼 노출
   }
   function _addPendingPhotos(files) {
     const pending = _getPhotoPending();
@@ -2075,6 +2158,7 @@
       var result = M.handleReviewCard(q, ctx);
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
+      try { _syncQuickSuggestVisibility(); } catch (_e) { void _e; }   // 첫 질문 → 초기칩 접기
       if (!result) {
         _history.push({ role: 'assistant', text: '후기 카드를 넣지 못했어요. 사진을 먼저 선택하거나 다시 시도해 주세요.' });
         _renderHistory();
@@ -2283,6 +2367,7 @@
       if (!M || typeof M.detectBeforeAfterCard !== 'function' || !M.detectBeforeAfterCard(q)) return false;
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
+      try { _syncQuickSuggestVisibility(); } catch (_e) { void _e; }   // 첫 질문 → 초기칩 접기
       _openBeforeAfterCreate(q);   // [BA 동선] 사진 0/1/2장 분기 통일(빈 템플릿 금지)
       return true;
     } catch (e) {
@@ -2411,6 +2496,7 @@
       }
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
+      try { _syncQuickSuggestVisibility(); } catch (_e) { void _e; }   // 첫 질문 → 초기칩 접기
       if (payload.purpose === 'event') {
         // [§1] 일반 템플릿 메뉴가 아니라 이벤트 전용 카드 선택지를 채팅에 표시.
         await _pushEventCardChoices(q);
@@ -2472,7 +2558,7 @@
     ov.innerHTML = '<div style="width:100%;max-width:390px;max-height:72vh;overflow:auto;background:#fff;border-radius:22px 22px 18px 18px;padding:16px;box-shadow:0 -10px 34px rgba(25,31,40,.22);">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">' +
       '<div><strong style="font-size:16px;color:#191F28;">템플릿 선택</strong><div style="font-size:12px;color:#8B95A1;margin-top:3px;">고르면 채팅창에서 적용본을 바로 보여드려요.</div></div>' +
-      '<button type="button" data-asst-tpl-close aria-label="닫기" style="border:0;background:#F2F4F6;border-radius:999px;width:34px;height:34px;font-size:18px;cursor:pointer;">×</button></div>' +
+      '<button class="ss-close" type="button" data-asst-tpl-close aria-label="닫기" style="border:0;background:transparent;border-radius:999px;width:34px;height:34px;font-size:18px;cursor:pointer;"><svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-x"/></svg></button></div>' +
       '<div data-asst-tpl-grid style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">' + cards + '</div></div>';
     host.appendChild(ov);
     ov.querySelector('[data-asst-tpl-close]').addEventListener('click', _removeAssistantTemplatePicker);
@@ -2704,6 +2790,10 @@
     } catch (_e) { void _e; }
   }
 
+  // [P0 2026-09-09] 진행 중인 시도의 멱등키 — 내용 서명 → 키.
+  //   성공하면 지운다. 회원권 시트(`app-membership.js` `_txnFor`)와 같은 계약이다.
+  const _pendingTxn = new Map();
+
   // 순수 실행기 — action 객체만 받아 POST, 결과 반환. UI 갱신은 호출자가.
   // [QA-NEXT #4] action._ai_original (AI 추출 시점 payload 스냅샷) 있으면 original_payload 동봉 →
   // 백엔드에서 final vs original diff 를 UserCorrection 으로 학습.
@@ -2727,21 +2817,79 @@
     //   백엔드에 멱등이 없어서 같은 요청 5발이 매출 5건이 됐다(실측). 더블탭·타임아웃 후
     //   재시도·모바일 재전송이면 원장님은 한 번 눌렀는데 장부가 여러 줄이 된다.
     //   키를 **액션 객체에 붙여** 재시도해도 같은 값이 가게 한다 (매번 새로 만들면 무의미).
+    // [P0 2026-09-09 2차] 키를 **액션 객체에만** 붙이면 카드가 새로 만들어질 때 새 키가 된다.
+    //   실측한 사고가 정확히 그 경로였다: 응답이 유실돼 화면이 멈춤 → 원장이 같은 요청을
+    //   다시 함 → 새 카드 → 새 키 → 서버가 중복인 줄 모르고 **또 충전**(30,000 → 60,000).
+    //
+    //   형제 경로인 회원권 시트(app-membership.js `_txnFor`)는 이미 **내용 서명**으로 키를 잡고
+    //   성공했을 때만 버린다. 같은 계약을 여기에도 맞춘다 — 한쪽에만 있던 가드를 정렬하는 것이다.
+    //   · 같은 내용(kind + payload)의 재시도 = 같은 키 → 서버가 흡수
+    //   · 성공하면 키를 버린다 → 일부러 같은 금액을 또 충전하는 건 새 시도로 처리된다
+    const _txnSig = (() => {
+      try {
+        const p = { ...(action.payload || {}) };
+        delete p.client_txn_id;
+        return action.kind + '|' + JSON.stringify(Object.keys(p).sort().map((k) => [k, p[k]]));
+      } catch (_e) { return action.kind + '|' + Math.random(); }
+    })();
+    if (!action._txn_id) action._txn_id = _pendingTxn.get(_txnSig);
     if (!action._txn_id) {
       action._txn_id = (window.crypto && window.crypto.randomUUID)
         ? window.crypto.randomUUID().replace(/-/g, '').slice(0, 32)
         : 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
     }
+    _pendingTxn.set(_txnSig, action._txn_id);
     body.payload = { ...body.payload, client_txn_id: action._txn_id };
     if (action._ai_original && typeof action._ai_original === 'object') {
       body.original_payload = action._ai_original;
     }
     if (action._source_question) body.source_question = action._source_question;
-    const res = await apiFetch('/assistant/execute', {
-      method: 'POST',
-      headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    // [P0 2026-09-09 실측] 여기엔 **타임아웃이 없었다.**
+    //   `apiFetch` 는 비-GET 이면 그냥 `fetch(url, opts)` 라 AbortController 도 없다.
+    //   요청이 멈추면 카드가 "저장 중…" 에서 **영원히** 머문다(실측: 60초 넘게 그대로).
+    //   `/assistant/ask` 는 AbortController 를 쓰는데 execute 만 빠져 있었다 — 형제 경로 누락.
+    //
+    //   그리고 그게 **이중 청구**로 이어졌다. 실측(실 Chrome · 운영 DB · 서빙 d1f2884):
+    //     잔액 0 → "회원권 30000원 충전" → 확인 → 서버는 커밋(잔액 30,000)
+    //     → 응답만 유실 → 화면은 계속 "저장 중…"
+    //     → 원장이 결과를 모르니 같은 요청을 다시 함 → 확인 → **잔액 60,000**
+    //   돈이 두 번 들어갔다.
+    //
+    //   서버 멱등은 멀쩡하다 — 같은 `client_txn_id` 로 재전송하면 잔액이 안 움직인다(실측:
+    //   65,000 → 65,000, 같은 응답 반환). 문제는 **클라이언트가 그 키로 재시도할 방법이 없던 것**이다.
+    //   화면이 멈춰 있으니 원장은 새 요청을 만들고, 새 카드는 새 키를 받는다.
+    //
+    //   그래서: 타임아웃을 두고, 끊기면 **같은 `_txn_id` 로 한 번 자동 재시도**한다.
+    //   서버가 멱등이므로 이미 커밋됐다면 그 결과를 그대로 돌려주고(중복 없음),
+    //   아직 안 갔다면 그때 실행된다. 둘 다 안 되면 "결과를 확인하지 못했어요" 로 알린다 —
+    //   타임아웃은 "안 갔다" 가 아니라 **"모른다"** 이므로 실패로 단정하지 않는다.
+    const EXEC_TIMEOUT_MS = 25000;
+    async function _postExec() {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), EXEC_TIMEOUT_MS);
+      try {
+        return await apiFetch('/assistant/execute', {
+          method: 'POST',
+          headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          signal: ctrl.signal,
+        });
+      } finally { clearTimeout(timer); }
+    }
+    let res;
+    try {
+      res = await _postExec();
+    } catch (_e1) {
+      // 끊겼다 — 결과를 모른다. 같은 멱등키로 한 번만 다시 물어본다.
+      try {
+        res = await _postExec();
+      } catch (_e2) {
+        const e0 = new Error('결과를 확인하지 못했어요. 연결이 끊겨서 처리됐는지 알 수 없어요. '
+          + '회원권·매출 화면에서 반영됐는지 확인한 뒤 다시 시도해 주세요.');
+        e0.unknownOutcome = true;
+        throw e0;
+      }
+    }
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       const e2 = new Error(_executeErrorMessage(err, res.status));
@@ -2749,6 +2897,7 @@
       throw e2;
     }
     const d = await res.json();
+    _pendingTxn.delete(_txnSig);   // 성공했으니 이 키는 버린다 — 다음 요청은 새 시도다
     _invalidateCachesFor(d.kind || action.kind);
     if (d.kind === 'generate_bulk_message' && d.message_draft) {
       try {
@@ -3076,10 +3225,13 @@
     c.innerHTML = '<button disabled style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--surface-2);color:var(--text-muted);font-weight:600;font-size:13px;cursor:not-allowed;display:inline-flex;align-items:center;justify-content:center;gap:6px;">✓ 전체 완료</button>';
   }
 
+  // [연준님 2026-08-16] 초기 추천질문을 그리는 **단일 경로**. 예전엔 여기(폴백 고정)와
+  //   _syncQuickSuggestVisibility(서버값) 두 갈래라, 서버값을 그려놔도 이쪽이 나중에 돌면
+  //   폴백으로 되돌려버렸다(실측: 서버는 4개를 주는데 화면은 폴백 3개 고정).
+  //   서버값(_starters)이 있으면 그걸, 없으면 폴백을 쓴다 — 어느 쪽에서 불러도 결과가 같다.
   function _renderSuggest() {
-    if (typeof _assistantSuggestionControls.renderSuggest === 'function') {
-      _assistantSuggestionControls.renderSuggest({ suggestions: SUGGESTIONS });
-    }
+    if (typeof _assistantSuggestionControls.renderSuggest !== 'function') return;
+    _assistantSuggestionControls.renderSuggest({ suggestions: _starters || SUGGESTIONS });
   }
 
   // [2026-04-29 F1] 능동 제안 carousel — today/brief 의 proactive_suggestions 상단 노출
@@ -3535,6 +3687,7 @@
     const input = document.getElementById('asstInput');
     const question = (input && input.value.trim()) || '';
     if (input) input.value = '';
+    _updateComposerSwap();   // [2026-08-16] 질문 소비 후 스왑 갱신
     return question;
   }
 
@@ -3898,6 +4051,7 @@
 
   function _clearAssistantInput(input) {
     if (input) input.value = '';
+    _updateComposerSwap();   // [2026-08-16] 비워지면 전송→마이크 복귀
   }
 
   function _pushUserAssistantText(userText, assistantText) {
@@ -4071,6 +4225,7 @@
       if (!mod || typeof mod.detect !== 'function' || !mod.detect(q)) return false;
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
+      try { _syncQuickSuggestVisibility(); } catch (_e) { void _e; }   // 첫 질문 → 초기칩 접기
       _history.push({ role: 'loading', text: '' });
       _renderHistory();
       let res;
@@ -4109,6 +4264,7 @@
       if (!result) return false;
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
+      try { _syncQuickSuggestVisibility(); } catch (_e) { void _e; }   // 첫 질문 → 초기칩 접기
       if (result.kind === 'message') {
         _history.push({ role: 'assistant', text: result.text });
         _renderHistory();
@@ -4159,6 +4315,7 @@
       if (!res || !res.message) return false;
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
+      try { _syncQuickSuggestVisibility(); } catch (_e) { void _e; }   // 첫 질문 → 초기칩 접기
       _history.push({ role: 'assistant', text: res.message, hub_actions: Array.isArray(res.hubActions) ? res.hubActions : [] });
       _renderHistory();
       return true;
@@ -4201,6 +4358,7 @@
         if (!_ph.length) return false;
         _clearAssistantInput(input);
         _history.push({ role: 'user', text: q });
+      try { _syncQuickSuggestVisibility(); } catch (_e) { void _e; }   // 첫 질문 → 초기칩 접기
         _history.push({ role: 'assistant', text: '가격표로 만들 수 있는 시술명과 가격을 찾지 못했어요. 가격이 함께 보이는 이미지를 올려 주세요.' });
         _renderHistory();
         return true;
@@ -4273,6 +4431,7 @@
         if (dm) {
           _clearAssistantInput(input);
           _history.push({ role: 'user', text: q });
+      try { _syncQuickSuggestVisibility(); } catch (_e) { void _e; }   // 첫 질문 → 초기칩 접기
           if (dm.__card) { _armBookingDraftFromResult(dm.__card); _pushBookingResult(dm.__card); }
           else _history.push(Object.assign({ role: 'assistant' }, dm));
           _renderHistory();
@@ -4281,6 +4440,7 @@
       }
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
+      try { _syncQuickSuggestVisibility(); } catch (_e) { void _e; }   // 첫 질문 → 초기칩 접기
       _pushBookingResult(result);
       _armBookingDraftFromResult(result);
       _renderHistory();
@@ -4299,6 +4459,7 @@
       if (!r) return false;   // 양보 → 기존 라우팅이 처리
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
+      try { _syncQuickSuggestVisibility(); } catch (_e) { void _e; }   // 첫 질문 → 초기칩 접기
       if (r.__card) { _armBookingDraftFromResult(r.__card); _pushBookingResult(r.__card); }
       else _history.push(Object.assign({ role: 'assistant' }, r));
       _renderHistory();
@@ -4312,6 +4473,7 @@
       if (!rule) return false;
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
+      try { _syncQuickSuggestVisibility(); } catch (_e) { void _e; }   // 첫 질문 → 초기칩 접기
       _history.push({ role: 'loading', text: '' });
       _renderHistory();
       await _runAsyncIntentRule(rule);
@@ -4349,6 +4511,22 @@
 
   function _runSheetShortcut(input, fn) {
     _clearAssistantInput(input);
+    // [P1 2026-09-09 실측] 잇비 시트를 **먼저 닫는다**. 안 닫으면 목표 화면이
+    //   잇비(z-index 10500) 뒤(z-index 9000대)에 열려서 **사용자에겐 아무 일도 안 일어난 것처럼 보인다.**
+    //
+    //   실측(배포본 6be453c, 실 Chrome, 각각 깨끗한 상태에서 1건씩):
+    //     "회원권 만료 임박한 사람 있어?" → membershipSheet 열림 · 잇비 그대로 위 · elementFromPoint=asstBody
+    //     "인사이트 보여줘"              → insightsSheet  열림 · 잇비 그대로 위
+    //     "백업 화면 열어줘"             → backupScreen   열림 · 잇비 그대로 위
+    //     "리뷰 요청 보내줘"             → wsv2Flow       열림 · 잇비 **닫힘** (보임)
+    //     "이탈 고객 관리"               → retentionSheet 열림 · 잇비 **닫힘** (보임)
+    //   즉 목표 화면 **일부만** 스스로 잇비를 닫고 있었다 — 전형적인 "한 경로엔 가드가 있고
+    //   형제 경로엔 없다". 그래서 각 목표가 아니라 **공용 헬퍼**에서 한 번에 닫는다.
+    //
+    //   특히 나쁜 건 "회원권 만료 임박한 사람 있어?" 가 **백엔드가 내려준 추천칩**이라는 점이다.
+    //   원장이 칩을 눌렀는데 답변도 안 나오고 화면도 안 바뀐다(사용자 말풍선조차 안 생긴다).
+    //   게다가 history 만 하나 쌓여서 **다음 뒤로가기가 보이지도 않는 시트를 닫는 데 소모된다.**
+    try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_c) { void _c; }
     try { fn(); } catch (_e) { void _e; }
   }
 
@@ -4380,15 +4558,37 @@
     return false;
   }
 
+  /* [잇비 전수QA 2026-09-11 · P2] 아래 지름길은 **명령**("…열어줘")용인데 **질문**까지 삼켰다.
+
+     실측(실 Chrome, 배포본 6926ff0): "회원권 만료 임박한 사람 있어?" 를 누르면
+     잇비가 닫히고 회원권 시트만 뜬다. 채팅엔 질문도 답도 안 남는다.
+     하필 그 문장은 **백엔드가 내려준 추천칩**이다(`_READONLY_FOLLOWUPS.membership_balance`) —
+     우리가 추천해 놓고 우리가 대화를 끊는다.
+
+     백엔드엔 `expiring_membership`·`at_risk_customers` 즉답이 있고, 답 끝에
+     '고객 화면 열기' 버튼까지 붙여 준다(`_READONLY_HUB_ACTION`). 즉 질문을 양보하면
+     원장님은 **답 + 버튼** 을 둘 다 받는다. 화면만 여는 건 정보가 줄어드는 선택이다.
+
+     그래서 '상태를 묻는 말'이면 지름길을 쓰지 않는다. 여는 동사(열어/관리/화면/이동)가
+     같이 있으면 그건 명령이므로 그대로 연다("회원권 만료 관리 화면 열어줘"). */
+  const _ASK_RE = /(있어|있나|없어|누구|몇|얼마|언제|어때|현황|상태|알려\s*줘?|보여\s*줘?|\?$)/;
+  const _OPEN_VERB_RE = /(열어|열기|화면|이동|가자|관리\s*(화면|해)|띄워|보여\s*주는\s*화면)/;
+  function _isStatusQuestion(q) {
+    const t = String(q || '').trim();
+    return _ASK_RE.test(t) && !_OPEN_VERB_RE.test(t);
+  }
+
   function _trySimpleOpenShortcut(input, q) {
+    // 질문형이면 답을 주는 쪽(백엔드 즉답)으로 보낸다.
+    const askOnly = _isStatusQuestion(q);
     const pairs = [
       [/(브랜드\s*키트|brand\s*kit|샵\s*브랜드|워터마크\s*(설정|관리))/, () => window.BrandKit?.open?.()],
-      [/회원권.*(만료|임박)|만료.*회원권/, () => window.MembershipUI?.openExpiringList?.(30)],
+      ...(askOnly ? [] : [[/회원권.*(만료|임박)|만료.*회원권/, () => window.MembershipUI?.openExpiringList?.(30)]]),
       [/(dm|디엠|자동\s*응답|자동\s*답장).*(설정|관리|편집|룰)|자동\s*응답\s*(켜|꺼|on|off)/, window.openDMAutoreplySettings],
-      [/(통계|분석|인사이트|insight|매출\s*(요약|리포트|추이|분석))/, window.openInsights],
+      ...(askOnly ? [] : [[/(통계|분석|인사이트|insight|매출\s*(요약|리포트|추이|분석))/, window.openInsights]]),
       [/(백업|backup|데이터.*(복구|내보내|받|export))/, window.openBackupScreen],
-      [/(리뷰|후기)\s*(요청|보내|부탁|발송)/, window.openReviewRequests],
-      [/(이탈|위험|복귀|재방문)\s*(고객|손님|관리)?|retention/i, window.openRetentionAI],
+      ...(askOnly ? [] : [[/(리뷰|후기)\s*(요청|보내|부탁|발송)/, window.openReviewRequests]]),
+      ...(askOnly ? [] : [[/(이탈|위험|복귀|재방문)\s*(고객|손님|관리)?|retention/i, window.openRetentionAI]]),
     ];
     return _runFirstShortcutPair(input, q, pairs);
   }
@@ -4509,9 +4709,28 @@
     _notifyAnswerArrived();
   }
 
+  /* [잇비 관측 2026-09-11] 답변 1건의 **좌표**를 메시지에 붙여둔다.
+     신고를 받아도 어느 대화의 어느 턴인지 몰라 재현이 안 됐다 — 신고 버튼이 이 값을 싣는다. */
+  function _attachTrace(msg, data, q) {
+    try {
+      msg.trace = {
+        conversation_id: (data && data.session_id) || _sessionId || null,
+        turn_id: (data && data.turn_id) != null ? data.turn_id : null,
+        intent: (data && data.intent) || null,
+        user_question: q || '',
+        app_build: (window.__ITDASY_BUILD__ || window.APP_BUILD || document.body?.dataset?.build || ''),
+      };
+    } catch (_e) { void _e; }
+    return msg;
+  }
+
   function _textResponseMessage(data, actionsList) {
     const msg = { role: 'assistant', text: data.answer || '답을 만들지 못했어요.' };
     if (Array.isArray(data.related_questions) && data.related_questions.length) msg.related = data.related_questions.slice(0, 3);
+    // [연준님 2026-08-15] 서버가 준 '그 화면 열기' 버튼을 메시지로 옮긴다.
+    //   related·duplicate_warnings 는 옮기면서 hub_actions 만 빠져 있었다 — 렌더러(_hubActionsHtml)는
+    //   진작 있었는데 메시지에 필드가 안 실려서 버튼이 영영 안 떴다(실측: 답만 뜨고 버튼 0).
+    if (Array.isArray(data.hub_actions) && data.hub_actions.length) msg.hub_actions = data.hub_actions;
     if (Array.isArray(data.duplicate_warnings) && data.duplicate_warnings.length) {
       msg.duplicate_warnings = data.duplicate_warnings.map(w => ({ ...w, dismissed: false }));
     }
@@ -4528,7 +4747,7 @@
       _pushFallbackAsk(q);
       return;
     }
-    _history.push(_textResponseMessage(data, actionsList));
+    _history.push(_attachTrace(_textResponseMessage(data, actionsList), data, q));
     _renderHistory();
     if (window.hapticLight) window.hapticLight();
     _clearChatPending();
@@ -4697,22 +4916,58 @@
     return true;
   }
 
+  /* [잇비 관측 2026-09-11] **프론트가 혼자 답한 턴을 서버 로그에서 볼 수 있게 한다.**
+
+     이번 전수 QA 에서 가장 나쁜 결함 6건이 전부 여기서 끝났다 — 백엔드엔 요청 자체가
+     안 갔으니 서버 로그엔 아무 흔적도 없고, 원장님이 신고하지 않으면 영영 모른다.
+     ("오늘 예약 3건"인데 카드 2장 · 지출을 물었는데 매출 · 추천칩이 화면만 열고 끝)
+     그래서 **어느 지름길이 가로챘는지**(`handled_by`)를 한 줄 남긴다.
+     보내는 건 마스킹된 질문 모양뿐이고(서버에서 한 번 더 마스킹), 실패해도 대화는 그대로다. */
+  const _SHORTCUTS = [
+    ['obvious_intent', (i, q) => _tryObviousIntent(i, q)],
+    ['affirm_action', _tryAffirmAction],
+    ['customer_phone_intent', _tryCustomerPhoneIntent],
+    ['customer_add_guard', _tryCustomerAddGuard],
+    ['caption_conversation', _tryCaptionConversation],
+    ['cancel_booking', _tryCancelBookingShortcut],
+    ['booking_context', _tryBookingContextShortcut],
+    ['lookup_booking', _tryLookupBookingShortcut],
+    ['create_booking', _tryCreateBookingShortcut],
+    ['draft_message', _tryDraftMessageShortcut],
+    ['closing_report', _tryClosingReportShortcut],
+    ['daily_briefing', _tryDailyBriefingShortcut],
+    ['customer_status_card', _tryCustomerStatusCard],
+    ['async_intent_rule', _tryAsyncIntentRule],
+    ['keyword_shortcut', (i, q) => _tryKeywordShortcut(i, q)],
+  ];
+
   async function _trySendShortcuts(input, q) {
-    if (_tryObviousIntent(input, q)) return true;
-    if (await _tryAffirmAction(input, q)) return true;
-    if (await _tryCustomerPhoneIntent(input, q)) return true;   // [Phase3] 연락처 자연어(add-guard 보다 먼저)
-    if (await _tryCustomerAddGuard(input, q)) return true;
-    if (await _tryCaptionConversation(input, q)) return true;     // [§2-5] 캡션 — 대화형 생성/재생성(1초캡션 팝업 금지)
-    if (await _tryCancelBookingShortcut(input, q)) return true;
-    if (await _tryBookingContextShortcut(input, q)) return true;
-    if (await _tryLookupBookingShortcut(input, q)) return true;
-    if (await _tryCreateBookingShortcut(input, q)) return true;
-    if (await _tryDraftMessageShortcut(input, q)) return true;   // [T-110] 메시지 초안(발송 아님)
-    if (await _tryClosingReportShortcut(input, q)) return true;  // [2026-07-05] 하루 마감 리포트(브리핑보다 먼저)
-    if (await _tryDailyBriefingShortcut(input, q)) return true;  // [T-114] 오늘 운영 브리핑(읽기 전용)
-    if (await _tryCustomerStatusCard(input, q)) return true;     // [J-3] 고객 상태 카드(읽기 전용 + 다음액션 버튼)
-    if (await _tryAsyncIntentRule(input, q)) return true;
-    return _tryKeywordShortcut(input, q);
+    for (const [name, fn] of _SHORTCUTS) {
+      // eslint-disable-next-line no-await-in-loop
+      if (await fn(input, q)) { _reportClientTurn(name, q); return true; }
+    }
+    return false;
+  }
+
+  // 로그 1건. 절대 대화를 깨뜨리지 않는다(실패는 조용히 버린다).
+  function _reportClientTurn(handledBy, q) {
+    try {
+      if (typeof apiFetch !== 'function') return;
+      const last = _history[_history.length - 1];
+      apiFetch('/assistant/client-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(window.authHeader ? window.authHeader() : {}) },
+        body: JSON.stringify({
+          event: 'turn',
+          conversation_id: _sessionId || null,
+          handled_by: handledBy,
+          question: String(q || '').slice(0, 500),
+          answer: (last && last.role === 'assistant' && typeof last.text === 'string')
+            ? last.text.slice(0, 500) : null,
+          app_build: (window.__ITDASY_BUILD__ || window.APP_BUILD || ''),
+        }),
+      }).catch(() => {});
+    } catch (_e) { void _e; }
   }
 
   // [P0a] 사진 직후 후속 텍스트가 "그 사진"에 대한 명령인지(누끼/배경/보정/템플릿/홍보/인스타/업로드/손님 등).
@@ -4728,6 +4983,7 @@
       _sendInFlight = true;
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
+      try { _syncQuickSuggestVisibility(); } catch (_e) { void _e; }   // 첫 질문 → 초기칩 접기
       _renderHistory();
       let res = null;
       try { res = await window.ItbiMemoryIntent.handle(q); }
@@ -4749,6 +5005,7 @@
       _sendInFlight = true;
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
+      try { _syncQuickSuggestVisibility(); } catch (_e) { void _e; }   // 첫 질문 → 초기칩 접기
       _renderHistory();
       let res = null;
       try { res = await window.ItbiSavedCardsIntent.handle(q); }
@@ -4810,6 +5067,7 @@
     try {
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
+      try { _syncQuickSuggestVisibility(); } catch (_e) { void _e; }   // 첫 질문 → 초기칩 접기
       _renderHistory();
       await _ensurePhotoGroup();
       const editorOpen = _isEditorOpen();
@@ -4949,6 +5207,7 @@
     try {
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
+      try { _syncQuickSuggestVisibility(); } catch (_e) { void _e; }   // 첫 질문 → 초기칩 접기
       _renderHistory();
       try { if (window.AppLoader && !window.AppLoader.loaded('photo')) await window.AppLoader.ensure('photo'); } catch (_l) { void _l; }
       const p = c.purpose;
@@ -5155,7 +5414,7 @@
         if (src && src.origin === 'chat' && src.dataUrl) {
           _sendInFlight = true;   // _uploadPhotos 와 동일하게 이중 전송 가드
           try {
-            if (await _tryPhotoShortcut(q, [src.dataUrl])) { if (input) input.value = ''; return; }
+            if (await _tryPhotoShortcut(q, [src.dataUrl])) { _clearAssistantInput(input); return; }
           } finally { _sendInFlight = false; }
         }
       } catch (_e) { void _e; }
@@ -5304,6 +5563,45 @@
     } catch (_e) { void _e; }
   };
 
+  // [2026-08-16] 카톡식 오늘의 브리핑 — 잇비 채팅 열 때 오늘 브리핑을 로컬 전용 메시지로 주입.
+  //   매일 교체(어제 것 제거), 서버 히스토리엔 안 쌓임(local_only → _pendingHistorySurvivors 가 보존).
+  //   버튼은 briefing_actions 최대 2개 → 기존 data-asst-brief-act(runAction) 경로 재사용.
+  let _briefingInjecting = false;
+  let _briefingReadyP = null;   // [2026-08-16] 홈 '전체 보기' 스크롤이 주입 완료를 기다리는 용도
+  // force=true(홈 '전체 보기'): 최신 데이터로 맨 아래 재발행. 단, 5분 안에 만든 게 있으면
+  //   그걸 그대로 보여준다(같은 동작 반복 → 똑같은 메시지 여러 번 발행 금지, 2026-08-16 원영).
+  async function _injectDailyBriefing(force) {
+    if (_briefingInjecting) return;
+    if (!(window.ItdasyDailyBriefing && typeof window.ItdasyDailyBriefing.run === 'function')) return;
+    const d = new Date();
+    const ymd = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    // 어제 브리핑 제거 (매일 교체)
+    const before = _history.length;
+    _history = _history.filter((m) => !(m && m.briefing_day && m.briefing_day !== ymd));
+    const cur = _history.find((m) => m && m.briefing_day === ymd);
+    if (cur) {
+      const fresh = Number(cur.briefing_ts) && (Date.now() - cur.briefing_ts) < 5 * 60 * 1000;
+      if (!force || fresh) {
+        if (_history.length !== before) { _lastRenderedSig = ''; _renderHistory(); }
+        return;   // 오늘 것 이미 있음(재사용) — force 라도 5분 내면 그대로 보여줌
+      }
+      _history = _history.filter((m) => m !== cur);   // 오래된 오늘 브리핑 → 최신 데이터로 재발행
+    }
+    _briefingInjecting = true;
+    try {
+      const r = await window.ItdasyDailyBriefing.run();
+      if (!r || !r.message) return;
+      _history.push({
+        role: 'assistant', local_only: true, briefing_day: ymd, briefing_ts: Date.now(),
+        text: r.message,
+        briefing_actions: Array.isArray(r.actions) ? r.actions.slice(0, 2) : [],
+      });
+      _lastRenderedSig = '';
+      _renderHistory();
+    } catch (_e) { void _e; }
+    finally { _briefingInjecting = false; }
+  }
+
   window.openAssistant = function () {
     _ensureSheet();
     const sheet = document.getElementById('assistantSheet');
@@ -5311,12 +5609,19 @@
     _restoreChatPendingOnOpen();
     _lastRenderedSig = ''; // sheet 새로 열렸으니 강제 1회 풀 렌더
     _renderHistory();
+    _updateComposerSwap();   // [2026-08-16] 열 때 입력/펜딩 상태에 맞춰 마이크↔전송 정렬
     // 챗봇 열었으니 unread 점 제거
     _setUnreadAnswer(false);
     // 첫 오픈 시 서버 history 동기화 (백그라운드, 즉시 렌더에 영향 X)
     _loadServerHistory();
+    // [2026-08-16] 오늘의 브리핑 주입 (백그라운드 — local_only 라 서버 머지에도 생존)
+    _briefingReadyP = _injectDailyBriefing();
     // [2026-04-29 F1] 능동 제안 carousel — chat 입력창 위
+    // [연준님 2026-08-16] 계정이 바뀌었으면 이전 원장 대화 상태부터 버린다(가장 먼저).
+    _resetIfUserChanged();
     _loadProactiveSuggestions();
+    // [연준님 2026-08-15 · A] 계정 상태 기반 초기 추천질문 (LLM 0회, 1분 캐시)
+    _loadStarters();
     // [2026-05-16] 대화 없으면 퀵액션(이런 것도 돼요 + chips) 표시, 있으면 숨김.
     // 챗봇 닫았다 다시 열 때 _history 가 비어있을 수도/있을 수도 → 상태에 맞춰 갱신.
     _syncQuickSuggestVisibility();
@@ -5400,14 +5705,31 @@
     }, 1000);
   }
 
+  // 초기 추천질문(빈 채팅방 칩)의 표시/갱신 단일 진입점.
+  //   호출 지점: 채팅방 open · starters 응답 도착 · 사용자가 질문을 보낸 직후.
+  //   ⚠️ _renderHistory 의 RAF 콜백에 걸지 말 것 — 실측에서 메시지 렌더가 통째로 멈췄다.
   function _syncQuickSuggestVisibility() {
     try {
       const ql = document.getElementById('asstQuickLabel');
       const qs = document.getElementById('asstSuggest');
       if (!ql || !qs) return;
-      const show = !_history || _history.length === 0;
-      ql.style.display = show ? '' : 'none';
-      qs.style.display = show ? 'flex' : 'none';
+      // [연준님 2026-08-16] 기준을 "메시지 0건" → **"원장님이 아직 아무것도 안 물어봄"** 으로.
+      //   채팅방을 열면 '오늘의 브리핑' 이 자동으로 올라온다(잇비가 스스로 올린 것).
+      //   그걸 대화로 치는 바람에 _history.length > 0 이 되어 **초기 추천질문이 아예 안 떴다**
+      //   (실측: 신규 계정에서 display:none). 원장님 입장에선 "뭘 물어볼지" 안내가 제일 필요한
+      //   순간이 바로 그때다. 사용자가 한 마디라도 하면 그때 숨긴다.
+      const show = !_history || !_history.some(m => m && m.role === 'user');
+      // 상태·목록이 그대로면 다시 그리지 않는다 — _renderHistory 마다 innerHTML 을 새로 쓰면
+      //   칩이 깜빡이고 스크롤이 튄다(매 프레임 호출되는 경로라 반드시 필요).
+      const sig = show + '|' + (_starters || SUGGESTIONS).join('§');
+      if (sig !== _quickSuggestSig) {
+        _quickSuggestSig = sig;
+        // 보이기 직전에 최신 목록으로 갈아끼운다(서버값 우선).
+        //   렌더는 _renderSuggest 한 곳으로만 — 두 갈래로 그리면 나중 것이 앞 것을 덮는다.
+        if (show) _renderSuggest();
+        ql.style.display = show ? '' : 'none';
+        qs.style.display = show ? 'flex' : 'none';
+      }
     } catch (_e) { void _e; }
   }
 
@@ -5450,6 +5772,17 @@
           }
           if (o.startVoice) {
             document.getElementById('asstMicBtn')?.click();
+          }
+          // [2026-08-16] 홈 '전체 보기' — 최신 데이터로 브리핑을 맨 아래 재발행(5분 내 재탭이면
+          //   이미 띄운 걸 재사용) 후 그 위치로 스크롤. 자동 주입과 경합 없게 체인으로 잇는다.
+          if (o.scrollToBriefing) {
+            _briefingReadyP = Promise.resolve(_briefingReadyP).then(() => _injectDailyBriefing(true));
+            Promise.resolve(_briefingReadyP).then(() => setTimeout(() => {
+              try {
+                const el = document.querySelector('#asstBody [data-asst-briefing]');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              } catch (_e2) { void _e2; }
+            }, 200));
           }
         } catch (_e) { /* ignore */ }
       }, 120);

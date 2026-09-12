@@ -15,6 +15,7 @@
   --text-muted:    #4E5968;
   --text-subtle:   #6B7684; /* [2026-06-10] 4.2:1→5.9:1 대비 상향 (AA) */
   --border:        rgba(0,0,0,.07);
+  --placeholder-color: #A6AEB8; /* [2026-08-22] 빈칸 예시글 통일 — 아래 전역 ::placeholder 규칙과 세트 */
   --border-strong: rgba(0,0,0,.14);
   --ok:     #16B55E;
   --warn:   #F59E0B;
@@ -114,8 +115,17 @@ select:focus-visible {
    (위 F1 2026-06-09 메모는 폐기: viewport 잠금이 풀리면서 방어가 사라졌었고,
     style-polish.css는 index.html에서 로드 안 됨 + max(16px,1em) 규칙도 이미 없음.)
    !important 이유: 고객메모 textarea 등 JS 인라인 스타일(13px)까지 덮어야 해서.
-   2026-08-11 전수조사 기준 16px 초과 입력칸 0곳 → 글자 축소 부작용 없음. 데스크톱은 기존 크기 유지. */
-@media (max-width: 768px), (pointer: coarse) {
+   2026-08-11 전수조사 기준 16px 초과 입력칸 0곳 → 글자 축소 부작용 없음. 데스크톱은 기존 크기 유지.
+   [2026-08-12 정정] max-width:768px 조건 삭제 — 좁은 PC 창(마우스)에서도 발동해서
+   샵정보·DM 수정칸 글씨가 "갑자기 커지는" 회귀를 만들었다. 자동 확대는 터치 기기 문제라
+   (pointer: coarse) 만으로 iOS/안드로이드가 전부 잡힌다. PC는 창 폭과 무관하게 원래 크기. */
+/* [2026-09-07 반응형 릴리즈게이트] `:not(a, b)` (셀렉터 리스트) 는 Safari 16.4 부터다.
+   그런데 이 앱의 iOS 최소 지원은 15.0 (ios/App/Podfile · pbxproj IPHONEOS_DEPLOYMENT_TARGET).
+   CSS 는 콤마 그룹 안에 무효 셀렉터가 하나라도 있으면 **규칙 전체를 버린다**(실측 확인).
+   즉 iOS 15.0~16.3 에서는 input 뿐 아니라 textarea·select·contenteditable 까지
+   이 블록이 통째로 죽어서 자동 확대 방어가 **완전히 사라진다**.
+   → `:not()` 을 체인으로 쪼갠다. 현재 브라우저에서 선택 결과 동일함을 실측(28/28)했다. */
+@media (pointer: coarse) {
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
   textarea,
   select,
@@ -144,4 +154,14 @@ select:focus-visible {
 }
 .skip-nav:focus {
   top: 16px;
+}
+
+/* [2026-08-22] 빈칸 예시글(placeholder) 전역 통일 — 색 1토큰 · 크기는 필드와 동일 · weight 400.
+   화면별 ::placeholder 색 재정의는 제거했음(사진편집기 다크 UI · style-dark.css 제외). */
+input::placeholder,
+textarea::placeholder {
+  color: var(--placeholder-color);
+  font-weight: 400;
+  font-size: inherit;
+  opacity: 1;
 }

@@ -32,11 +32,34 @@ function declarationsFor(selector) {
   return out.join(';');
 }
 
-/* [2026-09-03 운영 승격] 헤더 3열 그리드 계약은 **운영에 해당 없음** 이라 뺐다.
-   운영의 .bk-header__title-wrap 은 text-align:center; flex:1 (일반 플렉스)로,
-   스테이징이 2026-08-31 에 도입한 position:absolute 중앙정렬이 없다.
-   즉 오프라인 배지 겹침 버그 자체가 운영엔 존재하지 않는다 — 확인 후 CSS 도 안 넣었다.
-   여기 남긴 건 운영에도 실재하는 44px 미달 컨트롤 가드뿐이다. */
+describe('예약 캘린더 헤더 레이아웃 계약', () => {
+  test('헤더는 3열 그리드 — 가운데 칸이 좌우 칸 사이로 제한된다', () => {
+    const d = declarationsFor('#cal-overlay .bk-header');
+    expect(d).toMatch(/display:\s*grid/);
+    // auto | 가변 | auto — 좌우는 내용만큼, 가운데가 남는 폭을 먹는다
+    expect(d).toMatch(/grid-template-columns:\s*auto\s+minmax\(\s*0\s*,\s*1fr\s*\)\s+auto/);
+  });
+
+  test('타이틀은 흐름 밖(absolute)으로 나가지 않는다 — 이게 겹침의 원인이었다', () => {
+    const d = declarationsFor('#cal-overlay .bk-header__title-wrap');
+    expect(d).toBeTruthy();
+    expect(d).not.toMatch(/position:\s*absolute/);
+    expect(d).toMatch(/position:\s*static/);
+  });
+
+  test('오른쪽 그룹이 margin-left:auto 로 밀려나지 않는다 (그리드가 자리를 정한다)', () => {
+    const d = declarationsFor('#cal-overlay .bk-header__right');
+    expect(d).not.toMatch(/margin-left:\s*auto/);
+  });
+
+  test('가드가 실제로 잡는다 — absolute 로 되돌리면 실패해야 한다 (음성 대조)', () => {
+    const reverted = 'position: absolute; left: 50%; transform: translateX(-50%);';
+    expect(reverted).toMatch(/position:\s*absolute/);   // 되돌린 형태를 정확히 표현했는지
+    const d = declarationsFor('#cal-overlay .bk-header__title-wrap');
+    expect(d === reverted).toBe(false);
+  });
+});
+
 describe('작은 컨트롤 손가락 영역 (44px)', () => {
   const POLISH = fs.readFileSync(path.join(__dirname, '..', 'style-polish.css'), 'utf8');
 

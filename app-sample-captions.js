@@ -71,7 +71,7 @@
         <div style="width:100%; max-width:480px; background:#fff; border-radius:24px 24px 0 0; padding:24px 20px calc(32px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))); max-height:92vh; overflow-y:auto;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
             <div style="font-size:17px; font-weight:800;">🎁 미리 체험해보기</div>
-            <button id="_sampleClose" style="background:none; border:none; font-size:22px; width:44px; height:44px; cursor:pointer; color:var(--text-subtle);">✕</button>
+            <button class="ss-close" id="_sampleClose" style="background:transparent; border:none; font-size:22px; width:44px; height:44px; cursor:pointer; color:var(--text-subtle);"><svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-x"/></svg></button>
           </div>
           <div style="font-size:12px; color:var(--text-muted); margin-bottom:14px;">인스타 연동 전에도 <b>이런 느낌</b>으로 캡션이 나와요. 연동하시면 <b>사장님 말투 그대로</b> 맞춤 생성됩니다.</div>
           <div id="_sampleList"></div>
@@ -79,6 +79,9 @@
         </div>
       `;
       document.body.appendChild(popup);
+      /* [2026-09-09] 뒤로가기 등록 — 전체화면 오버레이는 back 으로 자기가 닫혀야 한다.
+         안 하면 back 이 이 창 대신 뒤 화면을 닫아 작성 중이던 내용이 날아간다. */
+      try { window._bindSheetBack && window._bindSheetBack('samplecaptions', popup, () => { popup.remove(); }); } catch (_bsb) { void _bsb; }
       popup.addEventListener('click', (e) => { if (e.target === popup) popup.style.display = 'none'; });
       document.getElementById('_sampleClose').addEventListener('click', () => popup.style.display = 'none');
       document.getElementById('_sampleConnectBtn').addEventListener('click', () => {

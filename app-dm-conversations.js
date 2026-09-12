@@ -24,6 +24,21 @@
       ? window.ChannelMark.mark(c, { size: 18, pos: 'position:absolute;bottom:-1px;right:-1px;' })
       : '';
   }
+  /* [2026-08-15] 말풍선 시각 전용 — 항상 시:분.
+     _timeFmt 는 '대화목록의 마지막 메시지 시각'용이라 어제 이전이면 요일("목")만 준다. 목록에선 맞다.
+     그런데 대화 안 말풍선에까지 그걸 쓰니, 8월 13일 메시지 3개가 전부 "목"이라고만 찍혔다.
+     날짜는 이미 위 날짜 구분선("2026년 8월 13일 목")이 알려주므로 같은 말만 반복하고
+     정작 몇 시에 온 말인지는 알 수가 없었다. */
+  function _msgTime(iso) {
+    if (!iso) return '';
+    try { return new Date(iso).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }); } catch (_e) { return ''; }
+  }
+  // 대화 헤더용 — 백엔드 intent 를 원장님 말로. 라벨은 확인큐(_intentKo)와 맞춘다.
+  function _intentKo(i) {
+    return { pricing: '가격 문의', booking: '예약 문의', hours: '영업시간', location: '위치 문의',
+      review: '후기', greeting: '인사', complaint: '문의', reschedule: '예약 변경',
+      no_show: '지각/불참', cancel_booking: '예약 취소', unknown: '문의' }[i] || '문의';
+  }
   function _timeFmt(iso) {
     if (!iso) return '';
     try {
@@ -95,9 +110,7 @@
     sheet.innerHTML = `
       <!-- 헤더: 인스타 다이렉트 스타일 -->
       <div style="display:flex;align-items:center;gap:8px;padding:max(14px,var(--safe-area-inset-top, env(safe-area-inset-top, 0px))) 16px 12px;border-bottom:1px solid #DBDBDB;background:#fff;">
-        <button id="dcvClose" aria-label="닫기" style="background:none;border:none;cursor:pointer;color:#262626;display:inline-flex;align-items:center;padding:4px;">
-          <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
-        </button>
+        <button type="button" id="dcvClose" class="ss-back" aria-label="닫기"><svg class="ic" aria-hidden="true"><use href="#ic-chevron-left"/></svg></button>
         <strong style="font-size:18px;font-weight:700;color:#262626;letter-spacing:-0.3px;">실시간 DM</strong>
         <span id="dcvCount" style="font-size:12px;color:#8E8E8E;margin-left:4px;"></span>
         <button id="dcvSettings" aria-label="자동응답 설정" title="자동응답 설정" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#262626;display:inline-flex;align-items:center;padding:6px;">
@@ -129,11 +142,15 @@
     const sheet = _ensureListSheet();
     sheet.style.display = 'flex';
     sheet.style.animation = 'dmScreenIn .22s ease-out both';
+    /* [2026-08-31] 뒤로가기 스택 등록 — 미등록 시 하드웨어 back 이 아래 화면까지 닫던 버그 */
+    if (typeof window._registerSheet === 'function') window._registerSheet('dmList', closeList);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('dmList');
     await _refreshList();
     _startListPoll();
   }
   function closeList() {
     _stopListPoll();
+    if (typeof window._markSheetClosed === 'function') window._markSheetClosed('dmList');
     const sheet = document.getElementById('dmConversationsSheet');
     if (!sheet) return;
     sheet.style.animation = 'dmScreenOut .18s ease-in both';
@@ -193,9 +210,9 @@
       list.querySelectorAll('.dcv-row').forEach(row => {
         row.addEventListener('click', (e) => {
           if (e.target.closest('.dcv-toggle-excl')) return;
-          // [2026-06-08] 스레드 은퇴 — 대화 클릭도 '실시간 DM' 카드로
-          if (typeof window.openDMCardForSender === 'function') window.openDMCardForSender(row.dataset.sender);
-          else openThread(row.dataset.sender);
+          // [2026-08-15] 스레드 부활 — 사람별 목록처럼 생긴 화면을 눌렀는데 카드가 뜨면
+          //   기대를 배신한다. 목록은 대화로 들어가는 게 맞다.
+          openThread(row.dataset.sender);
         });
       });
       list.querySelectorAll('.dcv-toggle-excl').forEach(btn => {
@@ -231,9 +248,7 @@
     sheet.innerHTML = `
       <!-- 인스타 DM 헤더 -->
       <div style="display:flex;align-items:center;gap:10px;padding:max(14px,var(--safe-area-inset-top, env(safe-area-inset-top, 0px))) 14px 10px;border-bottom:1px solid #DBDBDB;background:#fff;">
-        <button id="dthBack" aria-label="뒤로" style="background:none;border:none;cursor:pointer;color:#262626;display:inline-flex;align-items:center;padding:4px;">
-          <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
-        </button>
+        <button type="button" id="dthBack" class="ss-back" aria-label="뒤로"><svg class="ic" aria-hidden="true"><use href="#ic-chevron-left"/></svg></button>
         <div id="dthAvatar" style="width:36px;height:36px;border-radius:50%;background:${IG_GRADIENT};padding:2px;flex-shrink:0;">
           <div style="width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,#FCE7F3,#FBCFE8);display:flex;align-items:center;justify-content:center;font-weight:700;color:#9D174D;font-size:14px;">?</div>
         </div>
@@ -254,7 +269,7 @@
       <!-- 입력 composer (챗봇 톤) -->
       <div style="padding:8px 12px max(12px,var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));background:#fff;border-top:1px solid #EFEFEF;">
         <div style="display:flex;gap:8px;margin-bottom:8px;">
-          <button id="dthAiDraft" type="button" style="display:inline-flex;align-items:center;gap:5px;background:#191F28;color:#fff;border:none;border-radius:999px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">✨ AI 초안</button>
+          <button id="dthAiDraft" type="button" style="display:inline-flex;align-items:center;gap:5px;background:#191F28;color:#fff;border:none;border-radius:999px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;"><svg width="13" height="13" aria-hidden="true" style="flex-shrink:0;"><use href="#ic-sparkles"/></svg><span>AI 초안</span></button>
           <button id="dthRegen" type="button" style="display:none;background:#F2F4F6;color:#4E5968;border:none;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;">다시 생성</button>
         </div>
         <div style="display:flex;align-items:flex-end;gap:8px;">
@@ -336,6 +351,8 @@
     if (_listPollTimer) clearInterval(_listPollTimer);
     _listPollTimer = null;
   }
+  // [2026-09-01 SESS-1] 세션 만료 → 대화 목록·스레드 폴링 둘 다 정지
+  document.addEventListener('itdasy:auth-expired', function () { _stopThreadPoll(); _stopListPoll(); });
 
   async function _pollThreadOnce() {
     if (!_curSender) return;
@@ -390,11 +407,16 @@
     if (_rg) _rg.style.display = 'none';
     sheet.style.display = 'flex';
     sheet.style.animation = 'dmScreenIn .22s ease-out both';
+    // [2026-08-15 부활] 뒤로가기 등록 — 이게 없으면 안드로이드에서 뒤로가기가 앱을 종료시킨다.
+    //   스레드가 은퇴하기 전에 만들어진 화면이라 등록 규약(_registerSheet)이 아예 없었다.
+    if (typeof window._registerSheet === 'function') window._registerSheet('dmThread', closeThread);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('dmThread');
     await _renderThread();
     _startThreadPoll();
   }
   function closeThread() {
     _stopThreadPoll();
+    if (typeof window._markSheetClosed === 'function') window._markSheetClosed('dmThread');
     const sheet = document.getElementById('dmThreadSheet');
     if (!sheet) return;
     sheet.style.animation = 'dmScreenOut .18s ease-in both';
@@ -419,7 +441,7 @@
         const inner = avatarBox.firstElementChild;
         if (inner) inner.textContent = displayName.charAt(0) || '?';
       }
-      sheet.querySelector('#dthMeta').textContent = ctx ? `누적 ${ctx.total_msgs || 0}건 · ${ctx.last_intent || 'unknown'}` : '';
+      sheet.querySelector('#dthMeta').textContent = ctx ? `누적 ${ctx.total_msgs || 0}건 · ${_intentKo(ctx.last_intent)}` : '';
       _curExcluded = !!(ctx && ctx.excluded_from_analysis);
       _updateExcludeBtn();
 
@@ -511,7 +533,7 @@
     if (!_curSender) return;
     const btn = document.getElementById('dthAiDraft');
     const inp = _inputEl();
-    if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '✨ 생성 중…'; }
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.innerHTML = '<svg width="13" height="13" aria-hidden="true" style="flex-shrink:0;"><use href="#ic-sparkles"/></svg><span>생성 중…</span>'; }
     try {
       const d = await _postDraft();
       _curLogId = d.log_id || _curLogId;
@@ -525,7 +547,7 @@
     } catch (e) {
       if (window.showToast) window.showToast('초안 생성 실패: ' + ((window._humanError ? window._humanError(e) : e.message) || ''));
     } finally {
-      if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '✨ AI 초안'; }
+      if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.innerHTML = '<svg width="13" height="13" aria-hidden="true" style="flex-shrink:0;"><use href="#ic-sparkles"/></svg><span>AI 초안</span>'; }
     }
   }
 
@@ -552,7 +574,8 @@
         try { const d = await _postDraft(); _curLogId = d.log_id || null; } catch (_e) { void _e; }
       }
       if (!_curLogId) throw new Error('초안을 만들 수 없어요');
-      await _fetch('POST', `/dm-confirm-queue/${encodeURIComponent(_curLogId)}/send_edit`, { edited_reply: text });
+      const r = await _fetch('POST', `/dm-confirm-queue/${encodeURIComponent(_curLogId)}/send_edit`, { edited_reply: text });
+      if (r && r.ok === false) throw new Error(r.message || '전송하지 못했어요');
       if (window.showToast) window.showToast('답장을 보냈어요 ✓');
       _afterSent();
     } catch (e) {
@@ -608,7 +631,7 @@
             </div>
             <div style="flex:1;min-width:0;">
               <div style="font-size:14px;color:#191F28;line-height:1.5;word-break:break-word;">${_esc(m.text)}</div>
-              ${showTime ? `<div style="font-size:11px;color:#8E8E8E;margin-top:3px;">${_timeFmt(m.ts)}</div>` : ''}
+              ${showTime ? `<div style="font-size:11px;color:#8E8E8E;margin-top:3px;">${_msgTime(m.ts)}</div>` : ''}
             </div>
           </div>`);
       } else {
@@ -631,7 +654,7 @@
             ${showTime ? `
               <div style="display:flex;align-items:center;gap:6px;margin:4px 4px 0 0;">
                 ${sourceLbl ? `<span style="font-size:11px;color:#8E8E8E;font-weight:600;">${sourceLbl}</span>` : ''}
-                <span style="font-size:11px;color:#8E8E8E;">${_timeFmt(m.ts)}</span>
+                <span style="font-size:11px;color:#8E8E8E;">${_msgTime(m.ts)}</span>
               </div>` : ''}
           </div>`);
       }
@@ -646,12 +669,13 @@
     return openList();  // 최후 폴백 (카드 모듈 미로드 시)
   };
   window.closeDMConversations = closeList;
-  // [2026-06-08] 옛 풀 대화창(스레드 뷰) 은퇴 — 모든 진입을 '실시간 DM' 카드 리스트로 통합.
-  //   openThread/_renderThread/composer 등 스레드 함수는 죽은 코드(백로그) — 지금 삭제 X.
+  /* [2026-08-15] 스레드 부활 — 은퇴(2026-06-08)를 되돌린다.
+     은퇴 사유는 "진입을 카드 하나로 통합"이라는 단순화였는데, 그 대가로 **대화 맥락을 볼 방법이
+     사라졌다.** 카드는 '답장 대기 1건'만 보여주므로 이 손님이 예전에 뭘 물었는지 알 수가 없다.
+     주 흐름은 그대로 카드다. 스레드는 카드에서 '대화 전체'로 들어가는 보조 화면으로만 쓴다.
+     발송은 카드와 **같은 엔드포인트**(/dm-confirm-queue/{id}/send·send_edit)라 경로 이중화가 아니다. */
   window.openDMThread = function (sender) {
-    if (typeof window.openDMCardForSender === 'function') return window.openDMCardForSender(sender);
-    if (typeof window.openDMConfirmQueue === 'function') return window.openDMConfirmQueue();
-    return openThread(sender);  // 최후 폴백 (카드 모듈 미로드 시)
+    return openThread(sender);
   };
   window.closeDMThread = closeThread;
 })();

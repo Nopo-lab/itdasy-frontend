@@ -43,7 +43,7 @@
       <div class="p9-sheet__body" role="dialog" aria-modal="true">
         <div class="p9-sheet__head">
           <div class="p9-sheet__title">매출 빠른 입력</div>
-          <button type="button" class="p9-sheet__close" data-p9-close aria-label="닫기">x</button>
+          <button type="button" class="p9-sheet__close ss-close" data-p9-close aria-label="닫기"><svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
         <label class="p9-sheet__field">고객
           <div class="p9-sheet__row">
@@ -106,6 +106,8 @@
     }
     const el = _ensureRevenueSheet();
     el.style.display = 'flex';
+    // [P1 2026-09-10] 뒤로가기 등록 — 매출 빠른입력 시트도 같은 사각지대였다.
+    try { window._bindSheetBack && window._bindSheetBack('p9QuickRevenue', el, closeQuickRevenue); } catch (_e) { void _e; }
     setTimeout(() => el.querySelector('#p9RevAmount')?.focus(), 60);
   }
 

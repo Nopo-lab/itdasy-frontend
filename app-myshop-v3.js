@@ -1,6 +1,6 @@
 /* 내샵관리 v3 렌더러 — 모바일 메인 + PC 사이드바·도넛·위젯·피드.
    SWR: 캐시 즉시 → 백그라운드 fetch. 데이터: /today/brief.
-   AI 허브 / 설정 허브 시트는 별도 (app-ai-hub.js / app-settings-hub.js).
+   설정 허브 시트는 별도 (app-settings-hub.js). 인스타DM 설정은 app-dm-menu.js(openDMMenuSettings).
    외부 anchor (#dashboardMetrics, .dashboard-topbar, #tab-ai-suggest) 손대지 않음.
    window.MyShopV3 = { render(containerId), refresh() } */
 (function () {
@@ -67,9 +67,9 @@
       return localStorage.getItem('shop_name') || '내 샵';
     } catch (_e) { return '내 샵'; }
   }
-  function _shopInitial(shop) {
-    return ((shop || '내')[0] || '내').toUpperCase();
-  }
+  // [2026-08-16] _shopInitial 삭제 — _shopName() 이 인스타 핸들 우선이라 이니셜이 '@' 로 찍혔고,
+  //   핸들 첫 글자도 원장님에게 의미가 없다. 프사 없을 때/복구 실패 시 폴백은 가게 아이콘으로.
+  const _AVATAR_FALLBACK_HTML = '<svg width="20" height="20" aria-hidden="true" style="color:#fff"><use href="#ic-store"/></svg>';
   function _shopAvatarUrl() {
     try { return localStorage.getItem('itdasy:ig_profile_pic') || ''; }
     catch (_e) { return ''; }
@@ -106,21 +106,8 @@
       return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
     } catch (_e) { return ''; }
   }
-  function _automationOnCount() {
-    // 2026-05-01 ── ai-hub 와 동일 source 로 통일 — 이전엔 다른 키 보고 항상 0.
-    if (typeof window.aihGetOnCount === 'function') {
-      try { return window.aihGetOnCount(); } catch (_e) { /* fallback */ }
-    }
-    // 폴백: ai-hub 가 아직 안 로드됐을 때
-    let on = 1;  // 페르소나 학습됨 = 기본 1
-    try {
-      const v1 = localStorage.getItem('itdasy:aih:dm_enabled');
-      const v2 = localStorage.getItem('itdasy:aih:kakao_enabled');
-      if (v1 === null || v1 === 'true') on += 1;
-      if (v2 === null || v2 === 'true') on += 1;
-    } catch (_e) { /* ignore */ }
-    return on;
-  }
+  // [2026-08-16] _automationOnCount 삭제 — 세던 대상(옛 AI 허브의 로컬 토글)이 백엔드 동기화
+  //   없는 죽은 토글이었고 AI 허브 파일 자체가 폐기됨. '자동화 N/7' 위젯도 함께 제거.
 
   // ─────────── 헤더 (모바일) — v212 제거: 샵카드와 중복 ───────────
   function _renderHeader() {
@@ -130,22 +117,27 @@
   // ─────────── 샵 카드 ───────────
   function _renderShopCard(brief) {
     const shop = _shopName();
-    const initial = _shopInitial(shop);
     const avatarUrl = _shopAvatarUrl();
     const avatarHTML = avatarUrl
-      ? `<img src="${_esc(avatarUrl)}" alt="" data-ms-avatar-fallback="${_esc(initial)}" referrerpolicy="no-referrer" style="width:100%;height:100%;border-radius:inherit;object-fit:cover;">`
-      : _esc(initial);
+      ? `<img src="${_esc(avatarUrl)}" alt="" data-ms-avatar-fallback="1" referrerpolicy="no-referrer" style="width:100%;height:100%;border-radius:inherit;object-fit:cover;">`
+      : _AVATAR_FALLBACK_HTML;
     return `
       <div class="ms-shop">
-        <div class="ms-shop__top">
+        <div class="ms-shop__top" data-mv-act="editShop" role="button" tabindex="0" aria-label="샵 정보 수정">
           <div class="ms-shop__avatar" aria-hidden="true">${avatarHTML}</div>
           <div class="ms-shop__info">
-            <div class="ms-shop__name">${_esc(shop)}</div>
+            <div class="ms-shop__name">
+              <span class="ms-shop__name-t">${_esc(shop)}</span>
+              <svg class="ms-shop__chev" width="15" height="15" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+            </div>
             <div class="ms-shop__plan">${_esc(_planText())}</div>
           </div>
-          <button type="button" class="ms-shop__edit" data-mv-act="editShop" aria-label="샵 정보 편집">
-            <i class="ph-duotone ph-pencil-simple" style="font-size:14px" aria-hidden="true"></i>
-          </button>
+          <div class="ms-shop__acts">
+            <button type="button" class="ms-shop__act" data-mv-act="toneReport" aria-label="인스타분석카드">
+              <span class="ms-shop__act--tone">${window.ItdasyMenu.icon('ic-card-sparkle', 19)}</span>
+              <span class="ms-shop__act-label">인스타분석카드</span>
+            </button>
+          </div>
         </div>
       </div>
     `;
@@ -190,35 +182,71 @@
       lowStock,
     };
   }
+  // ─────────── 메뉴 정본 (js/myshop-menu.js) ───────────
+  //  이름·아이콘·색은 전부 저기 한 곳에서만 정한다. 여기서는 '숫자'만 붙인다.
+  //  (같은 8개가 네 군데에 복붙돼 있던 걸 정리한 결과 — 2026-08-30)
+  function _menuDef() { return (window.ItdasyMenu && window.ItdasyMenu.ITEMS) || []; }
+  function _defByKey(key) { return _menuDef().find(i => i.key === key) || null; }
+
+  /** 정본 항목 + 그 행에만 붙는 부가정보(meta/badge) → 모바일 행 HTML */
+  function _rowFromDef(key, extra) {
+    const d = _defByKey(key);
+    if (!d) return '';
+    const e = extra || {};
+    return _menuItemHTML({
+      act: d.mv,
+      iconClass: `ms-menu__icon--${d.color}`,
+      iconSVG: window.ItdasyMenu.icon(d.icon),
+      name: d.name,
+      meta: e.meta != null ? e.meta : (d.meta || ''),
+      metaClass: e.metaClass || '',
+      badge: e.badge != null ? e.badge : null,
+    });
+  }
+  function _sectionHTML(title, rows) {
+    return `<div class="ms-section"><div class="ms-section__title">${_esc(title)}</div><div class="ms-menu">${rows}</div></div>`;
+  }
+
   function _renderOpsMenu(brief) {
     const m = _opsMetaList(brief);
     const items = [
-      _menuItemHTML({ act: 'booking', iconClass: 'ms-menu__icon--teal', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-calendar-check"/></svg>', name: '예약관리', meta: m.bookMeta }),
-      _menuItemHTML({ act: 'customer', iconClass: 'ms-menu__icon--blue', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-users"/></svg>', name: '고객관리', meta: m.custMeta, metaClass: m.atRiskN ? 'is-danger' : '' }),
-      _menuItemHTML({ act: 'revenue', iconClass: 'ms-menu__icon--amber', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-wallet"/></svg>', name: '매출관리', meta: m.revMeta, metaClass: 'is-ok' }),
-      _menuItemHTML({ act: 'integrations', iconClass: 'ms-menu__icon--blue', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-link"/></svg>', name: '연동관리', meta: '인스타 · 네이버 · 카톡' }),
-      /* INVENTORY_HIDDEN */ // _menuItemHTML({ act: 'inventory', iconClass: 'ms-menu__icon--coral', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-package"/></svg>', name: '재고관리', meta: m.stockMeta, metaClass: m.lowStock > 0 ? 'is-danger' : '', badge: m.lowStock > 0 ? m.lowStock : null }),
+      _rowFromDef('booking',  { meta: m.bookMeta }),
+      _rowFromDef('customer', { meta: m.custMeta, metaClass: m.atRiskN ? 'is-danger' : '' }),
+      _rowFromDef('revenue',  { meta: m.revMeta, metaClass: 'is-ok' }),
+      /* INVENTORY_HIDDEN */ // _rowFromDef('inventory', { meta: m.stockMeta, metaClass: m.lowStock > 0 ? 'is-danger' : '', badge: m.lowStock > 0 ? m.lowStock : null }),
     ].join('');
-    return `<div class="ms-section"><div class="ms-section__title">운영 관리</div><div class="ms-menu">${items}</div></div>`;
+    return _sectionHTML('운영 관리', items);
   }
 
-  // ─────────── 통합 허브 메뉴 2개 ───────────
-  function _renderHubMenu() {
-    const automationOn = _automationOnCount();
+  // ─────────── 손님 문의 메뉴 2개 ───────────
+  // [2026-08-16] "통합 허브" 섹션 폐지 → 손님 문의(인스타DM / 인스타 댓글).
+  //   N 은 홈 v4.1 SWR 캐시(hv41_cache::brief 의 _dmQueueCount/_commentQueueCount) 재사용 —
+  //   추가 API 호출 0 (비용 방어). 캐시 없으면 0 → meta 숨김.
+  function _inquiryCounts() {
+    try {
+      const raw = localStorage.getItem('hv41_cache::brief') || sessionStorage.getItem('hv41_cache::brief');
+      if (!raw) return { dm: 0, comment: 0 };
+      const d = (JSON.parse(raw) || {}).d || {};
+      return { dm: Number(d._dmQueueCount) || 0, comment: Number(d._commentQueueCount) || 0 };
+    } catch (_e) { return { dm: 0, comment: 0 }; }
+  }
+  function _renderInquiryMenu() {
+    const n = _inquiryCounts();
     const items = [
-      _menuItemHTML({ act: 'aiHub', iconClass: 'ms-menu__icon--purple', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-bot"/></svg>', name: '잇비 · 자동화', meta: 'DM 자동응답 · 해시태그 · 알림톡' }),
-      _menuItemHTML({ act: 'settings', iconClass: 'ms-menu__icon--gray', iconSVG: '<i class="ph-duotone ph-gear-six" style="font-size:19px;"></i>', name: '설정', meta: '샵정보 · 데이터 · 백업' }),
+      _rowFromDef('dm',      { meta: n.dm > 0 ? `답해둘 게 ${n.dm}개 남았어요` : '' }),
+      _rowFromDef('comment', { meta: n.comment > 0 ? `${n.comment}건 기다리는 중` : '' }),
     ].join('');
-    return `<div class="ms-section"><div class="ms-section__title">통합 허브</div><div class="ms-menu">${items}</div></div>`;
+    return _sectionHTML('손님 문의', items);
   }
 
-  // ─────────── 계정 메뉴 2개 ───────────
+  // ─────────── 내 정보 메뉴 3개 ───────────
   function _renderAccountMenu() {
-    const planLabel = _planLabel();
     const items = [
-      _menuItemHTML({ act: 'plan', iconClass: 'ms-menu__icon--pink', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-id-card"/></svg>', name: '플랜 · 구독', meta: planLabel }),
+      _rowFromDef('integrations'),
+      _rowFromDef('settings'),
+      _rowFromDef('plan', { meta: _planLabel() }),   // 플랜만 실제 상태를 붙인다
     ].join('');
-    return `<div class="ms-section"><div class="ms-section__title">계정</div><div class="ms-menu">${items}</div></div>`;
+    return _sectionHTML('내 정보', items);
   }
 
   // ─────────── 하단 푸터 링크 (쿠팡식 · 모바일 전용) ───────────
@@ -249,30 +277,40 @@
         ${badge}
       </button>`;
   }
+  /** 사이드바 행도 같은 정본에서 뽑는다 — 모바일과 아이콘이 갈라지지 않게. */
+  function _sideRowFromDef(key, extra) {
+    const d = _defByKey(key);
+    if (!d) return '';
+    const e = extra || {};
+    return _sideItemHTML({ act: d.mv, iconSVG: window.ItdasyMenu.icon(d.icon), label: d.name,
+                           badge: e.badge != null ? e.badge : null, badgeClass: e.badgeClass });
+  }
+
   function _sideOpsHTML(brief) {
     const todayN = _todayBookingsList(brief).length;
     return [
-      '<div class="ms-side__section">운영</div>',
-      _sideItemHTML({ act: 'booking',   iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-calendar-check"/></svg>',    label: '예약관리', badge: todayN > 0 ? todayN : null, badgeClass: 'is-ok' }),
-      _sideItemHTML({ act: 'customer',  iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-users"/></svg>',       label: '고객관리' }),
-      _sideItemHTML({ act: 'customerDm', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-message-circle"/></svg>', label: '실시간 DM' }),
-      _sideItemHTML({ act: 'revenue',   iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-wallet"/></svg>', label: '매출관리' }),
+      '<div class="ms-side__section">운영 관리</div>',
+      _sideRowFromDef('booking', { badge: todayN > 0 ? todayN : null, badgeClass: 'is-ok' }),
+      _sideRowFromDef('customer'),
+      _sideItemHTML({ act: 'customerDm', iconSVG: window.ItdasyMenu.icon('ic-message-circle'), label: '실시간 DM' }),
+      _sideRowFromDef('revenue'),
       /* INVENTORY_HIDDEN */ // _sideItemHTML({ act: 'inventory', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-package"/></svg>', label: '재고관리', badge: lowStock > 0 ? lowStock : null }),
     ].join('');
   }
-  function _sideHubHTML() {
-    const automationOn = _automationOnCount();
+  function _sideInquiryHTML() {
+    const n = _inquiryCounts();
     return [
-      '<div class="ms-side__section">통합 허브</div>',
-      _sideItemHTML({ act: 'aiHub',    iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-sparkles"/></svg>', label: '잇비 · 자동화', badge: `${automationOn}/7`, badgeClass: 'is-ok' }),
-      _sideItemHTML({ act: 'settings', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-settings"/></svg>', label: '연동관리' }),
+      '<div class="ms-side__section">손님 문의</div>',
+      _sideRowFromDef('dm',      { badge: n.dm > 0 ? n.dm : null }),
+      _sideRowFromDef('comment', { badge: n.comment > 0 ? n.comment : null }),
     ].join('');
   }
   function _sideAccountHTML() {
-    const planLabel = _planLabel();
     return [
-      '<div class="ms-side__section">계정</div>',
-      _sideItemHTML({ act: 'plan',    iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-id-card"/></svg>',           label: '플랜 · ' + planLabel }),
+      '<div class="ms-side__section">내 정보</div>',
+      _sideRowFromDef('integrations'),
+      _sideRowFromDef('settings'),
+      _sideRowFromDef('plan'),
       _sideItemHTML({ act: 'support', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-message-circle"/></svg>', label: '도움말' }),
     ].join('');
   }
@@ -286,7 +324,7 @@
         <div class="ms-side__logo">잇데이</div>
         ${top}
         ${_sideOpsHTML(brief)}
-        ${_sideHubHTML()}
+        ${_sideInquiryHTML()}
         ${_sideAccountHTML()}
         <button type="button" class="ms-side__fab" data-mv-act="createShortcut">
           <i class="ph-duotone ph-sparkle" aria-hidden="true"></i>
@@ -385,7 +423,6 @@
     // TODO[v1.5]: 회원권 만료 카운트 — brief.membership_expiring_30d 백엔드 응답 확인 필요
     const atRiskN = brief && Array.isArray(brief.at_risk) ? brief.at_risk.length :
                     (brief && typeof brief.at_risk_count === 'number' ? brief.at_risk_count : 0);
-    const automationOn = _automationOnCount();
     return `
       <div class="ms-widgets">
         <button type="button" class="ms-widget" data-mv-act="booking">
@@ -402,11 +439,6 @@
           <div class="ms-widget__label">이탈 위험</div>
           <div class="ms-widget__value is-amber">${atRiskN}명</div>
           <div class="ms-widget__meta">90일+ 미방문</div>
-        </button>
-        <button type="button" class="ms-widget" data-mv-act="aiHub">
-          <div class="ms-widget__label">자동화</div>
-          <div class="ms-widget__value is-ok">${automationOn}/7</div>
-          <div class="ms-widget__meta">DM · 카톡 · 페르소나 외</div>
         </button>
       </div>
     `;
@@ -469,7 +501,16 @@
       revenue:        () => (window.openRevenue || window.openRevenueHub)?.(),
       integrations:   () => window.openIntegrationsHub && window.openIntegrationsHub(),
       /* INVENTORY_HIDDEN */ // inventory:      () => window.openInventoryHub && window.openInventoryHub(),
-      aiHub:          () => window.openDMMenuSettings && window.openDMMenuSettings(),
+      // [2026-08-16] 인스타DM 화면 3개→1개 통합 — app-dm-menu.js '인스타DM 손님 응대' 직결.
+      dmHub:          () => window.openDMMenuSettings && window.openDMMenuSettings(),
+      // 인스타 댓글 — app-comment-reply-queue.js 는 lazy(extras). 로드 보장 후 호출
+      //   (js/home/v41-actions.js openCommentQueue 와 같은 패턴).
+      comment:        () => {
+        const _open = () => { if (typeof window.openCommentReplyQueue === 'function') window.openCommentReplyQueue(); };
+        if (typeof window.openCommentReplyQueue === 'function') return _open();
+        if (window.AppLoader && window.AppLoader.ensure) Promise.resolve(window.AppLoader.ensure('extras')).then(_open).catch(_open);
+        else _open();
+      },
       settings:       () => window.openSettingsHub && window.openSettingsHub(),
       // 플랜·구독 — app-plan.js 에서 openPlanPopup 으로 노출. openPlan 도 시도.
       plan:           () => (window.openPlan || window.openPlanPopup || (() => {}))(),
@@ -480,6 +521,8 @@
       logout:         () => (window.logout || (() => {}))(),
       bell:           () => window.openNotifications && window.openNotifications(),
       editShop:       () => window.openShopSettings && window.openShopSettings(),
+      // [2026-08-16] 내 말투 리포트 — 삭제된 ai-hub '내 말투' 행의 유일한 입구를 샵 카드로 이전.
+      toneReport:     () => window.showDetailedAnalysis && window.showDetailedAnalysis(),
       createShortcut: () => window.openDMMenuSettings && window.openDMMenuSettings(),
       goHome: () => {
         if (typeof window.showTab === 'function') {
@@ -499,12 +542,27 @@
         ev.stopPropagation();
         _runAct(el.dataset.mvAct || '');
       });
+      // 샵 카드 상단줄처럼 <button> 이 아닌 것(안에 버튼이 중첩돼서 div 로 둘 수밖에
+      // 없다)은 키보드로 눌리지 않는다. role="button" 인 것만 Enter/Space 를 받는다.
+      if (el.getAttribute('role') === 'button') {
+        el.addEventListener('keydown', (ev) => {
+          if (ev.key !== 'Enter' && ev.key !== ' ') return;
+          ev.preventDefault();
+          ev.stopPropagation();
+          _runAct(el.dataset.mvAct || '');
+        });
+      }
     });
     container.querySelectorAll('[data-ms-avatar-fallback]').forEach(img => {
       img.addEventListener('error', () => {
-        const span = document.createElement('span');
-        span.textContent = img.dataset.msAvatarFallback || '';
-        img.replaceWith(span);
+        // [2026-08-16] 공용 복구(app-core handleIgAvatarError) — 만료 캐시 폐기 + status 1회
+        //   재조회 → 새 URL 재시도. 복구까지 실패하면 가게 아이콘 폴백.
+        const slot = img.parentElement;
+        if (typeof window.handleIgAvatarError === 'function' && slot) {
+          window.handleIgAvatarError(img, slot, _AVATAR_FALLBACK_HTML);
+        } else if (slot) {
+          slot.innerHTML = _AVATAR_FALLBACK_HTML;
+        }
       }, { once: true });
     });
   }
@@ -522,7 +580,7 @@
           <div class="ms-body">
             ${_renderShopCard(brief)}
             ${_renderOpsMenu(brief)}
-            ${_renderHubMenu()}
+            ${_renderInquiryMenu()}
             ${_renderAccountMenu()}
             ${_renderFooterLinks()}
           </div>

@@ -6,7 +6,7 @@
 
   function _scopeFromTarget(el) {
     if (!el) return 'caption';
-    if (el.closest && el.closest('#dmAutoreplySheet, #dmConfirmQueueSheet, #dmManualSheet')) return 'dm';
+    if (el.closest && el.closest('#dmMenuOverlay, #dmConfirmQueueSheet, #dmManualSheet')) return 'dm';
     return 'caption';
   }
 
@@ -131,7 +131,7 @@
       <div style="width:min(420px,100%);background:var(--surface);border-radius:18px;padding:16px;box-shadow:0 18px 70px rgba(0,0,0,0.28);">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
           <div style="font-size:16px;font-weight:900;color:var(--text);">이모지 창고</div>
-          <button data-close type="button" aria-label="닫기" style="margin-left:auto;border:none;background:var(--bg2);border-radius:50%;width:32px;height:32px;cursor:pointer;">×</button>
+          <button class="ss-close" data-close type="button" aria-label="닫기" style="margin-left:auto;border:none;background:transparent;border-radius:50%;width:32px;height:32px;cursor:pointer;"><svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
         <div style="display:flex;gap:8px;margin-bottom:12px;">
           <button data-tab="caption" type="button" style="flex:1;padding:9px;border-radius:10px;border:1px solid var(--border);font-weight:800;cursor:pointer;">캡션</button>
@@ -176,6 +176,9 @@
     overlay.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,0.35);display:flex;align-items:flex-end;justify-content:center;padding:16px;';
     overlay.innerHTML = _panelHtml();
     document.body.appendChild(overlay);
+    /* [2026-09-09] 뒤로가기 등록 — 전체화면 오버레이는 back 으로 자기가 닫혀야 한다.
+       안 하면 back 이 이 창 대신 뒤 화면을 닫아 작성 중이던 내용이 날아간다. */
+    try { window._bindSheetBack && window._bindSheetBack('emojistorage', overlay, () => { overlay.remove(); }); } catch (_bsb) { void _bsb; }
     _paintPanel(overlay, current);
     overlay.querySelector('[data-close]').addEventListener('click', () => overlay.remove());
     overlay.querySelectorAll('[data-tab]').forEach(btn => {
@@ -201,9 +204,9 @@
     // [PerfFix] body 전체 subtree 감시 → DM 시트 영역만 감시.
     // DM 시트 자체가 lazy 마운트라 시작 시 없을 수 있어, 지연 시도(1s) + body fallback 1회만.
     const _attachDmObserver = () => {
-      const target = document.getElementById('dmAutoreplySheet')
-        || document.getElementById('dmInboxMount')
-        || document.getElementById('dmRetentionSection');
+      // [2026-08-16] dmAutoreplySheet·dmRetentionSection 삭제됨 → 통합 화면(dmMenuOverlay) 감시.
+      const target = document.getElementById('dmMenuOverlay')
+        || document.getElementById('dmConfirmQueueSheet');
       if (target) {
         new MutationObserver(_mountDmRows).observe(target, { childList: true, subtree: true });
         return true;

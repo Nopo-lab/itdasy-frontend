@@ -291,7 +291,7 @@
       '<div style="position:absolute;inset:auto 0 0 0;background:#fff;border-radius:20px 20px 0 0;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">',
         '<div style="padding:16px 18px 12px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;gap:8px;">',
           '<strong style="font-size:15px;flex:1;">메모 검색</strong>',
-          '<button type="button" data-cm-close aria-label="닫기" style="background:none;border:none;font-size:20px;color:#9CA3AF;cursor:pointer;">✕</button>',
+          '<button class="ss-close" type="button" data-cm-close aria-label="닫기" style="background:transparent;border:none;font-size:20px;color:#9CA3AF;cursor:pointer;"><svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-x"/></svg></button>',
         '</div>',
         '<div style="padding:12px 18px;">',
           '<input type="search" data-cm-q class="cm-search-input" placeholder="고객 이름·태그·내용 검색 (예: 알러지)" autocomplete="off" />',
@@ -361,6 +361,8 @@
   function openSearch() {
     const sheet = _ensureSearchSheet();
     sheet.style.display = 'block';
+    // [2026-09-09] 뒤로가기 등록 — 안 하면 back 이 이 시트 대신 고객 화면을 닫는다.
+    try { window._bindSheetBack && window._bindSheetBack('cmMemoSearch', sheet, closeSearch); } catch (_e) { void _e; }
     document.body.style.overflow = 'hidden';
     const input = sheet.querySelector('[data-cm-q]');
     if (input) setTimeout(() => input.focus(), 50);

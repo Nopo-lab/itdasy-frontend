@@ -42,67 +42,21 @@
     const initialHTML = `<span class="hv-header__initial">${esc(shopInitial(shopName()))}</span>`;
     if (src) {
       // referrerpolicy: 인스타 CDN 403 방지. onerror: 만료/실패 시 깨진 이미지 대신 이니셜.
+      // [2026-08-16] 이니셜 폴백 전에 공용 복구(app-core handleIgAvatarError) — 만료 캐시
+      //   폐기 + /instagram/status 세션당 1회 재조회 → 새 URL 재시도. 로직 중복 구현 금지.
       slot.innerHTML = `<img src="${esc(src)}" alt="" class="hv-header__avatar-img" referrerpolicy="no-referrer">`;
       const av = slot.querySelector('img');
-      if (av) av.onerror = function () { slot.innerHTML = initialHTML; };
+      if (av) av.onerror = function () {
+        if (typeof window.handleIgAvatarError === 'function') window.handleIgAvatarError(this, slot, initialHTML);
+        else slot.innerHTML = initialHTML;
+      };
     } else {
       slot.innerHTML = initialHTML;
     }
   }
 
-  // ── [2026-07-05] 미니그래픽 헬퍼 — 카드 오른쪽 끝에 붙는 시각 요소 ──
-  function _sparkHtml(week) {
-    if (!Array.isArray(week) || week.length !== 7) return '';
-    const vals = week.map(v => Number(v) || 0);
-    const max = Math.max.apply(null, vals);
-    if (max <= 0) return '';
-    const bars = vals.map((v, i) => {
-      const h = Math.max(4, Math.round(v / max * 30));
-      return `<i style="height:${h}px"${i === 6 ? ' class="on"' : ''}></i>`;
-    }).join('');
-    return `<div class="hv5-ai-graph"><div class="hv5-ai-spark">${bars}</div><span class="hv5-ai-gcap">최근 7일</span></div>`;
-  }
-
-  function _dueBadge(md) {
-    if (!md) return '';
-    return `<div class="hv5-ai-graph"><div class="hv5-ai-badge"><span class="l">예정일</span><span class="v">${esc(md)}</span></div></div>`;
-  }
-
-  function _avatarStack(names) {
-    const PAL = [['#FBEAF0', '#993556'], ['#FAEEDA', '#854F0B'], ['#E6F1FB', '#185FA5']];
-    const spans = names.slice(0, 3).map((n, i) => {
-      const p = PAL[i % 3];
-      return `<span class="hv5-ai-av" style="background:${p[0]};color:${p[1]}">${esc(String(n || '').charAt(0))}</span>`;
-    }).join('');
-    return `<div class="hv5-ai-graph"><div class="hv5-ai-avs">${spans}</div></div>`;
-  }
-
-  // 빈시간 스트립 — 오늘~일요일, 요일당 막대 1개. full=종일 빔, am/pm=반 채움.
-  function _slotStrip(slots) {
-    try {
-      const byDate = {};
-      slots.forEach(s => {
-        if (!s || !s.date) return;
-        const cur = byDate[s.date];
-        if (s.type === 'fullday') { byDate[s.date] = 'full'; return; }
-        if (cur === 'full') return;
-        const h = parseInt(String(s.from || '').split(':')[0], 10);
-        const half = (Number.isFinite(h) && h < 12) ? 'am' : 'pm';
-        byDate[s.date] = (cur && cur !== half) ? 'full' : (cur || half);
-      });
-      const now = new Date();
-      const days = [];
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
-        const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        days.push(ymd);
-        if (d.getDay() === 0) break;       // 일요일까지
-      }
-      if (days.length < 2) return '';
-      const bars = days.map(ymd => `<i class="${byDate[ymd] || ''}"></i>`).join('');
-      return `<div class="hv5-ai-graph"><div class="hv5-ai-strip">${bars}</div><span class="hv5-ai-gcap">오늘~일</span></div>`;
-    } catch (_e) { return ''; }
-  }
+  // [2026-08-16] 미니그래픽 헬퍼(_sparkHtml·_dueBadge·_avatarStack·_slotStrip) 삭제 —
+  //   실시간 분석 캐러셀이 잇비 카드로 흡수되면서 그래픽 붙일 자리가 없어짐.
 
   function cardRevenue(brief) {
     const total = Number(brief.this_month_total) || 0;
@@ -124,9 +78,63 @@
     const desc = (goal > 0 && goal - total > 0)
       ? `목표까지 ${Math.round((goal - total) / 10000)}만원 남았어요`
       : (goal > 0 ? '이번달 목표 달성!' : '요일별 매출 패턴 보기');
-    const card = { ...base, dot: (p != null && p < 0) ? 'var(--danger)' : '#3B82F6', hl, desc, graph: _sparkHtml(brief.week_revenue) };
+    const card = { ...base, dot: (p != null && p < 0) ? 'var(--danger)' : '#3B82F6', hl, desc };
     if (p != null && p < 0) card.alert = true;       // 마이너스일 때만 '확인 필요'에 포함
+
+    // [2026-09-02] 잇비 표 줄 전용 — 스파크라인 + "지난달 이맘때" 비교 (목업 39 B안).
+    //   hl/desc 는 건드리지 않는다. 그건 '전체 보기' 펼침 뷰가 쓰는 값이라,
+    //   여기서 바꾸면 표 줄만 고치려다 펼침 뷰까지 같이 흔들린다.
+    //   표 줄 금액은 축약 없이 천단위 콤마 — 만원 축약은 "4,231,000원"의 자릿수 감각을 지운다.
+    card.rowVal = total.toLocaleString('ko-KR') + '원';
+    // [2026-09-03] 스파크 데이터 = **최근 7일 일별**(week_revenue, index 6 = 오늘).
+    //   이번달 누적을 쓰면 월초마다 점 1~2개짜리 직선으로 리셋된다(원영 피드백 — 9/2에 직선).
+    //   최근 7일은 월 경계 무관이라 언제나 리듬이 보이고, 매출이 하루뿐이면
+    //   토스처럼 "바닥 깔리다 끝에서 쑥" 하키스틱이 자연히 나온다.
+    //   전부 0이면 그래프 생략 (0짜리 평평한 선은 정보가 아니다).
+    const wk = Array.isArray(brief.week_revenue) ? brief.week_revenue.map(Number) : null;
+    if (wk && wk.length >= 2 && wk.some(v => v > 0)) {
+      card.spark = wk;
+    } else {
+      // 구버전 BE 폴백 — 이번달 누적을 일별로 풀어서 사용.
+      const cum = Array.isArray(brief.month_daily_cumulative) ? brief.month_daily_cumulative : null;
+      if (cum && cum.length >= 2) {
+        const d = cum.map((v, i) => Math.max(0, Number(v) - (i ? Number(cum[i - 1]) : 0)));
+        if (d.some(v => v > 0)) card.spark = d;
+      }
+    }
+    // 구버전 BE(필드 없음)거나 지난달 이맘때 매출이 0이면 비교 줄 자체를 안 만든다 —
+    //   분모가 없는 비교는 "+전액 ↑" 같은 무의미한 문구가 된다.
+    const prevSame = Number(brief.prev_month_same_day_total) || 0;
+    if (prevSame > 0) {
+      const diff = total - prevSame;
+      card.cmp = { diff, up: diff >= 0 };
+    }
     return card;
+  }
+
+  // [2026-09-03] 스파크라인 v2 — **일별 매출** 배열을 받아 그린다 (변환은 cardRevenue 가 함).
+  //   누적은 절대 안 내려가서 매일 비슷하면 자로 그은 직선이 됐다(원영 피드백).
+  //   일별이면 장사 리듬(바쁜 날/한가한 날)이 그대로 오르내림으로 보인다.
+  //   · Catmull-Rom → 베지어 보간으로 토스처럼 부드러운 곡선.
+  //   · 반환에 끝점 좌표(ex, ey) 포함 — pulse 도트를 CSS 고정이 아니라 실제 선 끝에 붙인다.
+  function _monthSparkPath(daily) {
+    const W = 56, H = 24, PAD = 3;
+    const n = daily.length;
+    const max = Math.max(...daily, 1);
+    const pts = daily.map((v, i) => [
+      n === 1 ? W - PAD : PAD + (W - PAD * 2) * (i / (n - 1)),
+      H - PAD - (H - PAD * 2) * (v / max),
+    ]);
+    const cy = (y) => Math.min(H - PAD, Math.max(1, y)); // 제어점이 바닥선(H-PAD) 아래로 파고들지 않게
+    let d = `M${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+    for (let i = 0; i < n - 1; i++) {
+      const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+      const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = cy(p1[1] + (p2[1] - p0[1]) / 6);
+      const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = cy(p2[1] - (p3[1] - p1[1]) / 6);
+      d += ` C${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
+    }
+    const last = pts[n - 1];
+    return { d, ex: last[0], ey: last[1] };
   }
 
   // [2026-07-05] 고객관리 — "안부" 프레임 폐기. 사실만: 올 차례였던 날이 지났다.
@@ -144,7 +152,7 @@
       if (cycle) parts.push(`보통 ${cycle}마다 방문`);
       if (m) parts.push(`${Number(m[1])}월 ${Number(m[2])}일쯤 올 차례였어요`);
       const desc = parts.join(' · ') || `${Math.round(Number(a.days_since_last) || 0)}일째 방문 없음`;
-      return { ...base, hl: `${name}님, 다시 올 때가 지났어요`, desc, graph: m ? _dueBadge(`${Number(m[1])}/${Number(m[2])}`) : '' };
+      return { ...base, hl: `${name}님, 다시 올 때가 지났어요`, desc };
     }
     const names = raw.map(a => (a && a.name) || '단골');
     const shown = names.slice(0, 3).join(' · ');
@@ -152,7 +160,6 @@
       ...base,
       hl: `다시 올 때가 지난 손님 ${raw.length}명`,
       desc: names.length > 3 ? `${shown} 외 ${names.length - 3}명` : shown,
-      graph: _avatarStack(names),
     };
   }
 
@@ -169,14 +176,15 @@
       };
     }
     const fmt = s => s.type === 'fullday' ? `${s.day_label} 종일` : `${s.day_label} ${s.from}~${s.to}`;
-    const hl = emptySlots.slice(0, 2).map(fmt).join(' · ') + ' 비어요';
     const n = emptySlots.length;
+    const hl = emptySlots.slice(0, 2).map(fmt).join(' · ') + ' 비어요';
     const desc = n > 2 ? `외 ${n - 2}곳 더 · 예약 잡기 좋은 시간` : '예약 잡기 좋은 시간';
+    // [2026-08-16] rowVal — 홈 잇비 카드 표 줄용 축약값 (한 줄 고정, "…비어요" 어절 깨짐 방지)
+    const rowVal = fmt(emptySlots[0]) + (n > 1 ? ` 외 ${n - 1}곳` : '');
     return {
       ok: 0, cat: '이번주 빈 시간', dot: '#0891B2',
-      hl, desc,
+      hl, desc, rowVal,
       btn: '예약 잡기', act: 'openCalendar',
-      graph: _slotStrip(emptySlots),
     };
   }
 
@@ -310,25 +318,88 @@
     return '수고 많으셨어요. 푹 쉬세요';
   }
 
-  function renderItbiCard(brief) {
+  // [2026-08-16] 실시간 분석 캐러셀 → 잇비 카드 흡수.
+  //   헤더 상태줄(모두 정상/N건 확인 필요) + 확인 필요 항목 표 줄 + "나머지 N개 문제 없어요".
+  function _analysisState(cards) {
+    const list = Array.isArray(cards) ? cards : [];
+    const retry = list.some(c => c.retry);
+    const todo = list.filter(c => c.alert).length;
+    const okCnt = list.filter(c => c.ok).length;
+    const label = retry ? '연결 불안정' : (todo > 0 ? `${todo}건 확인 필요` : '모두 정상');
+    return { retry, todo, okCnt, total: list.length, label };
+  }
+
+  function renderItbiCard(brief, cards) {
     const data = brief || {};
+    const list = Array.isArray(cards) ? cards : [];
+    const st = _analysisState(list);
     const lastMsg = (typeof data.assistant_last_message === 'string' && data.assistant_last_message.trim())
       ? data.assistant_last_message.trim()
       : '';
     const lastTime = (typeof data.assistant_last_time === 'string') ? data.assistant_last_time : '';
-    const isEmpty = !lastMsg;
-    const msgHtml = isEmpty
-      ? esc(_emptyStateMessage(data))
-      : esc(lastMsg);
     const confirm = (data.assistant_confirm_action && typeof data.assistant_confirm_action === 'object')
       ? data.assistant_confirm_action : null;
+    // [2026-08-16] 말풍선은 대화용만(confirm/마지막 대화/인사말). 분석 인사이트는 전부 표 줄로 —
+    //   fit-content 말풍선에 문장을 넣으니 "비/어요" 어절이 깨져서 표(라벨+값) 형태로 교체.
+    let msgHtml, isEmpty = false;
+    if (confirm || lastMsg) {
+      msgHtml = `<div class="hv5-itbi-msg-text">${esc(lastMsg || '')}</div>`;
+    } else {
+      isEmpty = true;
+      msgHtml = `<div class="hv5-itbi-msg-text">${esc(_emptyStateMessage(data))}</div>`;
+    }
     const actionsHtml = confirm
       ? `<div class="hv5-itbi-actions">
           <button type="button" class="hv5-itbi-action-btn is-primary" data-hv-act="${esc(confirm.confirmAct || 'openAssistant')}">${esc(confirm.confirmLabel || '네, 등록할게요')}</button>
           <button type="button" class="hv5-itbi-action-btn" data-hv-act="${esc(confirm.cancelAct || 'openAssistant')}">${esc(confirm.cancelLabel || '아니요')}</button>
         </div>`
       : '';
-    const timeHtml = lastTime ? `<div class="hv5-itbi-msg-time">${esc(lastTime)}</div>` : '';
+    const timeHtml = (lastMsg && lastTime) ? `<div class="hv5-itbi-msg-time">${esc(lastTime)}</div>` : '';
+    // [2026-08-16] 확인 필요 항목 표 줄 — not-ok 카드 전부(매출·빈시간·고객·회원권·리터치·재시도)를
+    //   같은 규격 행(라벨 + 값 + ›)으로. 값은 rowVal(짧은 축약) 우선, 없으면 hl 을 말줄임.
+    // [2026-09-02] 매출 행만 두 줄(목업 39 B안) — 스파크라인 + "지난달 이맘때" 비교.
+    //   is-rev 모디파이어로 스코프해서 다른 행(고객관리·빈 시간 등) 레이아웃은 그대로 둔다.
+    const rowsHtml = list.filter(c => !c.ok).map(c => {
+      const label = esc(c.cat || '');
+      const val = esc(c.rowVal || c.hl || '');
+      const act = esc(c.act || 'openAssistant');
+      if (!c.spark && !c.cmp) {
+        return `<button type="button" class="hv5-itbi-mini" data-hv-act="${act}">
+          <span class="hv5-itbi-mini-label">${label}</span>
+          <span class="hv5-itbi-mini-val">${val}</span>
+          <span class="hv5-itbi-mini-arr">›</span>
+        </button>`;
+      }
+      let sparkHtml = '';
+      if (c.spark) {
+        const sp = _monthSparkPath(c.spark);
+        // 도트 중심 = 실제 선 끝점 (viewBox 56×24 를 56×24px 로 그리므로 좌표 1:1).
+        // 바닥선(연회색) — 토스처럼 곡선 아래 기준선을 깔아야 선이 붕 떠 보이지 않는다.
+        sparkHtml = `<span class="hv5-itbi-spark" aria-hidden="true">
+             <svg width="56" height="24" viewBox="0 0 56 24"><path class="hv5-itbi-spark-base" d="M3 21 L53 21"/><path d="${esc(sp.d)}"/></svg>
+             <span class="hv5-itbi-spark-tip" style="left:${(sp.ex - 3).toFixed(1)}px;top:${(sp.ey - 3).toFixed(1)}px"></span>
+           </span>`;
+      }
+      const cmpHtml = c.cmp
+        ? `<span class="hv5-itbi-mini-sub${c.cmp.up ? '' : ' is-down'}">지난달 이맘때보다 ${
+            c.cmp.up ? '+' : '−'}${Math.abs(c.cmp.diff).toLocaleString('ko-KR')}원 ${c.cmp.up ? '↑' : '↓'}</span>`
+        : '';
+      return `<button type="button" class="hv5-itbi-mini is-rev" data-hv-act="${act}">
+          <span class="hv5-itbi-mini-line1">
+            <span class="hv5-itbi-mini-label">${label}</span>
+            <span class="hv5-itbi-mini-val">${val}</span>
+            ${sparkHtml}
+            <span class="hv5-itbi-mini-arr">›</span>
+          </span>
+          ${cmpHtml}
+        </button>`;
+    }).join('');
+    // 나머지 정상 항목 요약 줄
+    const restHtml = (!st.retry && st.okCnt > 0)
+      ? `<button type="button" class="hv5-itbi-rest" data-hv-act="openAssistant">
+          <span class="hv5-itbi-rest-check">✓</span>${st.okCnt === st.total ? `${st.okCnt}개 모두 문제 없어요` : `나머지 ${st.okCnt}개는 문제 없어요`}<span class="hv5-itbi-rest-arr">›</span>
+        </button>`
+      : '';
     // [2026-07-05] 저녁(19시~) 마감 리포트 유도 칩 — 하루 1번. seen 키는 closing-report.js run()이 기록.
     let closingHtml = '';
     try {
@@ -341,31 +412,49 @@
         </button>`;
       }
     } catch (_e) { /* silent */ }
+    // [2026-08-16] '전체 보기' = 분석 카드를 그 자리에서 펼쳐 보기 (인라인 토글, 화면 이동 X — 원영 지시.
+    //   브리핑 채팅으로 보내던 동작은 대체·삭제). ok 카드는 okMsg, 확인 필요 카드는 hl+desc+액션 버튼.
+    const detailHtml = `<div class="hv5-itbi-detail">${list.map(c => `<div class="hv5-itbi-dcard">
+          <div class="hv5-itbi-dcard-cat"><span class="hv5-itbi-dcard-dot" style="background:${esc(c.dot || '#B0B8C1')}"></span>${esc(c.cat || '')}</div>
+          <div class="hv5-itbi-dcard-hl">${esc(c.ok ? (c.okMsg || '문제 없어요') : (c.hl || ''))}</div>
+          ${(!c.ok && c.desc) ? `<div class="hv5-itbi-dcard-desc">${esc(c.desc)}</div>` : ''}
+          ${(!c.ok && c.btn) ? `<button type="button" class="hv5-itbi-dcard-btn" data-hv-act="${esc(c.act || '')}">${esc(c.btn)} ›</button>` : ''}
+        </div>`).join('')}</div>`;
+    const statusHtml = st.retry
+      ? `<div class="hv5-itbi-status is-warn"><span class="hv5-itbi-status-dot"></span>실시간 분석 · <b>연결 불안정</b></div>`
+      : (st.todo > 0
+        ? `<div class="hv5-itbi-status is-warn"><span class="hv5-itbi-status-dot"></span>실시간 분석 · <b>${st.todo}건 확인 필요</b></div>`
+        : `<div class="hv5-itbi-status"><span class="hv5-itbi-status-dot"></span>실시간 분석 · 모두 정상</div>`);
     return `<section class="hv5-itbi-card">
       <div class="hv5-itbi-head">
         <div class="hv5-itbi-head-l">
           <span class="hv5-itbi-avatar"><svg width="18" height="18" aria-hidden="true"><use href="#ic-bot"/></svg></span>
           <div class="hv5-itbi-head-text">
             <div class="hv5-itbi-name-row"><strong class="hv5-itbi-name">AI 잇비</strong><span class="hv5-itbi-beta">베타</span></div>
-            <div class="hv5-itbi-status"><span class="hv5-itbi-status-dot"></span>원장님 기다리는 중</div>
+            ${statusHtml}
           </div>
         </div>
-        <button type="button" class="hv5-itbi-all" data-hv-act="openAssistant">전체 보기 ›</button>
+        <button type="button" class="hv5-itbi-all" data-hv-act="itbiToggleDetail">전체 보기 ›</button>
       </div>
       <div class="hv5-itbi-msg${isEmpty ? ' is-empty' : ''}">
         <span class="hv5-itbi-msg-avatar"><svg width="16" height="16" aria-hidden="true"><use href="#ic-bot"/></svg></span>
         <div class="hv5-itbi-msg-body">
-          <div class="hv5-itbi-msg-text">${msgHtml}</div>
+          ${msgHtml}
           ${actionsHtml}
           ${timeHtml}
         </div>
       </div>
+      ${rowsHtml}
+      ${restHtml}
+      ${detailHtml}
       ${closingHtml}
       <div class="hv5-itbi-input">
         <button type="button" class="hv5-itbi-input-icon" data-itbi-act="photo" aria-label="사진 첨부"><svg width="18" height="18" aria-hidden="true"><use href="#ic-camera"/></svg></button>
         <input type="text" class="hv5-itbi-input-field" placeholder="잇비에게 무엇이든 물어보세요" data-itbi-input />
-        <button type="button" class="hv5-itbi-input-icon" data-itbi-act="voice" aria-label="음성 입력"><svg width="16" height="16" aria-hidden="true"><use href="#ic-mic"/></svg></button>
-        <button type="button" class="hv5-itbi-send" data-itbi-act="send" aria-label="보내기"><svg width="14" height="14" aria-hidden="true"><use href="#ic-send"/></svg></button>
+        <button type="button" class="hv5-itbi-swap" data-itbi-act="swap" aria-label="음성 입력">
+          <svg class="hv5-sw-mic" width="16" height="16" aria-hidden="true"><use href="#ic-mic"/></svg>
+          <svg class="hv5-sw-send" width="15" height="15" aria-hidden="true"><use href="#ic-send"/></svg>
+        </button>
         <input type="file" accept="image/*" data-itbi-file style="display:none;" />
       </div>
     </section>`;
@@ -446,6 +535,14 @@
     </button>`;
   }
 
+  // [2026-08-31] "+N건 더 보기"가 data-hv-act="openCalendar" 라, 누르면 캘린더로 화면이 통째로
+  //   넘어갔다(오늘 5건이면 홈에서 5번째 예약을 영영 못 봄). "화면 이동 금지" 원칙 정면 위반이라
+  //   제자리 인라인 펼침으로 교체한다.
+  //   - 슬롯은 이제 전부 렌더하고, 최대 노출 개수 초과분에만 .is-extra 를 달아 CSS 로 숨긴다
+  //     (기존 slice 제거). 그래야 펼칠 때 DOM 을 새로 만들 필요가 없고, data-hv-slot 인덱스도
+  //     todayBookings() 원본 배열과 그대로 맞아 슬롯 클릭 바인딩이 전부 유효하다.
+  //   - 펼침 상태는 .hv5-slots 의 클래스로만 산다 → localStorage 저장 X. 홈이 다시 그려지면
+  //     자동으로 접힘(내일 예약 1건인데 펼쳐진 채 남는 사고 방지).
   function renderBooking(brief) {
     const all = todayBookings(brief);
     const empty = cfg().BOOKING_EMPTY_DISPLAY || 'hide';
@@ -453,10 +550,12 @@
     const max = cfg().BOOKING_SLOTS_MAX || 5;
     const now = Date.now();
     const idxNext = all.findIndex(b => Number.isFinite(Date.parse(b.starts_at || '')) && Date.parse(b.starts_at || '') >= now);
-    const visible = all.slice(0, max);
-    const slotsHtml = visible.map((b, i) => renderBookingSlot(b, i, idxNext)).join('');
-    const more = all.length - visible.length;
-    const moreRow = more > 0 ? `<button type="button" class="hv5-s-more" data-hv-act="openCalendar">+${more}건 더 보기</button>` : '';
+    const slotsHtml = all.map((b, i) => renderBookingSlot(b, i, idxNext, i >= max)).join('');
+    const more = all.length - max;
+    const moreRow = more > 0 ? `<button type="button" class="hv5-s-more" data-hv-act="toggleBookings" data-hv-more="${more}" aria-expanded="false">
+        <span class="hv5-s-more-t">+${more}건 더 보기</span>
+        <svg class="hv5-s-more-ic" width="14" height="14" aria-hidden="true"><use href="#ic-chevron-down"/></svg>
+      </button>` : '';
     return `<div class="hv5-card">
       <div class="hv5-card-h">
         <div class="hv5-card-title">오늘의 예약 ${all.length}건</div>
@@ -464,6 +563,18 @@
       </div>
       <div class="hv5-slots">${slotsHtml}${moreRow}</div>
     </div>`;
+  }
+
+  // [2026-08-31] 오늘의 예약 펼침/접기 — 홈 전체 재렌더가 아니라 이 카드의 DOM 만 만진다.
+  //   HomeV41.render() 를 다시 태우면 스크롤이 맨 위로 튀고 brief 재조립 비용도 든다.
+  //   여기선 클래스 토글 + 라벨 텍스트 교체만 → 스크롤 위치 그대로. (app-home-v41.js _bindEvents 에서 호출)
+  function toggleBookings(btn) {
+    const list = btn && btn.closest ? btn.closest('.hv5-slots') : null;
+    if (!list) return;
+    const open = list.classList.toggle('is-open');
+    const label = btn.querySelector('.hv5-s-more-t');
+    if (label) label.textContent = open ? '접기' : `+${btn.dataset.hvMore || ''}건 더 보기`;
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
   }
 
   function bookingEmptyHtml() {
@@ -476,11 +587,11 @@
     </div>`;
   }
 
-  function renderBookingSlot(b, i, idxNext) {
+  function renderBookingSlot(b, i, idxNext, isExtra) {
     const status = statusLabel(b.status);
     const badge = status ? `<span class="hv5-s-badge ${statusClass(b.status)}">${status}</span>` : '';
     const amount = bookingAmount(b);
-    return `<button type="button" class="hv5-slot${i === idxNext ? ' now' : ''} hv5-slot-${COLORS[i % 5]}" data-hv-slot="${i}" data-hv-time="${esc(b.starts_at || '')}">
+    return `<button type="button" class="hv5-slot${i === idxNext ? ' now' : ''}${isExtra ? ' is-extra' : ''} hv5-slot-${COLORS[i % 5]}" data-hv-slot="${i}" data-hv-time="${esc(b.starts_at || '')}">
       <span class="hv5-s-time">${esc(hhmm(b.starts_at))}</span>
       <span class="hv5-s-bar" aria-hidden="true"></span>
       <span class="hv5-s-info">
@@ -503,62 +614,6 @@
     if (!amount && b.service_name) amount = servicePrice(b.service_name);
     const rounded = amount > 0 ? Math.round(amount / 1000) * 1000 : 0;
     return rounded > 0 ? rounded.toLocaleString('ko-KR') + '원' : '';
-  }
-
-  function renderAiRecs(cards) {
-    if (!cards || !cards.length) return '</div>';
-    const total = cards.length;
-    const todoCnt = cards.filter(c => c.alert).length;
-    const okCnt = cards.filter(c => c.ok).length;
-    const cardHtml = cards.map(renderAiCard).join('');
-    const navHtml = renderAiNav(total);
-    // [2026-07-05] 모바일: 정상 카드는 접고 요약 한 줄 (PC는 CSS로 미노출, 카드 그대로)
-    const okRow = okCnt > 0
-      ? `<button type="button" class="hv5-ai-okrow" data-hv-ok-toggle>
-          <span class="hv5-ai-okrow-check">✓</span>${okCnt === total ? `${okCnt}개 모두 문제 없어요` : `나머지 ${okCnt}개는 문제 없어요`}<span class="hv5-ai-okrow-arr">›</span>
-        </button>`
-      : '';
-    return `<div class="hv5-ai">
-      <div class="hv5-ai-label">
-        <span class="hv5-ai-pulse" aria-hidden="true"></span>
-        <span class="hv5-ai-label-t"><b>AI 잇비</b> 실시간 분석</span>
-        <span class="hv5-ai-label-count">${cards.some(c => c.retry) ? '연결 불안정' : (todoCnt > 0 ? todoCnt + '건 확인 필요' : '모두 정상')}</span>
-      </div>
-      <div class="hv5-ai-track" id="hv5AiTrack">${cardHtml}</div>
-      ${okRow}
-      ${navHtml}
-    </div></div>`;
-  }
-
-  function renderAiCard(c) {
-    if (c.ok) {
-      return `<div class="hv5-ai-card hv5-ai-card-page ok hv5-ai-okhide" data-ok="1">
-        <div class="hv5-ai-tag"><div class="hv5-ai-dot" style="background:${esc(c.dot || '#10B981')}"></div><div class="hv5-ai-tag-t">${esc(c.cat || '')}</div><span class="hv5-ai-check">✓</span></div>
-        <div class="hv5-ai-ok-msg">${esc(c.okMsg || '')}</div>
-      </div>`;
-    }
-    const g = c.graph || '';
-    return `<div class="hv5-ai-card hv5-ai-card-page${g ? ' has-graph' : ''}" data-ok="0" data-hv-act="${esc(c.act || '')}" role="button" tabindex="0">
-      <div class="hv5-ai-tag"><div class="hv5-ai-dot" style="background:${esc(c.dot || '#BC6675')}"></div><div class="hv5-ai-tag-t">${esc(c.cat || '')}</div></div>
-      <div class="hv5-ai-hl">${esc(c.hl || '')}</div>
-      <div class="hv5-ai-desc">${esc(c.desc || '')}</div>
-      <button type="button" class="hv5-ai-btn" data-hv-act="${esc(c.act || '')}">${esc(c.btn || '확인')} ›</button>
-      ${g}
-    </div>`;
-  }
-
-  function renderAiNav(total) {
-    const isMobile = window.matchMedia('(max-width: 540px)').matches;
-    const pages = Math.max(1, Math.ceil(total / (isMobile ? 1 : 3)));
-    if (pages <= 1) return '';
-    const dots = Array.from({ length: pages }, (_, i) =>
-      `<button type="button" class="hv5-ai-dot-nav${i === 0 ? ' on' : ''}" data-hv-ai-page="${i}" aria-label="페이지 ${i + 1}"></button>`
-    ).join('');
-    return `<div class="hv5-ai-nav">
-      <button type="button" class="hv5-ai-nav-btn" id="hv5AiPrev" disabled aria-label="이전">‹</button>
-      <div class="hv5-ai-dots" id="hv5AiDots">${dots}</div>
-      <button type="button" class="hv5-ai-nav-btn" id="hv5AiNext" aria-label="다음">›</button>
-    </div>`;
   }
 
   function ensureStyles() {
@@ -585,7 +640,10 @@
       <div class="hv5-cmsg-head">
         <span class="hv5-cmsg-title">고객 메시지</span>
         <span class="hv5-cmsg-count" id="hv5CmsgCount"></span>
-        <button type="button" class="hv5-cmsg-refresh" id="hv5CmsgRefresh" aria-label="새로고침" title="새로고침">↻</button>
+        <!-- [2026-08-12] ↻ 글자 → lucide SVG — 글자 화살표가 너무 얇아 돌아가는 게 안 보였다 -->
+        <button type="button" class="hv5-cmsg-refresh" id="hv5CmsgRefresh" aria-label="새로고침" title="새로고침">
+          <svg class="hv5-cmsg-refresh-ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+        </button>
         <button type="button" class="hv5-cmsg-more" id="hv5CmsgMore">전체 보기 ›</button>
       </div>
       <div class="hv5-cmsg-row" id="hv5CmsgRow"></div>
@@ -597,15 +655,16 @@
     const cards = buildCarouselCards(brief);
     const bookingHtml = renderBooking(brief);
     const alertsHtml = renderAlerts(brief, dmQueueCount || 0);
-    // [2026-06-08 F4] 홈 순서: 오늘의 예약 → 고객 메시지 → AI 잇비(챗봇) → AI 잇비 실시간 분석
+    // [2026-08-16] 홈 순서: 오늘의 예약 → 고객 메시지 → AI 잇비(챗봇+실시간 분석 통합).
+    //   renderHeader 가 연 <div class="hv5"> 는 여기서 닫는다 (구 renderAiRecs 가 닫던 것).
     return [
       renderHeader(brief),
       middleRow(bookingHtml, alertsHtml),  // 오늘의 예약 (+ 알림)
       renderCustomerMsgs(),                // 고객 메시지
-      renderItbiCard(brief),               // AI 잇비 (챗봇)
-      renderAiRecs(cards),                 // AI 잇비 실시간 분석
+      renderItbiCard(brief, cards),        // AI 잇비 (챗봇 + 실시간 분석)
+      '</div>',
     ].join('');
   }
 
-  window.HomeV41Render = { compose, syncAvatar, todayBookings };
+  window.HomeV41Render = { compose, syncAvatar, todayBookings, toggleBookings };
 })();

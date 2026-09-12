@@ -117,24 +117,29 @@
     const headers = _authHeaders();
     if (!window.API || !headers) return 0;
     // [v789] 자동 응대 마스터 꺼짐 → 홈 줄 숨김 + API 호출도 스킵 (비용 방어)
+    // [2026-08-26] 판정을 뒤집었다: 예전엔 **저장한 적 없으면 호출**했다(`enabled === false` 일 때만 스킵).
+    //   이제 기본값이 OFF 라 그 호출은 서버에서 `disabled:true, count:0` 으로 돌아온다 —
+    //   결과가 같은 호출을 홈이 켜질 때마다 하는 셈이라 안 부른다. 명시적으로 켠 원장만 호출.
     try {
       const s0 = JSON.parse(localStorage.getItem('itdasy:crq_settings') || 'null');
-      if (s0 && s0.enabled === false) return 0;
-    } catch (_e) { /* ignore */ }
+      if (!s0 || s0.enabled !== true) return 0;
+    } catch (_e) { return 0; }
     // [2026-07-21] 방해금지 시간대(운영시간 밖) → 홈 넛지·API 호출 스킵. 큐 열면 다 보임(유실 아님)
     try { if (window.crqQuietNow && window.crqQuietNow()) return 0; } catch (_e) { /* ignore */ }
+    /* [2026-09-01 CMT-P1-004] `count_only=1` — 배지 전용 저비용 경로.
+       예전엔 파라미터 없이 풀 엔드포인트를 불렀다. 그러면 캐시가 식어 있을 때
+       배지 숫자 하나 때문에 **Graph 외부호출 최대 60회 + Gemini 재판정 20 + 초안 8** 이 돈다.
+       백엔드엔 진작부터 count_only 가 있었는데(주석에 "뱃지는 비용상 스킵" 이라고까지 적혀 있다)
+       **프론트에서 아무도 안 썼다**(grep 0건). 홈은 앱을 켤 때마다 불리는 자리다 —
+       Vertex 쿼터는 프로젝트 공용이라(2026-08-18 실사고) 배지가 원장 본업을 죽일 수 있다.
+
+       [CMT-P2-008] 인텐트·제외단어 필터도 서버가 한다. 예전엔 홈만 다른 필터를 들고 있어서
+       홈은 "문의 3건", 큐에 들어가면 1건이었다. 이제 숫자와 목록이 같은 판정을 쓴다. */
     try {
-      const res = await apiFetch('/instagram/comment-queue', { headers });
+      const res = await apiFetch('/instagram/comment-queue?count_only=1', { headers });
       if (!res.ok) return 0;
       const data = await res.json();
-      const items = Array.isArray(data && data.items) ? data.items : [];
-      // 큐 화면과 같은 필터 적용 (설정에서 끈 문의 종류 제외 — itdasy:crq_settings, 기본 hours=off)
-      let intents = { hours: false };
-      try {
-        const s = JSON.parse(localStorage.getItem('itdasy:crq_settings') || 'null');
-        if (s && s.intents) intents = Object.assign(intents, s.intents);
-      } catch (_e) { /* ignore */ }
-      return items.filter(it => intents[it.intent] !== false).length;
+      return Number((data && data.count) || 0);
     } catch (_e) { return 0; }
   }
 
@@ -232,7 +237,16 @@
       el.addEventListener('click', (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
-        window.HomeV41Actions.run(el.dataset.hvAct || '');
+        const act = el.dataset.hvAct || '';
+        // [2026-08-31] "+N건 더 보기"는 캘린더로 넘어가던 걸 제자리 펼침으로 바꿨다.
+        //   HomeV41Actions 는 "다른 화면 열기" 액션 모음이고 이건 오늘의 예약 카드 DOM 만
+        //   건드리는 토글이라, 마크업 주인인 렌더러에게 바로 넘긴다.
+        if (act === 'toggleBookings') {
+          if (window.hapticLight) { try { window.hapticLight(); } catch (_e) { /* ignore */ } }
+          window.HomeV41Render.toggleBookings(el);
+          return;
+        }
+        window.HomeV41Actions.run(act);
       });
     });
     _bindItbiCardInput(container);
@@ -245,9 +259,21 @@
     const fileInput = container.querySelector('[data-itbi-file]');
     const bar = container.querySelector('.hv5-itbi-input');
     const swapBtn = container.querySelector('[data-itbi-act="swap"]');
+    // [원장 QA 2026-09-11] 열지 **못했는지**를 호출부가 알아야 한다.
+    //   실측(실 Chrome 배포본): 홈 잇비 카드가 접힌 상태에서 질문을 치고 Enter →
+    //     화면에 질문도, 답변도, 로딩도 없고 **입력창만 비워졌다.**
+    //     `run.app/assistant/*` 호출 0건 — 서버로 아예 안 갔다.
+    //   원인: 잇비 시트 모듈이 아직 로드 전이면 `open` 이 undefined 라 아무 일도 안 하는데,
+    //   아래 호출부는 성공 여부와 무관하게 `input.value = ''` 를 실행해 **질문을 지웠다.**
+    //   원장은 자기가 뭘 물었는지도 잃는다.
     const openSheet = (opts) => {
       const open = (window.AssistantSheet && window.AssistantSheet.open) || window.openAssistant;
-      if (typeof open === 'function') open(opts || {});
+      if (typeof open !== 'function') {
+        if (window.showToast) window.showToast('잇비를 준비 중이에요. 잠시 후 다시 눌러 주세요.');
+        return false;
+      }
+      open(opts || {});
+      return true;
     };
     const startVoice = () => {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -267,7 +293,7 @@
         } else if (act === 'swap') {
           const text = (input?.value || '').trim();
           if (!text) { startVoice(); return; }
-          openSheet({ sendImmediate: text });
+          if (openSheet({ sendImmediate: text }) === false) return;   // 못 열었으면 입력 보존
           input.value = '';
           if (bar) bar.classList.remove('has-text');
           if (swapBtn) swapBtn.setAttribute('aria-label', '음성 입력');
@@ -285,7 +311,7 @@
         if (ev.key === 'Enter' && !ev.shiftKey) {
           ev.preventDefault();
           const text = input.value.trim();
-          openSheet(text ? { sendImmediate: text } : {});
+          if (openSheet(text ? { sendImmediate: text } : {}) === false) return;   // 못 열었으면 입력 보존
           input.value = '';
           if (bar) bar.classList.remove('has-text');
           if (swapBtn) swapBtn.setAttribute('aria-label', '음성 입력');
@@ -347,6 +373,44 @@
     container.querySelector('[data-home-reload]')?.addEventListener('click', () => location.reload());
   }
 
+  // [2026-08-22 UX-COLD] 스켈레톤 — 콜드스타트(캐시 0 + BE 기동 5~15s)에 홈이 백지로 떠서
+  //   오류처럼 보이던 구간을 유튜브식 회색 shimmer 로 채운다. 데이터 오면 _hydrateHome 이 통째로 교체.
+  //   스타일은 마크업 안에 스코프드 <style> — 교체 시 같이 사라져 잔여물 없음. 라이트모드 기준.
+  function _showSkeleton(container) {
+    if (container.querySelector('.hv5') || container.querySelector('.hv5-skel')) return;  // 이미 뭔가 떠 있으면 유지
+    container.innerHTML = `
+      <div class="hv5-skel" aria-hidden="true">
+        <style>
+          .hv5-skel{max-width:1280px;margin:0 auto;padding-top:6px}
+          .hv5-skel .b{position:relative;overflow:hidden;display:block;background:#EEF0F3;border-radius:16px}
+          .hv5-skel .b::after{content:'';position:absolute;inset:0;transform:translateX(-100%);
+            background:linear-gradient(90deg,transparent,rgba(255,255,255,.6),transparent);
+            animation:hvskShim 1.4s ease-in-out infinite}
+          @keyframes hvskShim{100%{transform:translateX(100%)}}
+          @media (prefers-reduced-motion: reduce){.hv5-skel .b::after{animation:none}}
+          .hv5-skel .hdr{display:flex;align-items:center;gap:14px;padding:0 4px 18px}
+          .hv5-skel .av{width:48px;height:48px;border-radius:50%;flex-shrink:0}
+          .hv5-skel .hm{flex:1;min-width:0}
+          .hv5-skel .l1{width:92px;height:11px;border-radius:6px}
+          .hv5-skel .l2{width:150px;height:17px;border-radius:8px;margin-top:7px}
+          .hv5-skel .bell{width:40px;height:40px;border-radius:50%;flex-shrink:0}
+          .hv5-skel .card{margin-bottom:14px}
+          @media (max-width:540px){
+            .hv5-skel .av{width:40px;height:40px}
+            .hv5-skel .hdr{gap:10px;padding-bottom:14px}
+          }
+        </style>
+        <div class="hdr">
+          <span class="b av"></span>
+          <div class="hm"><span class="b l1"></span><span class="b l2"></span></div>
+          <span class="b bell"></span>
+        </div>
+        <span class="b card" style="height:148px"></span>
+        <span class="b card" style="height:208px"></span>
+        <span class="b card" style="height:120px"></span>
+      </div>`;
+  }
+
   // 채널 배지 직전 값 — 예약류 변경 때 재조회 대신 이 값을 쓴다(위 주석 참조)
   let _lastDmCount = 0, _lastCmtCount = 0;
   async function _doRender(containerId, opts) {
@@ -371,11 +435,13 @@
 
     if (_inFlight) return;
     _inFlight = true;
+    // [2026-08-22 UX-COLD] 캐시로 그린 게 없으면(진짜 첫 진입) fetch 기다리는 동안 스켈레톤.
+    _showSkeleton(container);
     try {
-      /* [2026-09-03 운영 승격] 채널 배지(DM·댓글)는 **예약·매출·고객 변경과 무관**하다.
-         예전엔 data-changed 마다 4개를 통째로 다시 불렀고, brief 백엔드 지연 대응
-         재시도(1500·4000ms)까지 같은 4개를 반복해서 예약 저장 1회에
-         /dm-confirm-queue 3회 · /instagram/comment-queue 2회가 나갔다(스테이징 실측).
+      /* [2026-09-03 최종 클로저] 채널 배지(DM·댓글)는 **예약·매출·고객 변경과 무관**하다.
+         예전엔 data-changed 마다 4개를 통째로 다시 불렀고, 게다가 brief 백엔드 지연 대응
+         재시도(1500·4000ms)까지 같은 4개를 반복해서, 예약 저장 1회에
+         /dm-confirm-queue 3회 · /instagram/comment-queue 2회가 나갔다(실측).
          지연을 따라잡아야 하는 건 brief 뿐이다 → 그때는 배지 직전 값을 재사용한다. */
       const _skipChannels = !!(opts && opts.channels === false);
       const [briefRaw, slots, dmQueueCount, commentQueueCount] = await Promise.all([

@@ -93,6 +93,9 @@ function _showNextSlotGuide(nextSlot, doneCount, totalCount) {
     pop.style.cssText = 'position:fixed;inset:0;z-index:9400;background:rgba(0,0,0,0.4);display:flex;align-items:flex-end;justify-content:center;';
     pop.onclick = e => { if (e.target === pop) pop.style.display = 'none'; };
     document.body.appendChild(pop);
+    /* [2026-09-09] 뒤로가기 등록 — 전체화면 오버레이는 back 으로 자기가 닫혀야 한다.
+       안 하면 back 이 이 창 대신 뒤 화면을 닫아 작성 중이던 내용이 날아간다. */
+    try { window._bindSheetBack && window._bindSheetBack('gallerysloteditor', pop, () => { pop.remove(); }); } catch (_bsb) { void _bsb; }
   }
   const nextLabel = nextSlot.label.replace('손님','손님 ');
   pop.innerHTML = `
@@ -531,8 +534,10 @@ function openSlotPhotoInEditor(tab) {
     if (typeof showToast === 'function') showToast('작업실을 불러오는 중이에요. 잠시 후 다시 시도해주세요');
     return;
   }
-  // [버그수정] 편집기가 이미 열려 있으면 재오픈 금지 — 편집 화면 여러 개/패널 섞임 방지.
-  if (window.WorkspaceFlow.isOpen && window.WorkspaceFlow.isOpen()) return;
+  // [2026-09-05 원영 모바일 실사용] '이미 열려 있으면 조용히 return' 가드 삭제 — 하단 4버튼이
+  //   작업실 열림 상태에서 아무 반응 없는 죽은 버튼이 됐다. command('storyedit') 자체가
+  //   이미-열림 케이스를 처리한다(workspace-v2-flow.js: _flowReady() → 현재 사진으로
+  //   _openStoryEditor, 새 화면을 겹쳐 열지 않음) — 중복 가드였고 해로웠다.
   const slot = _slots.find(s => s.id === _popupSlotId);
   if (!slot) return;
   const visible = (slot.photos || []).filter(p => !p.hidden);

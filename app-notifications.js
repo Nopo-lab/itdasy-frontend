@@ -101,7 +101,7 @@
           <strong style="font-size:17px;">알림</strong>
           <span id="notifHeaderBadge" style="display:none;background:#BC6675;color:#fff;font-size:11px;padding:2px 7px;border-radius:5px;font-weight:600;"></span>
           <button data-notif-all style="margin-left:auto;font-size:11px;color:#888;background:none;border:none;cursor:pointer;">전부 읽음</button>
-          <button data-notif-close style="background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;">✕</button>
+          <button class="ss-close" data-notif-close style="background:transparent;border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;"><svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
         <div id="notifBody" style="flex:1;overflow-y:auto;"></div>
       </div>
@@ -339,6 +339,8 @@
     clearInterval(_pollTimer);
     _pollTimer = null;
   }
+  // [2026-09-01 SESS-1] 세션 만료 → 폴링 정지. 재로그인하면 visibilitychange 로 다시 뜬다.
+  document.addEventListener('itdasy:auth-expired', _stopPolling);
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
@@ -357,11 +359,18 @@
     document.getElementById('notifSheet').style.display = 'block';
     document.body.style.overflow = 'hidden';
     _renderList();
+    // [2026-08-16] 백스택 미등록이었다 — 알림을 열고 뒤로가기를 누르면 알림이 닫히는 게 아니라
+    //   뒤에 있던 화면이 닫히거나 앱이 꺼졌다.
+    try {
+      if (typeof window._registerSheet === 'function') window._registerSheet('notifications', window.closeNotifications);
+      if (typeof window._markSheetOpen === 'function') window._markSheetOpen('notifications');
+    } catch (_e) { void _e; }
   };
   window.closeNotifications = function () {
     const sheet = document.getElementById('notifSheet');
     if (sheet) sheet.style.display = 'none';
     document.body.style.overflow = '';
+    try { if (typeof window._markSheetClosed === 'function') window._markSheetClosed('notifications'); } catch (_e) { void _e; }
   };
   window.Notifications = {
     getAll: () => _items.slice(),

@@ -176,7 +176,7 @@
           '<div class="wtpl-rhead"><div class="wtpl-rtitle">템플릿 레이어 편집</div>' +
             '<div class="wtpl-rtools">' +
               '<button class="wtpl-reset" type="button" data-wtpl="reset"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><use href="#ic-refresh-cw"/></svg>초기화</button>' +
-              '<button class="wtpl-x" type="button" data-wtpl="close">×</button>' +
+              '<button class="wtpl-x ss-close" type="button" data-wtpl="close"><svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-x"/></svg></button>' +
             '</div>' +
           '</div>' +
           '<div class="wtpl-rsub">문구를 수정하면 미리보기에 바로 반영돼요.</div>' +
@@ -194,6 +194,9 @@
         '</div>' +
       '</div>';
     document.body.appendChild(ov);
+    /* [2026-09-09] 뒤로가기 등록 — 전체화면 오버레이는 back 으로 자기가 닫혀야 한다.
+       안 하면 back 이 이 창 대신 뒤 화면을 닫아 작성 중이던 내용이 날아간다. */
+    try { window._bindSheetBack && window._bindSheetBack('workspaceTplEdit', ov, () => { close(); }); } catch (_bsb) { void _bsb; }
 
     var canvas = ov.querySelector('[data-wtpl-canvas]');
     // [#18] 미리보기 박스 비율을 출력 규격에 맞춤(기본 CSS 는 4/5 고정).

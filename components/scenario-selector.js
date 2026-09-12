@@ -55,8 +55,11 @@ const SS_CSS = `
   transition:opacity .12s;
 }
 .ss-confirm-btn:active { opacity:.75; }
-.ss-back { background:none; border:none; color:#aaa; font-size:13px; cursor:pointer; margin-bottom:16px; padding:0; }
-.ss-back:hover { color:#555; }
+/* [2026-08-31] .ss-back -> .ss-step-back 개명. 공통 .ss-back 이 40px 고스트
+   아이콘 버튼으로 승격돼서(sub-screens.css) 같은 이름이면 이 텍스트 링크가
+   40px 네모로 찌그러진다. 여긴 스텝 되돌리기라 성격이 다르다. */
+.ss-step-back { background:none; border:none; color:#aaa; font-size:13px; cursor:pointer; margin-bottom:16px; padding:0; }
+.ss-step-back:hover { color:#555; }
 `;
 
 function _injectSSStyles() {
@@ -83,6 +86,18 @@ function _findCard(axes) {
  *   onComplete({ combo_id: string, axes: object, special_context: string })
  */
 function renderScenarioSelector(container, onComplete) {
+  /* [AI 릴리스 게이트 2026-09-07] onComplete 는 **한 번만** 부른다.
+     여기서 나가는 콜백 하나가 곧 LLM 호출 1회 + 한도 1회다. 두 번 나가면
+     같은 캡션을 두 번 만들고 무료 3회 중 2회가 한 번의 연타로 사라진다.
+     (호출부가 화면을 바꾸므로 실사용에서 잘 안 터지지만, 모바일 고스트 클릭과
+      Enter 연타가 남아 있었다 — 방어는 이벤트가 나가는 지점이 맞다.) */
+  var _fired = false;
+  var _onCompleteOnce = onComplete;
+  onComplete = function (payload) {
+    if (_fired) return;
+    _fired = true;
+    _onCompleteOnce(payload);
+  };
   _injectSSStyles();
 
   const state = { situation: null, customer: null, photo: null };
@@ -117,7 +132,7 @@ function renderScenarioSelector(container, onComplete) {
 
     if (stepIdx > 0) {
       const back = document.createElement('button');
-      back.className = 'ss-back';
+      back.className = 'ss-step-back';
       back.textContent = '← 이전';
       back.onclick = () => { currentStep--; render(); };
       wrap.appendChild(back);
@@ -201,7 +216,7 @@ function renderScenarioSelector(container, onComplete) {
 
   function _renderSpecialContext(wrap) {
     const back = document.createElement('button');
-    back.className = 'ss-back';
+    back.className = 'ss-step-back';
     back.textContent = '← 이전';
     back.onclick = () => { currentStep = 2; render(); };
     wrap.appendChild(back);

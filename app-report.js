@@ -30,7 +30,7 @@
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
           <svg width="20" height="20" style="color:var(--brand);flex-shrink:0;" aria-hidden="true"><use href="#ic-bar-chart-3"/></svg>
           <strong style="font-size:17px;">월간 리포트</strong>
-          <button data-report-close aria-label="닫기" style="margin-left:auto;background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;">✕</button>
+          <button class="ss-close" data-report-close aria-label="닫기" style="margin-left:auto;background:transparent;border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;"><svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
         <div id="reportNav" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"></div>
         <div id="reportBody" style="flex:1;overflow-y:auto;"></div>
@@ -145,6 +145,9 @@
     _ensureSheet();
     document.getElementById('reportSheet').style.display = 'block';
     document.body.style.overflow = 'hidden';
+    /* [2026-08-31] 뒤로가기 스택 등록 — 미등록 시 하드웨어 back 이 아래 화면까지 닫던 버그 */
+    if (typeof window._registerSheet === 'function') window._registerSheet('report', window.closeReport);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('report');
     _currentY = new Date().getFullYear();
     _currentM = new Date().getMonth() + 1;
     _load();
@@ -153,5 +156,6 @@
     const sheet = document.getElementById('reportSheet');
     if (sheet) sheet.style.display = 'none';
     document.body.style.overflow = '';
+    if (typeof window._markSheetClosed === 'function') window._markSheetClosed('report');
   };
 })();

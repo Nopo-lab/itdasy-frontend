@@ -17,7 +17,6 @@
      ⚠️ 목록 추가/삭제 시 __tests__/side-nav-hub-close.test.js 가 style-responsive.css 의
         PC 오프셋 대상과 대조한다 — 새 시트를 만들고 여기 안 넣으면 테스트가 잡는다. */
   const SIDE_NAV_MANAGED_SHEETS = [
-    { id: 'aiHubSheet',            sheetKey: null },   // 운영 전용 시트 — 승격 시 보존
     { id: 'settingsHubSheet',      sheetKey: null },   // 아래 일괄 _markSheetClosed 에 이미 있음
     { id: 'planPopup',             sheetKey: null },
     { id: 'supportChatModal',      sheetKey: 'supportChat' },
@@ -100,7 +99,7 @@
     const cds = document.getElementById('customerDashSheet');
     if (cds) cds.style.display = 'none';
     // popstate 관리용 sheet-closed 신호
-    ['customers', 'revenue', 'booking', 'revenuehub', 'aihub', 'settingshub', 'nav'].forEach(k => {
+    ['customers', 'revenue', 'booking', 'revenuehub', 'settingshub', 'nav'].forEach(k => {
       try { window._markSheetClosed?.(k); } catch (_e) { void _e; }
     });
   }
@@ -135,7 +134,6 @@
     { action: 'customer',     sheets: ['customerSheet', 'customerDashSheet'] },
     { action: 'customer-dm',  sheets: ['dmConvSheet'] },
     { action: 'calendar',     sheets: ['cal-overlay'] },
-    { action: 'ai-hub',       sheets: ['aiHubSheet'] },   // 운영 전용 — 승격 시 보존
     // [2026-08-16] 인스타DM = app-dm-menu.js 오버레이 (_registerSheet 키는 'dmMenu').
     //   [2026-09-02] DM 하위 화면(확인큐·대화목록·타임라인)도 같은 메뉴 소속 —
     //   드릴다운해도 활성 표시가 '인스타 DM' 에 남는다.
@@ -152,6 +150,9 @@
     // [2026-06-12 fix] offsetParent 는 position:fixed 요소에서 항상 null —
     //   매출관리 등 fixed 시트가 전부 '안 보임' 판정돼 활성이 홈으로 폴백되던 원인.
     //   display:none 이면 offsetHeight 0 이므로 높이로 판정.
+    // [2026-08-16] .subscreen-overlay(댓글 큐 등)는 translateX 슬라이드라 닫혀도
+    //   offsetHeight > 0 — aria-hidden 으로 먼저 거른다.
+    if (el && el.getAttribute('aria-hidden') === 'true') return false;
     return !!(el && el.style.display !== 'none' && el.offsetHeight > 0);
   };
   function _syncActive() {

@@ -21,7 +21,7 @@
       <div id="pricelistCard" style="width:100%;max-width:520px;background:#fff;border-radius:20px 20px 0 0;max-height:92vh;overflow-y:auto;padding:18px 18px max(18px,var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
           <strong style="font-size:17px;">가격표 사진으로 일괄 등록</strong>
-          <button id="plClose" aria-label="닫기" style="margin-left:auto;background:none;border:none;font-size:22px;cursor:pointer;line-height:1;">×</button>
+          <button class="ss-close" id="plClose" aria-label="닫기" style="margin-left:auto;background:transparent;border:none;font-size:22px;cursor:pointer;line-height:1;"><svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
         <div style="font-size:12px;color:#777;line-height:1.55;margin-bottom:14px;">
           샵 가격표 사진 한 장만 올려주세요. AI 가 시술명·가격을 인식해서 자동 등록해요.<br>
@@ -69,6 +69,11 @@
     const card = sheet.querySelector('#pricelistCard') || sheet.firstElementChild;
     if (window.SheetAnim) window.SheetAnim.open(sheet, card);
     else sheet.style.display = 'flex';
+    // [2026-08-16] 백스택 미등록이었다 — 가격표 업로드 중 뒤로가기가 뒤 화면을 닫아버렸다.
+    try {
+      if (typeof window._registerSheet === 'function') window._registerSheet('pricelist', close);
+      if (typeof window._markSheetOpen === 'function') window._markSheetOpen('pricelist');
+    } catch (_e) { void _e; }
   }
   function close() {
     const sheet = document.getElementById('pricelistSheet');
@@ -76,6 +81,7 @@
     const card = sheet.querySelector('#pricelistCard') || sheet.firstElementChild;
     if (window.SheetAnim) window.SheetAnim.close(sheet, card);
     else sheet.style.display = 'none';
+    try { if (typeof window._markSheetClosed === 'function') window._markSheetClosed('pricelist'); } catch (_e) { void _e; }
   }
 
   async function _upload(file) {
@@ -129,7 +135,8 @@
         </div>
       `;
       try {
-        sessionStorage.removeItem('pv_cache::service');
+        // [F-27] 키는 맞지만 sessionStorage 만 봤다 — 실제 저장은 localStorage 라 안 지워졌다.
+        //   아래 이벤트가 두 storage 를 모두 지운다(_clearAllSWRCache).
         window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'service_pricelist' } }));
       } catch (_e) { void _e; }
       resultBox.querySelector('#plDone').addEventListener('click', close);

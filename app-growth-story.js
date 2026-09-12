@@ -157,6 +157,9 @@
       </div>
     `;
     document.body.appendChild(o);
+    /* [2026-09-09] 뒤로가기 등록 — 전체화면 오버레이는 back 으로 자기가 닫혀야 한다.
+       안 하면 back 이 이 창 대신 뒤 화면을 닫아 작성 중이던 내용이 날아간다. */
+    try { window._bindSheetBack && window._bindSheetBack('growthstory', o, () => { o.remove(); }); } catch (_bsb) { void _bsb; }
     const canvas = o.querySelector('#gs-canvas');
     _drawCard(canvas, report);
     o.addEventListener('click', (e) => { if (e.target === o) o.remove(); });
@@ -180,6 +183,7 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a'); a.href = url;
         a.download = file.name; a.click();
+        setTimeout(() => { try { a.remove(); URL.revokeObjectURL(url); } catch (_e) { void _e; } }, 1000);   // [2026-09-03] 회수 누락 — 저장할 때마다 blob 이 남았다
         if (window.showToast) window.showToast('이미지 저장됨');
       }, 'image/png', 0.95);
     });

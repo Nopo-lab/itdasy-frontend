@@ -363,7 +363,13 @@
       if (window.showToast) window.showToast(`${res.imported}건 저장${res.failed ? ` · 실패 ${res.failed}` : ''}`);
       if (window.hapticSuccess) window.hapticSuccess();
       body.closest('[id="receiptScanSheet"]')?.remove();
-      try { sessionStorage.removeItem('pv_cache::inventory'); } catch (_e) { /* ignore */ }
+      // [출시 최종 2026-08-23 F-27] 여기는 **이벤트를 아예 안 쏘고 있었다** — 죽은 removeItem 하나뿐.
+      //   영수증으로 지출·재고를 넣어도 다른 화면이 옛 숫자를 그대로 보여줬다.
+      //   canonical 경로(itdasy:data-changed → _clearAllSWRCache)로 바꾼다.
+      try {
+        if (window._fireDataChanged) window._fireDataChanged({ kind: 'receipt_scan' });
+        else window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'receipt_scan' } }));
+      } catch (_e) { /* ignore */ }
     } catch (e) {
       if (window.showToast) window.showToast('저장 실패: ' + (e.message || ''));
       btn.disabled = false;
@@ -615,7 +621,7 @@
         <div style="width:36px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 14px;"></div>
         <div style="display:flex;align-items:center;gap:8px;">
           <strong style="font-size:17px;">${meta.title}</strong>
-          <button class="rs-close" style="margin-left:auto;background:none;border:none;font-size:20px;color:#888;cursor:pointer;">✕</button>
+          <button class="rs-close ss-close" style="margin-left:auto;background:transparent;border:none;font-size:20px;color:#888;cursor:pointer;"><svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
         <div style="font-size:12px;color:#888;margin-top:4px;">${meta.subtitle}</div>
       </div>
@@ -630,6 +636,9 @@
       </div>`;
     overlay.appendChild(sheet);
     document.body.appendChild(overlay);
+    /* [2026-09-09] 뒤로가기 등록 — 전체화면 오버레이는 back 으로 자기가 닫혀야 한다.
+       안 하면 back 이 이 창 대신 뒤 화면을 닫아 작성 중이던 내용이 날아간다. */
+    try { window._bindSheetBack && window._bindSheetBack('receiptscan1', overlay, () => { overlay.remove(); }); } catch (_bsb) { void _bsb; }
 
     overlay.querySelector('.rs-close').addEventListener('click', () => overlay.remove());
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
@@ -666,6 +675,9 @@
       </div>
     `;
     document.body.appendChild(overlay);
+    /* [2026-09-09] 뒤로가기 등록 — 전체화면 오버레이는 back 으로 자기가 닫혀야 한다.
+       안 하면 back 이 이 창 대신 뒤 화면을 닫아 작성 중이던 내용이 날아간다. */
+    try { window._bindSheetBack && window._bindSheetBack('receiptscan2', overlay, () => { overlay.remove(); }); } catch (_bsb) { void _bsb; }
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
     overlay.querySelector('.rs-chooser-cancel').addEventListener('click', () => overlay.remove());
     overlay.querySelector('.rs-chooser-exp').addEventListener('click', () => { overlay.remove(); openReceiptScan('expense'); });

@@ -68,8 +68,10 @@ window._fireDataChanged = window._fireDataChanged || function (detail) {
   }, 50);
 };
 
-// [UX-LOAD] 로딩 오버레이 — 최소 노출시간(태그라인 전환 3.8s 다 보이게) + 쫀득 페이드아웃 공통값
-var _LOAD_MIN_MS = 4000;
+// [UX-LOAD] 로딩 오버레이 — 쫀득 페이드아웃 공통값.
+// [2026-08-23 렉 픽스] 최소 노출 4s(태그라인 연출용 floor) 폐지 — "응답 오면 게이지 완주 후 즉시" 원칙.
+//   데이터가 준비됐는데 4초를 억지로 잡아두는 게 로그인 체감 렉의 주범이었다. 0.4s 는 페이드 완주용.
+var _LOAD_MIN_MS = 400;
 function _loaderFadeOut(lo) {
   lo.style.opacity = '0';
   lo.style.transform = 'scale(1.04)';
@@ -115,7 +117,8 @@ async function _finishLoginLoad(withGreeting) {
       if (w) w.style.opacity = '0';
       if (tag) tag.style.opacity = '0';
       if (g) { g.style.opacity = '1'; g.style.transform = 'translateY(0)'; }
-      await new Promise(function (r) { setTimeout(r, 1300); });
+      // [2026-08-23 렉 픽스] 인사 노출 1.3s → 0.8s — 연출은 유지하되 대기 최소화
+      await new Promise(function (r) { setTimeout(r, 800); });
     }
   }
   var lo = document.getElementById('appLoadingOverlay');
@@ -137,6 +140,11 @@ const _API_STAGING_OVERRIDE = (function () {
 const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
   ? (_API_STAGING_OVERRIDE ? PROD_API : 'http://localhost:8000')
   : PROD_API;
+
+// [2026-08-22 UX-COLD] 콜드스타트 깨우기 선빵 — 부팅 즉시 /health 1발 (fire-and-forget).
+//   Cloud Run 인스턴스 0→1 기동(5~15s)이 스플래시/로그인 화면 보는 시간과 병렬로 시작돼
+//   홈 첫 데이터 체감 대기가 그만큼 줄어든다. 인증 불필요·무료 엔드포인트. 실패해도 무해.
+try { fetch(API + '/health', { cache: 'no-store' }).catch(function () { }); } catch (_eWarm) { /* ignore */ }
 
 // [보안감사 H-3 2026-07-27] 토큰 저장소 보안 모드 — 기본 OFF, "빌드에 보안저장 플러그인이 실제로 포함됐을 때" 자동 ON.
 //   ▶ 웹(비네이티브): 원본 localStorage 경로 100% 불변. 감지·await 자체가 안 돎(부팅비용 0).
@@ -382,10 +390,40 @@ let _toastHideTimer = null;
 let _toastNextTimer = null;
 const TOAST_MAX_DURATION = 5000; // duration 상한 캡
 
+// [2026-09-07 반응형 게이트 BUG-4] JS 내부 오류 문구가 원장님 화면에 그대로 뜨던 것.
+//   실측: 리포트에서 `불러오기 실패: Cannot read properties of undefined (reading 'total')`.
+//   원인은 두 갈래다 —
+//     (1) `_humanError()` 의 마지막 줄이 `return raw` 라 **80자 미만 예외는 원문 통과**
+//     (2) 아예 `_humanError` 를 안 거치고 `showToast('... ' + e.message)` 하는 곳이 20군데 넘음
+//   20군데를 각각 고치면 다른 세션 파일까지 건드리게 되고 또 빠뜨린다.
+//   그래서 **길목 두 곳**(_humanError · showToast)에서 흡수한다.
+//   개발자용 정보는 console 로 그대로 남긴다 — 사용자 화면에서만 바꾼다.
+window._isInternalErrorText = function (s) {
+  return /Cannot read propert|is not a function|is not defined|undefined is not|null is not|is not iterable|TypeError|ReferenceError|SyntaxError|RangeError|Unexpected token|circular structure|of undefined|of null/i
+    .test(String(s == null ? '' : s));
+};
+
+// 사용자 문구에서 내부 오류 조각만 걷어낸다. "저장 실패: TypeError..." → "저장 실패: 일시적인 오류예요"
+window._sanitizeUserText = function (msg) {
+  const s = String(msg == null ? '' : msg);
+  if (!window._isInternalErrorText(s)) return s;
+  // "…실패: <내부문구>" 형태면 앞의 한국어 라벨은 살린다 (원장님이 무슨 작업인지 알아야 하므로)
+  const m = s.match(/^([^:]{1,24}):\s*/);
+  const label = m && /[가-힣]/.test(m[1]) ? m[1] : '';
+  return label ? label + '. 잠시 후 다시 시도해 주세요' : '일시적인 오류가 발생했어요. 잠시 후 다시 시도해 주세요';
+};
+
 function showToast(msg, opts) {
   const o = typeof opts === 'object' ? opts : { type: opts || 'info' };
   const d = Math.min(Number(o.duration) || 2400, TOAST_MAX_DURATION);
-  _toastQueue.push({ msg, type: o.type || 'info', duration: d });
+  let safe = msg;
+  try {
+    if (window._isInternalErrorText(msg)) {
+      console.warn('[toast] 내부 오류 문구 차단:', msg);   // 개발자용 원문은 보존
+      safe = window._sanitizeUserText(msg);
+    }
+  } catch (_e) { void _e; }
+  _toastQueue.push({ msg: safe, type: o.type || 'info', duration: d });
   if (!_toastActive) _nextToast();
 }
 
@@ -880,26 +918,29 @@ function getToken() {
 }
 // [2026-04-24] 디바이스 간 데이터 불일치 방어 — 토큰 변경 감지 시 SWR 캐시 일괄 클리어.
 // 폰·노트북·태블릿 같은 계정으로 들어왔을 때 다른 디바이스의 stale 스냅샷이 보이는 문제 해결.
-// [PerfFix] 같은 프레임 안에서 N번 호출돼도 rAF로 1번만 실행.
-let _swrClearScheduled = false;
+/* [인증감사 2026-09-06 P1] rAF 지연을 **없앴다 — 이건 계정 경계라 미루면 안 된다.**
+   예전엔 rAF 로 미뤘는데, 이 함수를 부르는 두 곳이 하필 프레임을 기다려주지 않는다:
+     · logout() 은 곧바로 location.replace 로 나간다 → 다음 프레임이 영영 안 온다.
+     · 숨은 탭·백그라운드 탭은 rAF 자체가 멈춘다.
+   실측(로컬 2계정, 원장A uid49 → 원장B uid50): 로그아웃 뒤에도
+   `hv41_cache::brief` 에 원장A 의 {this_month_total:1665000, total_customers:3} 이 그대로 남았다.
+   app-home-v41.js 의 render() 는 이 캐시를 **먼저 그리고**(_hydrateHome), 60초 안이면
+   `swr.fresh && !force` 로 **네트워크 요청조차 하지 않고 return** 한다 →
+   다음 원장 홈에 앞 원장 매출·고객수가 뜬 채 스스로 고쳐지지도 않는다.
+   비용은 localStorage 키 순회 한 번이라 미룰 이유가 없다. */
 function _clearAllSWRCache() {
-  if (_swrClearScheduled) return;
-  _swrClearScheduled = true;
-  requestAnimationFrame(() => {
-    _swrClearScheduled = false;
-    const prefixes = ['pv_cache::', 'itdasy:cache', 'dash_cache::', 'hv41_cache::', 'mv3_cache::'];
-    const exactKeys = ['ch_cache', 'ih_cache', 'rh_cache'];
-    [localStorage, sessionStorage].forEach(store => {
-      try {
-        const keys = Object.keys(store);
-        for (let i = 0; i < keys.length; i++) {
-          const k = keys[i];
-          if (exactKeys.indexOf(k) !== -1 || prefixes.some(p => k.startsWith(p))) {
-            try { store.removeItem(k); } catch (_e) { void _e; }
-          }
+  const prefixes = ['pv_cache::', 'itdasy:cache', 'dash_cache::', 'hv41_cache::', 'mv3_cache::'];
+  const exactKeys = ['ch_cache', 'ih_cache', 'rh_cache'];
+  [localStorage, sessionStorage].forEach(store => {
+    try {
+      const keys = Object.keys(store);
+      for (let i = 0; i < keys.length; i++) {
+        const k = keys[i];
+        if (exactKeys.indexOf(k) !== -1 || prefixes.some(p => k.startsWith(p))) {
+          try { store.removeItem(k); } catch (_e) { void _e; }
         }
-      } catch (_e) { void _e; }
-    });
+      }
+    } catch (_e) { void _e; }
   });
 }
 window._clearAllSWRCache = _clearAllSWRCache;
@@ -914,7 +955,24 @@ const _USER_KEY_PREFIXES = ['itdasy_', 'itdasy:', 'pv_cache::', 'persona_'];
 // [연준님 2026-08-16] assistant_session_id 추가 — prefix 어디에도 안 걸려 계정 전환 후에도
 //   이전 계정의 잇비 세션 id 가 그대로 남았다. 서버가 user_id 로 걸러 유출은 없지만,
 //   그 상태 자체가 틀렸고 실측에서 UI 가 꼬였다(대화가 없는데 초기 추천칩이 숨겨짐).
-const _USER_KEY_EXACT = ['last_login_email', 'user_oauth_provider', 'last_user_id', 'shop_id',
+/* [2026-09-03 P0 계정 격리] `last_user_id` 를 삭제 목록에서 뺀다.
+   이 키는 **계정 전환을 감지하는 유일한 기준**(applyNewSession 의 prevUserId)이자
+   T8 학습·EditPlan·DraftQuality 전부가 쓰는 tenant 경계다. 그런데 이 purge 가
+   requestIdleCallback 으로 늦게 돌아서, applyNewSession 이 방금 쓴 새 값을 **지워버렸다**
+   (실측: 전환 직후 'USER_B' → 2.5초 뒤 null). 그 뒤 다음 로그인은 prevUserId=null 이라
+   전환 조건이 거짓 → purge 를 안 함 → **B 원장의 초안(고객명·사진)이 C 계정 화면에 그대로 떴다.**
+   값 자체는 서버 발급 숫자 id 라 민감정보가 아니고, 로그인마다 applyNewSession 이 덮어쓴다.
+   로그아웃 후 남는 것이 **의도**다 — 남아 있어야 다음 로그인이 '계정이 바뀌었나'를 판정한다. */
+/* [인증감사 2026-09-06 P2] `shop_name`·`shop_type` 추가 — 바로 아래 주석이
+   "shop_* 는 user 데이터 → 제거" 라고 못박아 뒀는데 **정작 목록엔 `shop_id` 만** 있었다.
+   두 키는 어느 prefix 에도 안 걸려서(`itdasy_`·`itdasy:`·`pv_cache::`·`persona_`)
+   로그아웃·계정전환을 그대로 통과했다. 실측: 원장A 로그아웃 뒤에도
+   localStorage.shop_name === '원장A의 뷰티샵'.
+   applyNewSession 의 /auth/me 덮어쓰기는 구멍을 못 막는다 —
+   `if (typeof me.shop_name === 'string' && me.shop_name)` 이라 **새 계정의 매장명이
+   아직 비어 있으면(온보딩 전 신규 원장) 덮어쓰지 않고 앞 원장 상호가 그대로 남는다.** */
+const _USER_KEY_EXACT = ['last_login_email', 'user_oauth_provider', 'shop_id',
+  'shop_name', 'shop_type',
   'assistant_session_id'];
 // [2026-05-07 26차] user 변경 시 보존 키는 "디바이스 단위 UI 설정"만.
 // shop_* / onboarding_done 은 user 데이터 → 제거.
@@ -931,6 +989,10 @@ const _USER_KEY_KEEP = new Set([
   'itdasy_consent_v1',
   'itdasy_consent_at',
   'itdasy_consent_region',
+  // [2026-09-03 P0 계정 격리] 갤러리 IDB 소유자 도장(app-gallery-db.js) — itdasy_ 접두어라
+  // 여기 안 올리면 purge 가 도장을 지워 다음 open 의 소유자 검사가 무력화된다.
+  // 도장을 지우는 곳은 clearGalleryDB 성공 콜백 한 곳뿐이어야 한다(삭제 성공 = 도장 소멸).
+  'itdasy_gdb_owner',
 ]);
 
 // [2026-04-26 A10] 사용자 데이터 정리 — localStorage 전수 순회는 큰 객체일 때
@@ -952,17 +1014,12 @@ function _purgeUserScopedStorage() {
   }
   // SWR 캐시는 즉시 (동기) — 직후 fetch 가 stale 보지 않게
   _clearAllSWRCache();
-  // 사용자 prefix 키 정리는 idle 시점에 수행 (UI 안 막힘)
-  if (typeof requestIdleCallback === 'function') {
-    requestIdleCallback(() => {
-      _doPurgeStorage(localStorage);
-      _doPurgeStorage(sessionStorage);
-    }, { timeout: 1500 });
-  } else {
-    // rIC 미지원 브라우저는 즉시 동기 (구버전 사파리)
-    _doPurgeStorage(localStorage);
-    _doPurgeStorage(sessionStorage);
-  }
+  /* [인증감사 2026-09-06 P1] rIC 지연도 없앴다. _clearAllSWRCache 와 같은 이유다 —
+     logout() 은 곧 location.replace 로 나가고, 숨은 탭은 rIC 도 늦춰진다. timeout:1500 이
+     있어도 "그 전에 페이지가 사라지면" 아무 소용이 없다. 계정 경계를 지우는 일이
+     '한가할 때 하는 일' 목록에 있으면 안 된다. */
+  _doPurgeStorage(localStorage);
+  _doPurgeStorage(sessionStorage);
 }
 window._purgeUserScopedStorage = _purgeUserScopedStorage;
 
@@ -1107,6 +1164,11 @@ function _bindLoginSocialButtons() {
 }
 
 function setToken(t) {
+  /* [2026-09-01 SESS-1] 새 토큰이 들어오면 "세션 죽음" 표시를 푼다.
+     이걸 빼먹으면 재로그인에 성공해도 app-core 의 죽은세션 차단이 계속 걸려
+     **로그인은 됐는데 앱이 텅 빈** 상태가 된다. 지우는 쪽(null)에서는 건드리지 않는다 —
+     정상 로그아웃과 세션 만료를 구분해야 하고, 만료 표시는 _handle401 이 세운다. */
+  if (t) { try { window.__itdasyAuthDead = false; } catch (_e) { void _e; } }
   // [보안감사 H-3 2026-07-27] secure 모드 OFF → 아래 블록은 원본 그대로(byte-for-byte). 웹·플러그인없는네이티브는 항상 여기.
   if (!_secureMode) {
     try {
@@ -1184,6 +1246,9 @@ function authHeader() {
   // 화면이 멈춤. 첫 시도는 넉넉히 20초, 재시도는 12초 (인스턴스 warm 이면 빠름).
   const FETCH_TIMEOUT_FIRST_MS = 20000;
   const FETCH_TIMEOUT_RETRY_MS = 12000;
+  // 사진 업로드 전용 — 위 20초는 '응답을 기다리는' 시간 기준이라 '바이트를 올리는' 시간엔 짧다.
+  const UPLOAD_TIMEOUT_FIRST_MS = 90000;
+  const UPLOAD_TIMEOUT_RETRY_MS = 60000;
 
   // [2026-07-22 보스] AI(LLM) 호출은 20초로 끊으면 안 된다 — 잇비 답변·캡션 생성은 15~60초가 정상이다.
   //   기존 동작: 20초에 abort → 12초짜리 재시도 3회(재시도마다 서버에서 '진짜 LLM 호출'이 새로 돌아 돈이 나감)
@@ -1204,6 +1269,11 @@ function authHeader() {
   // 호출자 signal 보존하면서 timeout 까지 보호하는 fetch 헬퍼.
   // timeout 으로 abort 된 경우는 wrapper 의 retry 분기가 받아서 재시도하도록
   // 호출자의 init.signal 은 건드리지 않는다 (catch 에서 caller-abort 판단 그대로 유지).
+  function _timeoutReason(ms) {
+    const msg = '네트워크가 느려서 ' + Math.round(ms / 1000) + '초 안에 끝나지 않았어요. 신호가 좋은 곳에서 다시 시도해 주세요.';
+    try { return new DOMException(msg, 'AbortError'); } catch (_) { const e = new Error(msg); e.name = 'AbortError'; return e; }
+  }
+
   function _fetchWithTimeout(input, init, timeoutMs) {
     const ctl = new AbortController();
     const callerSignal = init && init.signal;
@@ -1212,7 +1282,12 @@ function authHeader() {
       if (callerSignal.aborted) ctl.abort();
       else callerSignal.addEventListener('abort', onCallerAbort, { once: true });
     }
-    const timer = setTimeout(() => ctl.abort(), timeoutMs);
+    /* [미디어감사 2026-09-07] abort 에 **사유**를 실어준다.
+       이유가 없으면 브라우저 기본 사유가 그대로 사용자에게 보인다. 실측: DM 빠른안내 사진
+       업로드가 20초에 끊기면 토스트가 `사진 업로드 실패: signal is aborted without reason`.
+       원장님이 읽을 수 있는 말이 아니다. name 은 'AbortError' 그대로라 기존 분기(호출자 abort
+       판별·재시도 판단)는 아무것도 안 바뀐다. */
+    const timer = setTimeout(() => ctl.abort(_timeoutReason(timeoutMs)), timeoutMs);
     const newInit = { ...(init || {}), signal: ctl.signal };
     return _origFetch(input, newInit).finally(() => {
       clearTimeout(timer);
@@ -1234,6 +1309,13 @@ function authHeader() {
     '/(' + [
       'instagram/comment-reply(?!-settings)',                          // 공개 답글
       'instagram/publish',                                             // 인스타 발행(+ -file/-carousel-file/-story-file)
+      // [최종점검 2026-08-24] 재시도 안전성 전수 감사(`audit_tests/chaos/audit_retry_safety.py`)가
+      //   찾아낸 두 구멍. 둘 다 **밖으로 나가는 것**이라 재시도하면 두 번 나간다.
+      //   · test-publish-url 은 이름이 'test' 지만 실제로 IG 에 발행한다. 위 'instagram/publish'
+      //     정규식은 `/instagram/test-publish-url` 을 **안 잡는다**(중간에 test- 가 끼어 있다).
+      //   · support/admin/reply 는 문의한 원장에게 답장이 실제로 나간다.
+      'instagram/test-publish-url',                                    // 실제 IG 발행 (이름만 test)
+      'support/admin/reply',                                           // 원장에게 답장 실발송
       'scheduled-posts',                                               // 예약 발행 등록
       'dm-confirm-queue/[^/]+/(send|send_edit|send-form|confirm-deposit|decline-with-alternatives)',
       // [출시감사 P1-1 2026-07-31] 결제는 재시도하면 카드가 두 번 긁힌다.
@@ -1253,7 +1335,9 @@ function authHeader() {
   //   서버가 이미 커밋했는데 응답이 돌아오는 길에 끊기면(WiFi↔LTE 핸드오프·지하철) 래퍼가
   //   같은 POST 를 다시 쏴서 같은 예약/매출이 2건 생긴다(멱등키 없음 → 돈 숫자·이중예약 사고).
   //   GET(?쿼리)·PATCH/{id}·DELETE/{id} 는 읽기/멱등이라 안전 → 재시도 유지. 컬렉션 POST 만 막는다.
-  const CREATE_NO_RETRY_RE = /\/(bookings|revenue|customers)(\?|$)/;
+  //   [미디어감사 2026-09-07] portfolio·background 추가 — 둘 다 컬렉션 POST 로 **DB 행을 만든다.**
+  //   위에서 FormData 재시도를 열었으므로 여기 안 넣으면 응답만 유실된 경우 사진이 2장 생긴다.
+  const CREATE_NO_RETRY_RE = /\/(bookings|revenue|customers|portfolio|background)(\?|$)/;
   function _isNonIdempotentCreate(input, init) {
     try {
       const m = (init && init.method ? String(init.method).toUpperCase() : 'GET');
@@ -1262,18 +1346,38 @@ function authHeader() {
       return CREATE_NO_RETRY_RE.test(String(u));
     } catch (_) { return false; }
   }
+  /* [미디어감사 2026-09-07] FormData·Blob 은 **여러 번 재사용된다.**
+     예전 주석("FormData/Blob/ReadableStream 은 한 번만 읽을 수 있어서")은 사실이 아니었다.
+     브라우저는 fetch 를 부를 때마다 FormData/Blob 을 새로 직렬화한다 — 같은 객체를 3번
+     넘겨도 서버는 3번 다 온전한 바디를 받는다(실측: 같은 FormData 로 3회 POST → 서버 수신 3회).
+     한 번만 읽히는 건 ReadableStream(과 이미 쓴 Request) 뿐이다.
+
+     이 오해 때문에 **앱의 모든 사진 업로드가 재시도 0회**였다. 실측 대조:
+       JSON body + 503  → 5회 요청(1+재시도, 백오프 8초)
+       FormData + 503   → 1회 요청, 즉시 실패
+       FormData + 무응답 → 20초에 abort, 재시도 없음, **토스트도 없음**
+     (토스트는 `if (retryable && attempt >= 1)` 안에 있어서 retryable=false 면 아예 안 뜬다.)
+     Cloud Run 콜드스타트 503 한 번에 원장 사진이 그냥 안 올라갔다. */
   function _isRetryableMethod(init) {
     const m = (init && init.method ? String(init.method).toUpperCase() : 'GET');
     if (m === 'GET' || m === 'HEAD') return true;
-    // JSON body(string) POST 는 body 재사용 가능 → 재시도 허용
-    if (m === 'POST' && init && typeof init.body === 'string') return true;
+    if (m === 'POST') return _bodyReusable(init);
     return false;
+  }
+  function _isUploadBody(init) {
+    const b = init && init.body;
+    if (!b) return false;
+    return (typeof FormData !== 'undefined' && b instanceof FormData)
+        || (typeof Blob !== 'undefined' && b instanceof Blob);
   }
   function _bodyReusable(init) {
     if (!init || !init.body) return true;
     const b = init.body;
     if (typeof b === 'string') return true;
-    return false; // FormData/Blob/ReadableStream 은 한 번만 읽을 수 있어서 재시도 시 body 재사용 불가
+    if (_isUploadBody(init)) return true;                       // 매번 새로 직렬화된다
+    if (typeof ArrayBuffer !== 'undefined' && (b instanceof ArrayBuffer || ArrayBuffer.isView(b))) return true;
+    if (typeof URLSearchParams !== 'undefined' && b instanceof URLSearchParams) return true;
+    return false;   // ReadableStream 등 진짜 1회성만 제외
   }
 
   function _sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -1345,6 +1449,31 @@ function authHeader() {
     const lock = document.getElementById('lockOverlay');
     if (lock) lock.classList.remove('hidden');
     _setAuthGateLocked(true);
+    /* [2026-09-01 SESS-1] 세션이 죽었다고 **앱에 알린다.**
+       예전엔 잠금화면만 띄우고 끝이라, 그 아래에서 열려 있던 시트의 폴러가 계속 돌았다.
+       실측(2026-08-26~09-01 Cloud Logging): 아이폰 1대가 `/dm-confirm-queue` 를
+       **4초 간격으로 26분 넘게** 때려 7일간 401 이 2,989건. 화면엔 아무 표시도 없었다
+       (`_refresh().catch(() => {})` 가 통째로 삼킨다). 원장 배터리·데이터가 새고,
+       서버는 매 요청마다 `get_current_user` 로 DB 를 잡는다 — 과거 QueuePool 고갈의 연료다. */
+    try { window.__itdasyAuthDead = true; } catch (_e) { void _e; }
+    try { document.dispatchEvent(new CustomEvent('itdasy:auth-expired')); } catch (_e) { void _e; }
+  }
+
+  /* [2026-09-01 SESS-1] 세션이 죽은 뒤 인증이 필요한 요청은 **네트워크를 타지 않는다.**
+     타이머를 멈추는 것만으로는 부족하다 — 폴러는 8개 모듈에 흩어져 있고 앞으로 더 생긴다.
+     여기서 막으면 지금 것도 앞으로 생길 것도 같이 막힌다(합성 401 을 돌려주므로
+     호출부 코드는 한 줄도 안 바뀐다). 로그인·헬스체크 경로는 반드시 통과시켜야 한다 —
+     막으면 재로그인 자체가 불가능해지고, /health 를 막으면 앱이 "연결 불안정" 으로 오판한다. */
+  const _AUTH_FREE_RE = /^\/(auth|health|healthz|version|public|docs|openapi)(\/|$|\?)/;
+  function _isAuthFreePath(input) {
+    try {
+      const raw = typeof input === 'string' ? input : (input && input.url) || '';
+      return _AUTH_FREE_RE.test(new URL(raw, location.href).pathname.replace(/^\/+/, '/'));
+    } catch (_e) { void _e; return true; }   // 못 읽으면 막지 않는다(기능 정지보다 낫다)
+  }
+  function _blockedByDeadSession(input) {
+    return !!window.__itdasyAuthDead && !getToken()
+      && _isApiOrigin(input) && !_isAuthFreePath(input);
   }
 
   // [보안감사 H-6 2026-07-27] 401 자동 리프레시/재첨부는 우리 API 오리진에만.
@@ -1359,6 +1488,13 @@ function authHeader() {
   }
 
   window.fetch = async function(input, init) {
+    // [2026-09-01 SESS-1] 세션이 죽었으면 인증 요청은 여기서 끝낸다 — 네트워크 0회.
+    //   응답 모양은 서버 401 과 같게 만들어(호출부가 res.ok / res.status / res.json() 을 그대로 쓴다)
+    //   "조용히 성공한 척" 하지 않는다. 실패는 실패로 돌려준다.
+    if (_blockedByDeadSession(input)) {
+      return new Response(JSON.stringify({ detail: '세션이 만료됐어요. 다시 로그인해 주세요.' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } });
+    }
     const retryable = _isRetryableMethod(init) && _bodyReusable(init) && !_isNoRetryPath(input) && !_isNonIdempotentCreate(input, init);
     const isLlm = _isLlmCall(input);   // [2026-07-22] 생성형 호출 — 오래 기다리되 타임아웃 재시도는 안 함
     let attempt = 0;
@@ -1366,27 +1502,56 @@ function authHeader() {
     while (true) {
       // [fix] 캐러셀(여러장) 인스타 발행은 컨테이너 순차 폴링으로 25~50초+ → 호출부가 itdasyTimeoutMs 로 타임아웃 상향 가능(기본 20초는 abort됨)
       const _customTmo = init && init.itdasyTimeoutMs;
+      /* [미디어감사 2026-09-07] 업로드는 20초로 못 끝난다.
+         `/image/upload`(DM 빠른안내 사진)는 클라 축소 없이 **원본 최대 10MB** 를 그대로 올린다.
+         20초 안에 끝내려면 4Mbps 를 계속 유지해야 하는데 지하철·엘리베이터·시골에선 안 된다.
+         받는 쪽 한도가 20MB 라 넉넉히 잡아도 서버가 알아서 거른다. */
+      const _isUp = _isUploadBody(init);
       const _tmo = _customTmo
-        || (isLlm ? LLM_TIMEOUT_MS : (attempt === 0 ? FETCH_TIMEOUT_FIRST_MS : FETCH_TIMEOUT_RETRY_MS));
+        || (isLlm ? LLM_TIMEOUT_MS
+           : _isUp ? (attempt === 0 ? UPLOAD_TIMEOUT_FIRST_MS : UPLOAD_TIMEOUT_RETRY_MS)
+           : (attempt === 0 ? FETCH_TIMEOUT_FIRST_MS : FETCH_TIMEOUT_RETRY_MS));
       try {
         const res = await _fetchWithTimeout(input, init, _tmo);
         if (res.ok) _resetConnFail();   // [버그2] 성공 응답 = 연결 정상 — 실패 카운터 리셋
-        if (res.status === 401 && getToken() && _isApiOrigin(input)) {
+        if (res.status === 401 && _isApiOrigin(input)) {
           // /auth/refresh 자체가 401이면 무한루프 방지
           const url = typeof input === 'string' ? input : (input.url || '');
-          if (url.includes('/auth/refresh') || url.includes('/auth/login')) {
+          /* [2026-09-04 UX] 로그인 **시도** 실패(비번 오류)와 **세션 만료**는 다른 일이다.
+             예전엔 둘 다 _handle401() 로 보내서, 처음 로그인하는 원장이 비번을 한 번 틀리면
+             "⚠️ 로그인 세션이 만료되었습니다" 가 떴다 — 로그인한 적도 없는데 세션 얘기를 하니
+             무슨 말인지 알 수가 없다(Android 에뮬레이터 실측으로 잡았다).
+             login() 은 이미 "아이디 또는 비밀번호가 달라요" 를 자기가 띄운다. 여기선 잠금만
+             유지하고 만료 배너는 세우지 않는다. 진짜 만료(/auth/refresh 401)는 그대로 배너. */
+          if (url.includes('/auth/login')) return res;
+          if (url.includes('/auth/refresh')) {
             _handle401();
             return res;
           }
+          /* [2026-09-01 SESS-1] 토큰이 없는데 401 → 갱신할 것이 없다. 잠금만 다시 세운다.
+             예전엔 이 분기 조건이 `&& getToken()` 이라, _handle401 이 토큰을 지운 **다음부터는
+             401 을 아무도 처리하지 않았다.** 잠금화면을 닫아 버린 사용자는 그 뒤로 영영
+             "다시 로그인하라" 는 말을 못 듣고, 화면은 옛 데이터를 그대로 띄운 채 남았다. */
+          if (!getToken()) { _handle401(); return res; }
+          /* [2026-09-11 SESS-2] 갱신에 **성공한 뒤**의 재시도 실패는 세션 만료가 아니다.
+             예전엔 `_tryRefresh()` 와 재시도를 한 try 로 묶어서, 재시도가 타임아웃·네트워크로
+             실패하면 `_handle401()` 이 돌아 원장을 **강제 로그아웃**시키고 작성 중이던 글을
+             통째로 버렸다. 정작 방금 발급된 토큰은 멀쩡한데 화면만 "세션이 만료되었습니다" 다.
+             (라이브 실측 2026-09-11: 캡션 생성 중 발생 → 질문 3개·업종·시술 입력분 전부 소실,
+              localStorage 의 토큰은 그 시점에 /auth/me 200 이었다.)
+             불을 지른 건 재시도 타임아웃을 12초로 **고정**한 것 — 원 호출이 LLM(120초)이나
+             업로드(90초)면 12초 안에 끝날 수가 없어서 **항상** 이 경로로 떨어진다.
+             → ① 갱신 자체가 실패했을 때만 _handle401 ② 재시도는 원 호출과 같은 타임아웃(_tmo).
+             재시도가 그래도 실패하면 throw 되어 아래 catch(err) 의 일반 네트워크 실패 처리로 간다. */
+          let newTok;
           try {
-            const newTok = await _tryRefresh();
-            // 갱신된 토큰으로 원 요청 재시도 (refresh 후 fetch 는 timeout 짧게)
-            const newInit = { ...init, headers: { ...(init && init.headers), 'Authorization': 'Bearer ' + newTok } };
-            return await _fetchWithTimeout(input, newInit, FETCH_TIMEOUT_RETRY_MS);
+            newTok = await _tryRefresh();
           } catch (_e) {
             _handle401();
             return res;
           }
+          const newInit = { ...init, headers: { ...(init && init.headers), 'Authorization': 'Bearer ' + newTok } };
+          return await _fetchWithTimeout(input, newInit, _tmo);
         }
         // [2026-07-22 보스] 서버가 Retry-After 로 "지금 다시 때리지 마"라고 하면 재시도하지 않는다.
         //   실제 사고: AI 쿼터가 마르면 잇비가 한 번 실패에 23~29초를 태우는데(백엔드가 Gemini 를
@@ -1632,6 +1797,15 @@ async function submitChangePw() {
       body: JSON.stringify({ current_password: cur, new_password: nw }),
     });
     if (res.ok) {
+      /* [인증감사 2026-09-06 P2] 서버가 준 **새 토큰으로 갈아끼운다.**
+         비번 변경은 users.min_valid_iat 를 올려 기존 토큰을 전부 죽인다 — 지금 이 기기 것까지.
+         그래서 예전엔 "다른 기기에서는 다시 로그인해주세요" 라고 안내해 놓고 정작 이 기기가
+         다음 API 호출에서 401 → 잠금화면 + "세션이 만료됐어요" 로 튕겼다.
+         (구버전 백엔드는 access_token 을 안 준다 → 그때는 예전처럼 튕기지만 더 나빠지진 않는다.) */
+      try {
+        const data = await res.json();
+        if (data && data.access_token) setToken(data.access_token);
+      } catch (_e) { void _e; }
       closeChangePwModal();
       showToast('비밀번호를 바꿨어요. 다른 기기에서는 다시 로그인해주세요');
       return;
@@ -1711,30 +1885,41 @@ async function logout(opts) {
   // [2026-05-08 28차 [J]] skipConfirm — disconnectInstagram 등 다른 흐름에서 이중 컨펌 방지
   if (!opts.skipConfirm && !(await nativeConfirm("확인", "로그아웃 하시겠습니까? 세션과 캐시가 모두 초기화됩니다."))) return;
 
-  // [H2 2026-07-16] 토큰을 지우기 전에 미동기화분을 서버로 올린다.
-  //   기존 순서는 setToken(null) → ... → clearGalleryDB/clearLocal 이라, 아직 push 안 된 편집과
-  //   아직 못 보낸 삭제(tombstone)가 그대로 삭제됐다:
-  //     · 편집 직후(1.2s debounce 안에) 로그아웃 → 그 편집은 서버에도 없고 로컬에서도 사라짐(영구 손실)
-  //     · 오프라인 삭제 후 로그아웃 → tombstone 소멸 → 서버 DELETE 가 영영 안 나가 다음 로그인에 부활
-  //   settleSlot() = pushAll(dirty 업로드) + flushTombstones(삭제 전송). 토큰이 살아있는 지금만 가능.
-  //   [주의] 네트워크가 죽었으면 로그아웃이 막히면 안 되므로 타임아웃으로 끊고 진행한다.
-  try {
-    if (window.WorkspaceSync && typeof window.WorkspaceSync.settleSlot === 'function') {
-      await Promise.race([
-        Promise.resolve(window.WorkspaceSync.settleSlot()).catch(() => {}),
-        new Promise((res) => setTimeout(res, 4000)),
-      ]);
-    }
-  } catch (_e) { void _e; }
+  // [2026-08-22 로그아웃 멈춤 픽스] 워치독 — 아래 정리 단계 어디서든 걸리면 8초 뒤 무조건 리로드.
+  //   실측 증상: 토큰은 지워졌는데(중간 단계까진 감) 마지막 location.replace 에 도달을 못 해
+  //   화면이 그대로 → 수동 새로고침해야 로그아웃 화면이 떴다. 아래 IDB 삭제 2곳 타임아웃과 세트.
+  const _logoutWatchdog = setTimeout(function () {
+    try { location.replace('index.html?_logout=' + Date.now()); } catch (_e) { void _e; }
+  }, 8000);
+  void _logoutWatchdog;
 
-  // [보안감사 H-4 2026-07-27] 서버측 세션 무효화 — 토큰을 지우기 전에 호출.
-  //   로컬 토큰만 지우면 탈취된 JWT 는 24h 만료까지 살아있고 /auth/refresh 로 무한 갱신됨.
-  //   /auth/logout 이 users.min_valid_iat 를 올려 그 이전 발급 토큰을 전부 거부시킨다.
-  //   네트워크 실패해도 로컬 로그아웃은 진행돼야 하므로 best-effort(타임아웃 포함) 로 감싼다.
+  // [2026-08-23 렉 픽스] 정리 단계 병렬화 — 순차 대기(최악 4+3+3+3=13s)를 2단계 병렬(최악 4+3=7s)로.
+  //   전부 best-effort: 실패·타임아웃이어도 로컬 로그아웃은 계속 진행한다.
+  //   순서 제약만 지킨다:
+  //     · settleSlot(미동기화분 업로드, H2 2026-07-16: 편집 유실·tombstone 소멸 방지)은 토큰 필요
+  //       + sync DB 를 읽으므로 → clearLocal(sync 메타DB 삭제)보다 먼저 끝나야 함.
+  //     · /auth/logout(보안감사 H-4: 서버측 min_valid_iat 범프)은 토큰을 지우기 전 + settleSlot 뒤
+  //       (동시에 쏘면 settleSlot 의 업로드가 무효화된 토큰으로 거부될 수 있음).
+  //     · clearGalleryDB(갤러리 IDB)는 워크스페이스 sync 와 독립 → 1단계에서 같이 돈다.
+  const _cap = (p, ms) => Promise.race([
+    Promise.resolve(p).catch(() => {}),
+    new Promise((res) => setTimeout(res, ms)),
+  ]);
+  // 1단계: 미동기화분 올리기 ∥ 갤러리DB 삭제
   try {
-    await Promise.race([
-      apiFetch('/auth/logout', { method: 'POST', headers: authHeader() }).catch(() => {}),
-      new Promise((res) => setTimeout(res, 3000)),
+    await Promise.all([
+      (window.WorkspaceSync && typeof window.WorkspaceSync.settleSlot === 'function')
+        ? _cap(window.WorkspaceSync.settleSlot(), 4000) : Promise.resolve(),
+      (typeof clearGalleryDB === 'function')
+        ? _cap(clearGalleryDB(), 3000) : Promise.resolve(),
+    ]);
+  } catch (_e) { void _e; }
+  // 2단계: 서버 세션 무효화 ∥ sync 메타DB 삭제
+  try {
+    await Promise.all([
+      _cap(apiFetch('/auth/logout', { method: 'POST', headers: authHeader() }), 3000),
+      (window.WorkspaceSync && typeof window.WorkspaceSync.clearLocal === 'function')
+        ? _cap(window.WorkspaceSync.clearLocal(), 3000) : Promise.resolve(),
     ]);
   } catch (_e) { void _e; }
 
@@ -1755,20 +1940,7 @@ async function logout(opts) {
     try { localStorage.removeItem(k); } catch (_e) { void _e; }
   });
 
-  // [2026-04-26] 갤러리 IndexedDB 도 같이 비움 — 다음 사용자한테 새는 거 차단 (Meta 심사 블로커)
-  try {
-    if (typeof clearGalleryDB === 'function') {
-      await clearGalleryDB();
-    }
-  } catch (e) { /* IDB clear best-effort */ }
-
-  // [2026-07-06] slot-sync 메타 DB(itdasy-sync: migratedAt·lastPulledAt·tombstones)도 삭제 —
-  //   안 지우면 다음 계정에서 migrate skip·delta 누락으로 계정 격리 붕괴 + slot 유실.
-  try {
-    if (window.WorkspaceSync && typeof window.WorkspaceSync.clearLocal === 'function') {
-      await window.WorkspaceSync.clearLocal();
-    }
-  } catch (e) { /* sync meta clear best-effort */ }
+  // (갤러리 IDB · sync 메타DB 삭제는 위 병렬 1·2단계로 이동 — Meta 심사 블로커·계정 격리 사유는 유지)
 
   // 2. 서비스 워커 캐시 강제 삭제
   if ('caches' in window) {
@@ -1831,7 +2003,12 @@ async function login() {
     if (!res.ok) {
       // [버그1 2026-07-25] 401(비번 틀림)뿐 아니라 422(이메일 형식 검증 실패 — pydantic EmailStr)도
       //   "요청 형식이 올바르지 않습니다" 같은 기술 문구 대신 사용자 언어로. detail 이 배열(422)이면 노출 금지.
-      if (res.status === 401 || res.status === 422) throw new Error('아이디 또는 비밀번호가 달라요. 다시 확인해 주세요.');
+      if (res.status === 401 || res.status === 422) {
+        // [2026-09-04 UX] 지난 '세션 만료' 배너를 걷는다 — 지금은 만료가 아니라 **입력이 틀린** 것이다.
+        //   남겨두면 화면에 만료 안내와 비번 오류가 같이 떠서 무엇이 문제인지 알 수 없다.
+        try { const _m = document.getElementById('sessionExpiredMsg'); if (_m) _m.style.display = 'none'; } catch (_e) { void _e; }
+        throw new Error('아이디 또는 비밀번호가 달라요. 다시 확인해 주세요.');
+      }
       throw new Error((typeof data.detail === 'string' && data.detail) || '로그인 실패');
     }
     setToken(data.access_token);
@@ -2020,11 +2197,193 @@ async function _tryBiometricLogin() {
   } catch (_) { return false; }
 }
 
+// ───── 가입 이메일 인증 [2026-08-28] ─────────────────────────────────────
+//  왜 필요했나: 비밀번호를 잊으면 복구 경로가 이메일 하나뿐인데, 그 주소가
+//  본인 것인지 한 번도 확인한 적이 없었다. 오타 한 글자면 계정이 영구히
+//  잠기고, 남의 주소를 적으면 그 사람이 재설정 링크로 계정을 가져간다.
+//  코드(6자리) 방식인 이유는 메일앱 ↔ 브라우저 왕복 없이 이 화면에서
+//  끝내기 위해서다 (링크 방식은 앱 래핑 환경에서 세션이 끊긴다).
+const _suVerify = { email: '', ticket: '', deadline: 0, tick: null, cooldown: null, busy: false };
+
+function _suEl(id) { return document.getElementById(id); }
+
+function _suMsg(text, kind) {
+  const el = _suEl('signupCodeMsg');
+  if (!el) return;
+  el.textContent = text;
+  el.classList.toggle('is-err', kind === 'err');
+  el.classList.toggle('is-ok', kind === 'ok');
+}
+
+/** 가입 버튼 활성 조건 = 약관 + 만14세 + 이메일 인증. 세 곳에서 부르므로 함수로 뺀다. */
+function _suSyncSignupBtn() {
+  const a = _suEl('signupAgree');
+  const ageOk = _suEl('signupAgeOver14');
+  const btn = _suEl('signupBtn');
+  if (!btn) return;
+  const ok = !!(a && a.checked) && (!ageOk || ageOk.checked) && !!_suVerify.ticket;
+  btn.style.opacity = ok ? '1' : '0.6';
+  btn.style.pointerEvents = ok ? 'auto' : 'none';
+}
+
+function _suStopTimer() {
+  if (_suVerify.tick) { clearInterval(_suVerify.tick); _suVerify.tick = null; }
+}
+
+function _suStartTimer(seconds) {
+  _suStopTimer();
+  _suVerify.deadline = Date.now() + seconds * 1000;
+  const el = _suEl('signupCodeTimer');
+  const paint = () => {
+    const left = Math.max(0, Math.round((_suVerify.deadline - Date.now()) / 1000));
+    if (el) {
+      el.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+      el.classList.toggle('is-low', left <= 60);
+    }
+    if (left <= 0) {
+      _suStopTimer();
+      _suMsg('인증번호가 만료됐어요. 다시 받아주세요.', 'err');
+      const code = _suEl('signupCode');
+      if (code) { code.value = ''; code.disabled = true; }
+    }
+  };
+  paint();
+  _suVerify.tick = setInterval(paint, 1000);
+}
+
+/** 재발송 쿨다운 — 서버도 60초를 막지만, 눌러보고 나서 거절당하면 사용자는 고장인 줄 안다. */
+function _suCooldown(seconds) {
+  const btn = _suEl('signupSendCode');
+  if (!btn) return;
+  if (_suVerify.cooldown) clearInterval(_suVerify.cooldown);
+  let left = seconds;
+  const paint = () => {
+    if (_suVerify.ticket) { clearInterval(_suVerify.cooldown); _suVerify.cooldown = null; return; }
+    if (left <= 0) {
+      clearInterval(_suVerify.cooldown); _suVerify.cooldown = null;
+      btn.disabled = false; btn.textContent = '재발송';
+      return;
+    }
+    btn.disabled = true; btn.textContent = `재발송 ${left}초`;
+    left -= 1;
+  };
+  paint();
+  _suVerify.cooldown = setInterval(paint, 1000);
+}
+
+/** 이메일을 고치면 앞서 받은 인증은 전부 무효. (A 주소로 인증받고 B 로 가입하는 걸 막는다) */
+function _suResetVerify() {
+  _suStopTimer();
+  if (_suVerify.cooldown) { clearInterval(_suVerify.cooldown); _suVerify.cooldown = null; }
+  _suVerify.email = ''; _suVerify.ticket = ''; _suVerify.deadline = 0;
+  const box = _suEl('signupVerifyBox');
+  if (box) box.hidden = true;
+  const code = _suEl('signupCode');
+  if (code) { code.value = ''; code.disabled = false; }
+  const btn = _suEl('signupSendCode');
+  if (btn) { btn.disabled = false; btn.classList.remove('is-done'); btn.textContent = '인증번호 받기'; }
+  // 인증 상태를 되돌리면 그 상태에서 뜬 에러도 같이 지운다 — 안 지우면 "이미 가입된 이메일이에요" 가
+  //   이메일을 고치거나 화면을 다시 열어도 남아서 멀쩡한 주소를 막힌 것처럼 보이게 한다.
+  const errEl = _suEl('signupError');
+  if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
+  _suMsg('메일로 보낸 6자리 숫자를 입력해주세요.', '');
+  _suSyncSignupBtn();
+}
+
+async function _suSendCode() {
+  if (_suVerify.busy) return;
+  const emailEl = _suEl('signupEmail');
+  const errEl = _suEl('signupError');
+  const email = (emailEl ? emailEl.value : '').trim();
+  if (errEl) errEl.style.display = 'none';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (errEl) { errEl.textContent = '이메일 형식을 확인해주세요.'; errEl.style.display = 'block'; }
+    if (emailEl) emailEl.focus();
+    return;
+  }
+  const btn = _suEl('signupSendCode');
+  _suVerify.busy = true;
+  if (btn) { btn.disabled = true; btn.textContent = '보내는 중…'; }
+  try {
+    const res = await apiFetch('/auth/send-verification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : '인증번호를 보내지 못했어요.');
+    // [2026-08-30 원영] 이미 가입된 주소 — 서버가 코드를 발급하지 않았다.
+    //   예전엔 이 경우도 200 ok 라서 코드칸과 5분 타이머가 열렸고, 무슨 숫자를 넣어도
+    //   "인증번호가 만료됐어요" 만 떴다(가입이 통째로 막힌 실제 버그). 그냥 알려주고 로그인으로 보낸다.
+    if (data.status === 'already_registered') {
+      _suResetVerify();
+      if (errEl) {
+        errEl.innerHTML = '이미 가입된 이메일이에요. <a href="#login" id="goLoginFromErr" style="color:var(--accent);font-weight:700;text-decoration:underline;">로그인하러 가기</a>';
+        errEl.style.display = 'block';
+      }
+      return;
+    }
+    _suVerify.email = email;
+    const box = _suEl('signupVerifyBox');
+    if (box) box.hidden = false;
+    const code = _suEl('signupCode');
+    if (code) { code.value = ''; code.disabled = false; code.focus(); }
+    _suStartTimer(Number(data.expires_in) || 300);
+    _suMsg('메일로 보낸 6자리 숫자를 입력해주세요. 안 오면 스팸함도 확인해주세요.', '');
+    _suCooldown(60);
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = '인증번호 받기'; }
+    if (errEl) { errEl.textContent = _friendlyErr(e, '인증번호를 보내지 못했어요.'); errEl.style.display = 'block'; }
+  } finally {
+    _suVerify.busy = false;
+  }
+}
+
+async function _suCheckCode() {
+  if (_suVerify.busy || _suVerify.ticket) return;
+  const codeEl = _suEl('signupCode');
+  const code = (codeEl ? codeEl.value : '').replace(/\D/g, '');
+  if (code.length !== 6) return;
+  _suVerify.busy = true;
+  if (codeEl) codeEl.disabled = true;
+  _suMsg('확인 중…', '');
+  try {
+    const res = await apiFetch('/auth/verify-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: _suVerify.email, code }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : '인증번호가 달라요.');
+    _suVerify.ticket = data.verification_ticket || '';
+    _suStopTimer();
+    if (_suVerify.cooldown) { clearInterval(_suVerify.cooldown); _suVerify.cooldown = null; }
+    // 인증 끝 → 코드 칸을 치워 폼을 다시 짧게 만든다 (시선이 비밀번호로 넘어가야 한다)
+    const box = _suEl('signupVerifyBox');
+    if (box) box.hidden = true;
+    const btn = _suEl('signupSendCode');
+    if (btn) {
+      btn.disabled = true;
+      btn.classList.add('is-done');
+      btn.innerHTML = '<svg viewBox="0 0 24 24"><use href="#ic-check-circle"></use></svg>확인됨';
+    }
+    const emailEl = _suEl('signupEmail');
+    if (emailEl) emailEl.readOnly = true;
+    _suSyncSignupBtn();
+    const pw = _suEl('signupPassword');
+    if (pw) pw.focus();
+  } catch (e) {
+    if (codeEl) { codeEl.disabled = false; codeEl.value = ''; codeEl.focus(); }
+    _suMsg(_friendlyErr(e, '인증번호가 달라요.'), 'err');
+  } finally {
+    _suVerify.busy = false;
+  }
+}
+
 // 회원가입
 let _signupInFlight = false;
 async function signup() {
   if (_signupInFlight) return;
-  const name = document.getElementById('signupName').value.trim();
   const email = document.getElementById('signupEmail').value.trim();
   const password = document.getElementById('signupPassword').value;
   const referral_code = document.getElementById('signupRef').value.trim() || null;
@@ -2037,7 +2396,8 @@ async function signup() {
   errEl.style.display = 'none';
   if (!agree) { errEl.textContent = '약관에 동의해주세요.'; errEl.style.display = 'block'; return; }
   if (!ageOver14) { errEl.textContent = '만 14세 이상만 가입할 수 있어요.'; errEl.style.display = 'block'; return; }
-  if (!name || !email || !password) { errEl.textContent = '모든 필수 항목을 입력해주세요.'; errEl.style.display = 'block'; return; }
+  if (!email || !password) { errEl.textContent = '모든 필수 항목을 입력해주세요.'; errEl.style.display = 'block'; return; }
+  if (!_suVerify.ticket) { errEl.textContent = '이메일 인증을 먼저 완료해주세요.'; errEl.style.display = 'block'; return; }
   if (password.length < 8 || !/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
     errEl.textContent = '비밀번호는 8자 이상이고 영문+숫자를 포함해야 합니다.';
     errEl.style.display = 'block'; return;
@@ -2045,7 +2405,7 @@ async function signup() {
   btn.textContent = '가입 중…'; btn.disabled = true;
   _signupInFlight = true;
   // 2026-05-01 ── 이전 필드 에러 마크 제거
-  ['signupEmail','signupPassword','signupName'].forEach(id => {
+  ['signupEmail','signupPassword'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.borderColor = '';
     const errId = id + 'Err';
@@ -2056,15 +2416,15 @@ async function signup() {
     const res = await apiFetch('/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, name, referral_code, age_over_14: ageOver14 }),
+      body: JSON.stringify({ email, password, referral_code, age_over_14: ageOver14, verification_ticket: _suVerify.ticket }),
     });
     const data = await res.json();
     if (!res.ok) {
       // 2026-05-01 ── 422 (Pydantic validation) 의 detail 배열에서 필드별 에러 추출.
       // FastAPI: detail = [{loc:['body','email'], msg:'value is not a valid email...', type:'...'}, ...]
       if (res.status === 422 && Array.isArray(data.detail)) {
-        const fieldMap = { email: 'signupEmail', password: 'signupPassword', name: 'signupName' };
-        const koMap = { email: '이메일', password: '비밀번호', name: '이름' };
+        const fieldMap = { email: 'signupEmail', password: 'signupPassword' };
+        const koMap = { email: '이메일', password: '비밀번호' };
         let firstFieldErr = '';
         data.detail.forEach(err => {
           const loc = (err.loc || []).filter(p => p !== 'body');
@@ -2126,6 +2486,9 @@ function _toggleSignup(show) {
     lock.classList.add('hidden');
     signup.style.display = 'flex';
     _setAuthGateLocked(true);
+    // 화면을 새로 열면 인증 상태도 처음부터 — 로그인↔가입을 오간 뒤
+    // 이전 이메일의 티켓이 남아 있으면 안 된다.
+    try { const _e = document.getElementById('signupEmail'); if (_e) _e.readOnly = false; _suResetVerify(); } catch (_) { /* ignore */ }
   } else {
     signup.style.display = 'none';
     lock.classList.remove('hidden');
@@ -2346,6 +2709,20 @@ window.startAppleLogin = async function () {
       '--tab-bar-bottom',
       `calc(${BASE}px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + ${offset}px)`
     );
+
+    // ── [2026-09-07 iOS 시뮬레이터 실측] 키보드가 뜨면 떠다니는 탭바+잇비 FAB 를 숨긴다 ──
+    //   위 `raw` 는 키보드 높이가 **아니다**. iOS 는 키보드가 뜨면 페이지를 같이 스크롤하는데
+    //   `vv.offsetTop` 이 그 스크롤량이라, 빼는 순간 키보드 높이가 상쇄된다.
+    //   실측(iPhone 17 · iOS 26.4 · 한글 키보드): innerH=696 vv.h=377 vv.top=337
+    //     → raw = 696-377-337 = **-18** → offset 0 (보정이 아예 안 걸린다)
+    //     → 실제 키보드 높이 = innerH - vv.h = **319**
+    //   그 결과 `position:fixed` 인 #bottomNavGroup 이 화면 한가운데 떠서
+    //   **잇비 입력창 위에 겹쳐 보였다**(스크린샷으로 확인).
+    //   키보드가 올라온 동안엔 탭바를 보여줄 이유가 없다 → 숨긴다.
+    //   ⚠️ 안드로이드는 키보드가 뜨면 innerHeight 자체가 줄어 `innerH - vv.h ≈ 0` 이라
+    //      이 분기에 걸리지 않는다 = 기존 동작 그대로. (에뮬레이터로 확인)
+    const kb = (window.innerHeight - vv.height) | 0;
+    root.classList.toggle('kb-open', kb > 100 && kb < 600);
   };
   const schedule = () => { if (!raf) raf = requestAnimationFrame(update); };
   vv.addEventListener('resize', schedule, { passive: true });
@@ -2387,7 +2764,8 @@ window.addEventListener('load', async function() {
   document.addEventListener('click', (e) => {
     const goSignup = e.target.closest('#goSignup');
     if (goSignup) { e.preventDefault(); _toggleSignup(true); return; }
-    const goLogin = e.target.closest('#goLogin');
+    // #goLoginFromErr = "이미 가입된 이메일" 안내 안의 링크. 하단 #goLogin 과 같은 동작이라 한 곳에서 받는다.
+    const goLogin = e.target.closest('#goLogin, #goLoginFromErr');
     if (goLogin) { e.preventDefault(); _toggleSignup(false); return; }
     const signupBtn2 = e.target.closest('#signupBtn');
     if (signupBtn2) {
@@ -2408,29 +2786,46 @@ window.addEventListener('load', async function() {
     }
   }, false);
 
-  // 약관·만14세 동의 시 버튼 활성화 (둘 다 체크돼야 활성화)
+  // 약관·만14세·이메일인증 셋 다 충족돼야 가입 버튼 활성화
   document.addEventListener('change', (e) => {
-    if (e.target && (e.target.id === 'signupAgree' || e.target.id === 'signupAgeOver14')) {
-      const a = document.getElementById('signupAgree');
-      const ageOk = document.getElementById('signupAgeOver14');
-      const ok = !!(a && a.checked) && (!ageOk || ageOk.checked);
-      const btn = document.getElementById('signupBtn');
-      if (btn) {
-        btn.style.opacity = ok ? '1' : '0.6';
-        btn.style.pointerEvents = ok ? 'auto' : 'none';
-      }
+    if (e.target && (e.target.id === 'signupAgree' || e.target.id === 'signupAgeOver14')) _suSyncSignupBtn();
+  }, false);
+
+  // 인증번호 받기 / 재발송
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#signupSendCode')) { e.preventDefault(); _suSendCode(); }
+  }, false);
+
+  // 6자리가 채워지면 알아서 확인한다 — 버튼을 하나 더 누르게 하지 않는다.
+  // 이메일을 고치면 앞서 받은 인증은 전부 무효로 되돌린다.
+  document.addEventListener('input', (e) => {
+    if (!e.target || !e.target.id) return;
+    if (e.target.id === 'signupCode') {
+      const v = e.target.value.replace(/\D/g, '').slice(0, 6);
+      if (e.target.value !== v) e.target.value = v;
+      if (v.length === 6) _suCheckCode();
+      return;
+    }
+    if (e.target.id === 'signupEmail' && (_suVerify.email || _suVerify.ticket)) {
+      if (e.target.value.trim() !== _suVerify.email) _suResetVerify();
     }
   }, false);
   // #register 해시로 진입 시 바로 가입 화면
   if ((window.location.hash || '').includes('register') && !getToken()) {
     _toggleSignup(true);
   }
-  ['signupName','signupEmail','signupPassword','signupRef'].forEach(id => {
+  ['signupEmail','signupCode','signupPassword','signupRef'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('keydown', (e) => {
       if (e.isComposing || e.keyCode === 229) return;
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
       // [A14] Enter 키 → signup() 직접 호출 (agree 스코프 문제 수정)
-      if (e.key === 'Enter') { e.preventDefault(); signup(); }
+      // 단 인증 전 이메일 칸에서의 Enter 는 '인증번호 받기'가 자연스럽다 —
+      // 여기서 signup() 을 부르면 "인증 먼저" 에러만 뜨고 아무 진전이 없다.
+      if (id === 'signupEmail' && !_suVerify.ticket) { _suSendCode(); return; }
+      if (id === 'signupCode') { _suCheckCode(); return; }
+      signup();
     });
   });
   window.signup = signup;
@@ -2577,6 +2972,20 @@ window.addEventListener('load', async function() {
           const _lastBtn = document.querySelector('.tab-bar [data-tab="' + _lastTab + '"]')
             || document.querySelector('.ms-side__item[data-side-tab="' + _lastTab + '"]');
           showTab(_lastTab, _lastBtn);
+          /* [2026-09-11] 복원은 **탭을 켜기만 하고 내용을 안 그렸다.**
+             showTab 안의 init 은 home·dashboard 두 개뿐이라, 작업실로 복원되면
+             빈 탭(innerHTML 33자)이 활성화되고 원장은 **흰 화면**을 본다 — 껐다 켠 뒤 첫 화면이다.
+             실측(라이브 d4dbfed): 부팅 직후 tab-workshop ACTIVE·내용 없음, 정작 홈은 32,934자가
+             그려진 채 숨어 있었다. 하단 '작업실' 을 한 번 눌러야 비로소 목록이 나타났다.
+             다른 작업실 진입 경로는 전부 showTab 과 initWorkshopTab 을 **짝으로** 부른다
+             (app-ai.js·app-gallery-finish.js·_backToWorkshopFromCaption). 복원만 뒤를 빠뜨렸다.
+             init 을 showTab 안으로 넣지 않은 이유: 기존 호출부가 이미 직접 부르고 있어서
+             거기 넣으면 작업실로 갈 때마다 두 번 그린다(중복 렌더·중복 조회).
+             스텁이어도 그대로 부른다 — 스텁이 photo 그룹을 불러온 뒤 진짜 함수를 이어서 부른다. */
+          if (_lastTab === 'workshop' && typeof window.initWorkshopTab === 'function') {
+            try { Promise.resolve(window.initWorkshopTab()).catch(function () { /* 복원 실패가 부팅을 막지 않는다 */ }); }
+            catch (_wi) { void _wi; }
+          }
         }
       } catch (_e) { void _e; }
     }
@@ -3374,18 +3783,29 @@ window._humanError = function (e) {
     return '아직 준비 중인 기능이에요';
   if (/HTTP\s*409/i.test(raw))
     return '이미 다른 값이 있어요. 잠시 후 다시 시도해주세요';
-  if (/HTTP\s*413|too large|exceeded/i.test(raw))
+  // [2026-09-07 반응형 게이트] 429 를 413 보다 **먼저** 본다.
+  //   기존엔 413 패턴의 `exceeded` 가 "quota exceeded" 를 먼저 잡아서,
+  //   AI 한도 초과(429)인데 화면엔 "파일이 너무 커요 (최대 10MB)" 가 떴다. 실측으로 확인.
+  //   이 앱에서 Vertex 429 는 드문 일이 아니라 원장님이 실제로 보게 되는 문구다.
+  if (/HTTP\s*429|quota|rate.?limit/i.test(raw))
+    return '요청이 너무 많아요. 잠시 후 다시 시도해주세요';
+  if (/HTTP\s*413|too large|size.*exceeded|exceeds.*size/i.test(raw))
     return '파일이 너무 커요 (최대 10MB)';
   if (/HTTP\s*422/i.test(raw))
     return '입력 형식을 확인해주세요';
-  if (/HTTP\s*429|quota|rate.limit/i.test(raw))
-    return '요청이 너무 많아요. 잠시 후 다시 시도해주세요';
   if (/HTTP\s*402|payment/i.test(raw))
     return '플랜 한도 초과예요. 업그레이드가 필요해요';
   // [§11] DB/PostgREST 원문(예: "already has another value", "duplicate key", "unique constraint") 누출 차단
   if (/already\s+has|already\s+exist|duplicate|unique\s+constraint|conflict|overlap/i.test(raw))
     return '이미 등록된 값이 있어요. 다시 확인해주세요';
   if (raw.length > 80) return '일시적인 오류가 발생했어요. 잠시 후 다시 시도해주세요';
+  // [2026-09-07 BUG-4] 80자 미만 JS 내부 예외가 여기로 그대로 빠져나가고 있었다.
+  //   (예: "Cannot read properties of undefined (reading 'total')" = 52자)
+  //   원장님 화면에 영문 스택 용어를 띄우지 않는다. 원인은 console 에 남는다.
+  if (window._isInternalErrorText && window._isInternalErrorText(raw)) {
+    console.warn('[_humanError] 내부 오류 원문:', raw);
+    return '일시적인 오류가 발생했어요. 잠시 후 다시 시도해주세요';
+  }
   return raw;
 };
 
@@ -3457,6 +3877,29 @@ window._inlinePrompt = _inlinePrompt;
 window._askConfirm = function (msg, onYes) {
   if (window._inlineConfirm) return window._inlineConfirm(msg, onYes);
   if (confirm(msg)) onYes();
+};
+
+/* [2026-09-11 BUG-A2] 예약 취소 확인창 문구 — **완료된 예약이면 돈이 움직인다는 걸 말한다.**
+
+   라이브 실측: 예약을 '시술 완료' 하면 매출이 자동 기록되고(385,000 → 395,000),
+   그 예약을 취소하면 서버가 **환불행으로 상계**해 합계가 되돌아간다(395,000 → 385,000).
+   그런데 확인창은 "이 예약을 취소할까요?" 한 줄이라, 원장님은 이번달 매출이 바뀌는 줄 모르고 누른다.
+   매출 삭제 확인창(BUG-A)과 같은 결함이 취소 경로에도 있었다.
+
+   ⚠️ 모르면 말하지 않는다. 완료가 아닌 예약(확정·대기)은 매출이 없으므로 덧붙이지 않는다.
+   금액을 모르면 금액 없이 사실만 말한다 — 없는 숫자를 지어내는 게 더 나쁘다. */
+window._bookingCancelMsg = function (booking) {
+  const lines = ['이 예약을 취소할까요?'];
+  try {
+    const st = String((booking && booking.status) || '');
+    if (st === 'completed') {
+      const amt = Number(booking && booking.amount) || 0;
+      lines.push(amt > 0
+        ? `완료된 예약이에요. 기록된 매출 ${amt.toLocaleString('ko-KR')}원이 환불로 상계돼 합계에서 빠져요.`
+        : '완료된 예약이에요. 기록된 매출이 환불로 상계돼 합계에서 빠져요.');
+    }
+  } catch (_e) { void _e; }
+  return lines.join('\n');
 };
 
 // 2중 확인 유틸 — 레거시 호환 stub (호출처는 _inlineConfirm 으로 교체 완료)
@@ -3741,6 +4184,126 @@ window.refreshLastSyncBadges = function () {
     if (typeof closeFn !== 'function') return;
     registry.set(name, { close: closeFn });
   };
+
+  /* ── [2026-09-09] 오버레이 한 줄 등록 헬퍼 ──────────────────────────────────
+     전수 조사 결과: `position:fixed; inset:0` 전체화면 오버레이를 쓰는 파일 50개 중
+     **32개가 뒤로가기 레지스트리에 미등록**이었다. 미등록이면 원장이 뒤로가기를 눌렀을 때
+     그 오버레이는 그대로 남고 **뒤에 있던 화면이 대신 닫힌다** — 작성 중이던 내용이 날아간다
+     (실측: 예약 폼 → 고객 선택창 → back → 예약 폼이 닫히고 선택창만 남음).
+     안드로이드 하드웨어 백은 같은 경로라, 스택이 비면 앱이 그대로 꺼진다.
+
+     왜 하나씩 못 고쳤나: 파일마다 닫는 방법이 제각각이다.
+       `pop.remove()` · `sheet.style.display='none'` · 이름 있는 close 함수 ·
+       배경 클릭 익명 핸들러 · × 버튼 · ESC — 한 파일에 닫기 지점이 4~7곳씩 있다.
+       전부에 `_markSheetClosed` 를 손으로 붙이면 하나만 빠져도 유령 hash 가 남는다
+       (그게 "뒤로가기 한 번이 먹통" 의 원인이었다 — _markSheetClosed 주석 참고).
+
+     그래서 **여는 곳 한 줄만** 부르면 닫힘은 DOM 에서 직접 관찰한다:
+       화면에서 사라짐(제거 or display:none or hidden) = 닫힘.
+     닫기 경로가 몇 개든, 나중에 새 경로가 생기든 자동으로 잡힌다.
+
+       window._bindSheetBack('membershipSheet', el, () => closeFn());
+
+     ⚠️ 이미 규약을 지키는 18개 파일은 건드리지 않는다. 두 번 등록하면 스택이 어긋난다. */
+  /* [2026-09-11 BUG-D] **한 번 닫히면 등록이 영영 풀리던 것 — 보이는 동안만 등록되도록 재무장한다.**
+
+     재현(예약관리): 완료 시트를 열고 → 뒤로가기 → 시트는 그대로 남고 뒤 화면이 바뀐다.
+     그 뒤 예약관리로 돌아오면 시트가 유령처럼 떠 있다(`startFromBooking` 호출 0회 = 새로 연 게 아님).
+
+     원인: 예전 코드는 숨겨지는 순간 `finish()` 로 **observer 를 끊고 dataset 도장을 지웠다.**
+     그런데 유지형 시트(display 토글)는 `_ensureSheet()` 가 "이미 있으면 즉시 return" 이라
+     **재오픈 때 _bindSheetBack 을 다시 부르지 않는다** → 두 번째부터는 미등록 상태로 열린다.
+     미등록이면 back 이 이 창 대신 뒤 화면을 닫는다(이 파일 4165행 주석이 적은 바로 그 사고).
+     게다가 만들자마자(아직 display:none 일 때) 호출되면 그 자리에서 finish() 라
+     **첫 오픈조차 등록되지 않는** 경우가 있었다.
+
+     → observer 를 끊지 않고 **가시성 전이**를 따라간다. 보이면 등록, 숨으면 해제,
+       DOM 에서 빠지면 그때 정리. 호출부 40여 곳을 각각 고치는 대신 여기 한 곳에서 닫는다.
+       (`_markSheetOpen` 은 스택 top 검사로 멱등, `_registerSheet` 는 Map 덮어쓰기라 재호출이 안전하다) */
+  window._bindSheetBack = function (name, el, closeFn) {
+    try {
+      if (!name || !el || typeof closeFn !== 'function') return;
+      window._registerSheet(name, closeFn);      // 닫는 방법은 늘 최신 것으로
+
+      const visible = () => {
+        if (!el.isConnected) return false;
+        if (el.hidden) return false;
+        const cs = window.getComputedStyle(el);
+        return cs.display !== 'none' && cs.visibility !== 'hidden';
+      };
+
+      if (el.dataset && el.dataset.sheetBound === name) {
+        // 이미 관찰 중이다. 지금 보이는 상태면 열림으로 맞춰준다(재오픈 경로).
+        if (visible()) window._markSheetOpen(name);
+        return;
+      }
+      if (el.dataset) el.dataset.sheetBound = name;
+
+      let open = false;
+      const sync = () => {
+        const v = visible();
+        if (v !== open) {
+          open = v;
+          if (v) { window._registerSheet(name, closeFn); window._markSheetOpen(name); }
+          else { try { window._markSheetClosed(name); } catch (_e) { void _e; } }
+        }
+        if (!el.isConnected) {
+          try { obs.disconnect(); } catch (_e) { void _e; }
+          try { if (el.dataset) delete el.dataset.sheetBound; } catch (_e) { void _e; }
+        }
+      };
+      const obs = new MutationObserver(sync);
+      obs.observe(el, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+      if (el.parentNode) obs.observe(el.parentNode, { childList: true });
+      sync();   // 지금 보이면 지금 등록, 아직 숨어 있으면 보일 때 등록된다
+    } catch (_e) { void _e; }
+  };
+
+  // ── [2026-09-07 반응형 게이트 BUG-7] 새로고침 뒤 남는 유령 hash 청소 ──
+  //   재현: 고객관리를 열면 주소가 `#customers` 가 된다 → 새로고침 → 앱은 **홈으로** 뜨는데
+  //   `#customers` 는 그대로 남는다. 그 상태에서 뒤로가기를 누르면 화면은 그대로이고
+  //   주소만 바뀐다 = "눌러도 아무 일 없는" 한 칸. 실측으로 확인했다.
+  //
+  //   ⚠️ hash 공간은 시트만 쓰는 게 아니다. 잘못 지우면 로그인·가입 흐름이 깨진다.
+  //   그래서 **아래를 전부 만족할 때만** 지운다(하나라도 애매하면 그냥 둔다 — fail closed):
+  //     1) 라우터 스택이 비어 있다 = 이 세션에서 연 시트가 하나도 없다
+  //     2) hash 가 `_registerSheet` 로 등록된 시트 이름과 **정확히** 일치한다
+  //        (등록 전이면 못 지운다 — 안전한 쪽으로 실패)
+  //     3) `=`·`&` 가 없다 (OAuth 콜백류 `#access_token=…` 방어)
+  //     4) 시스템 예약어가 아니다 (register/connected/auth/bio/revenuehub …)
+  //   `#revenuehub` 는 이미 app-core 위쪽 DOMContentLoaded 핸들러가 따로 지운다.
+  const _SYSTEM_HASHES = ['register', 'connected', 'login', 'signup', 'auth', 'bio',
+    'biometric', 'revenuehub', 'oauth', 'callback', 'error', 'success'];
+  // 시트 이름 정본. `registry` 만 보면 **lazy 모듈이 아직 로드 전이라 비어 있어서**
+  //   정작 흔한 화면(고객관리·예약 등)의 유령 hash 를 못 지운다(실측 확인).
+  //   그래서 코드에 실재하는 시트 등록 이름을 목록으로 갖는다.
+  //   ⚠️ 목록이 낡으면 조용히 효과가 사라진다 → 드리프트 테스트가 저장소 전체를 훑어 강제한다
+  //      (`__tests__/responsive-gate-ios15-and-back-2026-09-07.test.js`).
+  window.__SHEET_HASHES = ['assistant', 'backupScreen', 'booking', 'captionWork', 'changePw',
+    'crq', 'crqPeek', 'customerDash', 'customers', 'cvBookingDetail', 'cvBookingForm',
+    'dataExport', 'dmConfirmQueue', 'dmList', 'dmManual', 'dmMenu', 'dmPreview', 'dmThread',
+    'genericsheet', 'import', 'insights', 'integrationsHub', 'kakaoHub', 'nav', 'naverLink',
+    'naverTalkLink', 'notifications', 'plan', 'pricelist', 'reminder', 'report', 'revenue',
+    'reviewRequests', 'settingsHub', 'shopSettings', 'supportChat', 'waitlist', 'wsSettings',
+    'wshcLightbox', 'wsperf', 'wsv2Drawer', 'wsv2flow'];
+  function _normalizeStaleHash() {
+    try {
+      if (stack.length) return;                                  // (1) 열린 시트 있음 → 손대지 않음
+      const raw = (window.location.hash || '').replace(/^#/, '');
+      if (!raw) return;
+      if (/[=&/?]/.test(raw)) return;                            // (3) 파라미터형 → 남의 것
+      const low = raw.toLowerCase();
+      if (_SYSTEM_HASHES.some((s) => low === s || low.includes(s))) return;   // (4)
+      // (2) 등록됐거나(이미 로드됨) 알려진 시트 이름이거나 — 둘 다 아니면 건드리지 않는다
+      if (!registry.has(raw) && window.__SHEET_HASHES.indexOf(raw) === -1) return;
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    } catch (_e) { void _e; }
+  }
+  // lazy 모듈이 _registerSheet 를 부른 뒤에 판단해야 한다 → load 이후 한 박자 늦게.
+  //   (등록 전에 보면 registry 가 비어 있어 아무것도 못 지운다 = 무해하지만 효과도 없다)
+  if (document.readyState === 'complete') setTimeout(_normalizeStaleHash, 2500);
+  else window.addEventListener('load', () => setTimeout(_normalizeStaleHash, 2500));
+  window.__normalizeStaleHash = _normalizeStaleHash;   // 테스트/수동 확인용
 
   // 스와이프 다운 닫기 — sheet 컨테이너에 부착. 핸들 영역(상단 60px) 에서만 트리거.
   // close 함수를 인자로 받음. threshold deltaY > 50px.

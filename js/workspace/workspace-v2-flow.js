@@ -140,10 +140,20 @@
     if (!el || !el.classList.contains('is-open')) return false;
     // [v587·#5] 편집기(seOverlay)가 열렸거나 방금 popstate 로 닫힌 back 이면 flow 가 같은 back 을 중복 처리하지 않는다.
     //   (전역 시트 시스템이 편집기를 먼저 닫음 → 작업실 단계는 그대로 유지, 앱 종료 방지.)
-    if (window.__seOpen || window.__seSwallowPop) return false;
+    if (window.__seOpen) return false;
+    // [2026-09-03] 편집기가 남긴 표식은 **하나 소비하고** 넘어간다(불리언이면 타이밍에 따라 놓치거나 계속 삼킨다).
+    if (+window.__seSwallowPop > 0) { window.__seSwallowPop = Math.max(0, (+window.__seSwallowPop) - 1); return false; }
     // [refactor S3] 스텝별 뒤로가기 특수처리(캡션 결과 되돌리기 등)는 STEP_FX[cur].onBack 에 위임 — 처리했으면 true.
     var fx = STEP_FX[cur];
     if (fx && fx.onBack && fx.onBack() === true) return true;
+    /* [2026-09-03 P1] 편집(슬라이더) 화면을 **뒤로가기로** 떠나면 보정이 조용히 사라졌다.
+       bake(픽셀로 굽기)는 STEP_FX.edit.onExit 에 있는데 onExit 은 onCta(하단 버튼)에서만 돈다 —
+       _navBack 은 안 태운다. 그래서 밝기/대비/피부 보정을 만지고 뒤로 누르면 d.adjust 에만 남고
+       photo.editedDataUrl 에는 안 실린다 → 저장·발행은 보정 없는 원본이 나간다(에러도 토스트도 없음).
+       onExit 전체를 태우면 _exitCaption 이 false 를 반환해 뒤로가기 자체가 막히므로 edit 만 굽는다.
+       비동기지만 photo 객체를 직접 갱신하므로 이후 렌더/저장이 결과를 집는다. 중복 실행만 막는다. */
+    /* [2026-09-10 scope-lock] `cur === 'edit'` bake 제거 — 'edit' 화면이 없어 조건이 성립하지 않는다.
+       (보정 굽기는 발행·저장 경로의 bakeEdit 이 그대로 담당한다.) */
     if (navStack.length) {
       if (_histDepth > 0) _histDepth--;
       // [버그수정] 캡션 화면 이탈 시에도 재생성 응답 무효화
@@ -195,38 +205,6 @@
     return p[d.editIdx];
   }
   // 전/후(또는 다중) 편집 대상 전환 — 현재 보정을 먼저 굽고(다른 사진 오적용 방지) 편집 상태 초기화.
-  function switchEditPhoto(idx) {
-    var p = editablePhotos();
-    if (idx < 0 || idx >= p.length || idx === (d.editIdx || 0)) return;
-    // [카오스 P2] 전환 중 재진입 차단 — 연타 시 bakeEdit 가 겹쳐 돌면서 .then 이 이미 리셋된
-    //   d.adjust(=0)를 photo.adjustments 로 clone, 조정값 메타가 오염되던 문제. 한 번에 하나만 전환.
-    if (d._switching) return;
-    d._switching = true;
-    // [이슈3] 즉시 시각 피드백 — 선택 테두리/aria 를 동기로 토글(무거운 bake/렌더를 기다리지 않음).
-    if (el) {
-      el.querySelectorAll('[data-fs="edit"] [data-fl-editsel]').forEach(function (b) {
-        var on = +b.getAttribute('data-fl-editsel') === idx;
-        b.classList.toggle('on', on); b.setAttribute('aria-selected', on);
-      });
-    }
-    // 현재 보정은 백그라운드로 굽고(다른 사진 오적용 방지), 끝나면 편집 상태만 부분 갱신.
-    bakeEdit().then(function () {
-      d.editIdx = idx;
-	      d.adjust = newAdjust(); d.beauty = newBeauty(); d.undo = []; d.redo = []; d.previewUrl = null;
-      d.originalPreview = false; d.basicTool = null;
-      d.bgAction = null; d.bgColor = null; d.bgFail = false; d.bgBusy = false;
-      d.zoom = { s: 1, tx: 0, ty: 0 };
-      // [이슈3] setScreen('edit') 전체 재렌더(템플릿 6칸 대용량 dataURL 재디코딩) 대신 필요한 섹션만 교체 → 즉각 전환.
-      _paintEditPhoto();
-      _setEditSection('[data-ed-switcher]', _editSwitcherHtml());
-      _setEditSection('[data-ed-basic]', _mainAdjustHtml());
-      _setEditSection('[data-ed-bottom]', _editBottomHtml());
-      _setEditSection('[data-ed-adv]', _advFoldHtml());
-      if (d.maskView) _renderMaskOverlay();   // [v539] 사진 전환 시 마스크 overlay 갱신
-      if (d.maskPaint) { _ensurePaintDims(function () { _renderPaintOverlay(); }); }   // [v561] 칠하기 모드 유지 시 새 사진 기준 재렌더
-      _warmEditMasks();
-    }).finally(function () { d._switching = false; });   // [카오스 P2] 전환 완료 → 재진입 락 해제
-  }
   function photoUrl(p) { return p ? (p.editedDataUrl || p.dataUrl) : ''; }
   // [P0-1] 표시용 URL 문자열 → blob URL (innerHTML 재파싱·재디코드 제거). 비-dataURL 은 그대로 통과.
   //   ⚠️ dispUrl(p)(아래, photo→dataURL 접근자)과 다른 것 — 이건 URL 문자열 변환기(표시 전용).
@@ -274,9 +252,31 @@
   }
   // [#18] 게시 크기(피드 규격) 선택 — 4:5(세로로 크게, 기본) / 1:1(정사각). 마지막 선택 기억.
   //   선택값이 편집기 캔버스→템플릿 출력→콜라주→IG 미리보기까지 관통. 스토리/릴스 9:16은 템플릿이 별도 처리.
-  function _wsFormat() { try { return localStorage.getItem('itdasy:ws_format') === '11' ? '11' : '45'; } catch (_e) { return '45'; } }
+  /* [2026-09-03] 게시 크기(4:5 / 1:1)는 **게시물별**이다. 예전엔 localStorage 한 칸뿐이라
+     A 를 1:1 로 만들고 B 를 4:5 로 바꾸면 A 를 다시 열 때도 4:5 가 됐다 —
+     '마지막에 쓴 설정을 모든 게시물에 적용'(피해야 할 대표 패턴). editState 엔 ratio 가
+     이미 저장돼 있었는데 아무도 안 읽었다.
+     정책: 기존 게시물 = 그 게시물의 스냅샷 우선 · 새 게시물 = 전역 기본값(마지막에 고른 값). */
+  function _slotFormat(slot) {
+    try {
+      if (!slot) return null;                                   // 새 게시물 → 전역 기본값 사용
+      var wc = slot.workspaceContext || {};
+      var p0 = slot.photos && slot.photos[0];
+      var r = (p0 && p0.editState && p0.editState.ratio) || wc.defaultRatio || null;
+      if (!r) return null;
+      return String(r) === '1:1' ? '11' : '45';
+    } catch (_e) { return null; }
+  }
+  function _wsFormat() {
+    try { if (d && d._wsFmt) return d._wsFmt === '11' ? '11' : '45'; } catch (_e) { void _e; }
+    try { return localStorage.getItem('itdasy:ws_format') === '11' ? '11' : '45'; } catch (_e) { return '45'; }
+  }
   function _wsRatio() { return _wsFormat() === '11' ? '1:1' : '4:5'; }
-  function _setWsFormat(v) { try { localStorage.setItem('itdasy:ws_format', v === '11' ? '11' : '45'); } catch (_e) { void _e; } }
+  function _setWsFormat(v) {
+    var f = (v === '11') ? '11' : '45';
+    try { if (d) d._wsFmt = f; } catch (_e) { void _e; }                       // 이 게시물에 적용
+    try { localStorage.setItem('itdasy:ws_format', f); } catch (_e) { void _e; }  // 다음 '새' 게시물의 기본값
+  }
   // [#18] 업로드 화면 하단 규격 세그먼트 — 사진 1장 이상 선택 시에만 노출.
   function _formatSegHtml(n) {
     if (!n) return '';
@@ -327,8 +327,24 @@
   // [v591·#6] 사진에서 대표 색 추출 — 클라이언트 canvas(서버/AI 비용 0). 28px 다운샘플 후
   //   근사 흰/검 제외하고 5비트 버킷 빈도순 상위색 반환. 폰트/로고 자동추출은 부정확해 미지원(수동).
   // [v587·C] 우리샵 스타일 레이어 빌더 — 편집기 진입과 헤드리스 자동합성이 공유.
+  /* 스타일 선택이 붙는 키. **저장 전에도 존재해야** 한다(위 _workId 주석 참조). */
+  function _workKey() {
+    try { return (d && d._workId) || (d && d.slot && d.slot.id) || null; }
+    catch (_e) { void _e; return null; }
+  }
+
   function _buildShopStyleLayers() {
-    var ss = (window.ShopStyle && window.ShopStyle.getActive) ? window.ShopStyle.getActive() : null;
+    /* [2026-09-04] 우선순위: **이 작업에 고른 스타일** > 전역 기본값.
+       원장이 '내 스타일'에서 하나를 골랐으면 이번 게시물엔 그게 이긴다(§21).
+       고른 게 없으면 예전 그대로 — `setActive` 를 안 건드리므로 다음 새 글까지
+       이번 선택이 따라가지 않는다(§22. last-used 강제 적용 방지). */
+    var ss = null;
+    try {
+      if (window.IgStyleLibrary && window.IgStyleLibrary.styleForWork) {
+        ss = window.IgStyleLibrary.styleForWork(_workKey());
+      }
+    } catch (_igs) { void _igs; }
+    if (!ss) ss = (window.ShopStyle && window.ShopStyle.getActive) ? window.ShopStyle.getActive() : null;
     var roleText = _splitServiceForLayers(d.service);   // [v583·A] 시술명/시술내용 분리
     var layers = [];
     var autoArranged = false;
@@ -534,8 +550,14 @@
     var outs = (d && d.templateOutputs) || [];
     if (!outs.length || !dataUrl) return;
     var tgt = null;
-    if (isWs) tgt = (d.activeDisplayId && outs.filter(function (o) { return o && o.pairId === d.activeDisplayId; })[0]) || outs[0];
-    else if (p) tgt = outs.filter(function (o) { return o && !o.templateId && (o.photoIds || []).indexOf(p.id) >= 0; })[0];
+    /* [2026-09-12 ZH] **사진이 특정됐으면 그 사진의 출력을 먼저 찾는다.**
+       예전엔 isWs 를 먼저 보고 `outs[0]` 으로 폴백해서, 캐러셀에서 3번 장을 보다가 [완료] 하면
+       3번 합성본이 **1번 출력 자리**에 들어가고 3번 출력은 원본 그대로 남았다.
+       실측(2026-09-12, 3장 캐러셀): photos[2].editedDataUrl 은 P3lash 가 제대로 구워졌는데
+       templateOutputs[2] 는 합성 안 된 원본 — 원장이 발행하면 3번째 장만 글자가 없다.
+       콜라주(3장→1장)는 outs[0].photoIds 에 모든 사진 id 가 들어 있어 여기서도 같은 것을 고른다. */
+    if (p) tgt = outs.filter(function (o) { return o && !o.templateId && (o.photoIds || []).indexOf(p.id) >= 0; })[0] || null;
+    if (!tgt && isWs) tgt = (d.activeDisplayId && outs.filter(function (o) { return o && o.pairId === d.activeDisplayId; })[0]) || outs[0];
     if (tgt) {
       tgt.outputUrl = dataUrl;
       // [v779] 스칼라 미러 동기화 — outputUrl()·_displayItems 가 스칼라를 먼저 읽어, 안 맞추면
@@ -586,7 +608,13 @@
     //   (예전 fresh: editedDataUrl(텍스트 구워진 사진)을 베이스로 써서 "합쳐진 느낌" + 실기기서 사진이 안 뜨던 문제.)
     //   누끼(배경제거) 적용본은 fgCutout/bgSpec 합성을 보존해야 하므로 기존 방식(구워진 editedDataUrl 베이스) 유지.
     var _hasBg = !!(p0 && p0.bgSpec && p0.fgCutout);
-    var _restore = (!_hasBg && p0 && p0.editState) || null;
+    /* [2026-09-04 P0] 원장이 **방금 스타일을 골랐으면** 저장된 스냅샷을 한 번 건너뛴다.
+       안 그러면 "B 를 골랐는데 화면은 계속 A" 가 된다 — 실측으로 잡았다.
+       한 번만이다: 그 뒤 원장이 그 위에 한 편집은 다음 열기에서 정상 복원된다(§20 유지). */
+    var _IGL = window.IgStyleLibrary;
+    var _freshPick = !!(_IGL && _IGL.isFreshPick && _IGL.isFreshPick(_workKey()));
+    var _restore = (!_freshPick && !_hasBg && p0 && p0.editState) || null;
+    if (_freshPick) { try { _IGL.markApplied(_workKey()); } catch (_mp) { void _mp; } }
     // [ws-hyper] 레이아웃 활성 시: 프리셋 매칭되면 편집기 콜라주(슬롯 재조정 가능), 아니면 합성본 단일 이미지로 레이아웃 보존.
     //   (예전엔 항상 원본 단일 사진으로 열려 레이아웃이 통째 사라졌음 — 2026-07-10 버그수정)
     // [v779 재오픈] d.wsLayout 은 레이아웃 화면을 방문해야만 채워지는 세션 별칭 → 재오픈 초안엔 없다.
@@ -634,8 +662,53 @@
     // [audit#3] 텍스트 역할 레이어는 type 필드가 없다(roleText 배치) — 'text'로만 필터하면 항상 빈 배열이라 '지운 레이어 기억' 기능이 죽어 있었음.
     d._editorOpenRoles = layers.filter(function (l) { return l.role && (l.type === 'text' || l.type == null); }).map(function (l) { return l.role; });
     // 최종 editState 계산 후, 오케스트레이션 레이어를 editState.layers 에도 병합(콜라주는 editState.layers 를 쓰고 layers 파라미터를 무시하므로).
+    /* 🔴 여기서 `p0.editState` 를 **한 번 더** 읽는다. 위에서 `_restore` 만 비우면
+       이 줄이 같은 스냅샷을 다시 집어와서 "스타일을 골랐는데 화면은 그대로" 가 된다.
+       (게이트가 둘인데 하나만 고친 것 — 이 레포에서 반복해서 나온 패턴이라 명시해 둔다.
+        실측: A 저장 → B 선택 → 편집기가 여전히 A. `_restore` 는 null 이었는데도.) */
     var _finalEs = (_wsEd && _wsEd.mode === 'collage') ? _mergeWmLayers(_wsEd.editState, _wmEd)
-      : (_restore || (o.fresh ? _wmEd : ((p0 && p0.editState) || _wmEd)));
+      : (_restore || ((o.fresh || _freshPick) ? _wmEd : ((p0 && p0.editState) || _wmEd)));
+    /* [2026-09-12 ZH] 🔴 **캐러셀 3장을 다시 열면 사진이 1장만 들어왔다.**
+       장별 편집은 사진마다 editState 를 따로 갖는데, 두 종류가 섞여 있다.
+         · 저장 순간 '보던 장' → **전체 스냅샷**(photos 3장 · adj 3개 · 비율 · 채우기)
+         · 나머지 장 → onDone 의 장별 합성이 만든 **자기 원판 1장짜리**(adj [] · fitMode 'contain' 고정)
+       재편집은 `_activeEditPhoto()` 한 장의 스냅샷만 보고 열기 때문에,
+         ① 1장짜리를 집으면 `_restoreState` 가 `S.photos` 를 그 1장으로 덮어써
+            편집기 썸네일이 1개가 되고 **2·3번 장은 다시 고칠 방법이 없다**,
+         ② 전체 스냅샷을 집어도 `layersByPhoto` 는 저장에 실리지 않아 **다른 장이 빈 채로** 열리고
+            원장이 썸네일로 장을 넘기는 순간 `_switchPhotoLayers` 가 그 빈 상태를 저장해 **글자가 사라진다**,
+         ③ 1장짜리를 집으면 채우기가 'contain' 으로, 보정이 전부 0 으로 되돌아간다.
+       (실측 2026-09-12 LIVE: 3장 캐러셀 재편집 → '보정할 사진을 고르세요' 아래 썸네일 1개)
+       → 전 장을 통째로 복원한다: **원판** 목록 + 장별 레이어 + 활성 장 번호,
+         그리고 전역 값(비율·채우기·보정·구도)은 **전체 스냅샷 쪽**에서 가져온다.
+       원판을 쓰는 이유: 편집본(editedDataUrl)을 넘기면 레이어가 **두 번 구워진다**.
+       콜라주(여러 장을 한 장으로 합치는 모드)는 사진 목록의 의미가 달라 건드리지 않는다. */
+    var _carousel = null;
+    try {
+      var _epsC = editablePhotos() || [];
+      if (_restore && _epsC.length > 1 && !(_wsEd && _wsEd.mode === 'collage')) {
+        var _basesC = _epsC.map(function (p) { return _cleanBase(p) || photoUrl(p); });
+        var _lbpC = {};
+        _epsC.forEach(function (p, i) {
+          var ls = (p && p.editState && p.editState.layers) || [];
+          if (ls.length) _lbpC[i] = ls.slice();
+        });
+        var _aIdxC = _epsC.map(function (p) { return p && p.id; }).indexOf(p0 && p0.id);
+        if (_aIdxC < 0) _aIdxC = 0;
+        // 전역 값의 주인은 '전 장을 담은' 스냅샷이다. 없으면 지금 것을 그대로 쓴다.
+        var _fullC = null;
+        _epsC.forEach(function (p) {
+          var es = p && p.editState;
+          if (!_fullC && es && Array.isArray(es.photos) && es.photos.length >= _epsC.length) _fullC = es;
+        });
+        var _baseC = _fullC || _finalEs || {};
+        _finalEs = Object.assign({}, _baseC, {
+          photos: _basesC,
+          layers: (_lbpC[_aIdxC] || []).slice()
+        });
+        _carousel = { layersByPhoto: _lbpC, photoIdx: _aIdxC };
+      }
+    } catch (_ce) { void _ce; }
     if (_orchLayers.length && _finalEs) {
       try {
         var _esL = _finalEs.layers || [];
@@ -665,6 +738,10 @@
       }
     } catch (_pe) { void _pe; }
     Editor.open({
+      /* [2026-09-11] 업로드 화면에서 고른 '사진 채우기'를 그대로 넘긴다.
+         안 넘기면 편집기가 단일 사진을 늘 contain 으로 열어 **원장이 본 미리보기와 달라진다**
+         (실측: 가로 사진 발행본의 45%가 흰 여백이었고 바꿀 방법이 화면에 없었다). */
+      fitMode: (d._wsFit === 'cover' ? 'cover' : (d._wsFit === 'contain' ? 'contain' : null)),
       photoUrl: photo,
       photos: (_wsEd && _wsEd.mode === 'collage') ? _wsEd.photos : (editablePhotos() || []).map(function (p) { return p.editedDataUrl || _cleanBase(p) || photoUrl(p); }),   // [itd][#5] 콜라주 셀은 편집본 우선 · [ws-hyper] 레이아웃 매칭 시 슬롯 순서대로
       ratio: built.ratio,
@@ -674,6 +751,9 @@
       // [#17] 이어서 편집 · [ws-hyper] 레이아웃 매칭 시 콜라주 상태 주입(슬롯 재조정) · [T-115 P2] 없으면 ★기본 작업 기억
       // [2026-07-17] 콜라주(레이아웃)엔 기억의 '꾸밈'만 합쳐 얹는다 — 칸 배치는 레이아웃 것 그대로.
       editState: _finalEs,
+      // [2026-09-12 ZH] 캐러셀 재편집 — 장별 레이어와 활성 장(위 _carousel 주석 참조)
+      layersByPhoto: _carousel ? _carousel.layersByPhoto : null,
+      photoIdx: _carousel ? _carousel.photoIdx : null,
       /* [T8-G] 🔴 관찰에 붙일 상황(context). 안 넘기면 WMSignals.begin 이 {} 를 받아
          contextKey 가 전부 '||' 한 바구니가 된다 — 시술·사진수·성격이 다 뭉개져서
          T8-C 의 context 별 집계도, T8-E 의 exact/service/kind 계층도 통째로 죽는다.
@@ -715,6 +795,16 @@
           }
         } catch (_tde) { void _tde; }
         var p = p0 || _activeEditPhoto();   // [#5] 열 때 잡은 '보던 장'에 저장(편집 중 바뀌지 않게 고정)
+        /* [2026-09-12 ZH] 다만 **편집기 안에서 장을 바꿨으면 그 장이 맞다.**
+           p0 고정은 '편집 중 플로우 쪽 상태가 흔들려도 엉뚱한 장에 쓰지 않게' 하려던 것인데,
+           원장이 편집기 썸네일로 사진을 바꾸는 정상 동선까지 같이 막았다.
+           실측(2026-09-12, 3장 캐러셀 · 장마다 다른 글자): [완료] 후 발행본이
+           [헤어+B2hair, 헤어, 속눈썹] — **네일 사진이 통째로 사라지고** 헤어가 두 장 나왔다.
+           편집기가 알려준 번호가 있으면 그걸 쓴다(없으면 기존 동작 그대로). */
+        if (meta && meta.photoIdx != null) {
+          var _tpNow = (editablePhotos() || [])[meta.photoIdx];
+          if (_tpNow) p = _tpNow;
+        }
         if (p) { p.editedDataUrl = dataUrl; p.storyEdited = true; if (meta && meta.editState) p.editState = meta.editState; }   // [#11] 편집 상태 보존 → 재편집 이어가기
         if (_wsEd) { d.templateOutput = dataUrl; d.previewUrl = null; }   // [ws-hyper] 편집한 레이아웃 합성본을 대표 이미지로 → 미리보기/발행/저장에 반영
         _syncOutputForEdit(p, dataUrl, !!_wsEd);   // [버그수정 2026-07-17] 결과물 배열에도 반영(안 하면 발행이 편집 전 합성본을 올림)
@@ -742,17 +832,37 @@
                 _syncOutputForEdit(tp, u, false);   // [버그수정 2026-07-17] 사진별 레이어 합성도 결과물 배열에 반영
                 tp.editState = { v: 1, layoutIdx: 0, layoutOrder: [], cellCrop: [], fitMode: 'contain', ratio: _rt, adj: [], photoDraw: {}, photoBg: {}, photos: [_cb], layers: e.layers };
                 d.previewUrl = null;   // [#3] 편집 중간에는 내 콘텐츠 저장 안 함 — 최종(발행/연결/저장)에서만. 데이터는 메모리 유지.
+                /* [2026-09-12 ZH] 장별 합성은 **비동기**다 — 아래 `_persistEditQuiet()` 는 이미 지나갔다.
+                   그래서 저장본엔 다른 장들의 글자가 하나도 없었다(실측: 3장 중 2장의 글자 소실).
+                   합성이 끝난 이 시점에 한 번 더 적는다. buildSlot 이 d.slot 을 고정하므로 같은 id 를 덮어쓴다. */
+                try { _persistEditQuiet(); } catch (_pq) { void _pq; }
               });
             });
           }
         } catch (_ppe) { void _ppe; }
         d.previewUrl = null;
         _learnShopStyle(meta && meta.layers);   // [v587·C] 편집 결과를 우리샵 스타일로 학습 · [T-115 P3] 기억 ON이면 '지운 역할'만
-        // [#3] 편집 완료 시점엔 내 콘텐츠에 저장하지 않음(중간본 쌓임 방지). 편집 결과는 d.photos 메모리에 유지되어
-        //   미리보기·발행에 그대로 쓰이고, 실제 저장은 워크플로 최종(발행/고객연결/저장)에서만.
+        /* [PE-01 2026-09-11] 편집 결과를 **초안 슬롯에 바로 적는다.**
+           예전 주석: "편집 완료 시점엔 내 콘텐츠에 저장하지 않음(중간본 쌓임 방지)".
+           그 의도 자체는 맞다 — 다만 그게 `내 콘텐츠(갤러리)` 얘기인데 **초안 슬롯 저장까지 같이 빠져서**,
+           편집 결과가 `d` 메모리에만 남았다. 그래서 원장이 [완료] 를 누르고 "사진을 꾸몄어요" 를 본 뒤
+           새로고침하거나 탭을 닫으면 **꾸민 게 통째로 사라졌다.**
+           실측(라이브 89bf71e): 텍스트 3개 저장 → 20초 뒤에도 IndexedDB 는 옛 레이어 4개 그대로,
+           새로고침 후 재진입하면 추가한 레이어 없음. 성공 토스트가 떠서 **원장은 잃은 걸 모른다.**
+           그래서 갤러리는 그대로 건드리지 않고(중간본 안 쌓임) **슬롯만** 조용히 갱신한다.
+           `buildSlot()` 이 `d.slot` 을 고정하므로 반복 편집은 같은 id 를 덮어쓴다(중복 슬롯 안 생김). */
+        _persistEditQuiet();
         // [워크플로 재정렬] 편집기 완료 후 다음 목적지(예: 캡션→편집기→미리보기). 없으면 캡션 유지.
         if (d._editorNext) { var _nx = d._editorNext; d._editorNext = null; setScreen(_nx); }
-        else if (cur === 'caption') setScreen('caption');
+        /* [2026-09-11 ZH-UX] 돌아온 화면을 **반드시 다시 그린다.**
+           예전엔 `caption` 일 때만 다시 그려서, '사진 확인(layout)' 에서 편집기를 연 원장은
+           [완료] 뒤에 **편집 전 사진**을 보게 됐다. 저장은 멀쩡한데 화면만 옛것이다.
+           라이브 실측(2026-09-11, slot mtws7ssfjm7ac): 글자를 '첫 방문 이벤트'→'9월 한정 이벤트'
+           로 고치고 완료 → 저장본 editState.layers 는 '9월 한정 이벤트' 인데 화면은 옛 글자.
+           해시 대조로 확정 — 화면이 그리는 blob 286,657B(2e05dd…) vs 저장본 293,630B(a62695…).
+           "수정이 안 됐네" 로 읽히고, 같은 편집을 반복하게 만든다.
+           setScreen 은 name===cur 이면 히스토리를 쌓지 않고 스크롤도 보존한다(기존 재렌더 관용구). */
+        else setScreen(cur);
         // [2026-07-22 오케스트레이션] 편집 반영 후 시술내용으로 캡션 자동생성(1회). 그 뒤 브리핑 소진.
         if (d._orch) {
           var _svc = d._orch.service; d._orch = null; d._orchApplied = false;
@@ -841,7 +951,7 @@
   function shell() {
     return '' +
       '<div class="wsv2flow__bar">' +
-        '<button type="button" class="wsv2flow__back" data-fl="back" aria-label="뒤로"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#ic-chevron-left"/></svg></button>' +
+        '<button type="button" class="ss-back" data-fl="back" aria-label="뒤로"><svg class="ic" aria-hidden="true"><use href="#ic-chevron-left"/></svg></button>' +
         '<div class="wsv2flow__title" data-fl-title>사진 업로드</div>' +
         '<span class="wsv2flow__step" data-fl-step></span>' +
       '</div>' +
@@ -849,16 +959,15 @@
       '<div class="wsv2flow__screens">' +
         '<section class="wsv2flow__s" data-fs="upload"></section>' +
         '<section class="wsv2flow__s" data-fs="layout"></section>' +   // 레이아웃 고르기 컨테이너
-        '<section class="wsv2flow__s" data-fs="edit"></section>' +
-        '<section class="wsv2flow__s" data-fs="template"></section>' +
         '<section class="wsv2flow__s" data-fs="caption"></section>' +
         '<section class="wsv2flow__s" data-fs="connect"></section>' +
         '<section class="wsv2flow__s" data-fs="preview"></section>' +
       '</div>' +
-      // [v560] 편집 화면은 CTA 2분할 — 좌:저장하고 게시글 쓰기 / 우:템플릿 선택하기(cta2). 그 외 화면은 단일.
-      '<footer class="wsv2flow__actionbar"><button class="wsv2flow__cta wsv2flow__cta--alt hidden" data-fl="cta2"></button><button class="wsv2flow__cta" data-fl="cta">다음</button></footer>' +
+      // [2026-09-10] cta2('템플릿 선택하기') 제거 — 편집(A)·템플릿 화면과 함께 도달 불가였다.
+      '<footer class="wsv2flow__actionbar"><button class="wsv2flow__cta" data-fl="cta">다음</button></footer>' +
       '<input type="file" accept="image/*" multiple data-fl-file hidden>' +
-      '<input type="file" accept="image/*" data-fl-bgfile hidden>' +
+      /* [2026-09-10 scope-lock] 배경 바꾸기(bgpick·bgfile·applyBg) 제거 — 파일 선택창을 여는 유일한 버튼이
+         옛 편집화면의 _bgPanelHtml 안에 있었다. 그 화면이 사라진 뒤로는 숨은 input 도 리스너도 도달 불가였다. */
       // 올리기 로딩 — 시안 B(잇비 봇 둥둥 + 점3개 + 단계 멘트/인디케이터)
       '<div class="wsv2pub" data-fl-pub hidden aria-live="polite">' +
         '<div class="wsv2pub__card">' +
@@ -937,6 +1046,7 @@
       '<div class="upload-grid">' + tiles +
         '<div class="grid-add" data-fl-pick><i class="ph-bold ph-plus"></i><span>추가</span></div>' +
       '</div>' +
+      ((d._lyUndo && d._lyUndo.photo) ? '<div class="wsc-undo"><span>사진 1장을 뺐어요</span><button type="button" data-fl-upundo data-haptic="light">되돌리기</button></div>' : '') +
       '<div class="up-foot" data-up-foot>' + _formatSegHtml(selCount) + _upSummaryHtml(selCount, multi, cnt) + _pairPreviewHtml(cnt) + '</div>';
   }
   // [v531 렉] 역할/선택 변경 시 전체 재렌더(이미지 6장 base64 재파싱) 대신 in-place 갱신.
@@ -989,77 +1099,12 @@
     });
   }
 
-	  function _toolByKey(list, key) {
-	    return (list || []).filter(function (c) { return c.k === key; })[0] || (list || [])[0];
-	  }
 	  function _hasValues(obj) {
 	    return !!(obj && Object.keys(obj).some(function (k) { return +obj[k] !== 0; }));
 	  }
-	  function _bgPanelHtml() {
-    var bgcur = d.bgAction || '';
-    var bgColors = ['#ffffff', '#f7f3ee', '#fbeaef', '#fce8d8', '#fdf6c9', '#eaf3fc', '#e7f4ec', '#efe9f7', '#3a322c', '#1f1b18'];
-    // [배경 정리] 개발자식 '누끼/배경제거/배경흐림' → 배경색 아이콘처럼 직관적인 아이콘 칩 한 줄로 통일.
-    //  칩을 누르면 바로 인물 분리 후 적용. 보정은 인물에만 적용(배경은 그대로). 첫 클릭 즉시 처리 상태 노출.
-    var bgOpts = [
-      { act: 'reset',    ic: 'ph-arrow-counter-clockwise', lbl: '원본' },
-      { act: 'removeBg', ic: 'ph-scissors',                lbl: '인물만' },
-      { act: 'blur',     ic: 'ph-drop-half',               lbl: '배경 흐림' },
-      { act: 'image',    ic: 'ph-image-square',            lbl: '내 배경', pick: true }
-    ];
-    var optsHtml = bgOpts.map(function (o) {
-      var on = (o.act === 'reset') ? !d.bgAction : (bgcur === o.act);
-      var attr = o.pick ? 'data-fl-bgpick' : ('data-fl-bg="' + o.act + '"');
-      return '<button type="button" class="ed-bg__opt' + (on ? ' on' : '') + '" ' + attr + (d.bgBusy ? ' disabled' : '') +
-        ' aria-label="' + esc(o.lbl) + '"><span class="ed-bg__opticon"><i class="ph-duotone ' + o.ic + '"></i></span><em>' + esc(o.lbl) + '</em></button>';
-    }).join('');
-    return '<div class="ed-bg">' +
-        '<div class="ed-bg__sublabel">배경 정리</div>' +
-        '<div class="ed-bg__opts">' + optsHtml + '</div>' +
-        (d.customBgName ? '<div class="ed-bg__status">올린 배경: ' + esc(d.customBgName) + '</div>' : '') +
-        '<div class="ed-bg__sublabel">배경 색으로 채우기</div>' +
-        '<div class="ed-bg__colors">' + bgColors.map(function (c) {
-          return '<button type="button" class="ed-bg__color' + (d.bgColor === c ? ' on' : '') + '" data-fl-bgcolor="' + c + '" style="background:' + c + '" aria-label="배경색"' + (d.bgBusy ? ' disabled' : '') + '></button>';
-        }).join('') + '</div>' +
-        '<div class="ed-bg__status' + (d.bgFail ? ' is-fail' : (d.bgBusy ? ' is-busy' : '')) + '" data-fl-bgstatus>' + (d.bgBusy ? '<i class="ph-duotone ph-spinner-gap ed-bg__spin"></i>배경 정리 중… (몇 초 걸려요)' : (d.bgFail ? esc(d.bgFailMsg || '배경 처리에 실패했어요') : (d.bgAction ? '적용됨 — 밝기·보정은 인물에만 적용돼요(배경 그대로)' : '아이콘을 누르면 바로 인물을 분리해요'))) + '</div>' +
-      '</div>';
-	  }
-	  function _toolButtons(ctrls, activeKey, attr) {
-	    return '<div class="ed-tools">' + ctrls.map(function (c) {
-	      return '<div class="ed-tool' + (c.k === activeKey ? ' on' : '') + '" ' + attr + '="' + c.k + '"><span class="ed-circle"><i class="ph-duotone ' + c.ic + '"></i></span>' + c.l + '</div>';
-	    }).join('') + '</div>';
-	  }
 	  // 좌·우 고정 라벨만 있는 슬라이더 row (가운데 숫자/동적문구 없음).
-	  function _labeledRange(lo, hi, min, max, val, attr, key, extraCls) {
-	    return '<div class="ed-slider ed-slider--labeled' + (extraCls ? ' ' + extraCls : '') + '">' +
-	      '<span class="ed-slabel ed-slabel--lo">' + esc(lo) + '</span>' +
-	      '<input type="range" min="' + min + '" max="' + max + '" value="' + val + '" ' + attr + '="' + key + '">' +
-	      '<span class="ed-slabel ed-slabel--hi">' + esc(hi) + '</span></div>';
-	  }
-	  function _mainAdjustHtml() {
-	    var active = d.basicTool || 'brightness';
-	    var buttons = _toolButtons(MAIN_TOOLS, active, 'data-fl-basictool');
-	    if (active === 'background') return buttons + '<div class="ed-panel">' + _bgPanelHtml() + '</div>';
-	    var actObj = _toolByKey(MAIN_TOOLS, active);
-	    var val = (d.adjust && d.adjust[active]) || 0;
-	    return buttons + _labeledRange(actObj.lo || '약하게', actObj.hi || '강하게', -100, 100, val, 'data-fl-range', active);
-	  }
-	  function _beautySlider(ctrls, activeKey) {
-	    var active = activeKey && ctrls.some(function (c) { return c.k === activeKey; }) ? activeKey : ctrls[0].k;
-	    var actObj = _toolByKey(ctrls, active);
-	    var val = (d.beauty && d.beauty[active]) || 0;
-	    return _toolButtons(ctrls, active, 'data-fl-beautytool') +
-	      _labeledRange('자연', '강하게', 0, 100, val, 'data-fl-beautyrange', active, 'ed-slider--beauty');
-	  }
 
   // ── 편집화면: 섹션별 빌더 (버튼 탭 시 해당 섹션만 갱신 → 전체 재렌더/대용량 dataURL 재디코딩 제거) ──
-  function _editPhotoUrls() {
-    var _ep = curEditPhoto();
-    var base = photoUrl(_ep);                          // 현재 작업본(편집 반영)
-    var orig = _ep ? (_ep.dataUrl || base) : base;     // 손대기 전 진짜 원본
-    var url = d.originalPreview ? orig : (d.previewUrl || base);
-    var preview = (d.originalPreview || d.previewUrl) ? 'none' : filterCss(d.adjust);
-    return { url: url, preview: preview };
-  }
   function _editPhotoLabel(p, i) {
     // [#1] 전/후 역할 라벨은 '전후 비교'일 때만 의미 있음 — 일반 게시물에선 그냥 '사진 N'(쓸데없는 전/후/기본 분류 제거).
     if (d.tplPurpose === 'before_after' && p) {
@@ -1070,95 +1115,14 @@
   }
   // [v550] 큰 편집 사진을 좌우로 넘기는 carousel 네비 — 상단 큰 썸네일 rail 대신 컴팩트 dot+카운터+
   //   "이 사진 편집 중" pill + PC 화살표. 실제 전환은 큰 프리뷰 스와이프(_bindSwipe)/화살표/키보드.
-  function _editSwitcherHtml() {
-    var eps = editablePhotos();
-    if (eps.length < 2) return '';
-    var curIdx = (d.editIdx == null) ? 0 : d.editIdx;
-    var dots = eps.map(function (p, i) {
-      return '<button type="button" class="ed-carnav__dot' + (i === curIdx ? ' on' : '') + '" data-fl-editsel="' + i + '" role="tab" aria-selected="' + (i === curIdx) + '" aria-label="' + esc(_editPhotoLabel(p, i)) + '"></button>';
-    }).join('');
-    return '<div class="ed-carnav" role="tablist" aria-label="편집할 사진 전환">' +
-      '<button type="button" class="ed-carnav__arw ed-carnav__arw--prev" data-fl-edswipe="prev" aria-label="이전 사진"' + (curIdx <= 0 ? ' disabled' : '') + '><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>' +
-      '<div class="ed-carnav__mid">' +
-        '<span class="ed-carnav__pill">이 사진 편집 중 · <b>' + esc(_editPhotoLabel(eps[curIdx], curIdx)) + '</b></span>' +
-        '<div class="ed-carnav__dots">' + dots + '</div>' +
-        '<span class="ed-carnav__count">' + (curIdx + 1) + ' / ' + eps.length + '</span>' +
-      '</div>' +
-      '<button type="button" class="ed-carnav__arw ed-carnav__arw--next" data-fl-edswipe="next" aria-label="다음 사진"' + (curIdx >= eps.length - 1 ? ' disabled' : '') + '><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>' +
-    '</div>';
-  }
-  function _editBottomHtml() {
-    return '<div class="ed-bottom">' +
-      '<div class="eb' + (d.undo && d.undo.length ? '' : ' disabled') + '" data-fl-eb="되돌리기"><svg class="eb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a4 4 0 0 1 0 8h-1"/></svg>되돌리기</div>' +
-      '<div class="eb' + (d.redo && d.redo.length ? '' : ' disabled') + '" data-fl-eb="다시실행"><svg class="eb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a4 4 0 0 0 0 8h1"/></svg>다시실행</div>' +
-      // [v560] '비교'·'원본보기' 중복 버튼 통합 — 단일 '원본보기'(비파괴 비교 토글, active 표시).
-      '<div class="eb' + (d.originalPreview ? ' active' : '') + '" data-fl-eb="원본보기"><span class="activebox"><svg class="eb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></span>원본보기</div>' +
-      '<div class="eb" data-fl-eb="초기화"><svg class="eb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.4 2.6L3 8"/><path d="M3 3v5h5"/></svg>초기화</div>' +
-      '</div>';
-  }
   // [T-104 P0] _caret → flow/util.js
   // [v538] '전·후 사진 확인' 인라인 패널 — 토스트 대신, 선택 사진마다 전/후/기본을 바로 재지정.
   //   화면 이동 없이 고급 탭 안에서 완결(CLAUDE.md 인라인 편집 철학). 기존 _setRole/_ROLE_SEG 재사용.
-  function _roleSegInline(role, i) {
-    return '<div class="ed-roles__seg" role="group" aria-label="이 사진 역할 지정">' +
-      _ROLE_SEG.map(function (rl) {
-        return '<button type="button" class="ed-roles__b' + (rl[0] === 'before' ? ' before' : '') + (role === rl[0] ? ' on' : '') + '" data-fl-setrole="' + i + ':' + rl[0] + '">' + rl[1] + '</button>';
-      }).join('') + '</div>';
-  }
-  function _rolesPanelHtml() {
-    var eps = editablePhotos();
-    if (!eps.length) return '<div class="ed-roles-empty">선택된 사진이 없어요. 먼저 사진을 골라 주세요.</div>';
-    return '<div class="ed-roles">' + eps.map(function (p) {
-      var idx = d.photos.indexOf(p);
-      var role = p.role || 'hero';
-      return '<div class="ed-roles__row"><span class="ed-roles__thumb" style="background-image:url(' + esc(_blobDisp(photoUrl(p))) + ')"></span>' + _roleSegInline(role, idx) + '</div>';
-    }).join('') + '<div class="ed-roles__hint">전후 비교 템플릿은 <b>전</b>·<b>후</b>를 각각 1장 이상 지정하세요.</div></div>';
-  }
-  function _advFoldHtml() {
-    var prec = PRECISION_TABS;
-    var ptab = d.editTab && prec.some(function (t) { return t.k === d.editTab; }) ? d.editTab : prec[0].k;
-    var ptabObj = prec.filter(function (t) { return t.k === ptab; })[0];
-    var precBody = '';
-    // [v554] 정밀 조정 항상 펼침 — advOpen 게이트 제거(접기 토글이 없어 false 가 되면 영구 사라지는 함정 방지).
-    {
-      var inner;
-      if (ptab === 'tools') {
-        // [v560] '전·후 사진 확인'(roles)은 '템플릿 선택' 화면으로 이동 — 고급탭엔 자르기만.
-        inner = '<div class="ed-adv">' +
-          '<button type="button" class="ed-adv__btn" data-fl="crop"><i class="ph-duotone ph-crop"></i>자르기</button>' +
-          '</div>';
-      } else {
-        inner = '<div class="ed-adv">' + _beautySlider(ptabObj.controls || [], d.precTool) + '</div>';
-      }
-      var precTabsHtml = '<div class="ed-tabs">' + prec.map(function (t) {
-        return '<div class="ed-tab' + (t.k === ptab ? ' on' : '') + '" data-fl-edtab="' + t.k + '"><i class="ph-duotone ' + t.ic + '"></i>' + t.label + '</div>';
-      }).join('') + '</div>';
-      // [v540] 마스크 보기 — 정밀 조정 안으로 이동. 효과 부위 탭(피부/헤어/눈·눈썹/네일)에서만 노출(고급 제외).
-      // [v561] '직접 칠하기'(수동 마스크) — 자동 인식이 틀리거나 못 잡을 때 원장님이 영역을 직접 칠해 교정.
-      // [v566·scope4] 보정 슬라이더가 먼저, '영역 다듬기(마스크 도구)'는 그 아래 보조 영역으로.
-      var maskPill = (ptab !== 'tools')
-        ? '<div class="ed-masktools">' +
-            '<div class="ed-mask-subhead"><i class="ph-duotone ph-selection-plus" aria-hidden="true"></i>' + esc(ptabObj.label) + ' 영역 다듬기 <span>자동 인식이 어긋날 때만 직접 칠해 교정</span><span class="ed-mask-stat" data-fl-maskbadge hidden></span></div>' +
-            '<div class="ed-maskpill-row">' +
-              '<button type="button" class="ed-maskpill' + (d.maskView && !d.maskPaint ? ' on' : '') + '" data-fl-eb="마스크" aria-pressed="' + (d.maskView && !d.maskPaint ? 'true' : 'false') + '"><i class="ph-duotone ph-stack"></i>마스크 보기</button>' +
-              '<button type="button" class="ed-maskpill' + (d.maskPaint ? ' on' : '') + '" data-fl="maskpaint" aria-pressed="' + (d.maskPaint ? 'true' : 'false') + '"><i class="ph-duotone ph-pencil-simple"></i>직접 칠하기</button>' +
-              (d.maskPaint ? _maskPaintControlsHtml() : '') +
-              '<div class="ed-mask-helper" data-fl-maskhelper hidden></div>' +
-            '</div>' +
-          '</div>'
-        : '';
-      // [v566·scope4] 순서: 탭 → 보정 슬라이더(inner) → 마스크 도구(maskPill).
-      precBody = '<div class="ed-panel">' + precTabsHtml + inner + maskPill + (ptab !== 'tools' ? _photoDebugPanelHtml() : '') + '</div>';
-    }
-    // [v554] 정밀 조정 항상 펼침 — 접기/펼치기 버튼·caret(chevron) 제거(기능 숨김 오해 방지). 정적 헤더만 노출.
-    return '<div class="ed-prec-head"><i class="ph-duotone ph-faders" aria-hidden="true"></i><span>정밀 조정</span></div>' + precBody;
-  }
   // [#3] 템플릿 카드 썸네일 = 고정 예시 뷰티 이미지(번들 자산). 업로드 사진은 절대 카드에 주입하지 않는다.
   //   사용자 사진은 applyTemplate(적용) 단계에서만 실제 캔버스에 렌더된다.
   // [T-104 P1] 템플릿 썸네일 클러스터(_TPL_EX·_tplExample·_collageThumb·_tplThumb·캐시) → flow/thumbs.js (상단 별칭)
   // [v531] purpose ↔ 콘텐츠 유형(cat) 매핑 + 유형별 기본 템플릿 조회(home.js 와 공유 저장소).
   // [T-104 P0] _purposeCat → flow/util.js
-  function _getDefaultTpl(cat) { return (window.WorkspaceDefaultTpl && window.WorkspaceDefaultTpl.get(cat)) || ''; }
   // [v531] 템플릿 적용 상태 — 명확한 배너(결과물 N장) + 결과물 스트립(Pair N 결과) + 해제/바꾸기.
   // [v541] 적용 결과 — 작은 스트립 → 인스타식 큰 4:5 캐러셀(Pair 스와이프). 액션은 active Pair 기준.
   //   스크롤 동기 기계(_carSyncActive/_carItems)와 정합 위해 _displayItems() 동일 소스 사용.
@@ -1171,369 +1135,36 @@
   }
   // [v559] 템플릿 결과를 '큰 preview 와 한 흐름'으로 — 별도 fold 카루셀 대신, 적용 시 항상 보이는 인라인 결과.
   //   활성 pair 의 합성 결과(전+후 한 장)를 크게 + '적용됨' badge + (다중)pair chip + 바꾸기/해제.
-  function _tplAppliedHtml() {
-    if (!d.templateId) return '';
-    var outs = d.templateOutputs || [];
-    if (!outs.length) return '';
-    var isBA = d.tplPurpose === 'before_after';
-    var activeId = _activeOutputPair();
-    var active = null; for (var i = 0; i < outs.length; i++) { if (outs[i].pairId === activeId) { active = outs[i]; break; } }
-    if (!active) active = outs[0];
-    var actIdx = 0; for (var k = 0; k < outs.length; k++) { if (outs[k].pairId === active.pairId) { actIdx = k; break; } }
-    // [v561·항목4] 다중 결과물은 '1번 보기/2번 보기' 텍스트 버튼 대신 좌우 스와이프 + dot + n/N 카운터.
-    var badge = '<div class="tplres__badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
-        '<b>' + (isBA ? '전후 템플릿 적용됨' : '템플릿 적용됨') + '</b>' +
-        (outs.length > 1 ? '<em>' + (actIdx + 1) + ' / ' + outs.length + '</em>' : '') + '</div>';
-    var img = '<div class="tplres__img" data-fl-tplresult style="background-image:url(' + esc(_blobDisp(active.outputUrl)) + ')"></div>';
-    var pairs = outs.length > 1 ? '<div class="tplres__nav" role="tablist" aria-label="결과물 전환 — 좌우로 넘기기">' +
-        '<button type="button" class="tplres__arw" data-fl-pairstep="prev" aria-label="이전 결과물"' + (actIdx <= 0 ? ' disabled' : '') + '><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>' +
-        '<div class="tplres__dots">' + outs.map(function (o, i) {
-          return '<button type="button" class="tplres__dot' + (o.pairId === active.pairId ? ' on' : '') + '" data-fl-pairsel="' + esc(o.pairId) + '" role="tab" aria-selected="' + (o.pairId === active.pairId) + '" aria-label="' + (i + 1) + '번째 결과물"></button>';
-        }).join('') + '</div>' +
-        '<button type="button" class="tplres__arw" data-fl-pairstep="next" aria-label="다음 결과물"' + (actIdx >= outs.length - 1 ? ' disabled' : '') + '><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>' +
-      '</div>' : '';
-    var actions = '<div class="tplres__act">' +
-        '<button type="button" class="tplres__change" data-fl="tplchange-active">템플릿 바꾸기</button>' +   // [v565·scope3] 현재 보고 있는 결과 1장만 교체(전역 일괄 금지)
-        (!isBA ? '<button type="button" class="tplres__edit" data-fl="tpleditactive">문구 수정</button>' : '') +
-        '<button type="button" class="tplres__release" data-fl="tplrelease">해제</button>' +
-      '</div>';
-    return '<div class="tplres">' + badge + img + pairs + actions + '</div>';
-  }
-  function _activeOutputPair() {
-    var outs = d.templateOutputs || [];
-    if (d.activeDisplayId && outs.some(function (o) { return o.pairId === d.activeDisplayId; })) return d.activeDisplayId;
-    return outs[0] ? outs[0].pairId : null;
-  }
   // [v561·항목4] 결과물 전환 후 현재 화면만 부분 재렌더(템플릿 화면이면 그쪽, 아니면 인라인 결과 섹션).
-  function _rerenderTplResult() { if (cur === 'template') _rerenderTemplate(); else _renderTplSection(); }
-  function _stepPair(dir) {
-    var outs = d.templateOutputs || []; if (outs.length < 2) return;
-    var cap = _activeOutputPair();
-    var idx = 0; for (var i = 0; i < outs.length; i++) { if (outs[i].pairId === cap) { idx = i; break; } }
-    var ni = Math.max(0, Math.min(outs.length - 1, idx + dir));
-    if (ni === idx) return;
-    d.activeDisplayId = outs[ni].pairId; _rerenderTplResult();
-  }
   // [v541] 템플릿 섹션 재렌더 + 결과 캐러셀 스와이프 바인딩(전체 재렌더 없이).
-  function _renderTplSection() {
-    _setEditSection('[data-ed-tpl]', _tplFoldHtml());
-    var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
-    raf(function () { _mountCarousel(); });
-  }
   // [v560] 'template' step 전용 재렌더 — 전/후 지정·카테고리 칩·템플릿 적용 결과를 그 화면에서 갱신.
-  function _rerenderTemplate() {
-    var sec = el && el.querySelector('.wsv2flow__s[data-fs="template"]');
-    if (!sec) return;
-    // [v566·scope5] 사진 스트립 가로 스크롤 위치 보존 — 재렌더로 '4번째 보던 사진'이 1번째로 튕기는 문제 차단.
-    var prevStrip = sec.querySelector('[data-fl-tplstrip]');
-    var prevLeft = prevStrip ? prevStrip.scrollLeft : 0;
-    sec.innerHTML = renderTemplate();
-    var nstrip = sec.querySelector('[data-fl-tplstrip]');
-    if (nstrip && prevLeft) nstrip.scrollLeft = prevLeft;
-    var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
-    raf(function () { _mountCarousel(); });
-  }
-  function _tplById(id) { return WORKSPACE_TEMPLATES.filter(function (t) { return t.id === id; })[0] || null; }
   // [v559] 현재 편집 사진의 보정을 전후 템플릿 결과에 반영 — 그 사진이 속한 pair 를 라이브 미리보기(d.previewUrl,
   //   없으면 baked)로 비파괴 재합성(클라 캔버스). 원본 photo 객체는 안 건드리고 templateOutputs 만 갱신 → 결과 인라인 즉시 반영.
-  function _recompositeActivePair() {
-    if (d.tplPurpose !== 'before_after' || !d.templateId) return;
-    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.applyWorkspaceTemplate)) return;
-    var photo = curEditPhoto(); if (!photo) return;
-    var outs = (d.templateOutputs || []).slice(); if (!outs.length) return;
-    var pairs = _computePairs().pairs;
-    var liveUrl = (!d.originalPreview && d.previewUrl) ? d.previewUrl : photoUrl(photo);
-    var jobs = [];
-    outs.forEach(function (o, idx) {
-      if (o.beforePhotoId !== photo.id && o.afterPhotoId !== photo.id) return;
-      var pr = null; for (var i = 0; i < pairs.length; i++) { if (pairs[i].before.id === o.beforePhotoId && pairs[i].after.id === o.afterPhotoId) { pr = pairs[i]; break; } }
-      if (!pr) return;
-      var tplObj = _tplById(o.templateId); if (!tplObj) return;
-      var bef = pr.before.id === photo.id ? Object.assign({}, pr.before, { editedDataUrl: liveUrl }) : pr.before;
-      var aft = pr.after.id === photo.id ? Object.assign({}, pr.after, { editedDataUrl: liveUrl }) : pr.after;
-      jobs.push(window.WorkspaceAdapter.applyWorkspaceTemplate({ template: tplObj, photos: [bef, aft], service: d.service, customerName: d.customerName, caption: d.caption })
-        .then(function (r) { if (r && r.ok && r.dataUrl) outs[idx] = Object.assign({}, o, { outputUrl: r.dataUrl }); }).catch(function () { }));
-    });
-    if (!jobs.length) return;
-    var tok = (d._recTok = (d._recTok || 0) + 1);
-    Promise.all(jobs).then(function () {
-      if (tok !== d._recTok) return;
-      d.templateOutputs = outs;
-      d.templateOutput = (outs[0] && outs[0].outputUrl) || d.templateOutput;
-      _renderTplSection();
-    });
-  }
-  function _tplFoldHtml() {
-    // [v561·항목1] 편집 화면의 '템플릿 꾸미기' 접이식 그리드 제거 — 템플릿 선택은 전용 '템플릿 선택하기'
-    //   화면(하단 CTA)으로 일원화. 편집 화면엔 이미 적용된 결과 미리보기만 인라인으로 둔다(없으면 빈 출력).
-    return _tplAppliedHtml();
-  }
   // [v575·필수8/11] 사진 '아래' slim 도구바 — 사진 위 overlay 전면 제거(사진 안 가림).
   //   확대/축소·화면맞춤·전체화면만. 마스크 보기/직접 칠하기는 정밀 조정 메뉴(ed-maskpill) 1세트로 일원화(여기엔 없음).
-  function _vpToolsHtml() {
-    var z = d.zoom || { s: 1 };
-    var pct = Math.round((z.s || 1) * 100);
-    return '<div class="ed-vptools" data-ed-vptools>' +
-      '<button type="button" class="ed-vpbtn ed-vpbtn--fs" data-fl="edfull" aria-label="' + (d.edFull ? '전체화면 닫기' : '크게 보기') + '"><i class="ph-duotone ph-' + (d.edFull ? 'arrows-in' : 'arrows-out') + '"></i><span>' + (d.edFull ? '닫기' : '크게') + '</span></button>' +
-      '<div class="ed-vpzoom">' +
-        '<button type="button" class="ed-vpbtn ed-vpbtn--ic" data-fl="edzoomout" aria-label="축소">−</button>' +
-        '<button type="button" class="ed-vpbtn ed-vpbtn--pct" data-fl="edzoomfit" aria-label="화면맞춤"><span data-ed-zoompct>' + pct + '%</span></button>' +
-        '<button type="button" class="ed-vpbtn ed-vpbtn--ic" data-fl="edzoomin" aria-label="확대">+</button>' +
-      '</div>' +
-    '</div>';
-  }
-  function _renderVpTools() {
-    var c = el && el.querySelector('[data-fs="edit"] [data-ed-vptools]');
-    if (c) { var tmp = document.createElement('div'); tmp.innerHTML = _vpToolsHtml(); c.replaceWith(tmp.firstChild); }
-  }
-  function _updateZoomPct() {
-    var s = el && el.querySelector('[data-fs="edit"] [data-ed-zoompct]');
-    if (s) s.textContent = Math.round((((d.zoom && d.zoom.s) || 1)) * 100) + '%';
-  }
-  function renderEdit() {
-    d.zoom = { s: 1, tx: 0, ty: 0 };   // 편집화면 새로 그릴 때(진입/사진전환) 줌 초기화
-    var pu = _editPhotoUrls();
-    return '' +
-      '<div class="ed-sec" data-ed-switcher>' + _editSwitcherHtml() + '</div>' +
-      '<div class="ed-photo-vp" data-fl-edvp><div class="ed-photo" data-fl-edphoto style="background-image:url(' + esc(pu.url) + ');filter:' + pu.preview + '"></div><canvas class="ed-mask-ov" data-fl-maskov hidden></canvas></div>' + _vpToolsHtml() +
-      '<div class="ed-sec" data-ed-basic>' + _mainAdjustHtml() + '</div>' +
-      '<div class="ed-sec" data-ed-bottom>' + _editBottomHtml() + '</div>' +
-      '<div class="ed-sec" data-ed-adv>' + _advFoldHtml() + '</div>' +
-      '<div class="ed-sec" data-ed-tpl>' + _tplFoldHtml() + '</div>';
-  }
+  /* [2026-09-04] '내 스타일' 진입점(§17).
+     스타일이 하나도 없으면 **안 보여준다** — 누르면 빈 목록만 나오는 버튼은 없느니만 못하다.
+     지금 이 작업에 걸린 스타일이 있으면 그 이름을 보여준다(뭘 쓰고 있는지 모르면 불안하다). */
+
+
   // 특정 섹션만 교체 (전체 재렌더 회피)
-  function _setEditSection(sel, html) { if (!el) return; var c = el.querySelector('[data-fs="edit"] ' + sel); if (c) c.innerHTML = html; }
-  function _paintEditPhoto() {
-    var p = el && el.querySelector('[data-fs="edit"] [data-fl-edphoto]'); if (!p) return;
-    var pu = _editPhotoUrls();
-    p.style.backgroundImage = 'url(' + pu.url + ')'; p.style.filter = pu.preview;
-    _applyZoomTransform();
-  }
-  function _applyZoomTransform() {
-    var p = el && el.querySelector('[data-fs="edit"] [data-fl-edphoto]'); if (!p) return;
-    var z = d.zoom || { s: 1, tx: 0, ty: 0 };
-    var tf = 'translate(' + z.tx + 'px,' + z.ty + 'px) scale(' + z.s + ')';
-    p.style.transform = tf;
-    var ov = el.querySelector('[data-fs="edit"] [data-fl-maskov]');   // [v539] 마스크 overlay 도 동일 변환
-    if (ov) ov.style.transform = tf;
-    _updateZoomPct();   // [v568·B-1] floating 도구바의 배율 % 갱신
-  }
+
 
   // ── [v542] 보정 디버그 패널 — 개발자모드(__ITDASY_PHOTO_DEBUG__ 또는 ?photoDebug=1)에서만 ──
-  function _photoDebugOn() {
-    try { if (window.__ITDASY_PHOTO_DEBUG__) return true; return /[?&]photoDebug=1/.test(location.search || ''); } catch (_e) { return false; }
-  }
   var _FX_MASK = { skin: 'skinMask', redness: 'skinMask', blemish: 'skinMask(spot)', textureSmooth: 'skinMask', yellowness: 'skinMask', hairDetail: 'hairMask', hairVolume: 'hairMask+경계', hairShine: 'hairMask', hairFull: 'hairW 휴리스틱', hairEndsClean: 'hairMask 외곽띠', browSharp: 'browMask→eyeROI', lashSharp: 'lashMask→eyeROI', eyeRedness: 'scleraMask→eyeW', catchLight: 'eyeMask', irisClear: 'eyeMask', nailGloss: 'nailMask 필수', nailShape: 'nailMask 필수', handSkin: 'handSkinMask 필수' };
   var _FX_MULT = { textureSmooth: 0.72, blemish: 0.8, skin: 1, redness: 1, hairFull: 0.34, hairEndsClean: 0.42, hairDetail: '1/150~300', lashSharp: '1/65~120', browSharp: '1/90~400', nailShape: '1/55~200', catchLight: 0.38 };
-  function _activePrecKey() {
-    var tab = d.editTab || 'skin';
-    var to = PRECISION_TABS.filter(function (t) { return t.k === tab; })[0];
-    if (!to || !to.controls || !to.controls.length) return null;
-    if (d.precTool && to.controls.some(function (c) { return c.k === d.precTool; })) return d.precTool;
-    return to.controls[0].k;
-  }
-  function _activePrecLabel(key) {
-    var tab = d.editTab || 'skin';
-    var to = PRECISION_TABS.filter(function (t) { return t.k === tab; })[0];
-    var c = to && to.controls ? to.controls.filter(function (x) { return x.k === key; })[0] : null;
-    return c ? c.l : key;
-  }
-  function _photoDebugPanelHtml() {
-    if (!_photoDebugOn()) return '';
-    var key = _activePrecKey(); if (!key) return '';
-    var val = (d.beauty && d.beauty[key]) || 0;
-    var last = window.__photofxLast || {};
-    var cov = (typeof d._maskCovPct === 'number' && d._maskCovKey === key) ? (d._maskCovPct + '%') : '— (마스크 보기 ON 시)';
-    var rows = [
-      ['기능', _activePrecLabel(key)],
-      ['uiKey / engineKey', key],
-      ['mask', _FX_MASK[key] || '—'],
-      ['value / norm', val + ' / ' + (val / 100).toFixed(2)],
-      ['mask coverage', cov],
-      ['render', (last.time != null ? last.time + 'ms · ' + (last.path || '?') + ' · ' + last.w + 'x' + last.h + (last.cacheReuse ? ' · cache' : '') : '—')],
-      ['tuningMultiplier', String(_FX_MULT[key] != null ? _FX_MULT[key] : '—')],
-    ];
-    var grid = rows.map(function (r) { return '<div class="ed-fxdebug__r"><span>' + esc(r[0]) + '</span><b>' + esc(String(r[1])) + '</b></div>'; }).join('');
-    return '<div class="ed-fxdebug" data-fl-fxdebug>' +
-        '<div class="ed-fxdebug__hd">보정 디버그 <em>개발자모드</em></div>' + grid +
-        '<div class="ed-fxdebug__btns">' +
-          '<button type="button" data-fl-fxv="0">0 보기</button>' +
-          '<button type="button" data-fl-fxv="50">50 보기</button>' +
-          '<button type="button" data-fl-fxv="100">100 보기</button>' +
-          '<button type="button" data-fl="fxcopy" class="ed-fxdebug__copy">현재값 복사</button>' +
-        '</div>' +
-        '<div class="ed-fxdebug__note">마스크 잘 잡히는데 delta 낮으면 엔진/강도 문제 · coverage 0이면 fallback ROI</div>' +
-      '</div>';
-  }
   // 현재 효과를 다운스케일 샘플에 적용해 마스크 안/밖 delta 실측(현재값 복사용).
   // [v545] 효과별 coverage/delta 판정에 쓰는 '실제 사용 마스크' 키. native useMasks 또는 별도 게터(brow/lash 는 m.*).
   var _FX_MASKKEY = { skin: 'skinMask', redness: 'skinMask', blemish: 'skinMask', textureSmooth: 'skinMask', yellowness: 'skinMask', handSkin: 'handSkinMask', hairDetail: 'hairMask', hairVolume: 'hairMask', hairShine: 'hairMask', hairFull: 'hairMask', hairEndsClean: 'hairMask', browSharp: 'browMask', lashSharp: 'lashMask', eyeRedness: 'scleraMask', catchLight: 'eyeMask', irisClear: 'eyeMask', nailGloss: 'nailMask', nailShape: 'nailMask' };
   // 실제 apply 경로(어댑터 _beautyMasksAsync)와 동일하게 마스크 페치 — getMasksForBeauty + brow/sclera/nail/lash 게터.
-  function _fxFetchMasks(img, beauty, done) {
-    var MA = window.MaskApplication;
-    if (!MA || typeof MA.getMasksForBeauty !== 'function') { done(null); return; }
-    Promise.resolve(MA.getMasksForBeauty(img)).then(function (base) {
-      var m = base ? { useMasks: Object.assign({}, base.useMasks), _scale: Object.assign({}, base._scale), maskW: base.maskW, maskH: base.maskH } : null;
-      function ensure() { return m || (m = { useMasks: {}, _scale: {}, maskW: img.naturalWidth || img.width, maskH: img.naturalHeight || img.height }); }
-      try {
-        if ((beauty.lashSharp || 0) > 0 && MA.getLashMaskSync) { var l = MA.getLashMaskSync(img); if (l) { ensure().lashMask = l.mask; m.lashScale = l.scale; } }
-        if ((beauty.eyeRedness || 0) > 0 && MA.getScleraMaskSync) { var sc = MA.getScleraMaskSync(img); if (sc) { ensure().useMasks.scleraMask = sc.mask; m._scale.scleraMask = sc.scale; } }
-        if ((beauty.browSharp || 0) > 0 && MA.getBrowMaskSync) { var br = MA.getBrowMaskSync(img); if (br) { ensure().browMask = br.mask; m.browScale = br.scale; } }
-        if (((beauty.nailGloss || 0) > 0 || (beauty.nailShape || 0) > 0) && MA.getNailMaskSync) { var nl = MA.getNailMaskSync(img); if (nl) { ensure().useMasks.nailMask = nl.mask; m._scale.nailMask = nl.scale; } }
-        if ((beauty.handSkin || 0) > 0 && MA.getHandSkinMaskSync) { var hs = MA.getHandSkinMaskSync(img); if (hs) { ensure().useMasks.handSkinMask = hs.mask; m._scale.handSkinMask = hs.scale; } }
-      } catch (_e) { void _e; }
-      done(m);
-    }).catch(function () { done(null); });
-  }
-  function _measureFx(key, value, cb) {
-    var photo = curEditPhoto(); if (!photo) { cb(null); return; }
-    var url = photo.editedDataUrl || photo.dataUrl;
-    var img = new Image();
-    img.onload = function () {
-      var MX = 360, iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
-      var s = Math.min(1, MX / Math.max(iw, ih)), w = Math.max(1, Math.round(iw * s)), h = Math.max(1, Math.round(ih * s));
-      var beauty = {}; beauty[key] = value;
-      _fxFetchMasks(img, beauty, function (masks) {
-        try {
-          var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-          var cx = cv.getContext('2d', { willReadFrequently: true }); cx.drawImage(img, 0, 0, w, h);
-          var before = cx.getImageData(0, 0, w, h).data.slice();
-          var t0 = performance.now();
-          // value=0 은 엔진 no-op(coeffs=0) — 측정도 그대로 0 확인.
-          if (window.PhotoEditorBeautyEngine && value !== 0) window.PhotoEditorBeautyEngine.apply(cx, w, h, beauty, false, masks);
-          var ms = Math.round(performance.now() - t0);
-          var after = cx.getImageData(0, 0, w, h).data;
-          var mtype = _FX_MASKKEY[key];
-          var mask = masks ? ((masks.useMasks && masks.useMasks[mtype]) || masks[mtype] || null) : null;   // useMasks 또는 m.browMask/lashMask
-          var mw = masks ? masks.maskW : 0, mh = masks ? masks.maskH : 0;
-          var inS = 0, inN = 0, outS = 0, outN = 0, cov = 0, tot = 0;
-          for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
-            var i = (y * w + x) * 4, dd = Math.abs(after[i] - before[i]) + Math.abs(after[i + 1] - before[i + 1]) + Math.abs(after[i + 2] - before[i + 2]);
-            var inMask = 1;
-            if (mask) { var mx2 = Math.min(mw - 1, (x * mw / w) | 0), my2 = Math.min(mh - 1, (y * mh / h) | 0); var mv = mask[my2 * mw + mx2] || 0; inMask = mv > 0.3 ? 1 : 0; if (mv > 0.3) cov++; tot++; }
-            if (inMask) { inS += dd; inN += 3; } else { outS += dd; outN += 3; }
-          }
-          cb({ target: +(inS / Math.max(1, inN)).toFixed(2), outside: +(outS / Math.max(1, outN)).toFixed(2), coverage: tot ? +(cov / tot * 100).toFixed(1) : null, time: ms, hasMask: !!mask, fallbackUsed: !mask, noop: value === 0 });
-        } catch (_e3) { cb(null); }
-      });
-    };
-    img.onerror = function () { cb(null); };
-    img.src = url;
-  }
   // ── [v539] 마스크 보기 overlay — 현재 정밀 부위가 어디에 인식됐는지 반투명으로 표시 ──
   // [v548] 활성 기능별 마스크 + 스펙 색상(눈=파랑 / 눈썹=초록 / 손=주황 / 네일=핑크). QA 가 ROI 위치를 색으로 확인.
-  function _maskInfoForTab() {
-    var k = _activePrecKey() || '', tab = d.editTab || 'skin';
-    if (k === 'browSharp') return { type: 'browMask', label: '눈썹', tint: [90, 200, 110] };       // 초록
-    if (k === 'lashSharp' || k === 'eyeRedness' || k === 'catchLight' || k === 'irisClear')
-      return { type: k === 'eyeRedness' ? 'scleraMask' : 'eyeMask', label: k === 'eyeRedness' ? '흰자' : '눈', tint: [70, 130, 240] };   // 파랑
-    if (k === 'handSkin') return { type: 'handSkinMask', label: '손 피부', tint: [240, 160, 70] };   // 주황
-    if (k === 'nailGloss' || k === 'nailShape') return { type: 'nailMask', label: '네일', tint: [240, 110, 175] };  // 핑크
-    if (tab === 'hair') return { type: 'hairMask', label: '헤어', tint: [145, 90, 220] };  // 보라
-    if (tab === 'eyes') return { type: 'eyeMask', label: '눈', tint: [70, 130, 240] };
-    if (tab === 'nail') return { type: 'nailMask', label: '네일', tint: [240, 110, 175] };
-    return { type: 'skinMask', label: '피부·얼굴', tint: [236, 120, 150] };   // skin/default
-  }
   // [T-104 P0] _containBlit → flow/util.js
-  function _paintMaskCanvas(vp, mask, mw, mh, info, badge) {
-    var ov = vp.querySelector('[data-fl-maskov]');
-    if (!ov) return;
-    var helper = el && el.querySelector('[data-fs="edit"] [data-fl-maskhelper]');
-    if (!mask || !mw || !mh) {
-      // [v540] 못 찾음 경고를 사진 좌상단(가림)에서 → 정밀 조정 패널 inline helper(부드럽게)로 이동.
-      ov.hidden = true;
-      if (badge) badge.hidden = true;
-      if (helper) { helper.hidden = false; helper.textContent = info.label + ' 영역을 인식하지 못했습니다'; }
-      if (window.__ITDASY_PHOTO_DEBUG__) { try { console.log('[photofx] mask=' + info.type + ' detector-miss coverage=0%'); } catch (_e) { void _e; } }
-      return;
-    }
-    if (helper) helper.hidden = true;
-    // mask(0..1) → tinted ImageData(mw×mh)
-    var tmp = document.createElement('canvas'); tmp.width = mw; tmp.height = mh;
-    var tctx = tmp.getContext('2d'); var idata = tctx.createImageData(mw, mh); var dd = idata.data;
-    var R = info.tint[0], G = info.tint[1], B = info.tint[2], hit = 0, tot = mw * mh;
-    for (var i = 0; i < tot; i++) {
-      var m = mask[i] || 0; if (m > 0.3) hit++;
-      var a = m > 0.04 ? Math.min(0.55, m * 0.6) : 0;
-      var j = i * 4; dd[j] = R; dd[j + 1] = G; dd[j + 2] = B; dd[j + 3] = (a * 255) | 0;
-    }
-    tctx.putImageData(idata, 0, 0);
-    var vw = vp.clientWidth || 1, vh = vp.clientHeight || 1;
-    ov.width = vw; ov.height = vh; ov.hidden = false;
-    var octx = ov.getContext('2d'); octx.clearRect(0, 0, vw, vh);
-    _containBlit(octx, tmp, vw, vh);
-    var cov = Math.round(hit / tot * 1000) / 10;
-    d._maskCovPct = cov; d._maskCovKey = _activePrecKey();   // [v542] 디버그 패널 coverage 표시용
-    if (badge) { badge.hidden = false; badge.textContent = info.label + ' 인식됨 · ' + cov + '%'; }
-    if (window.__ITDASY_PHOTO_DEBUG__) { try { console.log('[photofx] mask=' + info.type + ' coverage=' + cov + '% dims=' + mw + 'x' + mh); } catch (_e) { void _e; } }
-  }
-  function _renderMaskOverlay() {
-    if (d.maskPaint) { _renderPaintOverlay(); return; }   // [v561] 칠하기 모드면 칠한 영역을 표시
-    var vp = el && el.querySelector('[data-fs="edit"] [data-fl-edvp]'); if (!vp) return;
-    var ov = vp.querySelector('[data-fl-maskov]'), badge = el.querySelector('[data-fs="edit"] [data-fl-maskbadge]');
-    var helper0 = el.querySelector('[data-fs="edit"] [data-fl-maskhelper]');
-    if (!d.maskView || d.originalPreview) { if (ov) ov.hidden = true; if (badge) badge.hidden = true; if (helper0) helper0.hidden = true; return; }
-    var photo = curEditPhoto(); if (!photo) return;
-    var MA = window.MaskApplication;
-    var info = _maskInfoForTab();
-    if (badge) { badge.hidden = false; badge.textContent = info.label + ' 인식 중…'; }
-    if (!MA || typeof MA.getDetectorMask !== 'function') { if (badge) badge.textContent = '마스크 모듈을 불러오지 못했어요'; return; }
-    var token = (d._maskTok = (d._maskTok || 0) + 1);
-    var url = photo.editedDataUrl || photo.dataUrl;
-    var img = new Image();
-    img.onload = function () {
-      if (token !== d._maskTok || !d.maskView) return;
-      Promise.resolve(MA.getDetectorMask(img, info.type)).then(function (rr) {
-        if (token !== d._maskTok || !d.maskView) return;
-        var mask = null, mw = 0, mh = 0;
-        if (rr && rr.mask) { mask = rr.mask; mw = img.naturalWidth || img.width; mh = img.naturalHeight || img.height; }
-        _paintMaskCanvas(vp, mask, mw, mh, info, badge);
-      }).catch(function () { _paintMaskCanvas(vp, null, 0, 0, info, badge); });
-    };
-    img.onerror = function () { if (badge) badge.textContent = '사진을 불러오지 못했어요'; };
-    img.src = url;
-  }
 
   // ── [v561] 직접 칠하기(수동 마스크) — 자동 검출이 틀리거나 못 잡을 때 원장님이 영역을 직접 칠해 교정 ──
   //   칠한 영역은 사진 해상도 캔버스(흰색=마스크값)로 누적 → applyWorkspaceCorrections 에 manualMasks 로 전달 →
   //   adapter 가 useMasks[type] 를 덮어써 그 부위에만 보정 적용. 검출 실패(네일 클로즈업 등)도 칠하면 먹힌다.
-  function _maskPaintControlsHtml() {
-    var info = _maskInfoForTab();
-    var br = d.maskBrush || 26;
-    return '<div class="ed-paintctl" data-fl-paintctl>' +
-        '<div class="ed-paintctl__lbl"><b>' + esc(info.label) + '</b> 영역을 칠하면 그 부위에만 보정돼요</div>' +
-        '<div class="ed-paintctl__row">' +
-          '<button type="button" class="ed-paintb' + (!d.maskErase ? ' on' : '') + '" data-fl="paintdraw"><i class="ph-duotone ph-pen"></i>칠하기</button>' +
-          '<button type="button" class="ed-paintb' + (d.maskErase ? ' on' : '') + '" data-fl="painterase"><i class="ph-duotone ph-eraser"></i>지우개</button>' +
-          '<button type="button" class="ed-paintb" data-fl="paintclear"><i class="ph-duotone ph-trash"></i>비우기</button>' +
-        '</div>' +
-        '<label class="ed-paintbrush">붓 <input type="range" min="10" max="64" step="2" value="' + br + '" data-fl-brush aria-label="붓 크기"></label>' +
-      '</div>';
-  }
-  function _maskTypeForPaint() { return _maskInfoForTab().type; }
-  function _photoUid(p) { return p && (p._uid || (p._uid = 'm' + Math.random().toString(36).slice(2, 9))); }
   // 진입 시 현재 편집 사진의 자연 해상도 확보 — paint 캔버스 종횡비를 사진과 일치시켜 좌표 매핑 정합 유지.
-  function _ensurePaintDims(cb) {
-    var photo = curEditPhoto(); if (!photo) { if (cb) cb(); return; }
-    if (photo._natW && photo._natH) { if (cb) cb(); return; }
-    var im = new Image();
-    im.onload = function () { photo._natW = im.naturalWidth || im.width || 1024; photo._natH = im.naturalHeight || im.height || 1024; if (cb) cb(); };
-    im.onerror = function () { photo._natW = 1024; photo._natH = 1024; if (cb) cb(); };
-    im.src = photo.dataUrl || photoUrl(photo);
-  }
-  function _getPaintCanvas(photo, type, create) {
-    if (!photo || !type) return null;
-    var uid = _photoUid(photo);
-    if (!d._paintCv) d._paintCv = {};
-    if (!d._paintCv[uid]) d._paintCv[uid] = {};
-    var cv = d._paintCv[uid][type];
-    if (!cv && create) {
-      var iw = photo._natW || 1024, ih = photo._natH || 1024;
-      cv = document.createElement('canvas'); cv.width = iw; cv.height = ih; cv._inked = false;
-      d._paintCv[uid][type] = cv;
-    }
-    return cv || null;
-  }
   // 현재 편집 사진에서 칠해진(잉크 있는) 모든 부위 캔버스를 { maskType: canvas } 로 반환 — 보정 적용 시 주입.
   function _manualMasksForCurrent() {
     var photo = curEditPhoto(); if (!photo || !photo._uid || !d._paintCv) return null;
@@ -1546,144 +1177,12 @@
     return out;
   }
   // paint 캔버스(흰 알파)를 탭 색으로 tint 해 overlay 에 contain-blit — 칠하는 동안 실시간 피드백.
-  function _renderPaintOverlay() {
-    var vp = el && el.querySelector('[data-fs="edit"] [data-fl-edvp]'); if (!vp) return;
-    var ov = vp.querySelector('[data-fl-maskov]'), badge = el.querySelector('[data-fs="edit"] [data-fl-maskbadge]');
-    var helper0 = el.querySelector('[data-fs="edit"] [data-fl-maskhelper]'); if (!ov) return;
-    if (d.originalPreview) { ov.hidden = true; if (badge) badge.hidden = true; return; }
-    var info = _maskInfoForTab(), photo = curEditPhoto();
-    var cv = _getPaintCanvas(photo, info.type, false);
-    var vw = vp.clientWidth || 1, vh = vp.clientHeight || 1;
-    ov.width = vw; ov.height = vh; ov.hidden = false;
-    var octx = ov.getContext('2d'); octx.clearRect(0, 0, vw, vh);
-    if (cv && cv.width && cv.height) {
-      var tmp = document.createElement('canvas'); tmp.width = cv.width; tmp.height = cv.height;
-      var tctx = tmp.getContext('2d'); tctx.drawImage(cv, 0, 0);
-      tctx.globalCompositeOperation = 'source-in';
-      tctx.fillStyle = 'rgba(' + info.tint[0] + ',' + info.tint[1] + ',' + info.tint[2] + ',0.5)';
-      tctx.fillRect(0, 0, cv.width, cv.height);
-      _containBlit(octx, tmp, vw, vh);
-    }
-    if (helper0) helper0.hidden = true;
-    if (badge) { badge.hidden = false; badge.textContent = info.label + ' 직접 칠하는 중'; }
-  }
   // [v561·항목4] 다중 결과물 큰 이미지 좌우 스와이프 → pair 전환(48px 임계, 수평 우세 시).
-  function _bindTplResultSwipe() {
-    if (!el || el._tplSwBound) return; el._tplSwBound = true;
-    var s = null;
-    el.addEventListener('touchstart', function (e) {
-      var img = e.target.closest && e.target.closest('[data-fl-tplresult]');
-      if (!img || e.touches.length !== 1) { s = null; return; }
-      s = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    }, { passive: true });
-    el.addEventListener('touchend', function (e) {
-      if (!s) return;
-      var t = (e.changedTouches && e.changedTouches[0]) || null; if (!t) { s = null; return; }
-      var dx = t.clientX - s.x, dy = t.clientY - s.y;
-      if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy)) _stepPair(dx < 0 ? 1 : -1);
-      s = null;
-    });
-  }
-  function _bindPaint() {
-    if (!el || el._paintBound) return; el._paintBound = true;
-    // [v565·scope2] 단일 포인터 그리기와 두 손가락 핀치/팬을 명확히 분리.
-    //   pointers/pcount = 현재 화면에 닿은 포인터 수. gestureLock = 핀치가 시작된 후 그리기 봉인 플래그.
-    var drawing = false, last = null, pointers = {}, pcount = 0, gestureLock = false, drawId = null, started = false;
-    function vpEl() { return el.querySelector('[data-fs="edit"] [data-fl-edvp]'); }
-    function geom(vp) {
-      var cv = _getPaintCanvas(curEditPhoto(), _maskTypeForPaint(), true); if (!cv) return null;
-      var iw = cv.width, ih = cv.height, vw = vp.clientWidth || 1, vh = vp.clientHeight || 1;
-      var s = Math.min(vw / iw, vh / ih);
-      return { cv: cv, s: s, dx: (vw - iw * s) / 2, dy: (vh - ih * s) / 2 };
-    }
-    // [v565] 확대(zoom transform) 상태에서도 정확히 칠하도록 — 화면좌표를 줌 역변환(translate+scale, origin=center) 후 캔버스로 매핑.
-    function toImg(e, vp, gm) {
-      var r = vp.getBoundingClientRect();
-      var rx = e.clientX - r.left, ry = e.clientY - r.top;
-      var z = d.zoom || { s: 1, tx: 0, ty: 0 };
-      if (z.s && z.s !== 1) {
-        var cx = (vp.clientWidth || r.width) / 2, cy = (vp.clientHeight || r.height) / 2;
-        rx = (rx - cx - (z.tx || 0)) / z.s + cx;
-        ry = (ry - cy - (z.ty || 0)) / z.s + cy;
-      }
-      return { x: (rx - gm.dx) / gm.s, y: (ry - gm.dy) / gm.s };
-    }
-    function stroke(gm, a, b) {
-      var ctx = gm.cv.getContext('2d'), rad = Math.max(2, ((d.maskBrush || 26) / 2) / gm.s);
-      ctx.globalCompositeOperation = d.maskErase ? 'destination-out' : 'source-over';
-      ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = rad * 2;
-      ctx.strokeStyle = '#fff'; ctx.fillStyle = '#fff';
-      if (a) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
-      ctx.beginPath(); ctx.arc(b.x, b.y, rad, 0, 6.2832); ctx.fill();
-      ctx.globalCompositeOperation = 'source-over';
-      if (!d.maskErase) gm.cv._inked = true;
-    }
-    function stopDraw() { if (!drawing) return; drawing = false; last = null; drawId = null; started = false; if (_hasValues(d.beauty)) _refreshPreview(); }
-    el.addEventListener('pointerdown', function (e) {
-      if (cur !== 'edit' || !d.maskPaint) return;
-      var vp = vpEl(); if (!vp || !vp.contains(e.target)) return;
-      if (!pointers[e.pointerId]) { pointers[e.pointerId] = 1; pcount++; }
-      // [v565] 두 번째 손가락 감지 → 진행 중 stroke 즉시 중단 + 핀치/줌/팬 모드로 잠금(그리기는 _bindZoom 이 아닌 paint 가 봉인).
-      if (pcount >= 2) {
-        if (drawing) stopDraw();   // 아직 첫 잉크 전(started=false)이면 잔점 없이 깨끗이 취소.
-        gestureLock = true;
-        try { if (vp.releasePointerCapture && drawId != null) vp.releasePointerCapture(drawId); } catch (_e0) { void _e0; }
-        return;
-      }
-      if (gestureLock) return;   // [v565] gesture 가 끝나기(모든 손가락 떨어짐) 전엔 단일 포인터라도 그리기 금지.
-      var gm = geom(vp); if (!gm) return;
-      // [v565] 첫 잉크는 pointerdown 이 아니라 '첫 move(또는 단일 탭 시 pointerup)' 에서 — 핀치 시작 잔점 0.
-      drawing = true; drawId = e.pointerId; started = false; last = toImg(e, vp, gm);
-      try { if (vp.setPointerCapture) vp.setPointerCapture(e.pointerId); } catch (_e) { void _e; }
-      e.preventDefault();
-    });
-    el.addEventListener('pointermove', function (e) {
-      if (!drawing || !d.maskPaint || gestureLock || pcount >= 2 || e.pointerId !== drawId) return;
-      var vp = vpEl(); if (!vp) return; var gm = geom(vp); if (!gm) return;
-      var pt = toImg(e, vp, gm);
-      if (!started) { stroke(gm, null, last); started = true; }   // 단일 포인터 확정 후 시작점부터 잉크.
-      stroke(gm, last, pt); last = pt; _renderPaintOverlay(); e.preventDefault();
-    });
-    function up(e) {
-      if (pointers[e.pointerId]) { delete pointers[e.pointerId]; pcount--; if (pcount < 0) pcount = 0; }
-      if (e.pointerId === drawId) {
-        // [v565] 움직임 없이 뗀 '단일 탭'(핀치 아님) 은 점 하나 — 핀치(gestureLock)면 잉크 0.
-        if (drawing && !started && !gestureLock) {
-          var vp = vpEl(), gm = vp && geom(vp);
-          if (gm) { stroke(gm, null, last); _renderPaintOverlay(); }
-        }
-        stopDraw();
-      }
-      if (pcount === 0) gestureLock = false;   // [v565] 모든 손가락이 떨어지면 잠금 해제 → 다음 새 pointerdown 부터 다시 그림.
-    }
-    el.addEventListener('pointerup', up);
-    el.addEventListener('pointercancel', up);
-  }
 
   // [v567·필수3] 뷰포트 크기 변경(브라우저 리사이즈/전체화면/방향전환) 시 마스크 overlay 재투영.
   //   마스크 stroke 는 사진 자연해상도(이미지좌표)로 저장되므로 데이터는 보존되지만, overlay 캔버스
   //   비트맵은 칠한 시점의 vp 크기로 고정돼 있어 리사이즈하면 CSS 가 늘여 위치가 틀어진다(절반→풀스크린 드리프트).
   //   여기서 새 vp 크기로 overlay 를 다시 그려(이미지좌표 → 현재 contain rect 재투영) 위치를 항상 정확히 유지.
-  function _bindEditResize() {
-    if (!el || el._edResizeBound) return; el._edResizeBound = true;
-    var _rt = null;
-    function reproject() {
-      _rt = null;
-      if (cur !== 'edit') return;
-      if (d.maskPaint || d.maskView) _renderMaskOverlay();   // maskPaint 면 내부에서 _renderPaintOverlay 로 분기
-    }
-    function onResize() {
-      if (cur !== 'edit') return;
-      if (_rt) clearTimeout(_rt);
-      _rt = setTimeout(reproject, 120);
-    }
-    window.addEventListener('resize', onResize);
-    window.addEventListener('orientationchange', onResize);
-    if (window.visualViewport && window.visualViewport.addEventListener) {
-      window.visualViewport.addEventListener('resize', onResize);
-    }
-    document.addEventListener('fullscreenchange', onResize);
-  }
 
   function _roleSummary() {
     var r = {};
@@ -1760,6 +1259,13 @@
     if (left > 0) {
       var txt = left >= _WIZ_STEPS.length ? '질문에 먼저 답해주세요' : (left === 1 ? '질문 하나 남았어요' : '질문 ' + left + '개 남았어요');
       return '<button type="button" class="capwiz__cta capwiz__cta--dis" data-fl-cgenlock>' + txt + '</button>';
+    }
+    /* [2026-09-12 ZH] 시술 미선택은 **토스트로만** 막고 있었다 — 질문 3개는 버튼을 잠가서
+       막는데 시술만 달랐다. 버튼이 멀쩡해 보이니 원장은 누르고, 그제서야 거절당한다.
+       라이브 실측(2026-09-12): disabled=false · 라벨 "게시글 만들기" → 클릭 → 토스트 거절.
+       → 같은 방식으로 잠그고 **이유를 버튼에 적는다**(왜 못 가는지 누르기 전에 보이게). */
+    if (!String(d.service || '').trim()) {
+      return '<button type="button" class="capwiz__cta capwiz__cta--dis" data-fl-cgenlock="service">아래에서 시술을 골라주세요</button>';
     }
     var hint = (String(d.service || '').trim() || String(d.specialNote || '').trim())
       ? '<p class="capwiz__ready">우리샵 말투로 더 정확하게 써드려요</p>' : '';
@@ -2032,6 +1538,12 @@
 	    if (!d.caption) {
 	      // [v558] 캡션 UX 리뉴얼 — 시나리오 버튼 제거. 사진 → 시술 문구 입력 → 말투 6칩 → 길이 → 해시태그 토글 → 단일 생성 버튼.
 	      // [ws-hyper] 레이아웃 합성본은 폭 꽉 차는 img로(레터박스 빈 여백 제거).
+	      /* [2026-09-12 ZH] 이 <img> 는 width/height·aspect-ratio 가 없어 **로드 전 높이가 0** 이다.
+	         디코드되는 순간 아래 질문·시술·버튼이 밀린다(실측 606×717: '시술' 앵커 y 333 → 681).
+	         ⚠️ 한 번 `aspect-ratio: 4/5` 로 칸을 예약해 봤다가 **되돌렸다** —
+	         `d.templateOutput` 이 늘 4:5 합성본인 게 아니라 원본 사진(1920×1280 = 1.5:1)일 때도 있어서,
+	         칸만 4:5 로 잡히고 그 아래 300px 빈 흰칸이 남았다. 비율을 **추측하면 더 나빠진다.**
+	         남은 밀림은 보고서에 P3 로 기록한다(수정하려면 templateOutput 의 실제 비율을 알아야 한다). */
 	      var photoThumb = d.templateOutput   /* [버그수정 2026-07-06] 재오픈 초안도 합성본 썸네일 */
 	        ? '<div class="wsl-cap-preview"><img src="' + esc(_blobDisp(d.templateOutput)) + '" alt="미리보기"></div>'
 	        : (_capCarouselHtml() || ((!d.textOnly && url) ?
@@ -2081,8 +1593,10 @@
       // [2026-07-26 원영] 마무리 재구성 — '사진 편집'은 _finishActions 반반 줄로 이동(.cap-edit-btn 폐지),
       //   '재료부터 다시 고르기'(.cap-restart) 삭제. 상단 뒤로가기(←)가 그 역할.
       custLine +
-      _publishBlock() +
-      _finishActions(url);
+      // [2026-08-30 원영] 순서 고정: 미리보기 → 게시물 액션 → 해시태그 → 사진 편집 → 게시 옵션 → 메인 CTA.
+      //   설정 성격(_finishActions)이 주 행동(_publishBlock)보다 위. 주 CTA 아래엔 아무 버튼도 두지 않는다.
+      _finishActions(url) +
+      _publishBlock();
 	  }
 
   /* [시술칩 관리모드 2026-07-20] 관리 모드에서 시술 칩 드래그로 순서 바꾸기 — 포인터 이벤트(모바일 터치 대응,
@@ -2189,7 +1703,10 @@
   function _triggerCaptionGenerate(axes) {
     syncServiceFromDom();
     if (axes) d.captionAxes = axes;
-    if (!String(d.service || '').trim()) { toast('시술 칩을 하나 골라주세요 — 없으면 + 추가로 만들 수 있어요'); return; }
+    /* [2026-09-12 ZH] 예전 문구는 **화면에 없는 것**을 가리켰다("없으면 + 추가로 만들 수 있어요").
+       실측: 시술 줄엔 시술명 칩만 8개, `+ 추가` 는 **관리 모드 안에만** 있고 관리는
+       **업종을 고른 뒤에야** 나타난다 — 토스트가 말하지 않는 3단계다. 실제 경로를 적는다. */
+    if (!String(d.service || '').trim()) { toast('아래 시술에서 하나만 골라주세요 — 없으면 업종을 고른 뒤 관리에서 추가할 수 있어요'); return; }
     // [위저드 선택형] 위에서 아무것도 안 골랐으면 강제 기본값 안 넣고 '고른 시술 그대로만' 생성.
     if (!d.captionAxes) d.captionAxes = {};
     doGenerate({}, null);
@@ -2232,29 +1749,42 @@
 	  // [v584] editable=true 면 카드 안 캡션을 그 자리에서 직접 편집(아래 별도 편집칸 폐지).
 	  function _igPreviewCard(url, editable) {
 	    var ig = window.WorkspaceAdapter && window.WorkspaceAdapter.instagramProfile ? window.WorkspaceAdapter.instagramProfile() : { connected: false };
-	    var handle = ig.connected && ig.handle ? ig.handle : '인스타 미연동';
-	    var name = ig.connected ? (ig.displayName || handle) : '인스타 미연동';
+	    // [2026-08-30 원영] 실제 인스타 피드는 아이디 앞에 @ 를 안 붙인다 — 미리보기니까 똑같이 뗀다(igHandle 은 @ 를 붙인다).
+	    var handle = String((ig.connected && ig.handle) || '').replace(/^@/, '');
+	    var name = ig.connected ? (handle || '인스타') : '인스타 미연동';
+	    // 프사 우선. 없으면 아이디 첫 글자(인스타 기본 아바타 느낌) → 미연동이면 lucide 인스타 아이콘.
 	    var avatar = ig.connected && ig.profilePic
 	      ? '<span class="ig-logo ig-logo--photo" style="background-image:url(' + esc(ig.profilePic) + ')"></span>'
-	      : '<span class="ig-logo ig-logo--empty"><i class="ph-duotone ph-instagram-logo"></i></span>';
+	      : (ig.connected
+	          ? '<span class="ig-logo ig-logo--initial">' + esc((name.charAt(0) || '?').toUpperCase()) + '</span>'
+	          : '<span class="ig-logo ig-logo--empty"><svg width="20" height="20" aria-hidden="true"><use href="#ic-instagram"/></svg></span>');
+	    // [2026-08-30 원영] 사진 저장은 미리보기 카드 우상단 아이콘 버튼으로(인스타 '···' 자리). 인스타 앱에 직접 올릴 때
+	    //   폰 갤러리로 내보내는 유일한 통로라 사진 옆에 붙어 있어야 찾는다.
+	    var saveBtn = (!d.textOnly && url)
+	      ? '<button type="button" class="ig-savebtn" data-fl="saveimg" aria-label="사진을 폰에 저장"><svg width="19" height="19" aria-hidden="true"><use href="#ic-download"/></svg></button>'
+	      : '';
 	    return '<div class="ig-card2">' +
-	        '<div class="ig-head2">' + avatar + '<span class="ig-name2">' + esc(name) + '</span><span class="ig-loc">' + esc(ig.connected ? '샵 인스타' : '연결 필요') + '</span><span class="ig-dots2">···</span></div>' +
+	        '<div class="ig-head2">' + avatar + '<span class="ig-name2">' + esc(name) + '</span>' + (ig.connected ? '' : '<span class="ig-loc">연결 필요</span>') + saveBtn + '</div>' +
 	        _igCarouselHtml(url) +
 	        // [2026-07-26 원영] v589 '카드 액션줄 기능화' 철회 — 목업 안 기능버튼 혼입이 어색("너무 별로").
 	        //   카드는 순수 인스타 미리보기(정적 아이콘)로 복원, 기능 버튼은 카드 아래 _capActionRow 로 분리.
-	        '<div class="ig-act"><div class="ig-ic"><i class="ph-duotone ph-heart"></i><i class="ph-duotone ph-chat-circle"></i><i class="ph-duotone ph-paper-plane-tilt"></i></div>' +
-	        '<div class="ig-save"><i class="ph-duotone ph-bookmark-simple"></i></div></div>' +
+	        // [2026-08-30 원영] Phosphor 듀오톤 → lucide 통일. 아이콘 세트가 섞이면 이 하나만 뭉개져 보인다.
+	        '<div class="ig-act"><div class="ig-ic">' +
+	          '<svg width="22" height="22" aria-hidden="true"><use href="#ic-heart"/></svg>' +
+	          '<svg width="22" height="22" aria-hidden="true"><use href="#ic-message-circle"/></svg>' +
+	          '<svg width="22" height="22" aria-hidden="true"><use href="#ic-send"/></svg>' +
+	        '</div>' +
+	        '<div class="ig-save"><svg width="22" height="22" aria-hidden="true"><use href="#ic-bookmark"/></svg></div></div>' +
 	        /* [2026-07-26 원영] 닉네임 옆이 아니라 아랫줄부터 캡션 시작(미관) — <br> 삽입 */
         '<div class="ig-copy2"><b>' + esc(handle) + '</b><br><span data-fl-igcap' + (editable ? ' class="ig-cap-edit" contenteditable="true" role="textbox" aria-label="게시글 편집" spellcheck="false"' : '') + '>' + esc(d.caption || '') + '</span><br><span class="ig-hash" data-fl-ighash>' + esc((d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ')) + '</span><div class="ig-ago">' + (editable ? '게시글을 눌러 바로 고쳐 쓰기' : '미리보기') + '</div></div>' +
 	      '</div>';
 	  }
-	  // [2026-07-26 원영] 복사·문장만 다시·저장 — 인스타 목업 카드 밖, 카드 바로 아래 텍스트 필 버튼 한 줄.
-  //   data-fl / data-fl-var 속성은 기존 위임 핸들러 그대로 사용(핸들러 수정 없음). 아이콘 없음(텍스트 전용).
+	  // [2026-08-30 원영] 게시물 액션줄 = '복사' 하나.
+  //   · '다시 만들기' 삭제 — 카드 안에서 직접 고쳐 쓸 수 있는데 AI 를 또 부르는 건 API 비용만 나간다.
+  //   · '저장'은 미리보기 카드 우상단 아이콘 버튼(.ig-savebtn)으로 이동 — 사진 옆이 제자리.
   function _capActionRow() {
     return '<div class="cap-actrow">' +
-      '<button type="button" class="cap-actbtn" data-fl="copycap">복사</button>' +
-      '<button type="button" class="cap-actbtn" data-fl-var="regen">문장만 다시</button>' +
-      '<button type="button" class="cap-actbtn" data-fl="saveimg">저장</button>' +
+      '<button type="button" class="cap-actbtn" data-fl="copycap">글 복사하기</button>' +
     '</div>';
   }
   // [작업물 미리보기] 슬롯 대표 썸네일 — home _thumb 과 동일 우선순위(합성결과→단일합성→첫사진).
@@ -2297,7 +1827,7 @@
 	    }).join('');
 	    var add = d._hashAddOpen
 	      ? '<input type="text" class="cap-hashchip cap-hashchip--addin" data-fl-hashaddin maxlength="30" placeholder="#태그 입력 후 Enter" aria-label="해시태그 입력">'
-	      : '<button type="button" class="cap-hashchip cap-hashchip--add" data-fl="hashaddopen"><i class="ph-bold ph-plus"></i> 추가</button>';
+	      : '<button type="button" class="cap-hashchip cap-hashchip--add" data-fl="hashaddopen"><svg width="13" height="13" aria-hidden="true"><use href="#ic-plus"/></svg> 추가</button>';   // [2026-08-30] Phosphor → lucide
 	    return '<label class="cap-field-label cap-hashlbl">해시태그 <span>×로 지우고, 필요하면 추가해요</span></label>' +
 	      '<div class="cap-hashchips">' + chips + add + '</div>';
 	  }
@@ -2313,7 +1843,7 @@
 	    var custLine = d.customerName ?
 	      '<div class="confirmline">연결 손님: <b>' + esc(d.customerName) + '</b>' + (d.customerVc ? ' · ' + d.customerVc + '회 방문' : ' · 첫 방문') + '</div>' : '';
 	    // [v592] 인스타 미리보기 단계 = 최종 카드 + 게시.
-	    return '' + custLine + _igPreviewCard(url, true) + _capActionRow() + _publishBlock() + _finishActions(url);
+	    return '' + custLine + _igPreviewCard(url, true) + _capActionRow() + _finishActions(url) + _publishBlock();
 	  }
 
   // [통합 2026-07-14] 발행 종류 자동 판단 — 원장이 '1장/여러장'을 고르지 않게. 버튼은 하나.
@@ -2346,7 +1876,7 @@
 	    if (connected && _ig.canPublish === false) {
 	      return '<div class="cap-pubnote" style="margin-top:10px;padding:12px;border-radius:12px;background:#fff7ed;color:#9a3412;font-size:12px;line-height:1.6;">' +
 	        '자동 발행은 <b>인스타그램 심사 중</b>이에요. 승인되면 여기 버튼이 자동으로 생겨요.<br>' +
-	        '지금은 아래 <b>복사</b>를 눌러 캡션을 가져간 뒤, 인스타 앱에서 사진과 함께 올려주세요 🙏' +
+	        '지금은 위 <b>복사</b>를 눌러 캡션을 가져간 뒤, 인스타 앱에서 사진과 함께 올려주세요 🙏' +   // [2026-08-30] 복사 버튼은 카드 바로 아래(이 안내문 위)에 있다
 	        '</div>';
 	    }
 	    // [cleanup] 스토리 발행 픽커 제거(2026-07-12) — 진입 버튼(publishstory)이 재설계로 사라져 도달 불가였음. 발행은 피드/여러 장만.
@@ -2359,7 +1889,8 @@
 	      // [2026-07-26 원영] 마무리 재구성 — 발행 블록은 '주 행동 1개'(인스타에 올리기)만.
 	      //   계정태그·예약·사진편집은 _finishActions()/_tagsBlockHtml() 로 이동(버튼 5개 위계 없이 쌓이던 것).
 	      return '<div class="cap-pubrow" style="margin-top:10px">' +
-	        '<button type="button" class="cap-preview cap-preview--send" style="width:100%" data-fl="publish"' + (d._publishing ? ' disabled' : '') + '>' + (d._publishing ? '<i class="ph-duotone ph-spinner"></i>올리는 중…' : '<i class="ph-duotone ph-paper-plane-tilt"></i>인스타에 올리기' + (_n > 1 ? ' (' + _n + '장)' : '')) + '</button>' +
+	        // [2026-08-30 원영] 메인 CTA 는 이 화면에서 딱 하나 — 텍스트 전용(아이콘 없음), 로즈 단색.
+        '<button type="button" class="cap-preview cap-preview--send" style="width:100%" data-fl="publish"' + (d._publishing ? ' disabled' : '') + '>' + (d._publishing ? '올리는 중…' : '인스타에 바로 올리기' + (_n > 1 ? ' (' + _n + '장)' : '')) + '</button>' +
 	      '</div>' +
 	      // [통합 2026-07-14] '여러 장으로 올리기' 별도 버튼 제거 — 위 버튼 하나가 _publishKind() 로 알아서 캐러셀 발행.
       (_multi ? '<div class="cap-pubnote">선택한 ' + _n + '장이 여러 장 게시물로 올라가요</div>' : '');
@@ -2371,27 +1902,44 @@
         '<button type="button" class="pink" data-fl="igconnect">인스타 연결</button>' +
       '</div></div>';
   }
-  // [2026-07-26 원영] 계정 태그 블록 — _publishBlock 에서 분리(위계 정리). markup 은 v776/닫기 추가분 그대로.
+  // [2026-08-30 원영] 계정 태그 블록 — '게시 옵션' 아코디언 안에만 산다. 열고 닫는 토글(tagsopen/tagsclose) 폐지:
+  //   패널 자체가 접힘이라 안에서 또 접는 건 이중 토글. 안 쓰면 비워두면 그만.
   function _tagsBlockHtml() {
     var _multi = _publishKind() === 'carousel';
     var _tagVal = (d.igUserTags || []).map(function (u) { return '@' + u; }).join(', ');
-    return (d._tagsOpen || _tagVal)
-      ? '<div class="cap-usertags"><div style="display:flex;align-items:center;gap:8px">' +
-          '<input type="text" data-fl-usertags placeholder="@아이디 (쉼표로 여러 명)" value="' + esc(_tagVal) + '" style="flex:1;min-width:0">' +
-          '<button type="button" data-fl="tagsclose" aria-label="계정 태그 접기" style="flex:none;background:none;border:none;padding:4px;font-size:12px;font-weight:700;color:#a89aa0;cursor:pointer">안 달래요 <i class="ph-bold ph-x" style="vertical-align:-2px"></i></button>' +
+    return '<div class="cap-optfield">' +
+        '<div class="cap-optfield__lbl">다른 계정 태그</div>' +
+        '<div class="cap-usertags">' +
+          '<input type="text" data-fl-usertags placeholder="@아이디 (쉼표로 여러 명)" value="' + esc(_tagVal) + '" style="width:100%;box-sizing:border-box">' +
+          (_multi ? '<div class="cap-tagnote">여러 장은 첫 번째 사진(커버)에만 태그가 붙어요</div>' : '') +
         '</div>' +
-        (_multi ? '<div class="cap-tagnote">여러 장은 첫 번째 사진(커버)에만 태그가 붙어요</div>' : '') + '</div>'
-      : '<button type="button" class="cap-tagtoggle" data-fl="tagsopen">사진에 다른 계정 태그 달기 (선택)</button>';
+      '</div>';
   }
-  // [2026-07-26 원영] 마무리 보조 액션 스택 — 주 버튼 아래 반반 [사진 편집][예약해서 올리기](간격 통일),
-  //   그 아래 계정 태그(작은 텍스트). '재료부터 다시 고르기'는 삭제 — 상단 뒤로가기(←)가 그 역할.
+  // [2026-08-30 원영] 설정 성격 액션 = 얇은 회색 줄 2개(주 CTA 위). 로즈 반반 버튼(.cap-halfrow/.cap-halfbtn) 폐지 —
+  //   보조 기능이 주 버튼과 같은 색·무게라 위계가 없었다. '사진 편집'과 '게시 옵션'은 성격이 달라 절대 한 줄로 합치지 않는다.
+  //   게시 옵션은 화면 이동 없이 그 자리에서 펼쳐지는 아코디언(d._pubOptOpen) — 예약 + 계정 태그를 한 곳에 모은다.
+  //   아이콘은 lucide 스프라이트만 — Phosphor 듀오톤(ph-*)은 결이 달라 이 앱에서 이물감이 난다.
+  function _setRow(act, icon, title, sub, open) {
+    return '<button type="button" class="cap-setrow' + (open ? ' is-open' : '') + '" data-fl="' + act + '"' + (open ? ' aria-expanded="true"' : '') + '>' +
+        '<svg class="cap-setrow__ic" width="18" height="18" aria-hidden="true"><use href="#' + icon + '"/></svg>' +
+        '<span class="cap-setrow__t">' + esc(title) + '</span>' +
+        '<span class="cap-setrow__sub">' + esc(sub) + '</span>' +
+        '<svg class="cap-setrow__chev" width="16" height="16" aria-hidden="true"><use href="#ic-chevron-right"/></svg>' +
+      '</button>';
+  }
   function _finishActions(url) {
     var connected = window.WorkspaceAdapter ? window.WorkspaceAdapter.instagram().connected : false;
-    var eBtn = (!d.textOnly && url) ? '<button type="button" class="cap-halfbtn" data-fl="storyedit"><i class="ph-duotone ph-magic-wand"></i> 사진 편집</button>' : '';
-    var sBtn = connected ? '<button type="button" class="cap-halfbtn" data-fl="' + (d._schedOpen ? 'schedclose' : 'schedopen') + '"><i class="ph-duotone ph-clock"></i> 예약해서 올리기</button>' : '';
-    return ((eBtn || sBtn) ? '<div class="cap-halfrow">' + eBtn + sBtn + '</div>' : '') +
-      (connected && d._schedOpen ? _schedHtml() : '') +
-      (connected ? _tagsBlockHtml() : '');
+    var rows = '';
+    /* [2026-09-12 ZH] 부제가 편집기의 **주력 도구를 하나도 말하지 않았다** — 실제 오른쪽 레일은
+       글자(T)·보정·스티커·누끼·그리기인데 부제는 "필터 · 자르기 · 밝기 · 대비" 였다.
+       "사진에 글자 넣고 싶다" 는 원장이 이 줄을 알아볼 단서가 없다(persona A: 사진 관련 줄이
+       이것 하나뿐이라 '찍어서' 들어갔다고 기록). 화면·동선은 그대로 두고 부제만 사실과 맞춘다. */
+    if (!d.textOnly && url) rows += _setRow('storyedit', 'ic-wand-sparkles', '사진 편집', '글자 · 스티커 · 밝기 · 자르기', false);
+    if (connected) {
+      rows += _setRow('pubopt', 'ic-calendar-check', '게시 옵션', '예약해서 올리기 · 다른 계정 태그', !!d._pubOptOpen);
+      if (d._pubOptOpen) rows += '<div class="cap-optpanel">' + _schedHtml() + _tagsBlockHtml() + '</div>';
+    }
+    return rows ? '<div class="cap-setrows">' + rows + '</div>' : '';
   }
 
   // [v779] 예약 발행 — 기본 접힘, '예약하기' 누르면 datetime 입력. 스타일 inline(CSS 캐시 안전).
@@ -2404,23 +1952,19 @@
     } catch (_e) { return ''; }
   }
   function _schedHtml() {
-    // [2026-07-26 원영] 접힘 상태 버튼은 _finishActions 의 반반 줄로 이동 — 여기선 열린 패널만 렌더.
-    if (!d._schedOpen) return '';
+    // [2026-08-30 원영] '게시 옵션' 아코디언 안의 첫 칸 — 별도 펼침 토글(schedopen/schedclose) 없음.
+    //   로즈 틴트 제거: 이 화면의 로즈는 진행바와 메인 CTA 뿐. 예약 확정 버튼은 진회색(주 CTA와 경쟁 금지).
     // [2026-07-22 보스] 여러 장이면 몇 장이 예약되는지 미리 말한다 — 예약은 나중에 올라가서
     //   잘못 나가도 그 자리에서 못 알아챈다. 장수는 발행과 같은 규칙(_scheduleImages)으로 센다.
     var _sn = _scheduleImages().length;
     var _snNote = _sn >= 2
-      ? '<div style="font-size:11.5px;font-weight:600;color:#a89aa0;margin:-4px 0 8px">사진 ' + _sn + '장이 여러 장 게시물로 올라가요</div>'
+      ? '<div class="cap-optnote">사진 ' + _sn + '장이 여러 장 게시물로 올라가요</div>'
       : '';
-    // [2026-07-26 원영] 닫기 추가 — 예전엔 펼치기만 있고 되돌리기가 없어 예약 안 할 건데도 패널을 못 닫았다.
-    return '<div style="margin-top:8px;padding:12px;border:1px solid rgba(213,138,149,.28);border-radius:14px;background:rgba(213,138,149,.05)">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
-          '<div style="font-size:12.5px;font-weight:700;color:#8a7a80">언제 올릴까요?</div>' +
-          '<button type="button" data-fl="schedclose" aria-label="예약 접기" style="background:none;border:none;padding:2px 4px;font-size:12px;font-weight:700;color:#a89aa0;cursor:pointer">그냥 바로 올릴래요 <i class="ph-bold ph-x" style="vertical-align:-2px"></i></button>' +
-        '</div>' +
+    return '<div class="cap-optfield">' +
+        '<div class="cap-optfield__lbl">예약해서 올리기</div>' +
         _snNote +
-        '<input type="datetime-local" data-fl-schedat value="' + esc(d._schedVal || _schedDefault()) + '" style="width:100%;height:42px;border:1px solid #E9EBEE;border-radius:10px;padding:0 10px;font-size:14px;box-sizing:border-box;margin-bottom:8px">' +
-        '<button type="button" data-fl="schedule"' + (d._scheduling ? ' disabled' : '') + ' style="width:100%;height:46px;border:none;border-radius:12px;background:#d58a95;color:#fff;font-size:14.5px;font-weight:800;cursor:pointer">' + (d._scheduling ? '예약 중…' : '이 시간에 예약') + '</button>' +
+        '<input type="datetime-local" data-fl-schedat value="' + esc(d._schedVal || _schedDefault()) + '" class="cap-optinput">' +
+        '<button type="button" class="cap-optbtn" data-fl="schedule"' + (d._scheduling ? ' disabled' : '') + '>' + (d._scheduling ? '예약 중…' : '이 시간에 예약') + '</button>' +
       '</div>';
   }
   function _fmtSchedTime(dt) {
@@ -2478,7 +2022,8 @@
   // [T-104 P2] 레이아웃 화면 클러스터(renderLayout·_ws*·_fillLayoutText) → flow/layout.js (context 주입)
   var _WSL = (window.WSFlowLayout && window.WSFlowLayout.create) ? window.WSFlowLayout.create({
     d: function () { return d; }, cur: function () { return cur; }, el: function () { return el; },
-    setScreen: setScreen, editablePhotos: editablePhotos, photoUrl: photoUrl, cleanBase: _cleanBase
+    setScreen: setScreen, editablePhotos: editablePhotos, photoUrl: photoUrl, cleanBase: _cleanBase,
+    reassignRoles: function () { return reassignRoles(); }   // [2026-09-03] 레이아웃 화면 사진 빼기/되돌리기 후 전·후 재배치
   }) : {};
   // [S4] dellayout·layoutpick·trayph·savelayout·skiplayout 는 layout.handleClick 로 이관 → 여기선 render/mount/편집상태/텍스트주입만 별칭.
   var renderLayout = _WSL.renderLayout, _wsMountStage = _WSL._wsMountStage,
@@ -2517,7 +2062,7 @@
     if (_WSL.hasReviewCard && _WSL.hasReviewCard() && window.WorkspaceLayout) return _WSL.composeCards();
   }
   // 편집 전환 전: 현재 보정을 굽고(bake) 다음 단계.
-  function _exitEdit() { return bakeEdit(); }
+
   // [ws-hyper] 레이아웃 전환 전: 조정된 focal/zoom 으로 최종 이미지 합성 후 다음 단계.
   // [T-116] 카드(=올라갈 사진)마다 한 번씩 구워 templateOutputs 배열로. 레이아웃 없는 카드는 사진 그대로.
   function _exitLayout() {
@@ -2537,8 +2082,6 @@
   var STEP_FX = {
     upload:   { render: renderUpload,   onExit: _exitUpload },
     layout:   { render: renderLayout,   onEnter: function () { _wsMountStage(); }, onExit: _exitLayout, handle: _WSL.handleClick },
-    edit:     { render: renderEdit,     onEnter: function () { _warmEditMasks(); _rafFx(function () { _mountCarousel(); }); }, onExit: _exitEdit },
-    template: { render: renderTemplate, onEnter: function () { _rafFx(function () { _mountCarousel(); }); } },
     caption:  { render: renderCaption,  onEnter: function () { _mountCaption(); }, onExit: _exitCaption, onBack: _backCaption },
     connect:  { render: renderConnect,  onEnter: function () { loadRecent(); }, handle: _WSC.handleClick },
     preview:  { render: renderPreview,  onEnter: function () { _rafFx(function () { _mountCaption(); }); } },
@@ -2552,15 +2095,6 @@
 
   // [이슈9] 편집 진입 시 현재 편집 사진의 부위 마스크/모델을 미리 워밍업(사진별 1회).
   //   슬라이더를 만지기 전에 sclera/brow/eyelash 마스크가 캐시에 차도록 → 헤어볼륨/눈썹/눈가가 실제로 적용됨.
-  function _warmEditMasks() {
-    try {
-      var p = curEditPhoto(); if (!p) return;
-      var src = p.editedDataUrl || p.dataUrl; if (!src) return;
-      d._warmed = d._warmed || {};
-      if (d._warmed[p.id]) return; d._warmed[p.id] = true;
-      if (window.WorkspaceAdapter && window.WorkspaceAdapter.warmMasks) window.WorkspaceAdapter.warmMasks(src);
-    } catch (_e) { /* 워밍업 실패는 무해 — 휴리스틱 폴백 유지 */ }
-  }
 
   /* ── 라우팅 ── */
   function setScreen(name, opts) {
@@ -2596,12 +2130,8 @@
     el.querySelectorAll('.wsv2flow__progress .pg-seg').forEach(function (sg, i) { sg.classList.toggle('done', i <= vis); });
     var bar = el.querySelector('.wsv2flow__actionbar'), cta = el.querySelector('[data-fl="cta"]');
     if (CTA[name]) { bar.classList.remove('hidden'); cta.textContent = CTA[name].l; } else bar.classList.add('hidden');
-    // [v560] 편집 화면에서만 CTA 2분할(좌:저장하고 게시글 쓰기 / 우:템플릿 선택하기). 그 외엔 단일.
-    var cta2 = el.querySelector('[data-fl="cta2"]');
-    if (cta2) {
-      if (name === 'edit') { cta2.classList.remove('hidden'); cta2.textContent = '템플릿 선택하기'; cta.classList.add('wsv2flow__cta--half'); cta2.classList.add('wsv2flow__cta--half'); }
-      else { cta2.classList.add('hidden'); cta.classList.remove('wsv2flow__cta--half'); }
-    }
+    // [2026-08-30 원영] ghost 스텝(캡션)은 하단 CTA 를 약한 회색으로 — 화면 안 로즈 주 CTA 와 경쟁시키지 않는다.
+    cta.classList.toggle('wsv2flow__cta--ghost', !!(CTA[name] && CTA[name].ghost));
     // [캡션] 생성 트리거는 아래 '시나리오 칩(상황 선택)' 하나로 통일.
     //  생성 전(결과 없음)엔 하단 CTA 숨김 → 칩을 눌러 생성. 생성 후 '고객 연결로' 노출.
     if (name === 'caption' && !String(d.caption || '').trim()) bar.classList.add('hidden');
@@ -2888,7 +2418,8 @@
       if (a === 'cta') { return onCta(); }
       // [S4] 레이아웃 화면 전용(dellayout·layoutpick·trayph·savelayout·skiplayout)은 layout.handleClick 로 이관 — 아래 스텝 위임에서 처리됨.
       // [v560] 편집 화면 우측 CTA — 현재 보정 굽고 '템플릿 선택' 화면으로.
-      if (a === 'cta2') { return bakeEdit().then(function () { setScreen('template'); }); }
+      /* [2026-09-04] '내 스타일' — 시트를 연다. 시트가 apply 하면 이 작업에만 걸리고,
+         다음에 편집기를 열 때 `_buildShopStyleLayers` 가 그 스타일을 집는다. */
       // [refactor S4] 스텝 전용 클릭 핸들러 위임 — 현재 스텝(STEP_FX[cur])이 처리하면 종료. 스텝 제거 시 핸들러도 함께 제거(고아 방지).
       //   버튼이 해당 스텝 화면(render)에서만 렌더되는 '스텝 전용'만 이관(공유 핸들러는 아래 인라인 유지).
       var _fx4 = STEP_FX[cur]; if (_fx4 && _fx4.handle && _fx4.handle(t, a, e) === true) return;
@@ -2900,86 +2431,26 @@
       // [2026-07-28 원영 2번·A안] 업로드 화면에서 '사진 없이 글만 쓰기' — textOnly 모드로 캡션 직행.
       //   기존 textOnly 진입(open({textOnly:true}))과 같은 상태, 단 navStack push 로 back=업로드 복귀.
       if (a === 'textonly') { d.textOnly = true; return setScreen('caption'); }
-      if (a === 'tagsopen') { d._tagsOpen = true; return setScreen(cur, { push: false }); }   // [v776] 계정 태그 펼치기
-      // [2026-07-26 원영] 계정 태그 접기 — 값이 있으면 자동 펼침 조건(_tagVal) 때문에 값도 같이 비워야 닫힌다.
-      if (a === 'tagsclose') { d._tagsOpen = false; d.igUserTags = []; return setScreen(cur, { push: false }); }
-      if (a === 'crop') { return openCropFlow(); }
+      // [2026-08-30 원영] 게시 옵션 아코디언 — 예약·계정 태그를 한 자리에서. 화면 이동 없음.
+      //   tagsopen/tagsclose/schedopen/schedclose 4개 토글은 이 하나로 흡수(고아 핸들러 제거).
+      if (a === 'pubopt') { flushCaptionInputs(); d._pubOptOpen = !d._pubOptOpen; return setScreen(cur, { push: false }); }
       // [v568·B-1] 전체화면 편집 — body 클래스로 .ed-photo-vp 를 화면 가득. ESC/버튼으로 닫기. 토글 후 마스크 재투영.
-      if (a === 'edfull') {
-        d.edFull = !d.edFull;
-        try { document.body.classList.toggle('itd-edit-fs', !!d.edFull); } catch (_ef) { void _ef; }
-        _renderVpTools();
-        setTimeout(function () { if (d.maskPaint || d.maskView) _renderMaskOverlay(); _applyZoomTransform(); }, 60);
-        return;
-      }
-      if (a === 'edzoomfit') { d.zoom = { s: 1, tx: 0, ty: 0 }; _applyZoomTransform(); return; }
-      if (a === 'edzoomin') { d.zoom = d.zoom || { s: 1, tx: 0, ty: 0 }; d.zoom.s = Math.min(4, (d.zoom.s || 1) + 0.5); _applyZoomTransform(); return; }
-      if (a === 'edzoomout') { d.zoom = d.zoom || { s: 1, tx: 0, ty: 0 }; d.zoom.s = Math.max(1, (d.zoom.s || 1) - 0.5); if (d.zoom.s === 1) { d.zoom.tx = 0; d.zoom.ty = 0; } _applyZoomTransform(); return; }
       // [refactor S5] 'roles' 핸들러 제거 — data-fl="roles" 렌더러 없음(전·후 확인은 템플릿 화면으로 이동, data-fl-setrole 사용). 도달 불가.
       // [v561] 직접 칠하기(수동 마스크) — 자동 인식이 틀릴 때 원장님이 부위를 직접 칠해 교정.
-      if (a === 'maskpaint') {
-        d.maskPaint = !d.maskPaint;
-        if (d.maskPaint) { d.maskView = false; d.maskErase = false; }
-        _setEditSection('[data-ed-adv]', _advFoldHtml()); _renderVpTools();
-        if (d.maskPaint) { _ensurePaintDims(function () { _renderPaintOverlay(); }); toast(_maskInfoForTab().label + ' 영역을 칠해 교정하세요'); }
-        else { _renderMaskOverlay(); }
-        return;
-      }
-      if (a === 'paintdraw') { d.maskErase = false; _setEditSection('[data-ed-adv]', _advFoldHtml()); _renderVpTools(); return; }
-      if (a === 'painterase') { d.maskErase = true; _setEditSection('[data-ed-adv]', _advFoldHtml()); _renderVpTools(); return; }
-      if (a === 'paintclear') {
-        var _pc = _getPaintCanvas(curEditPhoto(), _maskTypeForPaint(), false);
-        if (_pc) { _pc.getContext('2d').clearRect(0, 0, _pc.width, _pc.height); _pc._inked = false; }
-        _renderPaintOverlay(); if (_hasValues(d.beauty)) _refreshPreview();
-        toast('칠한 영역을 비웠어요'); return;
-      }
-      if (a === 'tplrelease') { return releaseTemplate(); }
       // [refactor S5] 'applydefault'('기본 템플릿 적용하기') 핸들러 제거 — data-fl="applydefault" 렌더러 없음. 도달 불가한 고아.
-      var setdef = t.closest('[data-fl-setdefault]'); if (setdef) {
-        // [v531] '기본으로 설정' — 이 템플릿을 해당 유형 기본으로 저장(localStorage, 홈 카드/적용에 반영).
-        var _sk = setdef.getAttribute('data-fl-setdefault'); var _st = _tplByKey(_sk); if (!_st) return;
-        var _ok = window.WorkspaceDefaultTpl && window.WorkspaceDefaultTpl.set(_purposeCat(_st.purpose), _st.id);
-        toast(_ok ? (_st.label + '을(를) 기본 템플릿으로 설정했어요') : '기본 템플릿 저장에 실패했어요');
-        _renderTplSection();
-        return;
-      }
       // [refactor S5] 'tplchange'('전체 바꾸기') 핸들러 제거 — data-fl="tplchange" 렌더러 없음(현행 UI는 data-fl="tplchange-active"). 도달 불가.
       // [v532] 짝별 '템플릿 바꾸기' — 이 짝만 타깃으로 잡고 갤러리 오픈. 다음 카드 선택은 이 짝만 교체.
-      var tplpair = t.closest('[data-fl-tplpair]'); if (tplpair) {
-        d.tplTargetPair = tplpair.getAttribute('data-fl-tplpair');
-        var _outs0 = d.templateOutputs || [];
-        var _idx0 = -1; for (var _pi = 0; _pi < _outs0.length; _pi++) { if (_outs0[_pi].pairId === d.tplTargetPair) { _idx0 = _pi; break; } }
-        d.tplOpen = true; _renderTplSection();
-        var grid2 = el.querySelector('[data-ed-tpl] .tpl-grid2'); if (grid2 && grid2.scrollIntoView) grid2.scrollIntoView({ block: 'center' });
-        toast('이 디자인을 고르면 Pair ' + (_idx0 >= 0 ? _idx0 + 1 : '') + ' 결과만 바뀌어요 (다른 짝은 그대로)');
-        return;
-      }
       // [v534] 짝별 '템플릿 수정' — 텍스트 레이어 편집 시트 오픈(이 짝만 반영).
-      var tpledit = t.closest('[data-fl-tpledit]'); if (tpledit) { return _openTplEdit(tpledit.getAttribute('data-fl-tpledit')); }
-      if (a === 'tpleditactive') { return _openTplEdit(d.activeDisplayId || (d.templateOutputs && d.templateOutputs[0] && d.templateOutputs[0].pairId)); }
       // [v541] 결과 캐러셀 — 현재 보고 있는 Pair 기준 '템플릿 바꾸기'/'템플릿 수정'(기존 짝별 로직 재사용).
-      if (a === 'tplchange-active') {
-        var _apc = _activeOutputPair(); if (!_apc) { toast('바꿀 결과물을 찾지 못했어요'); return; }
-        d.tplTargetPair = _apc;
-        var _ocs = d.templateOutputs || []; var _ci = -1; for (var _cj = 0; _cj < _ocs.length; _cj++) { if (_ocs[_cj].pairId === _apc) { _ci = _cj; break; } }
-        d.tplOpen = true; _renderTplSection();
-        var _g = el.querySelector('[data-ed-tpl] .tpl-grid2'); if (_g && _g.scrollIntoView) _g.scrollIntoView({ block: 'center' });
-        toast('이 디자인을 고르면 Pair ' + (_ci >= 0 ? _ci + 1 : '') + ' 결과만 바뀌어요 (다른 짝은 그대로)');
-        return;
-      }
-      if (a === 'tpledit-active') { var _ape = _activeOutputPair(); if (!_ape) { toast('수정할 결과물을 찾지 못했어요'); return; } return _openTplEdit(_ape); }
       // [요청7 2026-07-13] feedplan 액션 제거 — 인플로우 '피드 정렬해보기'(현작업만) 폐지. 피드 정렬은 작업실 홈 진입으로 이관.
       // [통합 2026-07-14] 버튼 하나 → 장수에 따라 feed/carousel 자동. (publishcarousel 은 레거시 경로로 유지)
       if (a === 'publish') { return publish(_publishKind()); }
-      // [v779] 예약 발행 — '지금 말고 예약'을 펼치고, 시간 골라 예약.
-      if (a === 'schedopen') { d._schedOpen = true; return setScreen('caption', { push: false }); }
-      // [2026-07-26 원영] 예약 패널 닫기 — 열기만 있고 닫기가 없어 되돌릴 수 없었다.
-      if (a === 'schedclose') { d._schedOpen = false; return setScreen('caption', { push: false }); }
+      // [v779] 예약 발행 — 펼침 토글은 'pubopt'(게시 옵션 아코디언)이 겸한다. 여기선 확정만.
       if (a === 'schedule') { return _doSchedule(); }
       // [cleanup] publishstory/storypick/storypickcancel 제거 — 진입 버튼 없어 도달 불가였던 스토리 발행 세트. 발행은 피드/여러 장(carousel)만.
-      if (a === 'publishcarousel') { return publish('carousel'); }
       if (a === 'copycap') { flushCaptionInputs(); window.WorkspaceAdapter && window.WorkspaceAdapter.copyText((d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '')); _markPrepared(); return; }   // [#6] copyText 가 이미 토스트 → 중복 토스트 제거(두 개 쌓여 ~5초 떠있던 문제)
-      // [v547] 저장 후 게시 확인 sheet
+      // [2026-08-30 원영] 사진 저장 — 버튼은 미리보기 카드 우상단(.ig-savebtn)으로 옮겼고 동작은 그대로.
+      //   '나중에 이어서하기'(__save)는 잇데이 안에 초안을 남기는 것이고, 이건 폰 갤러리로 파일을 빼는 것 — 다른 기능이다.
       // [출시감사 2026-08-01 P0] 예전엔 saveImage 결과를 **안 기다리고** 곧바로
       //   _markPrepared()+_askPublishedSheet() 를 불렀다. 저장이 실패해도(네이티브에서
       //   `<a download>` 는 data URL 을 저장 못 한다) "게시했나요?" 가 떠서 원장님은
@@ -2989,9 +2460,7 @@
       if (a === 'saveimg') {
         if (!window.WorkspaceAdapter) return;
         Promise.resolve(window.WorkspaceAdapter.saveImage(outputUrl(), d.service || 'itdasy'))
-          .then(function (r) {
-            if (r && r.ok) { _markPrepared(); _askPublishedSheet(); }
-          })
+          .then(function (r) { if (r && r.ok) { _markPrepared(); _askPublishedSheet(); } })
           .catch(function () { /* saveImage 가 토스트로 이미 알린다 */ });
         return;
       }
@@ -3000,8 +2469,24 @@
       if (a === 'igconnect') { window.WorkspaceAdapter && window.WorkspaceAdapter.connectInstagram(); return; }
 
       if (t.closest('[data-fl-pick]')) { el.querySelector('[data-fl-file]').click(); return; }
-      var del = t.closest('[data-fl-del]'); if (del) { e.stopPropagation(); d.photos.splice(+del.getAttribute('data-fl-del'), 1); reassignRoles(); setScreen('upload'); return; }
-      var roleBtn = t.closest('[data-fl-setrole]'); if (roleBtn) { e.stopPropagation(); var _pr = roleBtn.getAttribute('data-fl-setrole').split(':'); _setRole(+_pr[0], _pr[1]); if (cur === 'template') _rerenderTemplate(); else if (d.rolesOpen) _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
+      /* [2026-09-03] 사진 삭제는 **되돌릴 수 있어야** 한다. 26px 짜리 휴지통이 선택 토글 타일 바로 위에 있어
+         오탭이 잦은데(실측), 예전엔 splice 한 번으로 원본이 영영 사라졌다(파일 선택 다시 하는 수밖에). */
+      var del = t.closest('[data-fl-del]'); if (del) {
+        e.stopPropagation();
+        var _di = +del.getAttribute('data-fl-del');
+        if (d.photos[_di]) d._lyUndo = { photo: d.photos[_di], at: _di };
+        d.photos.splice(_di, 1); reassignRoles();
+        // 사진이 바뀌면 이미 구운 합성 결과물은 그 사진을 담고 있으니 무효화(지운 사진이 그대로 발행되는 것 방지).
+        d.templateOutput = null; d.templateOutputs = []; d.templateOutputId = null; d.activeDisplayId = null; d.previewUrl = null;
+        setScreen('upload'); return;
+      }
+      if (t.closest('[data-fl-upundo]')) {
+        e.stopPropagation();
+        var _u = d._lyUndo;
+        if (_u && _u.photo) { d.photos.splice(Math.min(_u.at, d.photos.length), 0, _u.photo); d._lyUndo = null; reassignRoles(); setScreen('upload'); }
+        return;
+      }
+            var roleBtn = t.closest('[data-fl-setrole]'); if (roleBtn) { e.stopPropagation(); var _pr = roleBtn.getAttribute('data-fl-setrole').split(':'); _setRole(+_pr[0], _pr[1]); return; }
       // [#18] 게시 크기 세그먼트 — 저장 후 세그 on 상태만 토글(전체 재렌더 없이).
       var fmtBtn = t.closest('[data-fl-format]'); if (fmtBtn) {
         e.stopPropagation();
@@ -3016,79 +2501,17 @@
       if (t.closest('[data-fl-edphoto]')) { return; }
       // [perf] 버튼 탭은 해당 섹션만 갱신 — 전체 편집화면(템플릿 6칸 대용량 dataURL) 재생성 안 함.
       // [v554] 'adv'(정밀 조정) 토글 분기 제거 — 항상 펼침이라 접기 동작 없음. bg/tpl 토글은 유지.
-      var fold = t.closest('[data-fl-fold]'); if (fold) { var fk = fold.getAttribute('data-fl-fold'); if (fk === 'bg') { d.bgOpen = !d.bgOpen; _setEditSection('[data-ed-basic]', _mainAdjustHtml()); } else if (fk === 'tpl') { d.tplOpen = !d.tplOpen; _renderTplSection(); } return; }
-      var edsel = t.closest('[data-fl-editsel]'); if (edsel) { return switchEditPhoto(+edsel.getAttribute('data-fl-editsel')); }
-      var edswipe = t.closest('[data-fl-edswipe]'); if (edswipe) { return _stepEditPhoto(edswipe.getAttribute('data-fl-edswipe') === 'next' ? 1 : -1); }   // [v550] PC 화살표
-	      var basictool = t.closest('[data-fl-basictool]'); if (basictool) { d.basicTool = basictool.getAttribute('data-fl-basictool'); _setEditSection('[data-ed-basic]', _mainAdjustHtml()); return; }
-	      var edtab = t.closest('[data-fl-edtab]'); if (edtab) { d.editTab = edtab.getAttribute('data-fl-edtab'); _setEditSection('[data-ed-adv]', _advFoldHtml()); _renderVpTools(); if (d.maskView || d.maskPaint) _renderMaskOverlay(); return; }
-	      var beautytool = t.closest('[data-fl-beautytool]'); if (beautytool) { d.precTool = beautytool.getAttribute('data-fl-beautytool'); _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
-      if (t.closest('[data-fl-bgpick]')) { el.querySelector('[data-fl-bgfile]').click(); return; }
-      var bgb = t.closest('[data-fl-bg]'); if (bgb) { return applyBg(bgb.getAttribute('data-fl-bg')); }
-      var bgc = t.closest('[data-fl-bgcolor]'); if (bgc) { d.bgColor = bgc.getAttribute('data-fl-bgcolor'); return applyBg('color'); }
-      var eb = t.closest('[data-fl-eb]'); if (eb) { return _editBottom(eb.getAttribute('data-fl-eb')); }
       // [refactor S4] 고객 선택(data-fl-cust) 핸들러는 connect.handleClick 로 이관 — 위 스텝 전용 위임에서 처리됨.
       // [v568·B-5] 사진 캐러셀 화살표 / 점 — 한 칸씩 또는 지정 사진으로 스크롤(스냅).
-      var tplnav = t.closest('[data-fl-tplnav]'); if (tplnav) { _tplScrollBy(+tplnav.getAttribute('data-fl-tplnav')); return; }
-      var tpldot = t.closest('[data-fl-tpldot]'); if (tpldot) { _tplScrollTo(+tpldot.getAttribute('data-fl-tpldot')); return; }
-      var tplpick = t.closest('[data-fl-tplpick]'); if (tplpick) { _pickTplRole(tplpick.getAttribute('data-fl-tplpick')); return; }   // [v562·항목3] 클릭순 전/후
-      var tplchip = t.closest('[data-fl-tplchip]'); if (tplchip) { d.tplCat = tplchip.textContent.trim(); if (cur === 'template') _rerenderTemplate(); else _renderTplSection(); return; }
 	      // [v542] 보정 디버그 — 0/50/100 즉시 적용(실제 프리뷰) + 현재값 복사
-	      var fxv = t.closest('[data-fl-fxv]'); if (fxv) {
-	        var _fk = _activePrecKey(); if (!_fk) return;
-	        var _fv = +fxv.getAttribute('data-fl-fxv'); d.beauty[_fk] = _fv;
-	        var _inp = el.querySelector('[data-ed-adv] [data-fl-beautyrange="' + _fk + '"]'); if (_inp) _inp.value = _fv;
-	        _setEditSection('[data-ed-adv]', _advFoldHtml()); _refreshPreview();
-	        if (d.maskView) _renderMaskOverlay();
-	        return;
-	      }
-	      if (a === 'fxcopy') {
-	        var _ck = _activePrecKey(); if (!_ck) return;
-	        var _cv = (d.beauty && d.beauty[_ck]) || 0;
-	        // [v545] 실제 슬라이더 value 로 측정(0 포함) — 과거 _cv||50 버그로 0/50 동일 delta 찍히던 것 수정.
-	        _measureFx(_ck, _cv, function (m) {
-	          var log = 'effect=' + _ck + '\nuiKey=' + _ck + '\nengineKey=' + _ck + '\nmask=' + (_FX_MASK[_ck] || '-') +
-	            '\nmaskType=' + (m ? (m.hasMask ? 'native' : 'fallback') : '-') + '\nfallbackUsed=' + (m ? m.fallbackUsed : '-') +
-	            '\ncoverage=' + (m && m.coverage != null ? m.coverage : '-') +
-	            '\nvalue=' + _cv + '\nnorm=' + (_cv / 100).toFixed(2) + '\nnoop=' + (m ? m.noop : (_cv === 0)) +
-	            '\ntargetDelta=' + (m ? m.target : '-') + '\noutsideDelta=' + (m ? m.outside : '-') +
-	            '\ntime=' + (m ? m.time : (window.__photofxLast || {}).time || '-') + 'ms' +
-	            '\ntuningMultiplier=' + (_FX_MULT[_ck] != null ? _FX_MULT[_ck] : '-') +
-	            '\nhasMask=' + (m ? m.hasMask : '-') + '\nbuild=' + (window.APP_BUILD || '-');
-	          try { console.log('[photofx:copy]\n' + log); } catch (_e) { void _e; }
-	          try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(log); } catch (_e2) { void _e2; }
-	          toast('현재값을 복사했어요 (콘솔에도 출력)');
-	        });
-	        return;
-	      }
 	      // [v541] 확대 미리보기 시트 액션
 	      if (t.closest('[data-fl-tppclose]')) { return _closeTplPreview(); }
-	      var tppApply = t.closest('[data-fl-tppapply]'); if (tppApply) { _closeTplPreview(); return applyTemplate(tppApply.getAttribute('data-fl-tppapply')); }
-	      var tppDef = t.closest('[data-fl-tppdef]'); if (tppDef) {
-	        var _dk = tppDef.getAttribute('data-fl-tppdef'); var _dt = _tplByKey(_dk); if (!_dt) return;
-	        var _dok = window.WorkspaceDefaultTpl && window.WorkspaceDefaultTpl.set(_purposeCat(_dt.purpose), _dt.id);
-	        toast(_dok ? (_dt.label + '을(를) 기본 템플릿으로 설정했어요') : '기본 템플릿 저장에 실패했어요');
-	        _renderTplSection(); _closeTplPreview(); return;
-	      }
-	      var tpl = t.closest('[data-fl-tpl]'); if (tpl) {
-	        if (_lpAt && Date.now() - _lpAt < 700) return;
-	        var _tk0 = tpl.getAttribute('data-fl-tpl');
-	        // [v565·scope3] 이미 결과물이 있는 상태에서 카드 재선택 = '현재 active 결과 1장만' 교체.
-	        //   타깃 미지정 + 전후 다중 결과면 active pair 로 한정(초기 적용은 결과물이 없어 전체에 적용됨).
-	        var _tko = _tplByKey(_tk0);
-	        if (!d.tplTargetPair && _tko && _tko.purpose === 'before_after'
-	            && d.tplPurpose === 'before_after' && d.templateOutputs && d.templateOutputs.length) {
-	          d.tplTargetPair = _activeOutputPair();
-	        }
-	        return applyTemplate(_tk0);
-	      }
       // [다중pair] 캡션 결과물 캐러셀 — 좌우 화살표/dot 으로 active 결과물 전환(부분 갱신).
       // [v564·필수3] 템플릿 결과 카드 ↔ 원본 전/후 2장 토글
       var tplexp = t.closest('[data-fl-tplexpand]'); if (tplexp) { _togglePairExpand(tplexp.getAttribute('data-fl-tplexpand'), true); return; }
       var tplcol = t.closest('[data-fl-tplcollapse]'); if (tplcol) { _togglePairExpand(tplcol.getAttribute('data-fl-tplcollapse'), false); return; }
       var cardot = t.closest('[data-fl-cardot]'); if (cardot) { return _carSet(cardot.getAttribute('data-fl-cardot')); }
       // [v559] 인라인 결과 pair chip — 활성 pair 전환 후 결과 섹션만 갱신(별도 carousel 스크롤 없음).
-      var psel = t.closest('[data-fl-pairsel]'); if (psel) { d.activeDisplayId = psel.getAttribute('data-fl-pairsel'); _rerenderTplResult(); return; }
-      var pstep = t.closest('[data-fl-pairstep]'); if (pstep) { _stepPair(pstep.getAttribute('data-fl-pairstep') === 'next' ? 1 : -1); return; }
       // [v532] 추천 해시태그 칩 제거 — 해시태그 토글 핸들러도 함께 삭제(편집은 textarea 직접 입력으로 일원화).
       var csi = t.closest('[data-fl-cshopinfo]'); if (csi) { try { localStorage.setItem('itdasy:caption_shopinfo', _shopInfoOn() ? '0' : '1'); } catch (_e) { void _e; } toast(_shopInfoOn() ? '샵정보를 글 끝에 넣을게요' : '샵정보 반영을 껐어요'); setScreen('caption'); return; }   // [#19] 샵정보 opt-in 토글
       // [캡션재설계 v2] 3질문 한 화면 — 칩 탭 = 그 축 저장/재탭 해제(스텝 넘김 없음). 특이사항 입력은 유지(syncServiceFromDom).
@@ -3161,39 +2584,26 @@
       if (a === 'hashaddopen') { d._hashAddOpen = true; return setScreen('caption', { push: false }); }
       var cg = t.closest('[data-fl-cgen]'); if (cg) { return _triggerCaptionGenerate(null); }
       // [아코디언] 잠긴 생성 버튼 탭 = 안내 + 첫 미답변 질문 펼치기
-      var cgl = t.closest('[data-fl-cgenlock]'); if (cgl) { syncServiceFromDom(); d._wizOpen = null; toast('질문에 먼저 답해주세요'); setScreen('caption'); return; }
-      // [C4] 재생성 버튼: data-fl-var="regen|short|long"
-      var vv = t.closest('[data-fl-var]'); if (vv) {
-        var vk = vv.getAttribute('data-fl-var');
-	        if (vk === 'short') { return doGenerate({ length_tier: 'short', caption_intent: 'rewrite', _regen: true }, '짧게 다시 생성했어요'); }
-	        if (vk === 'long')  { var _nl = (d.capLen === 'long' || d.capLen === 'max') ? 'max' : 'long'; return doGenerate({ length_tier: _nl, caption_intent: 'longer', _regen: true }, _nl === 'max' ? '아주 길게 다시 생성했어요' : '길게 다시 생성했어요'); }
-	        /* [2026-07-26 원영] 'reset'(재료부터 다시 고르기) 제거 — 버튼 삭제(뒤로가기가 대체). 잇비 명령 쪽 reset(cmd.variant)은 별도 유지. */
-	        /* [v532] 'hashtags'(더 가져오기) 케이스 제거 — 추천 칩/더가져오기 UI 삭제로 더 이상 트리거 없음. */
-	        // [v532] '인스타 톤' = 백엔드 tone_override enum 의 'ornate'(풍부·SNS 감성)로 매핑. 기존 'instagram' 은 enum(plain/normal/ornate)에 없어 422 → '캡션 생성 실패' 의 직접 원인.
-		        if (vk === 'insta') { return doGenerate({ tone_override: 'ornate', caption_intent: 'instagram', _regen: true }, '인스타 톤으로 다시 생성했어요'); }
-	        return doGenerate({ caption_intent: 'rewrite', _regen: true }, '문장만 새로 썼어요');
-	      }
+      var cgl = t.closest('[data-fl-cgenlock]'); if (cgl) {
+        syncServiceFromDom();
+        /* [2026-09-12 ZH] 잠금 사유를 구분한다 — 시술 미선택인데 '질문에 먼저 답해주세요' 가
+           뜨면(질문은 이미 다 답했는데) 원장은 더 헷갈린다. 시술 줄로 데려간다. */
+        if (cgl.getAttribute('data-fl-cgenlock') === 'service') {
+          toast('아래 시술에서 하나만 골라주세요');
+          try { var _sv = el.querySelector('.cap-svctags') || el.querySelector('.cap-svctags__hint'); if (_sv && _sv.scrollIntoView) _sv.scrollIntoView({ block: 'center' }); } catch (_es) { void _es; }
+          return;
+        }
+        d._wizOpen = null; toast('질문에 먼저 답해주세요'); setScreen('caption'); return;
+      }
+      /* [2026-08-30 원영] data-fl-var(재생성 regen/short/long/insta) 위임 통째 제거 — 마지막 렌더러였던
+         '피드글 다시 만들기' 버튼을 지우면서 도달 불가가 됐다. 캡션은 카드 안에서 직접 고쳐 쓰고,
+         AI 재호출은 비용만 든다. 잇비 명령 쪽 재생성(cmd.variant → doGenerate)은 별도 경로라 그대로 산다. */
     });
     el.querySelector('[data-fl-file]').addEventListener('change', function (e) {
       var files = Array.from(e.target.files || []); e.target.value = '';
       if (!files.length) return;
 	      addFiles(files, true);
 	    });
-    el.querySelector('[data-fl-bgfile]').addEventListener('change', function (e) {
-      var f = (e.target.files || [])[0]; e.target.value = '';
-      if (!f) return;
-      // [보안감사 M-10 2026-07-26] 본문 사진과 동일하게 HEIC 변환 + 리사이즈 경유.
-      //   예전엔 원본 File 을 그대로 readAsDataURL 해서 아이폰 HEIC 배경이 깨지고, 초대형 원본이
-      //   수 MB dataURL 로 상태·슬롯에 저장됐다.
-      var _rs = (typeof window._resizeIfNeeded === 'function') ? window._resizeIfNeeded(f, 1920) : Promise.resolve(f);
-      Promise.resolve(_rs).catch(function () { return f; }).then(function (small) {
-        if (!small) { toast('배경 이미지를 불러오지 못했어요'); return; }
-        var r = new FileReader();
-        r.onload = function () { d.customBg = r.result; d.customBgName = f.name || '내 배경'; applyBg('image'); };
-        r.onerror = function () { toast('배경 이미지를 불러오지 못했어요'); };
-        r.readAsDataURL(small);
-      });
-    });
 	    el.addEventListener('input', function (e) {
 	      if (e.target.matches('[data-fl-usertags]')) {   // [계정 태그] @아이디 파싱 → d.igUserTags
 	        d.igUserTags = String(e.target.value || '').split(/[,\s]+/).map(function (s) { return s.replace(/^@/, '').trim(); }).filter(Boolean).slice(0, 20);
@@ -3224,33 +2634,12 @@
       }
       if (e.target.matches('[data-fl-custsearch]')) { d.custQuery = e.target.value; }
     });
-    el.addEventListener('focusin', function (e) {
-      // 보정·정밀 슬라이더 모두 한 스냅샷(adjust+beauty)으로 묶어 되돌리기/다시실행 일원화.
-      if (e.target.matches('[data-fl-range],[data-fl-beautyrange]')) { if (!d._editPrev) d._editPrev = _snapEdit(); }
-	    });
-    el.addEventListener('change', function (e) {
-      if (e.target.matches('[data-fl-range],[data-fl-beautyrange]')) {
-        if (d._editPrev) { d.undo = d.undo || []; d.undo.push(d._editPrev); if (d.undo.length > 30) d.undo.shift(); d.redo = []; d._editPrev = null; }
-	        // 손 뗄 때 한 번만 실픽셀 확정 + 되돌리기/다시실행 버튼 상태 갱신(전체 재렌더 없이).
-	        _refreshPreview();
-	        _syncEbState();
-	        // [v559] 전후 템플릿 적용 중이면 보정 결과를 합성 결과에도 반영(디바운스 — _refreshPreview 가 previewUrl 채운 뒤 재합성).
-	        if (d.templateId && d.tplPurpose === 'before_after') { if (d._recDeb) clearTimeout(d._recDeb); d._recDeb = setTimeout(_recompositeActivePair, 450); }
-	      }
-	    });
-    _bindZoom();
-    _bindPaint();   // [v561] 직접 칠하기(수동 마스크) 포인터 바인딩
-    _bindEditResize();   // [v567] 리사이즈/전체화면 시 마스크 overlay 재투영(이미지좌표 보존)
-    _bindTplResultSwipe();   // [v561·항목4] 다중 결과물 좌우 스와이프
-    _bindTplLongPress();   // [v541] 템플릿 썸네일 long press 확대 미리보기
     _bindTplCarousel();   // [v568·B-5] 사진 캐러셀 PC 드래그 + 점 활성 동기화
   }
 
   // [v568·B-5] 사진 캐러셀 — 한 칸(슬라이드 폭)씩 스크롤 / 지정 인덱스로 이동 / 점 활성 동기화.
   function _tplStripEl() { return el && el.querySelector('[data-fs="template"] [data-fl-tplstrip], [data-fs="edit"] [data-fl-tplstrip]'); }
   function _tplSlideStep(strip) { var sl = strip.querySelector('.tpls-slide'); return sl ? (sl.getBoundingClientRect().width + 10) : strip.clientWidth; }
-  function _tplScrollBy(dir) { var s = _tplStripEl(); if (!s) return; var left = s.scrollLeft + dir * _tplSlideStep(s); if (s.scrollTo) s.scrollTo({ left: left, behavior: 'smooth' }); else s.scrollLeft = left; }
-  function _tplScrollTo(i) { var s = _tplStripEl(); if (!s) return; var left = i * _tplSlideStep(s); if (s.scrollTo) s.scrollTo({ left: left, behavior: 'smooth' }); else s.scrollLeft = left; }
   function _tplSyncDots() {
     var s = _tplStripEl(); if (!s) return;
     var dots = el.querySelectorAll('[data-fl-tpldots] .tpls-dot'); if (!dots.length) return;
@@ -3280,192 +2669,17 @@
   // [v541] 템플릿 썸네일 long press(500ms) → 확대 미리보기. short tap → 기존 선택/적용(아래 click 가드).
   //   _lpAt = long press 발화 시각. 직후 click(적용)만 700ms 창으로 억제 → 자동 만료라 '다음 정상 탭'은 안 먹힘.
   var _lpAt = 0;
-  function _bindTplLongPress() {
-    if (!el || el._tplLpBound) return; el._tplLpBound = true;
-    var timer = null, sx = 0, sy = 0, key = null;
-    var clear = function () { if (timer) { clearTimeout(timer); timer = null; } key = null; };
-    el.addEventListener('pointerdown', function (e) {
-      var it = e.target.closest && e.target.closest('[data-fl-tpl]');
-      if (!it || cur !== 'edit') return;
-      key = it.getAttribute('data-fl-tpl'); sx = e.clientX; sy = e.clientY;
-      timer = setTimeout(function () { timer = null; _lpAt = Date.now(); if (key) _openTplPreview(key); }, 500);
-    });
-    el.addEventListener('pointermove', function (e) {
-      if (timer && (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10)) clear();   // 스크롤/드래그 → long press 취소
-    });
-    el.addEventListener('pointerup', clear);
-    el.addEventListener('pointercancel', clear);
-  }
-  function _tplPreviewSampleCard(tpl) {
-    // 업로드 사진이 아닌 '샘플' 템플릿 미리보기(_tplThumb = 사진 미주입 플레이스홀더 렌더).
-    return '<div class="tpl-preview__card" style="background-image:url(' + esc(_blobDisp(_tplThumb(tpl))) + ')"></div>';
-  }
-  function _openTplPreview(key) {
-    var tpl = _tplByKey(key); if (!tpl) return;
-    _closeTplPreview();
-    var isDef = _getDefaultTpl(_purposeCat(tpl.purpose)) === tpl.id;
-    var wrap = document.createElement('div');
-    wrap.className = 'tpl-preview'; wrap.setAttribute('data-fl-tplpreview', '');
-    wrap.innerHTML =
-      '<div class="tpl-preview__backdrop" data-fl-tppclose></div>' +
-      '<div class="tpl-preview__sheet" role="dialog" aria-label="' + esc(tpl.label) + ' 미리보기">' +
-        '<div class="tpl-preview__grip"></div>' +
-        _tplPreviewSampleCard(tpl) +
-        '<div class="tpl-preview__name"><b>' + esc(tpl.label) + '</b><span>' + esc(tpl.use) + '</span></div>' +
-        '<div class="tpl-preview__btns">' +
-          '<button type="button" class="tpl-preview__apply" data-fl-tppapply="' + esc(key) + '">적용하기</button>' +
-          '<button type="button" class="tpl-preview__def' + (isDef ? ' on' : '') + '" data-fl-tppdef="' + esc(key) + '">' + (isDef ? '기본 템플릿' : '기본으로 설정') + '</button>' +
-          '<button type="button" class="tpl-preview__close" data-fl-tppclose>닫기</button>' +
-        '</div>' +
-      '</div>';
-    (el || document.body).appendChild(wrap);
-    var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
-    raf(function () { wrap.classList.add('open'); });
-  }
   function _closeTplPreview() {
     var w = el && el.querySelector('[data-fl-tplpreview]');
     if (w && w.parentNode) w.parentNode.removeChild(w);
   }
   // 편집 사진 핀치 줌(2손가락) + 1손가락 팬(확대 시) + 더블탭 확대/축소. 뷰포트(.ed-photo-vp) 내부 클립.
   // [v550] 편집 사진 좌우 전환 — 스와이프/화살표/키보드 공용. 굽기(bakeEdit) 포함된 switchEditPhoto 재사용.
-  function _stepEditPhoto(dir) {
-    var n = editablePhotos().length; if (n < 2) return;
-    var cur0 = (d.editIdx == null) ? 0 : d.editIdx;
-    var nx = cur0 + dir; if (nx < 0 || nx >= n) return;   // 끝에서는 더 안 넘김(루프 없음)
-    switchEditPhoto(nx);
-  }
-  function _bindZoom() {
-    if (!el || el._zoomBound) return; el._zoomBound = true;
-    var g = null, lastTap = 0, sw = null;
-    function inVp(t) { return t && t.closest && t.closest('[data-fl-edvp]'); }
-    el.addEventListener('touchstart', function (e) {
-      if (cur !== 'edit' || !inVp(e.target)) return;
-      if (!d.zoom) d.zoom = { s: 1, tx: 0, ty: 0 };
-      // [v565] 두 손가락 = 확대/이동(pinch+pan). 칠하기 모드에서도 허용 → 확대해서 작은 부위 정밀 마스크.
-      if (e.touches.length >= 2) {
-        var dx = e.touches[0].clientX - e.touches[1].clientX, dy = e.touches[0].clientY - e.touches[1].clientY;
-        g = { mode: 'pinch', dist: Math.hypot(dx, dy) || 1, s0: d.zoom.s,
-              mx: (e.touches[0].clientX + e.touches[1].clientX) / 2, my: (e.touches[0].clientY + e.touches[1].clientY) / 2,
-              tx0: d.zoom.tx, ty0: d.zoom.ty }; sw = null; e.preventDefault();
-        return;
-      }
-      // [v565] 칠하기 모드의 단일 포인터는 paint 핸들러가 담당 — 줌/스와이프/팬 금지(칠하기 우선).
-      if (d.maskPaint) return;
-      if (e.touches.length === 1 && d.zoom.s > 1) {
-        g = { mode: 'pan', x: e.touches[0].clientX, y: e.touches[0].clientY, tx0: d.zoom.tx, ty0: d.zoom.ty }; sw = null; e.preventDefault();
-      } else if (e.touches.length === 1 && d.zoom.s <= 1 && editablePhotos().length > 1) {
-        sw = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() };   // [v550] 줌 아닐 때만 좌우 스와이프 후보
-      }
-    }, { passive: false });
-    el.addEventListener('touchmove', function (e) {
-      // [v565·scope1] 스와이프는 sw 만 세팅(g 는 null) → '!g' 로 막지 않는다. 핀치는 칠하기 모드에서도 처리.
-      if (cur !== 'edit' || !d.zoom) return;
-      if (g && g.mode === 'pinch' && e.touches.length >= 2) {
-        var dx = e.touches[0].clientX - e.touches[1].clientX, dy = e.touches[0].clientY - e.touches[1].clientY;
-        var nmx = (e.touches[0].clientX + e.touches[1].clientX) / 2, nmy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-        d.zoom.s = Math.max(1, Math.min(4, g.s0 * (Math.hypot(dx, dy) / g.dist)));
-        if (d.zoom.s === 1) { d.zoom.tx = 0; d.zoom.ty = 0; }
-        else { d.zoom.tx = g.tx0 + (nmx - g.mx); d.zoom.ty = g.ty0 + (nmy - g.my); }
-        _applyZoomTransform(); e.preventDefault();
-        return;
-      }
-      if (d.maskPaint) return;   // [v565] 칠하기 모드 단일 포인터는 무시(paint 담당)
-      if (g && g.mode === 'pan' && e.touches.length === 1) {
-        d.zoom.tx = g.tx0 + (e.touches[0].clientX - g.x); d.zoom.ty = g.ty0 + (e.touches[0].clientY - g.y);
-        _applyZoomTransform(); e.preventDefault();
-      } else if (sw && e.touches.length === 1) {
-        // [v550] 좌우 스와이프 추적 — 수평이 우세할 때만 큰 프리뷰를 손가락 따라 살짝 끌어 피드백.
-        var mx = e.touches[0].clientX - sw.x, my = e.touches[0].clientY - sw.y;
-        if (!sw.lock) { if (Math.abs(mx) > 10 || Math.abs(my) > 10) sw.lock = Math.abs(mx) > Math.abs(my) ? 'h' : 'v'; }
-        if (sw.lock === 'h') {
-          var ph = el.querySelector('[data-fl-edphoto]'); if (ph) ph.style.transform = 'translate3d(' + (mx * 0.42) + 'px,0,0)';   // [v566] GPU 가속(translate3d) + 추종비 상향으로 끈적임 완화
-          e.preventDefault();
-        }
-      }
-    }, { passive: false });
-    el.addEventListener('touchend', function () {
-      if (g && d.zoom && d.zoom.s <= 1) { d.zoom.tx = 0; d.zoom.ty = 0; _applyZoomTransform(); }
-      if (sw && sw.lock === 'h') {
-        var ph = el.querySelector('[data-fl-edphoto]');
-        var mx = sw.lastX != null ? sw.lastX - sw.x : 0;
-        if (Math.abs(mx) > 48) { if (ph) ph.style.transform = ''; _stepEditPhoto(mx < 0 ? 1 : -1); }   // 확정: 전환(switchEditPhoto가 재페인트)
-        else if (ph) { ph.classList.add('is-swipeback'); ph.style.transform = ''; setTimeout(function () { ph.classList.remove('is-swipeback'); }, 220); }   // 미확정: 부드럽게 원위치
-      }
-      g = null; sw = null;
-    });
-    el.addEventListener('touchmove', function (e) { if (sw && e.touches.length === 1) sw.lastX = e.touches[0].clientX; }, { passive: true });
-    el.addEventListener('click', function (e) {
-      if (cur !== 'edit' || !inVp(e.target)) return;
-      var now = Date.now();
-      if (now - lastTap < 320) { d.zoom = (d.zoom && d.zoom.s > 1) ? { s: 1, tx: 0, ty: 0 } : { s: 2, tx: 0, ty: 0 }; _applyZoomTransform(); }
-      lastTap = now;
-    });
-    // [v550] PC 키보드 좌우 화살표로 편집 사진 전환(입력란 포커스 중엔 무시). [v568] ESC = 전체화면 닫기.
-    document.addEventListener('keydown', function (e) {
-      if (cur !== 'edit' || !el || el.hidden) return;
-      if (e.key === 'Escape' && d.edFull) { d.edFull = false; try { document.body.classList.remove('itd-edit-fs'); } catch (_x) { void _x; } _renderVpTools(); setTimeout(function () { if (d.maskPaint || d.maskView) _renderMaskOverlay(); _applyZoomTransform(); }, 60); return; }
-      var ae = document.activeElement, tag = ae && ae.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || (ae && ae.isContentEditable)) return;
-      if (e.key === 'ArrowLeft') { _stepEditPhoto(-1); } else if (e.key === 'ArrowRight') { _stepEditPhoto(1); }
-    });
-    _bindEditPC();
-    _bindWheelHScroll();
-  }
   // [v748] PC 마우스 휠 — 가로 스크롤 영역(레이아웃 미리보기·사진 캐러셀·칩 줄)이 옆으로 안 넘어가던 문제.
   //   스크롤바를 숨겨놔서(height:0) 마우스로는 넘길 방법이 없었음 → 세로 휠을 가로 스크롤로 변환.
-  function _bindWheelHScroll() {
-    if (!el || el._hsBound) return; el._hsBound = true;
-    el.addEventListener('wheel', function (e) {
-      if (cur === 'edit') return;   // 편집 화면 휠 = 확대/축소(_bindEditPC 담당)
-      var sc = e.target && e.target.closest && e.target.closest('.wsc-frames, .wsc-strip, .ig-car__track, .tpl-results, .tpl-chips, .cap-storypick__row');
-      if (!sc || sc.scrollWidth <= sc.clientWidth + 1) return;
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;   // 트랙패드 가로 제스처는 브라우저 기본 동작 유지
-      sc.scrollLeft += e.deltaY;
-      e.preventDefault();
-    }, { passive: false });
-  }
   // [v568·B-3] PC 마우스 — 휠 확대/축소, 드래그(줌>1 팬 / 줌=1 좌우 사진 넘김). 칠하기 모드 단일 포인터는 paint 가 담당.
-  function _bindEditPC() {
-    if (!el || el._edPcBound) return; el._edPcBound = true;
-    var md = null;
-    function inVp(t) { return t && t.closest && t.closest('[data-fl-edvp]'); }
-    el.addEventListener('wheel', function (e) {
-      if (cur !== 'edit' || !inVp(e.target)) return;
-      if (!d.zoom) d.zoom = { s: 1, tx: 0, ty: 0 };
-      var ns = Math.max(1, Math.min(4, (d.zoom.s || 1) + (e.deltaY < 0 ? 0.25 : -0.25)));
-      d.zoom.s = ns; if (ns === 1) { d.zoom.tx = 0; d.zoom.ty = 0; }
-      _applyZoomTransform(); e.preventDefault();
-    }, { passive: false });
-    el.addEventListener('mousedown', function (e) {
-      if (cur !== 'edit' || !inVp(e.target) || d.maskPaint) return;
-      if (!d.zoom) d.zoom = { s: 1, tx: 0, ty: 0 };
-      md = { x: e.clientX, y: e.clientY, tx0: d.zoom.tx, ty0: d.zoom.ty, pan: d.zoom.s > 1, moved: 0 };
-    });
-    el.addEventListener('mousemove', function (e) {
-      if (!md) return;
-      md.moved = Math.max(md.moved, Math.abs(e.clientX - md.x));
-      if (md.pan) { d.zoom.tx = md.tx0 + (e.clientX - md.x); d.zoom.ty = md.ty0 + (e.clientY - md.y); _applyZoomTransform(); e.preventDefault(); }
-      else if (editablePhotos().length > 1) { var ph = el.querySelector('[data-fl-edphoto]'); if (ph) ph.style.transform = 'translate3d(' + ((e.clientX - md.x) * 0.42) + 'px,0,0)'; }
-    });
-    function _endDrag(e) {
-      if (!md) return;
-      if (!md.pan && editablePhotos().length > 1) {
-        var ph = el.querySelector('[data-fl-edphoto]'); var mx = (e && e.clientX != null) ? e.clientX - md.x : 0;
-        if (Math.abs(mx) > 60) { if (ph) ph.style.transform = ''; _stepEditPhoto(mx < 0 ? 1 : -1); }
-        else if (ph) { ph.classList.add('is-swipeback'); ph.style.transform = ''; setTimeout(function () { ph.classList.remove('is-swipeback'); }, 220); }
-      }
-      md = null;
-    }
-    el.addEventListener('mouseup', _endDrag);
-    el.addEventListener('mouseleave', _endDrag);
-  }
 
   function _snapEdit() { return { adjust: clone(d.adjust), beauty: clone(d.beauty) }; }
-  function _syncEbState() {
-    if (!el) return;
-    var u = el.querySelector('[data-fl-eb="되돌리기"]'); if (u) u.classList.toggle('disabled', !(d.undo && d.undo.length));
-    var r = el.querySelector('[data-fl-eb="다시실행"]'); if (r) r.classList.toggle('disabled', !(d.redo && d.redo.length));
-  }
 
 	  function _refreshPreview() {
 	    var photo = curEditPhoto(); if (!photo) return;
@@ -3560,336 +2774,36 @@
   // [T-104 P0] clone → flow/util.js
 
   // 보정 변경 후 화면 갱신 — 사진/슬라이더/정밀/하단버튼 섹션만 (전체 재렌더 회피)
+  /* [2026-09-10 scope-lock] 옛 슬라이더 편집화면(Editor A) 삭제로 [data-ed-*] 컨테이너가
+     하나도 렌더되지 않는다(실측: querySelectorAll 전부 0개). _paintEditPhoto/_setEditSection 은
+     `el.querySelector('[data-fs="edit"] …')` 가드에서 항상 null 을 받아 무동작이었다.
+     실제 화면 갱신은 _refreshPreview 하나뿐이라 그것만 남긴다. */
   function _repaintEditAfterAdjust() {
-    _paintEditPhoto();
-    _setEditSection('[data-ed-basic]', _mainAdjustHtml());
-    _setEditSection('[data-ed-adv]', _advFoldHtml());
-    _setEditSection('[data-ed-bottom]', _editBottomHtml());
     _refreshPreview();
   }
   // [v540] 내 콘텐츠 편집 딥링크 — 진입 직후 해당 섹션으로 스크롤(+crop 은 비율 시트 바로 오픈).
-  function _applyFocusScroll() {
-    if (!d || !d._focusIntent || cur !== 'edit' || !el) return;
-    var intent = d._focusIntent; d._focusIntent = null;
-    if (window.__ITDASY_PHOTO_DEBUG__) { try { console.log('[workspace-route] intent=' + intent + ' editTab=' + d.editTab + ' bgOpen=' + d.bgOpen + ' tplOpen=' + d.tplOpen); } catch (_e) { void _e; } }
-    var sel = intent === 'template' ? '[data-ed-tpl]' : intent === 'crop' ? '[data-ed-adv]' : '[data-ed-basic]';
-    var node = el.querySelector('[data-fs="edit"] ' + sel);
-    if (node && node.scrollIntoView) { try { node.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (_e2) { try { node.scrollIntoView(); } catch (_e3) { void _e3; } } }
-    if (intent === 'crop' && typeof openCropFlow === 'function') { try { openCropFlow(); } catch (_e4) { void _e4; } }
-  }
   function _editBottom(label) {
-    if (label === '마스크') { d.maskView = !d.maskView; if (d.maskView) d.maskPaint = false; _setEditSection('[data-ed-adv]', _advFoldHtml()); _renderVpTools(); _renderMaskOverlay(); if (d.maskView) toast('현재 부위 마스크를 표시해요'); return; }
-    if (label === '비교' || label === '원본보기') { d.originalPreview = !d.originalPreview; _paintEditPhoto(); _setEditSection('[data-ed-bottom]', _editBottomHtml()); if (!d.originalPreview) _refreshPreview(); _renderMaskOverlay(); return; }
+    /* [2026-09-10 scope-lock] Editor A DOM(마스크 오버레이·하단바·뷰포트 툴)이 더는 렌더되지 않아
+       _setEditSection/_renderVpTools/_renderMaskOverlay/_paintEditPhoto 는 전부 무동작이었다.
+       '마스크'/'비교' 는 그 DOM 을 보여주는 것이 전부라 표시할 대상이 없다 — 상태만 토글한다. */
+    if (label === '마스크') { d.maskView = !d.maskView; if (d.maskView) d.maskPaint = false; return; }
+    if (label === '비교' || label === '원본보기') { d.originalPreview = !d.originalPreview; if (!d.originalPreview) _refreshPreview(); return; }
     // [v560] 되돌리기/다시실행/초기화는 비교(원본보기) 모드를 자동 해제 — 안 그러면 복원 결과가
     //   원본 프리뷰에 가려 '작업이 날아간 것처럼' 보임(_refreshPreview 가 originalPreview 시 미페인트).
     if (label === '되돌리기') { if (d.undo && d.undo.length) { d.redo = d.redo || []; d.redo.push(_snapEdit()); var s = d.undo.pop(); d.adjust = s.adjust || newAdjust(); d.beauty = s.beauty || newBeauty(); d.previewUrl = null; d.originalPreview = false; _repaintEditAfterAdjust(); } return; }
     if (label === '다시실행') { if (d.redo && d.redo.length) { d.undo = d.undo || []; d.undo.push(_snapEdit()); var r = d.redo.pop(); d.adjust = r.adjust || newAdjust(); d.beauty = r.beauty || newBeauty(); d.previewUrl = null; d.originalPreview = false; _repaintEditAfterAdjust(); } return; }
-	    if (label === '초기화') { d.undo = d.undo || []; d.undo.push(_snapEdit()); if (d.undo.length > 30) d.undo.shift(); d.redo = []; d.adjust = newAdjust(); d.beauty = newBeauty(); d.previewUrl = null; d.originalPreview = false; var _ip = curEditPhoto(); if (_ip && _ip._uid && d._paintCv) delete d._paintCv[_ip._uid]; if (d.maskPaint) _renderPaintOverlay(); _repaintEditAfterAdjust(); toast('보정을 초기화했어요'); return; }
+	    if (label === '초기화') { d.undo = d.undo || []; d.undo.push(_snapEdit()); if (d.undo.length > 30) d.undo.shift(); d.redo = []; d.adjust = newAdjust(); d.beauty = newBeauty(); d.previewUrl = null; d.originalPreview = false; var _ip = curEditPhoto(); if (_ip && _ip._uid && d._paintCv) delete d._paintCv[_ip._uid]; _repaintEditAfterAdjust(); toast('보정을 초기화했어요'); return; }
   }
 
-	  function applyBg(action) {
-	    var photo = curEditPhoto();
-    if (!photo) { toast('사진이 없어요'); return; }
-    // 원본 되돌리기 — 배경 적용 전 사진(preBgUrl)으로 복귀, 레이어 상태 해제.
-    if (action === 'reset' || action === 'original') {
-      if (photo.preBgUrl) photo.editedDataUrl = photo.preBgUrl;
-      photo.bgSpec = null; photo.fgCutout = null; d.bgAction = null; d.bgColor = null; d.previewUrl = null;
-      setScreen('edit'); _refreshPreview(); toast('배경을 원래대로 되돌렸어요'); return;
-    }
-    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.applyWorkspaceBgAction)) { toast('배경 모듈을 불러오지 못했어요'); return; }
-    var prev = d.bgAction;
-    // 항상 '배경 적용 전 원본'에서 재합성 — 색→흐림 등 옵션 전환 시 합성본을 또 누끼하지 않도록.
-    var composeSrc = photo.preBgUrl || photo.editedDataUrl || photo.dataUrl;
-    d.bgAction = action; d.bgBusy = true; d.bgFail = false; setScreen('edit');
-    window.WorkspaceAdapter.applyWorkspaceBgAction({ src: composeSrc, action: action, color: d.bgColor, bgImage: d.customBg, ratio: _cropRatio('original') })
-      .then(function (r) {
-        d.bgBusy = false;
-        // [보안감사 M-11 2026-07-26] 누끼 처리 중 사용자가 레이아웃/캡션으로 이동했으면 화면을 뺏지 않는다.
-        //   결과(editedDataUrl/fgCutout)는 그대로 보존하되 setScreen('edit') 강제복귀만 막는다.
-        var _onEdit = (cur === 'edit');
-        if (r && r.ok && r.dataUrl) {
-          if (!photo.preBgUrl) photo.preBgUrl = composeSrc;   // 최초 1회 원본 보관(되돌리기용)
-          photo.editedDataUrl = r.dataUrl;
-          photo.fgCutout = r.removedBg || null;   // 투명 인물 — 이후 보정은 여기에만
-          // [v539] ratio 저장 — 직후 슬라이더 재합성(_compositeBg)이 적용 때와 '동일 비율/배치'로 출력해야
-          //   크기 점프가 안 생긴다. (editedDataUrl 은 ratioToSize(ratio) 크기, fgCutout 은 원본 크기라 불일치했음)
-          photo.bgSpec = photo.fgCutout ? { action: action, color: d.bgColor, bgImage: d.customBg, origUrl: photo.preBgUrl, ratio: _cropRatio('original') } : null;
-          d.previewUrl = null; d.bgFail = false; if (_onEdit) { toast('배경 적용 완료'); setScreen('edit'); _refreshPreview(); }
-        }
-        else { d.bgAction = prev; d.bgFail = true; d.bgFailMsg = (r && r.toast) || '배경 처리에 실패했어요'; if (_onEdit) { toast(d.bgFailMsg); setScreen('edit'); } }
-	      });
-	  }
 
-	  function _tplByKey(key) {
-	    return WORKSPACE_TEMPLATES.filter(function (t) { return t.key === key; })[0] || null;
-	  }
 	  // [v560] 템플릿 적용 후 복귀 화면 — 'template' step 에서 적용하면 그 화면 유지(편집으로 안 튐), 그 외엔 편집.
-	  function _tplReturnScreen() { return cur === 'template' ? 'template' : 'edit'; }
 	  // [v560] '템플릿 선택' 전용 화면 — 상단 큰 사진(좌우 스와이프) + 전·후 클릭 지정 + 템플릿 목록.
 	  //   기존 렌더(_rolesPanelHtml/_tplAppliedHtml/_tplThumb)와 핸들러(data-fl-setrole/tpl/tplchip) 재사용.
 	  // [v562·항목3] 클릭순 전/후 — d.tplPickSeq(사진 id 클릭 순서) 기준으로 role 부여(짝수=전/홀수=후).
-	  function _syncPickSeq() {
-	    var eps = editablePhotos();
-	    if (!d.tplPickSeq) d.tplPickSeq = [];
-	    // 삭제된 사진 id 제거
-	    d.tplPickSeq = d.tplPickSeq.filter(function (pid) { return eps.some(function (x) { return String(x.id) === String(pid); }); });
-	    // 시퀀스가 비어 있으면 현재 역할(자동 배치 결과)에서 순서 복원 → 첫 탭부터 자연스럽게 토글.
-	    if (!d.tplPickSeq.length) {
-	      var bef = eps.filter(function (p) { return p.role === 'before'; });
-	      var aft = eps.filter(function (p) { return p.role === 'after'; });
-	      var seq = [];
-	      for (var i = 0; i < Math.max(bef.length, aft.length); i++) { if (bef[i]) seq.push(String(bef[i].id)); if (aft[i]) seq.push(String(aft[i].id)); }
-	      d.tplPickSeq = seq;
-	    }
-	    return d.tplPickSeq;
-	  }
-	  function _pickSeqNo(id) {
-	    var seq = d.tplPickSeq || []; var k = seq.indexOf(String(id));
-	    if (k < 0 || seq.length <= 2) return '';   // 2장(1짝)이면 번호 생략
-	    return String(Math.floor(k / 2) + 1);      // 짝 번호(1,1,2,2,…)
-	  }
-	  function _applyPickRoles() {
-	    var eps = editablePhotos(); var seq = d.tplPickSeq || [];
-	    eps.forEach(function (p) {
-	      var k = seq.indexOf(String(p.id));
-	      if (k < 0) { p.role = 'hero'; p.roleManual = false; }
-	      else { p.role = (k % 2 === 0) ? 'before' : 'after'; p.roleManual = true; }
-	    });
-	  }
-	  function _pickTplRole(id) {
-	    var eps = editablePhotos();
-	    if (!eps.some(function (x) { return String(x.id) === String(id); })) return;
-	    _syncPickSeq();
-	    var sid = String(id), k = d.tplPickSeq.indexOf(sid);
-	    if (k >= 0) d.tplPickSeq.splice(k, 1);   // 다시 탭 → 해제
-	    else d.tplPickSeq.push(sid);             // 새 탭 → 다음 순서(전/후/전/후…)
-	    _applyPickRoles();
-	    d.templateId = null; d.templateOutputs = []; d.templateOutput = null;   // 역할 바뀌면 기존 결과 무효화
-	    _rerenderTemplate();
-	  }
-	  function renderTemplate() {
-	    _syncPickSeq();
-	    var eps = editablePhotos();
-	    // [v562·항목3] 상단 사진을 '순서대로 탭'하면 전/후 자동 지정(첫 탭=전, 둘째 탭=후, 다시 탭=해제).
-	    //   다중(4장)이면 전·후·전·후 순으로 짝이 만들어진다. 좌우 스와이프(스크롤)는 그대로.
-	    var strip = eps.map(function (p, i) {
-	      var role = p.role || 'hero';
-	      var rl = role === 'before' ? '전' : (role === 'after' ? '후' : '');
-	      var seqNo = _pickSeqNo(p.id);   // 전/후 짝 번호(2짝 이상일 때만 표시)
-	      return '<button type="button" class="tpls-slide' + (rl ? ' is-' + role : '') + '" data-fl-tplpick="' + esc(p.id) + '" style="background-image:url(' + esc(_blobDisp(photoUrl(p))) + ')" aria-label="' + esc(_editPhotoLabel(p, i)) + ' — 탭하면 전/후 지정">' +
-	        (rl ? '<span class="tpls-slide__role">' + rl + (seqNo ? '<em>' + seqNo + '</em>' : '') + '</span>'
-	            : '<span class="tpls-slide__tag">탭 → 전/후</span>') +
-	      '</button>';
-	    }).join('');
-	    var chips = ['전체', '전후', '붙이기', '시술 자랑', '고객 후기', '이벤트', '공지', '정보', '스토리'];
-	    var shown = WORKSPACE_TEMPLATES.filter(function (tpl) { return !d.tplCat || d.tplCat === '전체' || tpl.chip === d.tplCat; });
-	    var grid = shown.map(function (tpl) {
-	      var on = d.templateId === tpl.id;
-	      return '<div class="tpl-itemwrap"><button type="button" class="tpl-item' + (on ? ' on' : '') + '" data-fl-tpl="' + esc(tpl.key) + '" aria-label="' + esc(tpl.label) + ' 템플릿' + (on ? ' (적용됨)' : '') + '" style="background-image:url(' + esc(_blobDisp(_tplThumb(tpl))) + ')"><i class="tpl-badge">' + esc(tpl.chip) + '</i>' + (on ? '<i class="tpl-onpill">적용됨</i>' : '') + '</button></div>';
-	    }).join('');
-	    return '<div class="tpls">' +
-	      '<div class="tpls-carousel' + (eps.length > 1 ? ' is-multi' : '') + '" data-fl-tplcar>' + (eps.length > 1 ? '<button type="button" class="tpls-nav tpls-nav--prev" data-fl-tplnav="-1" aria-label="이전 사진"><i class="ph-bold ph-caret-left"></i></button>' : '') + '<div class="tpls-strip" data-fl-tplstrip aria-label="편집한 사진 — 좌우로 넘겨 확인">' + (strip || '<div class="tpls-empty">선택된 사진이 없어요. 먼저 사진을 골라 주세요.</div>') + '</div>' + (eps.length > 1 ? '<button type="button" class="tpls-nav tpls-nav--next" data-fl-tplnav="1" aria-label="다음 사진"><i class="ph-bold ph-caret-right"></i></button>' : '') + '</div>' + (eps.length > 1 ? '<div class="tpls-dots" data-fl-tpldots>' + eps.map(function (p, i) { return '<button type="button" class="tpls-dot' + (i === 0 ? ' on' : '') + '" data-fl-tpldot="' + i + '" aria-label="' + (i + 1) + '번째 사진으로"></button>'; }).join('') + '</div>' : '') +
-	      _tplAppliedHtml() +
-	      (eps.length >= 2 ? '<div class="tpls-sec"><div class="cap-field-label">전·후 지정 <span>위 사진을 순서대로 탭 — 첫 탭 <b>전</b>, 둘째 탭 <b>후</b> (다시 탭하면 해제)</span></div></div>' : '') +
-	      '<div class="tpls-sec"><div class="cap-field-label">템플릿 고르기 <span>탭하면 바로 적용돼요</span></div>' +
-	        '<div class="tpl-chips">' + chips.map(function (c, i) { return '<span class="tpl-chip' + ((d.tplCat ? d.tplCat === c : i === 0) ? ' on' : '') + '" data-fl-tplchip>' + esc(c) + '</span>'; }).join('') + '</div>' +
-	        '<div class="tpl-grid2">' + grid + '</div>' +
-	      '</div>' +
-	    '</div>';
-	  }
 	  // [v561·항목5] 2장 50:50 합성(좌우/상하) — cover 크롭으로 비율 깨짐 최소화, 1px 흰 거터.
-	  function _composeCollage(urlA, urlB, layout) {
-	    return new Promise(function (resolve) {
-	      var imgs = [], done = 0, fail = false;
-	      [urlA, urlB].forEach(function (u, i) {
-	        var im = new Image();
-	        im.onload = function () { imgs[i] = im; if (++done === 2 && !fail) _draw(); };
-	        im.onerror = function () { fail = true; resolve(null); };
-	        im.src = u;
-	      });
-	      function _coverBlit(ctx, im, dx, dy, dw, dh) {
-	        var iw = im.naturalWidth || im.width, ih = im.naturalHeight || im.height;
-	        var s = Math.max(dw / iw, dh / ih), sw = dw / s, sh = dh / s;
-	        var sx = (iw - sw) / 2, sy = (ih - sh) / 2;
-	        ctx.drawImage(im, sx, sy, sw, sh, dx, dy, dw, dh);
-	      }
-	      function _draw() {
-	        var W = 1080, H = (_wsFormat() === '11' ? 1080 : 1350), gap = 4;   // [#18] 게시 크기 선택 반영(4:5/1:1) + 가는 흰 거터
-	        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-	        var ctx = cv.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
-	        if (layout === 'tb') {
-	          var hh = (H - gap) / 2;
-	          _coverBlit(ctx, imgs[0], 0, 0, W, hh);
-	          _coverBlit(ctx, imgs[1], 0, hh + gap, W, hh);
-	        } else {   // 'lr'
-	          var hw = (W - gap) / 2;
-	          _coverBlit(ctx, imgs[0], 0, 0, hw, H);
-	          _coverBlit(ctx, imgs[1], hw + gap, 0, hw, H);
-	        }
-	        resolve(cv.toDataURL('image/jpeg', 0.92));
-	      }
-	    });
-	  }
-	  function _applyCollage(tpl) {
-	    var eps = editablePhotos();
-	    if (eps.length < 2) { toast('붙이기 템플릿은 사진 2장이 필요해요 · 사진을 더 추가해 주세요'); setScreen('upload'); return; }
-	    // 전·후 역할이 지정돼 있으면 그 순서(전→후), 아니면 선택 순서 첫 2장.
-	    var pairs = _computePairs().pairs;
-	    var a, b;
-	    if (pairs.length) { a = pairs[0].before; b = pairs[0].after; }
-	    else { a = eps[0]; b = eps[1]; }
-	    d.templateBusy = tpl.key; setScreen(_tplReturnScreen());
-	    _composeCollage(photoUrl(a), photoUrl(b), tpl.collage || 'lr').then(function (url) {
-	      d.templateBusy = null;
-	      if (url) {
-	        d.templateOutput = url; d.templateOutputId = tpl.id;
-	        d.templateOutputs = [{ pairId: 'pair-0', templateId: tpl.id, beforePhotoId: a.id, afterPhotoId: b.id, outputUrl: url, pairLabel: '결과물' }];
-	        d.activeDisplayId = null;
-	        d.template = tpl.label; d.templateId = tpl.id;
-	        d.tplPurpose = tpl.purpose; d.captionMode = tpl.captionMode || d.captionMode;
-	        d.previewUrl = null; toast(tpl.label + ' 완료');
-	      } else { toast('사진을 붙이지 못했어요 · 다시 시도해 주세요'); }
-	      setScreen(_tplReturnScreen());
-	    });
-	  }
-	  function applyTemplate(key) {
-	    var tpl = _tplByKey(key);
-	    if (!tpl) { toast('템플릿을 찾지 못했어요'); return; }
-	    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.applyWorkspaceTemplate)) { toast('템플릿 적용 모듈을 불러오지 못했어요'); return; }
-	    if (!d.photos.length) { toast('사진을 먼저 추가해 주세요'); return; }
-	    // [v532] 짝별 타깃은 전후 템플릿에서만 의미 — 비전후 템플릿을 고르면 타깃을 비우고 일반(일괄) 전환으로.
-	    if (tpl.purpose !== 'before_after') d.tplTargetPair = null;
-	    // [v561·항목5] 단순 붙이기(collage) — 2장을 50:50 으로 캔버스 합성. 꾸밈/텍스트 없음.
-	    if (tpl.purpose === 'collage') { _applyCollage(tpl); return; }
-	    // [버그5] 전후 템플릿은 최소 2장 — 1장이면 자동완성/자동보정 금지, 업로드 화면으로 보내 사진 추가 유도(편집기 점프 금지).
-	    // [#7] 전후 템플릿은 최소 2장 — 1장이면 자동완성/자동보정 금지. 안내 후 업로드 화면으로(편집기 점프 금지).
-	    if (tpl.purpose === 'before_after' && editablePhotos().length < 2) {
-	      toast('전후 템플릿은 최소 2장의 사진이 필요해요 · 전 사진과 후 사진을 추가해 주세요');
-	      setScreen('upload'); return;
-	    }
-	    // [다중pair] 전후 템플릿: 완성 가능한 모든 페어에 같은 템플릿을 각각 적용 → 결과물 N개.
-	    //   roles 가 이미 페어를 이루면(수동/복원) 보존하고, 못 이루면(2장 신규 드롭) 첫=전·둘째=후 자동.
-	    if (tpl.purpose === 'before_after') {
-	      d.baMode = true;
-	      if (_computePairs().pairs.length === 0) reassignRoles();
-	      var pairs = _computePairs().pairs;
-	      // [v532] 짝별 개별 적용 — 타깃 짝이 지정되어 있으면 그 짝만 새 템플릿으로 재합성하고 나머지는 그대로 둔다.
-	      if (d.tplTargetPair) {
-	        var _tgtId = d.tplTargetPair;
-	        var _outsP = (d.templateOutputs || []).slice();
-	        var _oidx = -1; for (var _ok = 0; _ok < _outsP.length; _ok++) { if (_outsP[_ok].pairId === _tgtId) { _oidx = _ok; break; } }
-	        if (_oidx < 0) { d.tplTargetPair = null; toast('바꿀 짝을 찾지 못했어요 — 전체 적용으로 진행해 주세요'); return; }
-	        var _exist = _outsP[_oidx];
-	        // 저장된 before/after 사진 id 로 현재 페어를 매칭(선택/역할 변동에도 정확히 그 짝을 재합성). 없으면 인덱스 폴백.
-	        var _pr = null;
-	        for (var _pj = 0; _pj < pairs.length; _pj++) { if (pairs[_pj].before.id === _exist.beforePhotoId && pairs[_pj].after.id === _exist.afterPhotoId) { _pr = pairs[_pj]; break; } }
-	        if (!_pr) _pr = pairs[_oidx];
-	        if (!_pr) { d.tplTargetPair = null; toast('이 짝의 사진을 찾지 못했어요'); return; }
-	        d.templateBusy = tpl.key; setScreen(_tplReturnScreen());
-	        window.WorkspaceAdapter.applyWorkspaceTemplate({
-	          template: tpl, photos: [_pr.before, _pr.after], service: d.service,
-	          customerName: d.customerName, caption: d.caption,
-	        }).then(function (r) {
-	          d.templateBusy = null; d.tplTargetPair = null;
-	          if (r && r.ok && r.dataUrl) {
-	            _outsP[_oidx] = { pairId: _tgtId, templateId: tpl.id, beforePhotoId: _pr.before.id, afterPhotoId: _pr.after.id, outputUrl: r.dataUrl, pairLabel: _exist.pairLabel || ('Pair ' + (_oidx + 1)) };
-	            d.templateOutputs = _outsP;
-	            d.templateOutput = _outsP[0] && _outsP[0].outputUrl;   // 대표 미리보기 = 첫 짝
-	            d.templateId = d.templateId || tpl.id;                 // '적용됨' 마커 유지
-	            d.tplPurpose = tpl.purpose; d.previewUrl = null;
-	            toast('Pair ' + (_oidx + 1) + ' 결과를 ' + tpl.label + '(으)로 바꿨어요');
-	          } else { toast((r && r.toast) || '이 짝은 아직 적용하지 못했어요'); }
-	          setScreen(_tplReturnScreen());
-	        }).catch(function () { d.templateBusy = null; d.tplTargetPair = null; toast('이 짝 적용 중 오류가 났어요'); setScreen(_tplReturnScreen()); });
-	        return;
-	      }
-	      d.templateBusy = tpl.key; setScreen(_tplReturnScreen());
-	      Promise.all(pairs.map(function (pr, i) {
-	        // 페어 1개씩 어댑터에 2장만 넘김(어댑터는 before/after 1쌍을 합성). 실패 페어는 null → 격리.
-	        return window.WorkspaceAdapter.applyWorkspaceTemplate({
-	          template: tpl, photos: [pr.before, pr.after], service: d.service,
-	          customerName: d.customerName, caption: d.caption,
-	        }).then(function (r) {
-	          return (r && r.ok && r.dataUrl)
-	            ? { pairId: 'pair-' + i, templateId: tpl.id, beforePhotoId: pr.before.id, afterPhotoId: pr.after.id, outputUrl: r.dataUrl, pairLabel: 'Pair ' + (i + 1) }
-	            : null;
-	        }).catch(function () { return null; });
-	      })).then(function (list) {
-	        d.templateBusy = null;
-	        var outs = list.filter(Boolean);
-	        if (outs.length) {
-	          // [이슈2] 합성 결과물은 전용 배열에만 보관 — 원본 photos(전/후/기본)는 비오염.
-	          d.templateOutputs = outs;
-	          d.templateOutput = outs[0].outputUrl; d.templateOutputId = tpl.id;
-	          d.activeDisplayId = null;
-	          d.template = tpl.label; d.templateId = tpl.id;
-	          d.tplPurpose = tpl.purpose; d.captionMode = tpl.captionMode || d.captionMode;
-	          d.previewUrl = null;
-	          var failed = pairs.length - outs.length;
-	          toast(failed > 0
-	            ? (tpl.label + ' · ' + outs.length + '개 적용 (' + failed + '개는 원본 유지)')
-	            : (tpl.label + ' 적용 완료 · 결과물 ' + outs.length + '개'));
-	        } else { toast('이 템플릿은 아직 적용하지 못했어요'); }
-	        setScreen(_tplReturnScreen());
-	      });
-	      return;
-	    }
-	    // 비전후(시술자랑/후기/이벤트/스토리 등) — 단일 결과물.
-	    d.templateBusy = tpl.key; setScreen(_tplReturnScreen());
-	    window.WorkspaceAdapter.applyWorkspaceTemplate({
-	      template: tpl, photos: editablePhotos(), service: d.service,
-	      customerName: d.customerName, caption: d.caption,
-	    }).then(function (r) {
-	      d.templateBusy = null;
-	      if (r && r.ok && r.dataUrl) {
-	        // [이슈2] 합성 결과물은 전용 필드에만 보관(원본 비오염).
-	        d.templateOutput = r.dataUrl; d.templateOutputId = tpl.id;
-	        d.templateOutputs = [{ pairId: 'pair-0', templateId: tpl.id, beforePhotoId: null, afterPhotoId: null, outputUrl: r.dataUrl, pairLabel: '결과물' }];
-	        d.activeDisplayId = null;
-	        d.template = tpl.label; d.templateId = tpl.id;
-	        d.tplPurpose = tpl.purpose; d.captionMode = tpl.captionMode || d.captionMode;
-	        d.previewUrl = null; toast(tpl.label + ' 템플릿 적용 완료');
-	      } else { toast((r && r.toast) || '이 템플릿은 아직 적용하지 못했어요'); }
-	      setScreen(_tplReturnScreen());
-	    });
-	  }
 	  // [v534] 짝별 템플릿 텍스트 레이어 수정 — 편집 시트 오픈 → onApply 로 해당 Pair 결과/slotValues 만 갱신.
-  function _openTplEdit(pairId) {
-    if (!(window.WorkspaceTplEdit && window.WorkspaceTplEdit.open)) { toast('템플릿 수정 모듈을 불러오지 못했어요'); return; }
-    var outs = d.templateOutputs || [];
-    var idx = -1; for (var i = 0; i < outs.length; i++) { if (outs[i].pairId === pairId) { idx = i; break; } }
-    if (idx < 0) { toast('수정할 결과물을 찾지 못했어요'); return; }
-    var o = outs[idx];
-    var _photoUrl = function (pid) { var p = (d.photos || []).filter(function (x) { return String(x.id) === String(pid); })[0]; return p ? (p.editedDataUrl || p.dataUrl) : null; };
-    window.WorkspaceTplEdit.open({
-      templateId: o.templateId,
-      pairLabel: 'Pair ' + (idx + 1),
-      slotValues: o.slotValues || null,
-      beforeUrl: _photoUrl(o.beforePhotoId),
-      afterUrl: _photoUrl(o.afterPhotoId),
-      onApply: function (res) {
-        outs[idx].slotValues = res.slotValues;          // [v534] Pair별 slotValues 저장(다른 짝 비영향)
-        if (res.outputUrl) outs[idx].outputUrl = res.outputUrl;
-        d.templateOutputs = outs;
-        d.templateOutput = outs[0] && outs[0].outputUrl;
-        d.previewUrl = null;
-        _renderTplSection();
-        toast('Pair ' + (idx + 1) + ' 템플릿을 수정했어요');
-      },
-    });
-  }
   // [이슈11] 템플릿 해제 — 적용 결과물만 비우고 원본 사진 리스트는 그대로 복구.
 	  //   원본(d.photos)은 애초에 손대지 않았으므로(이슈2) 결과물 필드만 비우면 원본 상태로 돌아간다.
-	  function releaseTemplate() {
-	    if (!d.templateId && !d.templateOutput) { toast('적용된 템플릿이 없어요'); return; }
-	    d.templateOutput = null; d.templateOutputId = null;
-	    d.templateOutputs = []; d.activeDisplayId = null;   // [다중pair] 결과물 배열도 비움 → 원본 복구
-	    d.template = null; d.templateId = null;
-	    d.tplTargetPair = null;   // [v532] 짝별 타깃도 초기화
-	    d.previewUrl = null;
-	    _renderTplSection();
-	    toast('템플릿을 해제했어요 — 원본 사진으로 돌아갔어요');
-	  }
 
 	  function bakeEdit() {
 	    var photo = curEditPhoto();
@@ -4170,12 +3084,31 @@
 	    // [#6] 업로드 픽커가 느린 원인 = 폰 사진(3~8MB) 원본을 그대로 base64 로 읽어 담던 것.
 	    //   2MB 초과분은 먼저 1920px JPEG 로 축소(_resizeIfNeeded) 후 읽어 import·썸네일·편집기 로딩을 크게 단축.
 	    var _resize = (typeof window._resizeIfNeeded === 'function') ? window._resizeIfNeeded : function (f) { return Promise.resolve(f); };
-	    return Promise.all(files.map(function (f) { return Promise.resolve(_resize(f, 1920)).catch(function () { return f; }).then(fileToDataUrl); })).then(function (rawUrls) {
+	    return Promise.all(files.map(function (f) { return Promise.resolve(_resize(f, 1920)).catch(function () { return f; }).then(fileToDataUrl); }))
+	      .then(function (rawUrls) {
+	        /* [2026-09-03 P2] **읽힘 ≠ 그려짐.** FileReader 는 내용이 뭐든 base64 로 바꿔주므로
+	           디코드 불가 파일도 dataURL 이 나온다 — 아래 `!!u` 필터를 그냥 통과했다.
+	           실측: 변환 실패한 HEIC(`ERR_LIBHEIF format not supported`)이 `data:image/heic;base64,…` 로
+	           들어와 **"2장 추가됨"** 토스트까지 떴고, 레이아웃·편집기·발행본엔 빈 칸이 됐다(경고 0).
+	           아이폰 기본 촬영 포맷이 HEIC 이라 원장이 실제로 겪는다. 여기서 한 번 그려보고 거른다. */
+	        return Promise.all(rawUrls.map(function (u) {
+	          if (!u) return null;
+	          return new Promise(function (res) {
+	            var im = new Image();
+	            var t = setTimeout(function () { res(null); }, 8000);   // 디코드가 영영 안 끝나도 진행(무한 행 방지)
+	            im.onload = function () { clearTimeout(t); res(im.naturalWidth > 0 && im.naturalHeight > 0 ? u : null); };
+	            im.onerror = function () { clearTimeout(t); res(null); };
+	            im.src = u;
+	          });
+	        }));
+	      })
+	      .then(function (rawUrls) {
 	      // [보안감사 H-3] 읽기 실패(null)한 파일은 걸러낸다. 예전엔 한 장 실패가 Promise.all 전체를 reject 시켜
 	      //   같이 고른 정상 사진까지 조용히 버려지고 무피드백이었다. 이제 성공분만 넣고 실패 건수만 안내.
 	      var urls = rawUrls.filter(function (u) { return !!u; });
 	      var _failed = rawUrls.length - urls.length;
-	      if (_failed > 0) { try { toast(_failed + '장은 열 수 없어 건너뛰었어요'); } catch (_e) { void _e; } }
+	      // [2026-09-03] 왜 실패했는지·무엇을 하면 되는지까지 말한다("오류가 발생했습니다" 금지).
+	      if (_failed > 0) { try { toast(_failed + '장은 잇데이가 읽을 수 없어 뺐어요 — 아이폰 설정 > 카메라 > 포맷을 \'높은 호환성\'으로 바꾸면 돼요'); } catch (_e) { void _e; } }
 	      if (!urls.length) { setScreen('upload'); return urls; }
 	      urls.forEach(function (u) { d.photos.push({ id: uid(), dataUrl: u, role: 'hero', selected: true, selSeq: ++d._selSeq }); });
 	      // [QA hotfix] 다중 업로드 시 전후/홍보컷 자동 확정 금지 — 사용자가 '전/후 토글' 또는
@@ -4193,6 +3126,14 @@
       if (cur === 'upload') d.textOnly = false;
       if (!d.textOnly && editablePhotos().length) {
         setScreen('layout', { push: false });   // 사진 로드 후 '레이아웃 고르기'로
+      /* [2026-09-03 P0] 뒤로가기 목적지를 만든다.
+         예전엔 navStack 이 빈 채로 레이아웃에 도착해 **뒤로가기 한 번에 작업실이 닫히고
+         방금 올린 사진이 전부 사라졌다**(확인창 없음, 실측 iPhone 375×812). 사진을 잘못 골랐을 때
+         복구할 방법이 그것뿐이었으니 '잘못 고르면 처음부터'가 된다.
+         VISIBLE_SCREENS 시드(_seedNavStack)를 쓰면 back → 사진 고르기(upload) → back → 닫힘 이 되고,
+         히스토리 엔트리 수도 시트 레지스트리(#wsv2flow)와 어긋나지 않는다(직접 _pushHist 하면 어긋나서
+         '눌러도 아무 일 없는 뒤로가기'가 한 번 생긴다 — 실측으로 확인하고 되돌렸다). */
+      if (!navStack.length) _seedNavStack('layout');
         /* [2026-07-22 보스] 잇비 채팅에서 이미 레이아웃을 골라 왔으면 그 구성을 적용하고
            **레이아웃 화면을 그냥 지나쳐** 게시글(캡션)로 간다 — 채팅에서 딸깍 = 바로 다음 단계.
            setScreen('caption') 로 건너뛰지 않고 onCta() 를 쓰는 이유: layout 의 onExit(_exitLayout)이
@@ -4250,6 +3191,9 @@
   }
   // 실제 전환 — 특수 대상(__save=저장 완료, __edit=통합 편집기) 처리 후 setScreen.
   function _ctaGo(to) {
+    // 다음 단계로 넘어가면 '방금 뺀 사진 되돌리기' 는 끝난 얘기다 — 안 지우면 나중에 돌아왔을 때
+    // 며칠 전 뺀 사진이 되살아날 수 있는 버튼이 남는다(뭘 되돌리는지도 알 수 없다).
+    if (d) d._lyUndo = null;
     if (to === '__save') return save();
     if (to === '__edit') return _openEditFirst();   // [통합 편집기] 업로드 다음 = ItdEditor
     // [2026-07-22 오케스트레이션] 레이아웃 다음(→캡션) 직전에 잇비 브리핑 편집기(텍스트·스티커 주입)를 먼저 연다.
@@ -4262,19 +3206,6 @@
     setScreen(to);
   }
 
-  function openCropFlow() {
-    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.openCrop)) { toast('크롭 모듈을 불러오지 못했어요'); return; }
-    var idx = d.photos.indexOf(curEditPhoto()); if (idx < 0) idx = 0;
-    window.WorkspaceAdapter.openCrop({
-      photos: d.photos, index: idx, ratio: _cropRatio(),
-      onApply: function (photoId, dataUrl, meta) {
-        var p = d.photos.filter(function (x) { return x.id === photoId; })[0];
-        if (p) { p.editedDataUrl = dataUrl; p.cropMeta = meta; }
-        d.previewUrl = null;
-        if (cur === 'edit') { setScreen('edit'); _refreshPreview(); }
-      },
-    });
-  }
 
   // [T-104 P4] pickCustomer → flow/connect.js
 
@@ -4336,6 +3267,18 @@
     slot.source = slot.source || 'workspace_v2';
     d.slot = slot;   // [#13] 만든 슬롯을 고정 — 이후 저장(에디터 완료·발행 등)이 같은 id 를 갱신하게. 예전엔 매번 새 id 라 콘텐츠가 중복 저장됐음.
     return slot;
+  }
+
+  /* [PE-01 2026-09-11] 편집 결과만 조용히 영속화. `save()` 와 일부러 다르다:
+       토스트 없음 / 플로우 안 닫음 / **갤러리(saveToGallery) 안 씀** / 학습(WorkMemory·WMLearn) 안 돌림.
+     저 넷은 "원장이 작업을 끝냈다"는 신호인데, 사진 한 장 꾸민 건 그 신호가 아니다.
+     여기서 `WorkspaceAdapter.saveItem` 을 쓰면 갤러리에 중간본이 쌓인다 — 그래서 `saveSlotToDB` 만 직접 부른다. */
+  function _persistEditQuiet() {
+    try {
+      if (!d.photos || !d.photos.length) return;              // 적을 게 없으면 슬롯도 만들지 않는다
+      if (typeof window.saveSlotToDB !== 'function') return;   // 저장소 없으면 조용히 포기(편집기는 이미 닫혔다)
+      Promise.resolve(window.saveSlotToDB(buildSlot())).catch(function (_e) { void _e; });
+    } catch (_e) { void _e; }
   }
 
   function save() {
@@ -4671,6 +3614,15 @@
     var hadRoles = !!(slot && slot.photos && slot.photos.some(function (p) { return p && p.role; }));
     d = {
       slot: slot,
+      /* [2026-09-04 P0] 이 작업의 **세션 식별자**.
+         `d.slot` 은 `buildSlot()` — 즉 **저장·발행 시점**에야 생긴다. 그런데 원장이
+         '내 스타일' 을 고르는 건 그 한참 전(사진 올린 직후)이다. slot.id 를 작업키로 쓰면
+         그때는 null 이라 선택이 **아무 데도 안 걸리고**, 편집기는 기본 스타일로 연다
+         — "골랐는데 안 먹는다" 가 된다(실측으로 잡음).
+         그래서 열릴 때 만들어서 세션 내내 안 바뀌는 키를 따로 둔다. 저장 여부와 무관하다.
+         작업을 닫았다 다시 열면 새 키가 된다 — 그게 §22 가 원하는 '이번 작업에만' 이다
+         (재오픈 시엔 저장된 editState 스냅샷이 이긴다). */
+      _workId: 'wk_' + uid(),
       photos: slot && slot.photos ? slot.photos.map(function (p, i) { return { id: p.id || uid(), dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl, role: p.role || 'hero', cropMeta: p.cropMeta || null, editState: p.editState || null, baseUrl: p.baseUrl || null, storyEdited: !!p.storyEdited, selected: true, selSeq: i + 1 }; }) : [],   // [#11] editState 복원 · [2026-07-17] storyEdited 복원(자동합성이 직접 꾸민 사진을 덮지 않게)
       _selSeq: (slot && slot.photos ? slot.photos.length : 0),
       baMode: purpose === 'before_after',
@@ -4690,6 +3642,7 @@
 	      editTab: 'skin', control: null, basicTool: 'brightness', precTool: null, editIdx: null, bgOpen: false, advOpen: true, tplOpen: true, adjust: newAdjust(), beauty: newBeauty(), undo: [], redo: [], originalPreview: false, previewUrl: null, bgAction: null, bgColor: null, bgBusy: false, bgFail: false,
       maskPaint: false, maskBrush: 26, maskErase: false, _paintCv: {},   // [v561] 직접 칠하기(수동 마스크)
 	      captionAxes: null, captionTemplate: '',
+      _wsFmt: _slotFormat(slot),   // [2026-09-03] 기존 게시물이면 그 게시물의 크기, 새 게시물이면 null(=전역 기본)
 	    };
 	    if (d.photos.length && !hadRoles) reassignRoles();
     el.classList.add('is-open');
@@ -4746,20 +3699,17 @@
 	    // [2026-07-22 오케스트레이션] 잇비 사진 브리핑(파싱 결과) — 레이아웃 다음에 편집기(레이어 주입)+캡션 자동.
 	    d._orch = opts._orch || null; d._orchApplied = false;
 	    d._pickComp = opts._pickComp || null;   // [2026-07-22] 잇비 채팅에서 미리 고른 레이아웃 구성 키
-	    d._focusIntent = (startScreen === 'edit' && opts.focus) ? opts.focus : null;
-	    if (d._focusIntent === 'background') { d.bgOpen = true; d.basicTool = 'background'; }
-	    else if (d._focusIntent === 'crop') { d.editTab = 'tools'; d.advOpen = true; }
-	    else if (d._focusIntent === 'template') { d.tplOpen = true; }
+	    /* [2026-09-10 scope-lock] focus 딥링크 제거 — 조건이 `startScreen === 'edit'` 이었는데
+	       'edit' 화면이 없어져 항상 null 이었다(따라서 _applyFocusScroll 도 항상 즉시 리턴). */
 	    // [v564·필수1] 홈에서 파일과 함께 edit 로 바로 진입 시, 사진 로드 전 '빈 편집화면'이 깜빡이지
 	    //   않도록 setScreen 을 addFiles 완료까지 미룬다(업로드 화면을 거치지 않음).
 	    // [v590·#1] 사진이 아직 없는데 edit/caption 으로 바로 그리면 빈 화면이 깜빡 → 사진 들어온 뒤(addFiles) 그린다.
 	    // [v778·#3 보스] 'upload' 로 파일과 함께 진입하는 경로도 포함 — 사진 디코딩(폰 원본 3~8MB) 동안
 	    //   업로드 화면(전/후 역할 UI)이 잠깐 떴다가 레이아웃으로 점프하던 깜빡임 제거. 파일 있으면 addFiles 가 알아서 넘긴다.
-	    var _deferInit = ((startScreen === 'edit' || startScreen === 'caption' || startScreen === 'upload') && incomingFiles.length && !d.photos.length);
+	    var _deferInit = ((startScreen === 'caption' || startScreen === 'upload') && incomingFiles.length && !d.photos.length);
 	    if (!_deferInit) { setScreen(startScreen, { push: false }); _seedNavStack(startScreen); }   // [버그11] 직행 진입도 뒤로가기로 이전 단계 복귀
-	    if (d._focusIntent) { var _rafF = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _rafF(function () { _applyFocusScroll(); }); }
 	    // 디코딩 실패 시엔 빈 화면에 갇히지 않도록 업로드 화면으로 복귀.
-	    if (incomingFiles.length) addFiles(incomingFiles, true, startScreen === 'edit').catch(function () { if (_deferInit) { setScreen('upload', { push: false }); _seedNavStack('upload'); } });
+	    if (incomingFiles.length) addFiles(incomingFiles, true, false).catch(function () { if (_deferInit) { setScreen('upload', { push: false }); _seedNavStack('upload'); } });
 	    // [구조 통합] 잇비 채팅 사진(dataURL)을 작업실로 바로 투입 — File 변환 없이 직접.
 	    if (opts.photoUrls && opts.photoUrls.length) addPhotoUrls(opts.photoUrls, true);
 	    // [2026-07-22] '사진 편집' = 인스타식 편집기(ItdEditor). 슬라이더 'edit' 화면(A)이 아니라 B를 연다.
@@ -4785,6 +3735,14 @@
     if (cur === 'upload') {
       if (!d.textOnly && editablePhotos().length) {
         setScreen('layout', { push: false });
+      /* [2026-09-03 P0] 뒤로가기 목적지를 만든다.
+         예전엔 navStack 이 빈 채로 레이아웃에 도착해 **뒤로가기 한 번에 작업실이 닫히고
+         방금 올린 사진이 전부 사라졌다**(확인창 없음, 실측 iPhone 375×812). 사진을 잘못 골랐을 때
+         복구할 방법이 그것뿐이었으니 '잘못 고르면 처음부터'가 된다.
+         VISIBLE_SCREENS 시드(_seedNavStack)를 쓰면 back → 사진 고르기(upload) → back → 닫힘 이 되고,
+         히스토리 엔트리 수도 시트 레지스트리(#wsv2flow)와 어긋나지 않는다(직접 _pushHist 하면 어긋나서
+         '눌러도 아무 일 없는 뒤로가기'가 한 번 생긴다 — 실측으로 확인하고 되돌렸다). */
+      if (!navStack.length) _seedNavStack('layout');
         // [2026-07-22 보스] 잇비 채팅에서 이미 레이아웃을 골라 왔으면 레이아웃 화면을 지나쳐 게시글로.
         //   ⚠️ 파일 업로드 경로(addPhotoFiles)와 채팅/딥링크 경로(여기)가 **따로**다 —
         //      한쪽만 고치면 채팅에서 고른 게 안 먹는다(실제로 처음에 그 실수를 했다).
@@ -4840,16 +3798,28 @@
   // ── [구조 통합] 프로그램/자연어 명령 API — 잇비가 작업실 전 기능을 호출하는 단일 진입점 ──
   //   기존 내부 함수만 재사용(로직/저장 스키마 미변경). 화면 안 열렸을 때 'open' 외 명령은 무시.
   function _flowReady() { return !!(el && el.classList.contains('is-open') && d); }
+  /* [2026-09-10 실측] 예전엔 **아무것도 안 바꾸고도 항상 ok:true** 였다.
+     `{type:'adjust', brightness:60}`(set/delta 없이 평평한 키)나 존재하지 않는 키를 보내도
+     ok:true 라, 잇비는 원장에게 "밝기 낮췄어요" 라고 말하는데 화면은 그대로였다.
+     (2026-09-08 잇비 정직성 감사에서 잡은 것과 같은 계열 — 실행기가 안 한 걸 했다고 보고한다.)
+     → 인식한 키가 하나도 없으면 실패로 돌려준다. 되돌리기 스냅샷도 그때는 쌓지 않는다
+       (안 그러면 헛 커맨드가 ↩ 스택을 오염시킨다). */
   function _applyAdjustPatch(opts) {
     if (!_flowReady()) return { ok: false, reason: 'not_open' };
+    opts = opts || {};
+    var set = opts.set || null, delta = opts.delta || null, beauty = opts.beauty || null;
+    var applied = [];
+    if (set) Object.keys(set).forEach(function (k) { if (k in d.adjust) applied.push(k); });
+    if (delta) Object.keys(delta).forEach(function (k) { if (k in d.adjust) applied.push(k); });
+    if (beauty) Object.keys(beauty).forEach(function (k) { if (k in d.beauty) applied.push('beauty.' + k); });
+    if (!applied.length) return { ok: false, reason: 'no_known_adjust_key', got: Object.keys(opts).filter(function (k) { return k !== 'type'; }) };
     d.undo = d.undo || []; d.undo.push(_snapEdit()); if (d.undo.length > 30) d.undo.shift(); d.redo = [];
-    var set = opts.set || null, delta = opts.delta || null;
     if (set) Object.keys(set).forEach(function (k) { if (k in d.adjust) d.adjust[k] = Math.max(-100, Math.min(100, +set[k] || 0)); });
     if (delta) Object.keys(delta).forEach(function (k) { if (k in d.adjust) d.adjust[k] = Math.max(-100, Math.min(100, (+d.adjust[k] || 0) + (+delta[k] || 0))); });
-    if (opts.beauty) Object.keys(opts.beauty).forEach(function (k) { if (k in d.beauty) d.beauty[k] = Math.max(0, Math.min(100, +opts.beauty[k] || 0)); });
-    if (cur === 'edit') { _paintEditPhoto(); _setEditSection('[data-ed-basic]', _mainAdjustHtml()); _setEditSection('[data-ed-adv]', _advFoldHtml()); _setEditSection('[data-ed-bottom]', _editBottomHtml()); }
+    if (beauty) Object.keys(beauty).forEach(function (k) { if (k in d.beauty) d.beauty[k] = Math.max(0, Math.min(100, +beauty[k] || 0)); });
+    /* [2026-09-10 scope-lock] `cur === 'edit'` 분기 제거 — 'edit' 은 SCREENS 에 없어 cur 이 될 수 없다. */
     _refreshPreview();
-    return { ok: true };
+    return { ok: true, applied: applied };
   }
   // 이름으로 고객 연결 — 전역 Customer.search 우선, 없으면 최근 고객 매칭. 못 찾으면 connect 화면 안내.
   // [T-104 P4] _connectByName → flow/connect.js
@@ -4873,22 +3843,18 @@
       case 'layoutopts':
         return { ok: true, options: (_WSL && _WSL.compOptions) ? _WSL.compOptions(+cmd.n || 0) : [] };
       case 'goto':
-        if (!_flowReady() || SCREENS.indexOf(cmd.screen) < 0) return { ok: false, reason: 'not_open' };
+        if (!_flowReady()) return { ok: false, reason: 'not_open' };
+        // [2026-09-10] '없는 화면' 과 '작업실이 안 열림' 을 구분한다 — 예전엔 둘 다 not_open 이라
+        //   잇비가 왜 실패했는지 원장에게 설명할 수 없었다(제거된 edit/template 요청이 여기로 온다).
+        if (SCREENS.indexOf(cmd.screen) < 0) return { ok: false, reason: 'unknown_screen', screen: cmd.screen };
         setScreen(cmd.screen); return { ok: true };
       case 'adjust':
         return _applyAdjustPatch(cmd);
       case 'edit':   // 되돌리기/다시실행/초기화 — [2026-07-22] 옛 슬라이더 화면(A) 안 띄우고 headless 로 상태만.
         if (!_flowReady()) return { ok: false, reason: 'not_open' };
         _editBottom(cmd.action); return { ok: true };   // _setEditSection 은 A DOM 없으면 no-op, _refreshPreview 로 결과만 갱신
-      case 'bg':
-        if (!_flowReady()) return { ok: false, reason: 'not_open' };
-        if (cur !== 'edit') setScreen('edit');
-        if (cmd.color) d.bgColor = cmd.color;
-        applyBg(cmd.action || 'removeBg'); return { ok: true };
-      case 'template':
-        if (!_flowReady()) return { ok: false, reason: 'not_open' };
-        if (cur !== 'edit') setScreen('edit');
-        applyTemplate(cmd.key); return { ok: true };
+      /* [2026-09-10] 'bg'·'template' 커맨드 제거 — 둘 다 setScreen('edit') 로 옛 편집기를 띄웠고,
+         레포 전체에 **발신처가 0건**이었다(잇비 NL 테이블에도 없다). 화면과 함께 걷어낸다. */
       case 'caption':
         if (!_flowReady()) return { ok: false, reason: 'not_open' };
         if (cmd.service != null) d.service = String(cmd.service);
@@ -4926,6 +3892,12 @@
     var p0 = curPhoto();
     return {
       open: true, screen: cur, cat: d.cat || null, service: d.service || '',
+      // [2026-09-04] 작업 식별자 2종.
+      //   slotId : 저장된 슬롯 id. **저장 전에는 null** 이다.
+      //   workId : 열릴 때 생기는 세션 키. 스타일 선택은 **이것**에 건다 —
+      //            slotId 로 걸면 저장 전에 고른 스타일이 통째로 무시된다(실측 P0).
+      slotId: (d.slot && d.slot.id) || null,
+      workId: _workKey(),
       photoCount: (d.photos || []).length,
       coverUrl: (p0 && (p0.editedDataUrl || p0.dataUrl)) || null,
       hasCaption: !!String(d.caption || '').trim()

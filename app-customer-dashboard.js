@@ -61,7 +61,7 @@
     sheet.innerHTML = `
       <div class="cust-detail" style="position:relative;width:100%;max-width:720px;margin:0 auto;min-height:100vh;background:var(--surface,#fff);">
         <div class="cv4-detail-mobile-head">
-          <button class="back" data-customer-dashboard-close aria-label="뒤로가기">‹</button>
+          <button type="button" class="ss-back" data-customer-dashboard-close aria-label="뒤로"><svg class="ic" aria-hidden="true"><use href="#ic-chevron-left"/></svg></button>
           <div style="flex:1;text-align:center;font-size:15px;font-weight:600;color:var(--text);">고객 정보</div>
           <div style="width:36px;"></div>
         </div>
@@ -83,12 +83,37 @@
     if (vc >= 3)  return 'b2';
     return 'b1';
   }
-  function _topService(rows) {
+  /* [2026-09-12 BUG-C1] '선호 시술' — **시술인 행만 센다.**
+
+     실측: QA 고객의 선호 시술이 "회원권 충전" 으로 떴다. 매출행의 service_name 을
+     그냥 세고 있어서, 돈만 받은 회원권 충전·환불행·취소 복구행이 전부 후보가 됐다.
+     원장 눈엔 "이 손님이 제일 좋아하는 시술 = 회원권 충전" 이다. 그건 시술이 아니다.
+
+     판정 규칙은 서버 SSOT(services/customer_visits) 하나뿐이어야 한다.
+     서버가 이미 그 규칙으로 계산한 `top_services` 를 주면 그걸 쓴다.
+     옛 응답·오프라인 캐시를 위해서만 같은 규칙을 여기서 한 번 더 적용한다
+     (두 벌이 아니라 **폴백**이다 — 서버 값이 있으면 그게 이긴다). */
+  const _NON_TREATMENT = ['회원권 충전', '회원권 해지 환불', '회원권 되돌리기'];
+  function _isTreatmentRow(r) {
+    if (!r) return false;
+    if (Number(r.amount) < 0) return false;               // 환불행
+    if (r.refund_of_id != null) return false;             // 환불행(금액 0 인 경우)
+    const d = r.membership_delta;
+    if (typeof d === 'number' && d > 0) return false;     // 충전·복구 = 돈만 받음
+    const n = String((r && r.service_name) || '').trim();
+    if (!n) return false;
+    if (_NON_TREATMENT.indexOf(n) >= 0) return false;     // 옛 행 폴백(컬럼 없던 시절)
+    if (/\s(환불|취소 복구)$/.test(n)) return false;
+    return true;
+  }
+  function _topService(rows, serverTop) {
+    if (Array.isArray(serverTop) && serverTop.length) return serverTop[0];
     if (!Array.isArray(rows) || !rows.length) return null;
     const count = {};
     rows.forEach(r => {
-      const n = (r && r.service_name) ? String(r.service_name).trim() : '';
-      if (n) count[n] = (count[n] || 0) + 1;
+      if (!_isTreatmentRow(r)) return;
+      const n = String(r.service_name).trim();
+      count[n] = (count[n] || 0) + 1;
     });
     let best = null, bestCount = 0;
     for (const k in count) { if (count[k] > bestCount) { best = k; bestCount = count[k]; } }
@@ -148,10 +173,29 @@
           <button class="d-act primary" data-cv4-act="booking">예약 잡기</button>
           ${m.phone ? `<button class="d-act ghost" data-cv4-act="call">전화</button>` : ''}
           <button class="d-act ghost" data-cv4-act="edit">정보수정</button>
+          ${_mbBtn(m)}
           <button class="d-act danger" data-cv4-act="delete">삭제</button>
         </div>
       </div>
     `;
+  }
+
+  /* [원장 QA 2026-09-11] 고객 상세에 **회원권 진입점**을 붙인다.
+     실측(라운드1·2, 실 Chrome): `openTopupSheet`/`openUseSheet` 를 부르는 곳이 앱 전체에서
+     **스와이프 액션 시트 한 곳뿐**이었다(app-customer.js `_openSwipeActions`).
+       · PC 에서 마우스로 행을 스와이프하는 건 사실상 불가능하고
+       · 설정 → 회원권 은 '만료 임박 목록' 이라 **0건이면 아무것도 못 연다**
+     그래서 고객 상세·고객 목록·필터 어디를 뒤져도 잔액조차 볼 수 없었다.
+     회원권을 파는 샵이면 **손님 잔액을 확인할 방법이 없다**는 뜻이다.
+     차감은 시술 완료 시트의 결제수단 '회원권' 으로 이미 되므로, 여기서는 충전/잔액을 연다. */
+  function _mbBal(m) {
+    const v = Number(m && m.c && m.c.membership_balance);
+    return Number.isFinite(v) && v > 0 ? v : 0;
+  }
+  function _mbBtn(m) {
+    const bal = _mbBal(m);
+    const label = bal > 0 ? ('회원권 ' + Math.floor(bal / 10000) + '만') : '회원권';
+    return '<button class="d-act ghost" data-cv4-act="membership">' + _esc(label) + '</button>';
   }
 
   function _renderDetailCards(m) {
@@ -248,7 +292,7 @@
 
   function _buildDetailHTMLv4(d) {
     const m = _detailModel(d);
-    const top = _topService(m.revenues);
+    const top = _topService(m.revenues, d && d.top_services);
     const pref = top ? `<div class="d-sec"><span>선호 시술</span></div><div class="d-pref">${_esc(top)}</div>` : '';
     const memo = m.c.memo ? `<div class="d-sec"><span>메모</span></div><div class="memo">${_esc(m.c.memo)}</div>` : '';
     return `
@@ -278,11 +322,24 @@
           window._pendingBookingCustomer = { id: c.id, name: c.name };
           if (typeof window.openCalendarView === 'function') window.openCalendarView();
           else if (typeof window.openBooking === 'function') window.openBooking();
+        } else if (act === 'membership') {
+          const _bal = Number(c.membership_balance) || 0;
+          if (typeof window.openMembershipCharge === 'function') {
+            window.openMembershipCharge(c.id, c.name, _bal);
+          } else if (window.showToast) {
+            window.showToast('회원권 화면을 불러오지 못했어요');
+          }
         } else if (act === 'call') {
           if (c.phone) window.location.href = 'tel:' + String(c.phone).replace(/[^0-9+]/g, '');
         } else if (act === 'delete') {
-          // [A7] 삭제 확인 메시지 통일 + [A8] 1번만 확인 후 API 직접 호출 (4중 확인 방지)
-          window._inlineConfirm('이 고객을 삭제하면 시술 기록도 함께 삭제돼요. 계속할까요?', () => {
+          /* [2026-09-09] 문구·가드·에러안내를 app-customer.js 의 삭제 계약과 공유한다.
+             예전 문구 "시술 기록도 함께 삭제돼요" 는 **사실과 반대**였다 — 서버는 지난 예약·매출을
+             일부러 남긴다(customers.py: "장부는 손님을 지워도 남아야 한다").
+             2026-08-05 P1-7 이 `_customerDelete` 한 곳만 고쳐서 이 경로만 옛 문구로 남아 있었다. */
+          const _dc = window.CustomerDeleteContract;
+          if (_dc && _dc.blockedByBalance && _dc.blockedByBalance(c)) return;
+          window._inlineConfirm((_dc && _dc.confirmMessage) ? _dc.confirmMessage()
+            : '고객 목록에서만 사라져요. 지난 매출·시술 기록은 그대로 남아요.\n삭제할까요?', () => {
             // [A8] Customer.remove 직접 호출 — _customerDelete 는 자체 confirm 이 있어서 중복됨
             const removeFn = (window.Customer && window.Customer.remove) ? window.Customer.remove : null;
             if (!removeFn) {
@@ -300,7 +357,15 @@
               })
               .catch((err) => {
                 console.warn('[customer delete]', err);
-                if (window.showToast) window.showToast('삭제 실패 — 다시 시도해주세요');
+                /* [2026-09-09] 서버는 회원권 잔액이 남으면 409 `membership_balance_remains` 와
+                   "회원권 잔액 110,000원이 남아 있어요. 먼저 환불하거나 정산해 주세요." 까지 준다.
+                   그런데 여기서 '다시 시도해주세요' 로 뭉개서 원장이 이유도 모른 채 계속 다시 눌렀다.
+                   `CustomerErrorText` 는 이미 이 코드를 처리하도록 만들어져 있었다(app-customer.js
+                   _friendlyError case 409) — 붙이기만 안 돼 있었다. */
+                const _txt = (typeof window.CustomerErrorText === 'function')
+                  ? window.CustomerErrorText(err, '삭제')
+                  : '삭제 실패 — 다시 시도해주세요';
+                if (window.showToast) window.showToast(_txt);
               });
           });
         } else if (act === 'edit') {
@@ -341,7 +406,7 @@
         _fillPhotoTimeline(mountEl, fb);
         if (typeof window.showToast === 'function') window.showToast('기본 정보로 표시 중이에요');
       } catch (_) {
-        mountEl.innerHTML = `<div style="padding:40px 20px;text-align:center;color:var(--danger);font-size:13px;">불러오기 실패<br><span style="color:#888;font-size:11px;">${_esc(e?.message || '네트워크 오류')}</span></div>`;
+        mountEl.innerHTML = `<div style="padding:40px 20px;text-align:center;color:var(--danger);font-size:13px;">불러오기 실패<br><span style="color:#888;font-size:11px;">${_esc((window._humanError ? window._humanError(e) : (e?.message || '네트워크 오류')))}</span></div>`;
       }
     }
   };
@@ -387,12 +452,8 @@
     try { if (typeof window._markSheetClosed === 'function') window._markSheetClosed('customerDash'); } catch (_e) { void _e; }
     // [T-101] "이 손님" 컨텍스트 해제.
     try { window.__ITDASY_CURRENT_CUSTOMER__ = null; } catch (_e) { void 0; }
-    // [Phase3-B #4] 잇비 대화에서 열었으면 닫을 때 잇비로 복귀(다른 경로는 밑의 화면 그대로 노출).
-    let _ret = null;
-    try { _ret = window.__ITDASY_CUSTOMER_RETURN__; window.__ITDASY_CUSTOMER_RETURN__ = null; } catch (_e) { void 0; }
-    if (_ret === 'itbi_chat' && typeof window.openAssistant === 'function') {
-      try { window.openAssistant(); } catch (_e) { void 0; }
-    }
+    // [2026-08-17 · C] 잇비 복귀는 시트 라우터(app-core _markSheetClosed)가 처리한다.
+    //   여기서 따로 열지 않는다 — 목록 위에서 상세만 닫을 땐 목록으로 돌아가야 하므로.
   };
 
   function _customerEditHtml(c, isNew) {
@@ -403,7 +464,7 @@
       <div style="background:var(--surface,#fff);border-radius:18px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;padding:24px;box-shadow:0 24px 64px rgba(0,0,0,0.18);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
           <strong style="font-size:18px;color:var(--text);">${title}</strong>
-          <button type="button" id="custEditClose" aria-label="닫기" style="background:var(--surface-2,#F7F8FA);border:none;width:32px;height:32px;border-radius:50%;font-size:14px;cursor:pointer;color:var(--text);">✕</button>
+          <button class="ss-close" type="button" id="custEditClose" aria-label="닫기" style="background:transparent;border:none;width:32px;height:32px;border-radius:50%;font-size:14px;cursor:pointer;color:var(--text);"><svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
         <label style="display:block;font-size:12px;color:#888;margin-bottom:4px;">이름 *</label>
         <input id="cedName" type="text" maxlength="50" value="${_esc(c.name || '')}" style="width:100%;height:42px;padding:0 14px;border-radius:10px;border:1px solid var(--border,#E5E7EB);background:var(--surface,#fff);font-size:14px;color:var(--text);outline:none;font-family:inherit;margin-bottom:14px;" />

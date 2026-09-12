@@ -31,7 +31,7 @@
       <div class="p9-sheet__body" role="dialog" aria-modal="true">
         <div class="p9-sheet__head">
           <div class="p9-sheet__title">예약 리마인더</div>
-          <button type="button" class="p9-sheet__close" data-rm-close aria-label="닫기">x</button>
+          <button type="button" class="p9-sheet__close ss-close" data-rm-close aria-label="닫기"><svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
         <label class="p9-sheet__card"><input type="checkbox" id="rmEnabled"> 자동 알림 켜기</label>
         <label class="p9-sheet__card"><input type="checkbox" id="rm24"> 예약 24시간 전</label>
@@ -101,13 +101,18 @@
     const el = _ensure();
     _hydrate();
     el.style.display = 'flex';
+    // [2026-09-07 반응형 릴리즈게이트] 뒤로가기 등록. 없으면 안드로이드 하드웨어 백이
+    //   이 시트를 닫는 대신 **앱을 종료**한다 (실측: history 엔트리 0).
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('reminder');
   }
 
   function closeReminderSettings() {
     const el = document.getElementById('reminderSheet');
     if (el) el.style.display = 'none';
+    if (typeof window._markSheetClosed === 'function') window._markSheetClosed('reminder');
   }
 
   window.openReminderSettings = openReminderSettings;
   window.closeReminderSettings = closeReminderSettings;
+  if (typeof window._registerSheet === 'function') window._registerSheet('reminder', closeReminderSettings);
 })();

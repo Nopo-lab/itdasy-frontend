@@ -52,8 +52,9 @@
 .psv-card strong { font-size:14px; font-weight:800; color:var(--text); }
 .psv-card p { font-size:11px; color:var(--text3); line-height:1.4;
   word-break:keep-all; margin:0; }
-.psv-back { background:none; border:none; color:var(--text3); font-size:13px;
-  font-weight:600; cursor:pointer; padding:6px 0; margin-bottom:12px; }
+/* [2026-08-31 네비 통일] .psv-back 제거 — 공통 .ss-back 으로 흡수.
+   원래 갖고 있던 아래 여백만 살린다(레이아웃 유지). */
+#psv-body .ss-back { margin-bottom:12px; }
 .psv-label { display:block; font-size:13px; font-weight:700; color:var(--text);
   margin-bottom:8px; }
 .psv-select, .psv-textarea, .psv-input {
@@ -113,6 +114,9 @@
     sheet.innerHTML = '<div class="psv-handle"></div><div id="psv-body"></div>';
     _overlay.appendChild(sheet);
     document.body.appendChild(_overlay);
+    /* [2026-09-09] 뒤로가기 등록 — 전체화면 오버레이는 back 으로 자기가 닫혀야 한다.
+       안 하면 back 이 이 창 대신 뒤 화면을 닫아 작성 중이던 내용이 날아간다. */
+    try { window._bindSheetBack && window._bindSheetBack('personaSurvey', _overlay, () => { close(); }); } catch (_bsb) { void _bsb; }
   }
 
   function close() {
@@ -227,7 +231,7 @@
     const intentKr = _state.intent === 'new' ? '신규 고객' : '단골 고객';
     const optionsHtml = services.map((s) => `<option value="${s}">${s}</option>`).join('');
     body.innerHTML = `
-      <button class="psv-back" id="psv-back-btn">‹ 뒤로</button>
+      <button type="button" class="ss-back" id="psv-back-btn" aria-label="뒤로"><svg class="ic" aria-hidden="true"><use href="#ic-chevron-left"/></svg></button>
       <div class="psv-title">${intentKr}께 보낼 메시지</div>
       <div class="psv-sub">어떤 시술을 받으셨는지 골라주세요.</div>
       <label class="psv-label">시술 종류</label>
@@ -248,7 +252,7 @@
     _state.step = 2;
     const body = document.getElementById('psv-body');
     body.innerHTML = `
-      <button class="psv-back" id="psv-back-btn">‹ 뒤로</button>
+      <button type="button" class="ss-back" id="psv-back-btn" aria-label="뒤로"><svg class="ic" aria-hidden="true"><use href="#ic-chevron-left"/></svg></button>
       <div class="psv-title">메시지 의도 입력</div>
       <div class="psv-sub">어떤 상황·내용으로 글을 쓸지 한두 줄로 적어주세요.</div>
       <label class="psv-label">예: "시술 후 후기 부탁 멘트", "재방문 감사 인사"</label>

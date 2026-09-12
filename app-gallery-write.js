@@ -324,7 +324,7 @@ function _showCaptionPublishPreview(photos, caption) {
           <div style="font-size:11px;color:var(--text-subtle);">sponsored</div>
         </div>
         <button style="padding:4px 12px;border-radius:6px;border:1.5px solid #dbdbdb;background:transparent;font-size:12px;font-weight:600;color:#262626;cursor:pointer;">팔로우</button>
-        <button data-write-preview-close aria-label="닫기" style="background:transparent;border:none;font-size:18px;color:var(--text-subtle);cursor:pointer;margin-left:8px;">×</button>
+        <button class="ss-close" data-write-preview-close aria-label="닫기" style="background:transparent;border:none;font-size:18px;color:var(--text-subtle);cursor:pointer;margin-left:8px;"><svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-x"/></svg></button>
       </div>
       <!-- 사진 캐러셀 -->
       ${photoHtml}
@@ -348,6 +348,8 @@ function _showCaptionPublishPreview(photos, caption) {
   pop.querySelector('[data-write-preview-close]')?.addEventListener('click', () => { pop.style.display = 'none'; });
   pop.querySelector('[data-write-publish]')?.addEventListener('click', doPublishFromCaption);
   pop.style.display = 'flex';
+  // [2026-09-09] 뒤로가기 등록 — 발행 미리보기가 열린 채 back 이면 뒤 화면이 닫혔다.
+  try { window._bindSheetBack && window._bindSheetBack('writePublishPreview', pop, () => { pop.style.display = 'none'; }); } catch (_e) { void _e; }
   window._pubPhotos     = photos;
   window._pubPhotoTotal = total;
 

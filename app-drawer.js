@@ -19,12 +19,24 @@
     bookings:     () => _call(['openCalendarView']),
     customer:     () => _call(['openCustomerHub']),
     revenue:      () => _call(['openRevenue', 'openRevenueHub']),
-    // [2026-09-06 자동화 승격] "통합 허브" 폐지 — app-ai-hub.js 를 지웠다.
-    //   ai_hub 라우트는 외부 링크 호환으로 남기되 인스타DM 설정으로 직결한다
-    //   (openAiHub 는 이제 없다 — 그대로 두면 조용히 아무 일도 안 일어난다).
-    ai_hub:       () => _call(['openDMMenuSettings']),
+    // 손님 문의 (2026-08-16 — "통합 허브" 폐지, ai_hub 라우트 → insta_dm 이 대신함)
+    // 인스타DM 화면 3개→1개 통합 — app-dm-menu.js '인스타DM 손님 응대' 직결.
+    insta_dm:      () => _call(['openDMMenuSettings']),
+    // 인스타 댓글 — app-comment-reply-queue.js 는 lazy(extras). 로드 보장 후 호출
+    //   (js/home/v41-actions.js openCommentQueue 와 같은 패턴).
+    insta_comment: () => {
+      if (typeof window.openCommentReplyQueue === 'function') return _call(['openCommentReplyQueue']);
+      if (window.AppLoader && window.AppLoader.ensure) {
+        const go = () => _call(['openCommentReplyQueue']);
+        Promise.resolve(window.AppLoader.ensure('extras')).then(go).catch(go);
+        return true;
+      }
+      return _call(['openCommentReplyQueue']);
+    },
+    // 내 정보
     integrations: () => _call(['openIntegrationsHub']),
     settings_hub: () => _call(['openSettingsHub']),
+    plan:         () => _call(['openPlan', 'openPlanPopup']),
     // 레거시 라우트 호환 (외부 링크가 직접 호출하는 경우)
     dm:        () => _call(['openDMMenuSettings']),
     kakao:     () => _call(['openKakaoHub']),

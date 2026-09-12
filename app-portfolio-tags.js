@@ -5,7 +5,7 @@
     <div style="width:min(440px,100%);max-height:92vh;overflow:auto;border-radius:16px;background:#151516;color:white;padding:16px;box-shadow:0 24px 80px rgba(0,0,0,0.45);">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;">
         <div style="font-size:15px;font-weight:900;">포트폴리오 태그</div>
-        <button data-close type="button" style="width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,0.12);color:white;font-size:20px;line-height:1;cursor:pointer;">x</button>
+        <button class="ss-close" data-close type="button" style="width:34px;height:34px;border-radius:50%;border:none;background:transparent;color:white;font-size:20px;line-height:1;cursor:pointer;"><svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-x"/></svg></button>
       </div>
       <img data-img alt="" style="width:100%;max-height:48vh;object-fit:contain;border-radius:12px;background:#222;margin-bottom:14px;">
       <label style="display:block;font-size:11px;color:rgba(255,255,255,0.62);font-weight:800;margin-bottom:6px;">큰 태그</label>
@@ -151,6 +151,9 @@
     overlay.querySelector('[data-main-tag]').value = item.main_tag || '';
     overlay.querySelector('[data-memo]').value = item.memo || '';
     document.body.appendChild(overlay);
+    /* [2026-09-09] 뒤로가기 등록 — 전체화면 오버레이는 back 으로 자기가 닫혀야 한다.
+       안 하면 back 이 이 창 대신 뒤 화면을 닫아 작성 중이던 내용이 날아간다. */
+    try { window._bindSheetBack && window._bindSheetBack('portfoliotags', overlay, () => { overlay.remove(); }); } catch (_bsb) { void _bsb; }
     _wire(overlay, item, state);
   }
 

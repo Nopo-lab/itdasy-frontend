@@ -74,6 +74,16 @@
       default: return '';
     }
   }
+  // [2026-08-31] 칩 색 = 상태. 완료 초록 / 노쇼 빨강 고정, 예정은 '그날 안에서의 순번'으로
+  //   5색 순환(고객별 고정색 아님 — 매일 리셋). 줄끼리 안 뭉개져 보이게 하는 용도라
+  //   월 셀 칩과 주간 블록이 같은 클래스를 써야 같은 손님이 뷰마다 같은 색으로 보인다.
+  //   색 정본은 booking-v4.css `.bk-ch--*` 한 곳.
+  const BK_UP_COLORS = 5;
+  function _chipCls(status, i) {
+    if (status === 'completed') return 'bk-ch--done';
+    if (status === 'no_show')   return 'bk-ch--no';
+    return 'bk-ch--up' + (i % BK_UP_COLORS);
+  }
   let _curDate = new Date();
   let _mappedCache = [];         // 현재 월 매핑된 예약
   // [2026-05-23] _staffList / _activeStaffIds 제거 — 직원 기능 폐지
@@ -102,6 +112,11 @@
   }
   function _ds(d)   { return d.getFullYear() + '-' + _pad(d.getMonth()+1) + '-' + _pad(d.getDate()); }
   function _fmt(d)  { return _pad(d.getHours()) + ':' + _pad(d.getMinutes()); }
+  // 월 셀 전용 축약 — 정시는 "11시", 그 외는 "11:30". 칸 폭이 좁아 ":00" 두 글자가 아깝다.
+  function _fmtCell(d) {
+    const h = d.getHours(), m = d.getMinutes();
+    return m === 0 ? h + '시' : h + ':' + _pad(m);
+  }
   function _overlay()  { return document.getElementById(OVERLAY_ID); }
   function _isPC() { return window.innerWidth >= PC_BREAKPOINT; }
 
@@ -128,7 +143,9 @@
   let _escHandler = null;
   function _bindEscClose() {
     if (_escHandler) return;
-    _escHandler = (e) => { if (e.key === 'Escape') _close(); };
+    // [2026-08-31] ESC 도 헤더 ← 와 같은 경로. 주간뷰에서 ← 는 월간뷰 복귀인데
+    //   ESC 만 시트를 통째로 닫으면 같은 화면에서 두 동작이 갈린다.
+    _escHandler = (e) => { if (e.key === 'Escape') _back(); };
     document.addEventListener('keydown', _escHandler);
   }
 
@@ -205,8 +222,8 @@
       viewLabel = (viewStart.getMonth()+1) + '/' + viewStart.getDate();
       viewGroupLabel = '선택일';
     } else if (_curView === 'week') {
-      viewStart = new Date(_curDate); viewStart.setHours(0,0,0,0);
-      viewStart.setDate(viewStart.getDate() - viewStart.getDay());
+      // [2026-08-15 #37] 주간 시작일은 _weekStartOf 로 통일 (모바일 롤링 윈도우와 동기화)
+      viewStart = _weekStartOf(_curDate);
       viewEnd = new Date(viewStart); viewEnd.setDate(viewEnd.getDate() + 7);
       const we = new Date(viewEnd); we.setDate(we.getDate() - 1);
       viewLabel = `${viewStart.getMonth()+1}/${viewStart.getDate()} ~ ${we.getMonth()+1}/${we.getDate()}`;
@@ -250,7 +267,7 @@
   // §5 모바일 — 월 그리드
   // ============================================================
   // 월 그리드 공통 — 모바일/PC 모두 사용. clsPrefix: 'bk-month-m' or 'bk-pc-month'
-  function _buildMonthCellHTML(d, year, month, byDay, today, p, isPC, opts) {
+  function _buildMonthCellHTML(d, year, month, byDay, today, p, _isPC, opts) {
     const isToday = today.getFullYear() === year && today.getMonth() + 1 === month && today.getDate() === d;
     const dateStr = year + '-' + _pad(month) + '-' + _pad(d);
     let cls = `${p}__cell` + (isToday ? ` ${p}__cell--today` : '');
@@ -265,18 +282,19 @@
     }
     const its = byDay[d] || [];
     if (its.length) {
-      // [2026-05-16] PC/모바일 모두 시간 + 이름만, 최대 5줄.
-      // [2026-05-17 v6] 각 줄에 작은 6px 컬러 dot — 그날 안에서 5색 순환
-      const MAX = isPC ? 5 : 3;
+      // [2026-08-31] 칩을 1줄("11시 홍길동")로 눕히고 앞 dot 을 없앴다. dot 6px + margin 4px 이
+      //   정확히 이름 한 글자 폭이라, 그걸 회수하고 시간을 "11:00"→"11시"로 줄이면
+      //   360px 폰에서도 4글자 이름이 한 줄에 들어간다. 상태는 이제 칩 배경색이 말한다(범례 동일).
+      //   PC/모바일 마크업 통일 — 크기 차이는 CSS 미디어쿼리로만 낸다(isPC 미사용).
+      //   몇 줄까지 보일지는 여기서 안 정한다. 칸 높이를 실측하는 _capMonthCells 가 정한다.
       h += `<div class="${p}__events">`;
-      its.slice(0, MAX).forEach((it, _i) => {
-        // [2026-05-23] is-staff2 분기 제거 — 직원 기능 폐지
-        const tm = _fmt(new Date(it._raw.starts_at));
-        const dotColor = _statusDotColor(it.status);
-        const dot = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${dotColor};margin-right:4px;vertical-align:middle"></span>`;
-        h += `<div class="${p}__evt${_stCls(it.status)}">${dot}${tm} ${_esc(it.cust)}</div>`;
+      its.forEach((it, i) => {
+        h += `<div class="${p}__evt ${_chipCls(it.status, i)}">`
+           +   `<span class="${p}__evt-t">${_fmtCell(new Date(it._raw.starts_at))}</span>`
+           +   `<span class="${p}__evt-n">${_esc(it.cust)}</span>`
+           + `</div>`;
       });
-      if (its.length > MAX) h += `<div class="${p}__more">+${its.length - MAX}</div>`;
+      h += `<div class="${p}__more" hidden></div>`;
       h += '</div>';
     }
     return h + '</div>';
@@ -293,6 +311,8 @@
       if (sd.getFullYear() !== year || sd.getMonth() + 1 !== month) return;
       (byDay[m.d] = byDay[m.d] || []).push(m);
     });
+    // [2026-08-31] 칩 색이 '그날 안에서의 순번'이라 순서가 흔들리면 색도 흔들린다 → 시간순 고정.
+    Object.keys(byDay).forEach(k => byDay[k].sort((a, b) => new Date(a._raw.starts_at) - new Date(b._raw.starts_at)));
     const firstDow = new Date(year, month - 1, 1).getDay();
     const lastDate = new Date(year, month, 0).getDate();
     const prevLast = new Date(year, month - 1, 0).getDate();
@@ -309,6 +329,81 @@
       }
     }
     return cells;
+  }
+
+  // [2026-08-31] 칸당 몇 명까지 보일지를 CAP 상수(3/5)로 박아두면, 화면 높이·통계 접힘·5주/6주에
+  //   따라 반드시 어긋난다(넘치면 잘리고, 남으면 빈칸). 그래서 렌더 후 칸 높이를 실측해서
+  //   들어가는 만큼만 남긴다 — 이게 "말일이 스크롤된다"의 근본 해결.
+  //   ⚠️ 넘치는 칩을 DOM 에서 지우지 말 것. 통계를 접었다 펴면 칸이 커지는데 그때 되살려야 한다.
+  //   → hidden 속성 토글만 한다(멱등, 몇 번 불려도 같은 결과).
+  function _capMonthCells(root) {
+    if (!root) return;
+    root.querySelectorAll('.bk-month-m__events, .bk-pc-month__events').forEach(box => {
+      const more = box.querySelector('.bk-month-m__more, .bk-pc-month__more');
+      const chips = Array.prototype.filter.call(box.children, el => el !== more);
+      if (!chips.length) return;
+      chips.forEach(el => { el.hidden = false; });
+      if (more) more.hidden = true;
+      const avail = box.clientHeight;
+      const gap = parseFloat(getComputedStyle(box).rowGap) || 0;
+      const unit = chips[0].offsetHeight + gap;
+      if (!avail || !unit) return;
+      let cap = Math.max(1, Math.floor((avail + gap) / unit));
+      // 넘칠 때만 "+N" 줄 자리를 빼고 다시 센다(안 넘치면 뺄 이유가 없다).
+      // 빈 문자열이면 높이가 0 이라 측정이 안 된다 → 더미 텍스트 넣고 잰다.
+      if (chips.length > cap && more) {
+        more.textContent = '+9';
+        more.hidden = false;
+        cap = Math.max(1, Math.floor((avail - more.offsetHeight + gap) / unit));
+        more.hidden = true;
+      }
+      if (chips.length <= cap) return;
+      chips.slice(cap).forEach(el => { el.hidden = true; });
+      if (more) { more.textContent = '+' + (chips.length - cap); more.hidden = false; }
+    });
+  }
+  // [2026-08-31] 주별 칸 높이 유동화 — CSS 의 grid-auto-rows:1fr 을 대체한다.
+  //   1fr 은 '남은 높이를 주 수로 균등분배'라 6주짜리 달에서 칸이 짜부라졌고,
+  //   하루 5건인 날이 칩 1개 + "+4" 로 접혀서 "예약이 안 보인다"는 신고가 나왔다.
+  //   이제 주 단위로 `max(그 주 최대 건수, MONTH_BASE_SLOTS) × 칩높이` 를 실제 px 로 박는다.
+  //   ⚠️ 칸이 아니라 '주 행' 단위다 — CSS 그리드 행은 7일이 높이를 공유한다.
+  //   ⚠️ 하드코딩 금지. 칩 높이·간격·칸 여백은 폰트/DPI/미디어쿼리로 달라지므로 전부 실측한다.
+  const MONTH_BASE_SLOTS = 4;
+  function _sizeMonthRows(root) {
+    const grid = root && root.querySelector('.bk-month-m__cells');
+    if (!grid) return;
+    const cells = Array.prototype.slice.call(grid.children);
+    if (cells.length < 7) return;
+    // 칩이 한 개도 없는 달이면 잴 게 없다 → 인라인 높이를 걷어내고 CSS 기본값(78px)에 맡긴다.
+    const box = grid.querySelector('.bk-month-m__events');
+    const chip = grid.querySelector('.bk-month-m__evt');
+    if (!box || !chip) { grid.style.gridTemplateRows = ''; return; }
+    const gap = parseFloat(getComputedStyle(box).rowGap) || 0;
+    const unit = chip.offsetHeight + gap;
+    // 칸에서 칩 영역을 뺀 고정분(날짜 숫자 줄 + margin + padding). 1fr 이 걸려 있어도
+    // 이 차이값은 변하지 않으므로 지금 재도 된다.
+    const overhead = Math.max(0, box.parentElement.getBoundingClientRect().height - box.getBoundingClientRect().height);
+    if (!unit) return;
+    const rows = [];
+    for (let i = 0; i < cells.length; i += 7) {
+      let mx = 0;
+      for (let j = i; j < i + 7 && j < cells.length; j++) {
+        const n = cells[j].querySelectorAll('.bk-month-m__evt').length;
+        if (n > mx) mx = n;
+      }
+      rows.push(Math.round(overhead + Math.max(mx, MONTH_BASE_SLOTS) * unit - gap));
+    }
+    grid.style.gridTemplateRows = rows.map(h => h + 'px').join(' ');
+  }
+  function _capMonthCellsSoon() {
+    const o = _overlay(); if (!o || _curView !== 'month') return;
+    // 순서 중요 — 먼저 행 높이를 확정하고, 그 다음 남는 걸 자른다.
+    // 반대로 하면 1fr 시절 높이 기준으로 잘라놓고 칸만 커져서 빈칸이 생긴다.
+    requestAnimationFrame(() => {
+      const root = o.querySelector('#bk-body');
+      _sizeMonthRows(root);
+      _capMonthCells(root);
+    });
   }
 
   function _renderMonthMobile(year, month, mapped) {
@@ -391,11 +486,20 @@
   // ============================================================
   // §7 모바일 — 주간 뷰
   // ============================================================
+  // [2026-08-15 #37] 주간 시작일 계산 SSOT — PC는 일요일 시작(달력 관습),
+  //   모바일은 기준일이 4번째 칸(가운데)에 오는 ±3일 롤링 윈도우.
+  //   기존엔 모바일도 일요일 시작이라 금·토엔 오늘이 오른쪽 끝에 몰렸다.
+  //   _calcStats 주간 범위도 이 함수를 써서 카운트·라벨이 화면과 일치하게 유지.
+  function _weekStartOf(baseDate) {
+    const ws = new Date(baseDate); ws.setHours(0, 0, 0, 0);
+    ws.setDate(ws.getDate() - (_cachedIsPC ? ws.getDay() : 3));
+    return ws;
+  }
+
   function _renderWeekMobile(baseDate, mapped) {
     const tt = _ttHours();
     const DOW = ['일','월','화','수','목','금','토'];
-    const ws = new Date(baseDate); ws.setHours(0,0,0,0);
-    ws.setDate(ws.getDate() - ws.getDay());
+    const ws = _weekStartOf(baseDate);
     const we = new Date(ws); we.setDate(ws.getDate() + 7);
     const today = new Date(); today.setHours(0,0,0,0);
     const filtered = _filterByStaff(mapped);
@@ -445,16 +549,30 @@
     const strike = dim ? 'text-decoration:line-through;' : '';
     const dot = (sz) => '<span style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;background:' + dotC + ';flex-shrink:0;display:inline-block;"></span>';
     if (isPC) {
+      // [전수감사 2026-09-08] 좁은 창에서 **고객명만** 짜부라지던 것.
+      //   예전엔 이름이 `flex:1`(하한 없음) · 시간이 `flex-shrink:0`(절대 안 줆) 이라
+      //   폭이 모자라면 이름이 전부 내주고 "강…" 이 됐다. 실측(브라우저에서 칼럼 폭을 좁혀가며):
+      //     칼럼 165px → 이름 90px (정상)
+      //     칼럼 110px → 이름 35px (정상, 필요 33px)
+      //     칼럼  95px → 이름 20px / 필요 33px → **잘림**   ← 창 폭 ≈950px 이하
+      //     칼럼  80px → 이름  5px → "…"
+      //   시간은 68px 를 그대로 유지했다. 우선순위가 거꾸로다 —
+      //   **여긴 시간 격자다.** 블록의 세로 위치가 이미 시각을 말한다.
+      //   반면 이름은 그 칸이 누구 예약인지 알려주는 유일한 정보다.
+      //   그래서 이름에 **하한(min-width)** 만 준다. 나머지는 그대로 뒀다 —
+      //   넓은 폭 레이아웃을 안 건드리는 최소 변경이다. 폭이 정말 모자라면
+      //   시간이 블록 경계에서 잘리는데, 이름을 잃는 것보다 낫다.
+      //   (모바일은 반대로 시간을 윗줄에 고정한다 — 칼럼 49px 에선 그게 맞다. 아래 분기 유지.)
       return '<div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1;">'
         + dot(8)
-        + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;color:' + nameColor + ';letter-spacing:-0.2px;' + strike + '">' + _esc(it.cust) + '</span>'
+        + '<span style="flex:1;min-width:3.4em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;color:' + nameColor + ';letter-spacing:-0.2px;' + strike + '">' + _esc(it.cust) + '</span>'
         + '<span style="flex-shrink:0;font-size:11px;color:#8B95A1;' + strike + '">' + tm + '</span>'
         + (done ? '<span style="flex-shrink:0;color:#16B55E;display:inline-flex;align-items:center;"><svg width="13" height="13" aria-hidden="true"><use href="#ic-check"/></svg></span>' : '')
         + '</div>';
     }
-    // 모바일: 좁은 컬럼(≈49px) — 점·시간을 윗줄에, 이름은 아랫줄(잘려도 점·시간은 보존)
+    // 모바일: 좁은 컬럼(≈49px) — 시간은 윗줄, 이름은 아랫줄(잘려도 시간은 보존).
+    // [2026-08-31] 점 제거 — 블록 배경색(bk-ch--*)이 상태를 말한다. 월 뷰 칩과 같은 언어.
     return '<div style="display:flex;align-items:center;gap:3px;line-height:1.1;">'
-      + dot(7)
       + '<span style="font-size:10px;color:#8B95A1;font-weight:600;flex-shrink:0;' + strike + '">' + tm + '</span>'
       + (done ? '<span style="margin-left:auto;color:#16B55E;flex-shrink:0;display:inline-flex;align-items:center;"><svg width="11" height="11" aria-hidden="true"><use href="#ic-check"/></svg></span>' : '')
       + '</div>'
@@ -470,6 +588,14 @@
       cellMap.set(key, cell);
     });
     const fragments = new Map();
+    // [2026-08-31] 블록 색은 월 뷰 칩과 같아야 한다 → 같은 기준인 '그날 안에서의 시간순 순번'을 미리 매긴다.
+    //   (시간대 안 순번으로 매기면 같은 손님이 월에서 파랑, 주에서 초록으로 보인다.)
+    const dayIdx = new Map(); const dayCnt = {};
+    items.slice().sort((a, b) => new Date(a._raw.starts_at) - new Date(b._raw.starts_at)).forEach(it => {
+      const k = _ds(new Date(it._raw.starts_at));
+      dayCnt[k] = dayCnt[k] || 0;
+      dayIdx.set(it, dayCnt[k]++);
+    });
     items.forEach(it => {
       const s = new Date(it._raw.starts_at);
       const e = new Date(it._raw.ends_at);
@@ -486,7 +612,7 @@
       const height = Math.max(15, ((e - s) / 60000 / 60) * HOUR_PX_MOBILE_WEEK);
       // [2026-05-23] is-staff2 분기 제거 — 직원 기능 폐지
       const block = document.createElement('button');
-      block.className = 'bk-week-m__block bk-week-m__block--v6';
+      block.className = 'bk-week-m__block bk-week-m__block--v6 ' + _chipCls(it.status, dayIdx.get(it) || 0);
       block.dataset.bookingId = it.id;
       block.style.top = top + 'px';
       block.style.height = height + 'px';
@@ -733,12 +859,8 @@
   // [2026-05-23] _renderStaffList 제거 — 직원 기능 폐지
 
   // [2026-05-28] 4칸 분할 카드 (완료·예정·노쇼·취소). 메인 숫자 = 완료+예정 (취소·노쇼 제외).
-  //   isMobile=true 이면 button 형태(접힘/펴짐), false 이면 PC 펼친 상태.
-  //   open=true 이면 4칸 표시 (모바일에서만 영향).
-  function _renderStatCard(kind, s, opts) {
-    opts = opts || {};
-    const isMobile = !!opts.mobile;
-    const open = !!opts.open;
+  // [2026-08-31] 모바일 분기(mobile/open) 제거 — 모바일은 1줄 바(_renderMobileCards)로 갈아탔다. 여긴 PC 좌측 전용.
+  function _renderStatCard(kind, s) {
     let label, count, note, done, upcoming, noShow, cancel;
     if (kind === 'today') {
       label = s.todayLabel;
@@ -751,10 +873,7 @@
       note  = '취소·노쇼 제외';
       done = s.viewDone; upcoming = s.viewUpcoming; noShow = s.viewNoShow; cancel = s.viewCancel;
     }
-    const cardCls = isMobile ? 'bk-stat-card bk-stat-card--m' + (open ? ' is-open' : '') : 'bk-stat-card';
-    const tag = isMobile ? 'button' : 'div';
-    const typeAttr = isMobile ? ' type="button"' : '';
-    let h = '<' + tag + ' class="' + cardCls + '" data-card="' + kind + '"' + typeAttr + '>';
+    let h = '<div class="bk-stat-card" data-card="' + kind + '">';
     h += '<div class="bk-stat-card__head">';
     h +=   '<div>';
     h +=     '<div class="bk-stat-card__label">' + _esc(label) + '</div>';
@@ -762,21 +881,13 @@
     h +=   '</div>';
     h +=   '<div class="bk-stat-card__count">' + count + '건</div>';
     h += '</div>';
-    if (isMobile && !open) {
-      h += '<div class="bk-stat-card__compact">';
-      h +=   '<span>완료 ' + done + ' · 예정 ' + upcoming + '</span>';
-      h +=   '<span class="bk-stat-card__caret" style="display:inline-flex;align-items:center;"><svg width="13" height="13" aria-hidden="true"><use href="#ic-chevron-right"/></svg></span>';
-      h += '</div>';
-    } else {
-      h += '<div class="bk-stat-card__row">';
-      h +=   '<div class="bk-stat-card__cell"><span class="bk-stat-card__cell-label">완료</span><span class="bk-stat-card__cell-val">' + done + '</span></div>';
-      h +=   '<div class="bk-stat-card__cell"><span class="bk-stat-card__cell-label">예정</span><span class="bk-stat-card__cell-val">' + upcoming + '</span></div>';
-      h +=   '<div class="bk-stat-card__cell"><span class="bk-stat-card__cell-label">노쇼</span><span class="bk-stat-card__cell-val">' + noShow + '</span></div>';
-      h +=   '<div class="bk-stat-card__cell is-cancel"><span class="bk-stat-card__cell-label">취소</span><span class="bk-stat-card__cell-val">' + cancel + '</span></div>';
-      h += '</div>';
-    }
-    h += '</' + tag + '>';
-    return h;
+    h += '<div class="bk-stat-card__row">';
+    h +=   '<div class="bk-stat-card__cell"><span class="bk-stat-card__cell-label">완료</span><span class="bk-stat-card__cell-val">' + done + '</span></div>';
+    h +=   '<div class="bk-stat-card__cell"><span class="bk-stat-card__cell-label">예정</span><span class="bk-stat-card__cell-val">' + upcoming + '</span></div>';
+    h +=   '<div class="bk-stat-card__cell"><span class="bk-stat-card__cell-label">노쇼</span><span class="bk-stat-card__cell-val">' + noShow + '</span></div>';
+    h +=   '<div class="bk-stat-card__cell is-cancel"><span class="bk-stat-card__cell-label">취소</span><span class="bk-stat-card__cell-val">' + cancel + '</span></div>';
+    h += '</div>';
+    return h + '</div>';
   }
 
   function _renderStats() {
@@ -787,26 +898,42 @@
          + '</div>';
   }
 
-  // 모바일 카드 영역 — 뷰별 다른 노출 + 접힘 토글
-  const _mobileCardOpen = { today: false, view: false };
+  // [2026-08-31] 모바일 통계 — 카드 2장(≈140px)이 달력을 아래로 밀어내던 걸 1줄 바로 낮췄다.
+  //   접힘: "오늘 3건 · 이번달 41건 ›" / 펼침: 오늘·이번달 각 1행 × 완료·예정·노쇼·취소.
+  //   주 뷰에서는 아예 안 만든다(숨김이 아니라 빈 문자열) — 월에서 이미 본 숫자다.
+  let _statOpen = false;
   function _renderMobileCards() {
+    if (_curView === 'week') return '';
     const s = _calcStats(_mappedCache);
-    const single = (_curView === 'week');
-    let h = '<div class="bk-stat-mobile-row' + (single ? ' is-single' : '') + '" id="bk-mobile-stats">';
-    h += _renderStatCard('today', s, { mobile: true, open: _mobileCardOpen.today });
-    if (!single) h += _renderStatCard('view', s, { mobile: true, open: _mobileCardOpen.view });
-    h += '</div>';
-    return h;
+    const rows = [
+      [s.todayLabel, s.todayDone, s.todayUpcoming, s.todayNoShow, s.todayCancel],
+      [s.viewGroupLabel + ' · ' + s.viewLabel, s.viewDone, s.viewUpcoming, s.viewNoShow, s.viewCancel],
+    ];
+    let h = '<div class="bk-statbar' + (_statOpen ? ' is-open' : '') + '" id="bk-mobile-stats">';
+    h += '<button type="button" class="bk-statbar__sum" id="bk-stat-toggle" aria-expanded="' + _statOpen + '">';
+    h +=   '<span>오늘 <b>' + (s.todayDone + s.todayUpcoming) + '건</b></span>';
+    h +=   '<i class="bk-statbar__div"></i>';
+    h +=   '<span>' + _esc(s.viewGroupLabel) + ' <b>' + s.viewCnt + '건</b></span>';
+    h +=   '<span class="bk-statbar__caret"><svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-right"/></svg></span>';
+    h += '</button>';
+    if (_statOpen) {
+      h += '<div class="bk-statbar__panel">';
+      rows.forEach(r => {
+        h += '<div class="bk-statbar__row"><span class="bk-statbar__label">' + _esc(r[0]) + '</span>'
+           +   '<span class="bk-statbar__cell">완료 <b>' + r[1] + '</b></span>'
+           +   '<span class="bk-statbar__cell">예정 <b>' + r[2] + '</b></span>'
+           +   '<span class="bk-statbar__cell">노쇼 <b>' + r[3] + '</b></span>'
+           +   '<span class="bk-statbar__cell is-cancel">취소 <b>' + r[4] + '</b></span></div>';
+      });
+      h += '</div>';
+    }
+    return h + '</div>';
   }
   function _bindMobileCards(root) {
     if (!root) return;
-    root.querySelectorAll('.bk-stat-card--m').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const k = btn.dataset.card;
-        if (k !== 'today' && k !== 'view') return;
-        _mobileCardOpen[k] = !_mobileCardOpen[k];
-        _refreshMobileCards();
-      });
+    root.querySelector('#bk-stat-toggle')?.addEventListener('click', () => {
+      _statOpen = !_statOpen;
+      _refreshMobileCards();
     });
   }
   function _refreshMobileCards() {
@@ -815,12 +942,8 @@
     if (!mount) return;
     mount.innerHTML = _renderMobileCards();
     _bindMobileCards(mount);
-  }
-
-  // [2026-05-24] 모바일 헤더 sub — 뷰 따라 이번달/이번주/그날 카운트
-  function _viewSubText() {
-    const s = _calcStats(_mappedCache);
-    return s.viewGroupLabel + ' 예약 ' + s.viewCnt + '건';
+    // 통계가 접히고 펴지면 달력이 그만큼 커지고 작아진다 → 칸당 인원 재계산(스크롤 0 유지)
+    _capMonthCellsSoon();
   }
 
   function _renderPCLeft() {
@@ -846,10 +969,11 @@
   }
 
   // [2026-05-26] 예약 상태 색상 범례 — 취소 제거, status 3개로 일원화
+  // [2026-08-31] 예정 dot 만 3색 그라데이션 — 예정 칩이 5색으로 도니까 단색 파랑 하나로는 거짓말이 된다.
   function _renderLegend() {
     return (
       '<div class="bk-legend" aria-label="예약 상태 범례">' +
-        '<span class="bk-legend__item"><i class="bk-legend__dot" style="background:#5B7FC4"></i>확정</span>' +
+        '<span class="bk-legend__item"><i class="bk-legend__dot" style="background:linear-gradient(135deg,#5B7FC4 0 33%,#8E6FC0 33% 66%,#C4718E 66%)"></i>확정</span>' +
         '<span class="bk-legend__item"><i class="bk-legend__dot" style="background:#16B55E"></i>완료</span>' +
         '<span class="bk-legend__item"><i class="bk-legend__dot" style="background:#E5484D"></i>노쇼</span>' +
       '</div>'
@@ -860,8 +984,6 @@
   // §15 모바일 진입 — 시트 오버레이
   // ============================================================
   function _renderMobileLayout() {
-    // [2026-05-24] 뷰 연동 subTxt (이번달/이번주 카운트)
-    const subTxt = _viewSubText();
     const o = document.createElement('div');
     o.id = OVERLAY_ID;
     o.className = 'bk-root bk-root--mobile';
@@ -872,24 +994,23 @@
     o.innerHTML = `
       <div class="cal-sheet" style="display:flex;flex-direction:column;height:100%;">
         <div class="bk-header">
-          <button class="bk-header__back" id="bk-back" aria-label="닫기">
+          <button class="bk-header__back" id="bk-back" aria-label="뒤로">
             <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
           </button>
           <div class="bk-header__title-wrap">
-            <div style="display:flex;align-items:center;gap:6px;">
-              <button id="bk-month-prev" aria-label="이전 달" style="background:none;border:none;font-size:16px;cursor:pointer;padding:4px 6px;color:var(--text-primary,#333);">&lt;</button>
-              <div class="bk-header__month" id="bk-month-label">${_curYear}년 ${_curMonth}월</div>
-              <button id="bk-month-next" aria-label="다음 달" style="background:none;border:none;font-size:16px;cursor:pointer;padding:4px 6px;color:var(--text-primary,#333);">&gt;</button>
-            </div>
-            <div class="bk-header__sub" id="bk-month-sub">${subTxt}</div>
-            <span id="cal-offline-badge" style="display:none;font-size:11px;font-weight:700;color:var(--danger);background:rgba(220,53,69,.1);padding:2px 8px;border-radius:999px;margin-left:6px;">오프라인</span>
+            <button id="bk-month-prev" aria-label="이전 달" style="background:none;border:none;font-size:16px;cursor:pointer;padding:4px 6px;color:var(--text-primary,#333);">&lt;</button>
+            <div class="bk-header__month" id="bk-month-label">${_curYear}년 ${_curMonth}월</div>
+            <button id="bk-month-next" aria-label="다음 달" style="background:none;border:none;font-size:16px;cursor:pointer;padding:4px 6px;color:var(--text-primary,#333);">&gt;</button>
           </div>
-          <button class="bk-today-btn" id="bk-today-btn">오늘</button>
+          <div class="bk-header__right">
+            <span id="cal-offline-badge" style="display:none;font-size:11px;font-weight:700;color:var(--danger);background:rgba(220,53,69,.1);padding:2px 8px;border-radius:999px;">오프라인</span>
+            <button class="bk-today-btn" id="bk-today-btn">오늘</button>
+            <button class="bk-ico bk-ico--add" id="bk-fab" aria-label="예약 추가">+</button>
+          </div>
         </div>
         <div id="bk-toolbar-mount">${_renderToolbar()}</div>
         <div id="bk-mobile-stats-mount">${_renderMobileCards()}</div>
         <div class="cal-body bk-body" id="bk-body" style="flex:1;display:flex;flex-direction:column;overflow:hidden;"></div>
-        <button class="bk-fab" id="bk-fab" aria-label="예약 추가" style="font-size:26px;font-weight:600;line-height:1;">+</button>
       </div>`;
     o.addEventListener('click', e => { if (e.target === o) _close(); });
     document.body.appendChild(o);
@@ -911,8 +1032,8 @@
     }).join('');
     return `
         <div class="bk-pc__header">
-          <button class="bk-header__back" id="bk-back" aria-label="닫기" title="ESC 또는 클릭으로 닫기">
-            <svg width="16" height="16" aria-hidden="true"><use href="#ic-x"/></svg>
+          <button class="bk-header__back" id="bk-back" aria-label="뒤로" title="ESC 또는 클릭으로 뒤로">
+            <svg width="16" height="16" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
           </button>
           <div class="bk-pc__title">예약</div>
           <div class="bk-pc__month-nav">
@@ -961,8 +1082,14 @@
   // ============================================================
   // §17 헤더 바인딩
   // ============================================================
+  /* [2026-08-31] 헤더 ← 는 '한 단계 전'으로 — 주간뷰에서 누르면 시트가 통째로 닫혀
+     내샵관리로 튕기던 버그. 주/일 뷰면 월간뷰 복귀, 월간뷰에서만 시트 닫기. */
+  function _back() {
+    if (_curView !== 'month') { _switchView('month'); return; }
+    _close();
+  }
   function _bindHeader(o) {
-    o.querySelector('#bk-back')?.addEventListener('click', _close);
+    o.querySelector('#bk-back')?.addEventListener('click', _back);
     // [A1] 모바일 달 이동 버튼
     o.querySelector('#bk-month-prev')?.addEventListener('click', _prevMonth);
     o.querySelector('#bk-month-next')?.addEventListener('click', _nextMonth);
@@ -979,7 +1106,7 @@
     });
   }
   function _bindHeaderPC(o) {
-    o.querySelector('#bk-back')?.addEventListener('click', _close);
+    o.querySelector('#bk-back')?.addEventListener('click', _back);
     o.querySelector('#bk-pc-prev')?.addEventListener('click', _prevMonth);
     o.querySelector('#bk-pc-next')?.addEventListener('click', _nextMonth);
     o.querySelector('#bk-today-btn')?.addEventListener('click', () => {
@@ -1061,13 +1188,13 @@
     _updateOfflineBadge();
     _updateHeaderLabel();
     _saveState();
-
     if (_curView === 'month') {
       const visible = _visibleCache();
       const html = _cachedIsPC ? _renderMonthPC(_curYear, _curMonth, visible)
                                : _renderMonthMobile(_curYear, _curMonth, visible);
       body.innerHTML = html;
       _bindMonthCells(body);
+      _capMonthCellsSoon();
     } else if (_curView === 'week') {
       _renderWeekView(body);
     } else {
@@ -1093,7 +1220,41 @@
       const grid = body.querySelector('#bk-week-m-grid');
       _placeWeekMBlocks(grid, r.items, r.start, r.ws);
       _bindTimetable(body, _curDate);
+      _scrollWeekToFirst(grid, r.items, r.ws);
     }
+  }
+
+  // [2026-08-31] 주간 뷰는 항상 축 맨 위(영업 시작시)에서 시작했다. 오후 예약만 있는 날은
+  //   첫 화면이 텅 빈 시간대라 "예약이 없다"로 오해된다(실제 신고: 5건 중 1건만 보인다고 했는데
+  //   나머지는 스크롤 아래 있었다). 그 주 첫 예약 시간대가 화면 위쪽에 오게 맞춰준다.
+  //   innerHTML 교체 직후라 스크롤은 이미 0 — 사용자가 보던 위치를 뺏을 일은 없다.
+  function _scrollParentOf(el) {
+    let p = el && el.parentElement;
+    while (p && p !== document.body) {
+      const oy = getComputedStyle(p).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight + 1) return p;
+      p = p.parentElement;
+    }
+    return null;
+  }
+  function _scrollWeekToFirst(grid, items, weekStart) {
+    if (!grid || !weekStart) return;
+    const we = new Date(weekStart); we.setDate(weekStart.getDate() + 7);
+    let firstH = null;
+    (items || []).forEach(it => {
+      const s = new Date(it._raw.starts_at);
+      if (isNaN(s) || s < weekStart || s >= we) return;
+      if (firstH === null || s.getHours() < firstH) firstH = s.getHours();
+    });
+    if (firstH === null) return;
+    // 블록 배치가 끝나고 레이아웃이 잡힌 다음에 재야 위치가 맞는다.
+    requestAnimationFrame(() => {
+      const cell = grid.querySelector('.bk-week-m__day[data-hour="' + firstH + '"]');
+      const sc = _scrollParentOf(grid);
+      if (!cell || !sc) return;
+      const delta = cell.getBoundingClientRect().top - sc.getBoundingClientRect().top;
+      sc.scrollTop = Math.max(0, sc.scrollTop + delta - 8);
+    });
   }
 
   function _renderDayView(body) {
@@ -1163,9 +1324,8 @@
     } else {
       lbl.textContent = _curYear + '년 ' + _curMonth + '월';
     }
-    const sub = o.querySelector('#bk-month-sub');
-    if (sub) sub.textContent = _viewSubText();
     // [2026-05-24] PC #bk-pc-stats 갱신 분기 제거 — 헤더에서 통째 삭제됨
+    // [2026-08-31] #bk-month-sub("이번달 N건") 삭제 — 바로 아래 통계 줄이 같은 숫자를 또 말했다
   }
 
   function _updateOfflineBadge() {
@@ -1273,8 +1433,33 @@
   }
 
   // [Phase4] 예약 카드 탭 → 읽기전용 상세 시트(완료/매출 UI 가 바로 열리지 않음). 버튼으로 수정/완료/취소/닫기.
+  // [전수감사 2026-09-08] 이 함수가 `'done'` 을 보고 있었는데 **백엔드에 그런 status 는 없다.**
+  //   models.py: status = confirmed / completed / cancelled / no_show
+  //   그래서 `'done'` 분기는 한 번도 안 탄 죽은 코드였고, 완료된 예약이 기본값
+  //   '예약 확정' 으로 떨어졌다. 실측(스테이징 · 예약 843, DB status=completed, 매출 15만원 기록됨):
+  //     캘린더 칩엔 ✓ · 사이드바엔 "완료 1" 인데
+  //     상세를 열면 파란 **"예약 확정"** 배지 + **"시술 완료"** 버튼이 다시 떴다.
+  //   바로 아래 `_resolved` 는 ['cancelled','no_show','done','completed'] 로 completed 를
+  //   제대로 나열하고 있다 — 한쪽만 고치고 라벨은 안 고친 흔적이다.
+  var _BOOKING_STATUS_LABEL = {
+    cancelled: '취소됨',
+    no_show: '노쇼',
+    completed: '완료',
+    done: '완료',        // 레거시 별칭 — 서버는 안 보내지만 오면 완료로 읽는다
+    confirmed: '예약 확정',
+  };
+  var _BOOKING_STATUS_COLOR = {
+    cancelled: '#BC6675',
+    no_show: '#8B95A1',
+    completed: '#16B55E',
+    done: '#16B55E',
+    confirmed: '#3182F6',
+  };
   function _bookingStatusLabel(s) {
-    return s === 'cancelled' ? '취소됨' : s === 'no_show' ? '노쇼' : s === 'done' ? '완료' : '예약 확정';
+    return _BOOKING_STATUS_LABEL[s] || '예약 확정';
+  }
+  function _bookingStatusColor(s) {
+    return _BOOKING_STATUS_COLOR[s] || '#3182F6';
   }
   function _openBookingDetail(raw) {
     if (!raw) return;
@@ -1291,7 +1476,15 @@
       ? window.fmtKRange(raw.starts_at, raw.ends_at || null)
       : (() => { try { const d = new Date(raw.starts_at); return (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + (d.getHours() < 12 ? '오전' : '오후') + ' ' + ((d.getHours() % 12) || 12) + ':' + _pad(d.getMinutes()); } catch (_e) { return ''; } })();
     const statusLabel = _bookingStatusLabel(raw.status);
-    const statusColor = raw.status === 'cancelled' ? '#BC6675' : raw.status === 'no_show' ? '#8B95A1' : raw.status === 'done' ? '#16B55E' : '#3182F6';
+    const statusColor = _bookingStatusColor(raw.status);
+    // [전수감사 2026-09-08] 이 모달은 **이미 끝난 예약**(완료/취소/노쇼)에만 열린다(_resolved).
+    //   그런데 '시술 완료' 버튼을 status 와 무관하게 항상 그렸다.
+    //   · 완료 예약 → 다시 누르면 완료 시트가 뜨고 금액을 또 입력하게 된다.
+    //     서버는 `became_completed` 전이에서만 매출을 만들어 **돈은 안전**하지만,
+    //     원장님은 새로 넣은 금액이 반영된 줄 안다(조용히 버려진다).
+    //   · 취소/노쇼 예약 → 서버가 400 으로 막는다(bookings.py:318). 누를 수 있는 게 잘못이다.
+    //   위 주석이 상정한 "읽기용 상세(수정/복구)" 로 되돌린다.
+    const _canComplete = !['completed', 'done', 'cancelled', 'no_show'].includes(raw.status);
     const old = document.getElementById('cv-booking-detail'); if (old) old.remove();
     const ov = document.createElement('div');
     ov.id = 'cv-booking-detail';
@@ -1313,12 +1506,12 @@
             <strong style="font-size:18px;color:var(--text,#191F28);">${esc(raw.customer_name || '고객 미지정')}</strong>
             <span style="flex-shrink:0;font-size:12px;font-weight:700;color:${statusColor};background:${statusColor}1A;border-radius:999px;padding:3px 9px;">${esc(statusLabel)}</span>
           </div>
-          <button type="button" data-bd="close" aria-label="닫기" style="border:none;background:transparent;font-size:22px;color:var(--text-subtle,#999);cursor:pointer;line-height:1;flex-shrink:0;">×</button>
+          <button class="ss-close" type="button" data-bd="close" aria-label="닫기" style="border:none;background:transparent;font-size:22px;color:var(--text-subtle,#999);cursor:pointer;line-height:1;flex-shrink:0;"><svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
         <div style="margin-bottom:16px;">${info.join('')}</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
           <button type="button" data-bd="edit" data-haptic style="padding:12px;border-radius:14px;border:1px solid var(--accent2,#e26a85);background:transparent;color:var(--accent2,#e26a85);font-weight:800;cursor:pointer;">수정</button>
-          <button type="button" data-bd="done" data-haptic style="padding:12px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent,#D58A95),var(--accent2,#e26a85));color:#fff;font-weight:800;cursor:pointer;">시술 완료</button>
+          ${_canComplete ? `<button type="button" data-bd="done" data-haptic style="padding:12px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent,#D58A95),var(--accent2,#e26a85));color:#fff;font-weight:800;cursor:pointer;">시술 완료</button>` : ''}
           <button type="button" data-bd="cancel" data-haptic style="padding:12px;border-radius:14px;border:1px solid var(--line,#ddd);background:transparent;color:var(--text-subtle,#888);font-weight:700;cursor:pointer;">예약 취소</button>
           <button type="button" data-bd="close2" data-haptic style="padding:12px;border-radius:14px;border:1px solid var(--line,#ddd);background:transparent;color:var(--text,#444);font-weight:700;cursor:pointer;">닫기</button>
         </div>
@@ -1333,7 +1526,11 @@
       closeDetail();
       if (typeof window._markSheetClosed === 'function') window._markSheetClosed('cvBookingDetail');
     };
-    let _cancelBusy = false;   // [Phase3-B #8] 중복 클릭 방지
+    /* 취소 확인 문구는 app-core 의 공용 헬퍼 하나만 쓴다(취소 경로가 3곳이라 두 벌이면 한쪽만 고쳐진다).
+     헬퍼가 없으면 예전 문구로 안전하게 축퇴한다. */
+  const _cancelMsg = (bk) => (typeof window._bookingCancelMsg === 'function'
+    ? window._bookingCancelMsg(bk) : '이 예약을 취소할까요?');
+  let _cancelBusy = false;   // [Phase3-B #8] 중복 클릭 방지
     ov.addEventListener('click', (e) => {
       if (e.target === ov) return close();
       const t = e.target.closest('[data-bd]'); if (!t) return;
@@ -1344,7 +1541,7 @@
       if (act === 'cancel') {
         if (_cancelBusy) return;
         // [Phase3-B #8] 즉시 취소 금지 — 확인 후에만. '아니요' 면 상세 유지(닫지 않음).
-        window._inlineConfirm('이 예약을 취소할까요?', async () => {
+        window._inlineConfirm(_cancelMsg(raw), async () => {
           if (_cancelBusy) return;
           _cancelBusy = true;
           try {
@@ -1811,6 +2008,34 @@
         const idx = rows.indexOf(row);
         wheel.scrollTo({ top: idx * ROW_H, behavior: 'smooth' });
       });
+
+      // [원장 QA 2026-09-11] **마우스 휠로는 시간을 바꾸지 않는다.** 폼 스크롤로 넘긴다.
+      //
+      //   무엇이 문제였나 (실측, 실 Chrome 배포본):
+      //     예약 폼은 화면보다 길어서 아래 시술·금액을 보려면 스크롤해야 한다.
+      //     그런데 이 시간 선택기가 `overflow:hidden auto` 라, 커서가 그 위에 있으면
+      //     휠이 **폼이 아니라 시간 선택기**를 굴린다. 실측:
+      //       예상 종료 오전 10:00 → 휠 3틱 → 오전 11:00 → 다시 → 오후 12:00
+      //       그동안 `window.scrollY = 0`  (페이지는 한 픽셀도 안 내려갔다)
+      //     그리고 그 값이 그대로 저장됐다:
+      //       토스트 "QA0911_김테스트님 2026-09-11 **11:00** 예약 추가됨"  (의도는 9:00)
+      //     원장은 아래 칸을 보려고 굴렸을 뿐인데 **손님이 다른 시간에 온다.**
+      //
+      //   시간 변경 수단은 그대로 남는다 — **탭(클릭)** 과 **터치 스와이프**.
+      //   `wheel` 은 터치에서 발생하지 않으므로 모바일 동작은 영향이 없다.
+      wheel.addEventListener('wheel', e => {
+        // 실제로 스크롤되는 조상을 찾아 거기로 넘긴다 (폼 루트가 PC/모바일에서 다르다)
+        let sc = wheel.parentElement;
+        while (sc && sc !== document.body) {
+          const oy = getComputedStyle(sc).overflowY;
+          if ((oy === 'auto' || oy === 'scroll') && sc.scrollHeight > sc.clientHeight) break;
+          sc = sc.parentElement;
+        }
+        if (!sc || sc === document.body) sc = document.scrollingElement || document.documentElement;
+        if (!sc) return;
+        e.preventDefault();
+        sc.scrollTop += e.deltaY;
+      }, { passive: false });
     });
 
     // --- 고객 카드 ---
@@ -2308,7 +2533,7 @@
         };
         // [핫픽스D #6] 모든 취소 경로 확인 통일 — 상태 '취소'는 확인 후에만 반영.
         if (newStatus === 'cancelled') {
-          window._inlineConfirm('이 예약을 취소할까요?', _applyStatus, function () { /* 아니요 — 그대로 */ }, { okText: '예약 취소', cancelText: '아니요' });
+          window._inlineConfirm(_cancelMsg(existing), _applyStatus, function () { /* 아니요 — 그대로 */ }, { okText: '예약 취소', cancelText: '아니요' });
           return;
         }
         await _applyStatus();
@@ -2346,10 +2571,27 @@
   // ============================================================
   // §21 뷰 전환
   // ============================================================
+  // [2026-08-16] 월->주 는 사용자가 '한 단계 더 들어갔다'고 느끼는 전환인데
+  //   지금까지 history 엔트리를 안 쌓았다. 그래서 주간뷰에서 뒤로가기를 누르면
+  //   월간뷰로 돌아가는 게 아니라 예약관리 시트가 통째로 닫혀 내샵관리로 튕겼다.
+  //   가짜 시트 하나를 스택에 얹어 뒤로가기 한 번 = 월간뷰 복귀로 만든다.
+  const WEEK_SHEET = 'bookingWeek';
   function _switchView(view) {
     // [v200 DAY_VIEW_HIDDEN] 'day' 진입은 모두 'week' 로 리디렉트.
     if (view === 'day') view = 'week';
+    const prev = _curView;
     _curView = view;
+    if (prev !== view) {
+      try {
+        if (prev === 'month') {
+          // close 는 여기로 다시 들어와 prev='week' 분기를 타고 _markSheetClosed 로 정리된다.
+          if (typeof window._registerSheet === 'function') window._registerSheet(WEEK_SHEET, () => _switchView('month'));
+          if (typeof window._markSheetOpen === 'function') window._markSheetOpen(WEEK_SHEET);
+        } else if (view === 'month') {
+          if (typeof window._markSheetClosed === 'function') window._markSheetClosed(WEEK_SHEET);
+        }
+      } catch (_e) { void _e; }
+    }
     const o = _overlay(); if (!o) return;
     o.querySelectorAll('.bk-view__btn').forEach(b => {
       b.classList.toggle('is-on', b.dataset.view === view);
@@ -2478,8 +2720,53 @@
     });
   }
 
+  /* [2026-09-12 BUG-R1] 캘린더를 덮는 고객 시트를 **여기서** 먼저 닫는다.
+
+     이 오버레이는 z-index 9988 인데 고객 목록(#customerSheet)은 9998, 고객 상세는 그 위다.
+     그래서 고객 화면에서 캘린더를 열면 **폼이 멀쩡히 렌더된 채 뒤에 깔려**
+     원장 눈엔 "눌렀는데 아무 일도 안 일어난다" 로 보인다(주소만 #cvBookingForm 으로 바뀐다).
+
+     같은 사고를 2026-08-15(#40)에 app-customer.js 의 액션시트 경로에서 이미 한 번 고쳤다.
+     그런데 그 뒤에 생긴 고객 상세 v4 의 '예약 잡기' 는 **고객 상세만 닫고 목록은 안 닫아서**
+     같은 증상이 되살아났다(2026-09-12 라이브 실측: elementsFromPoint 최상단이 #customerSheet).
+
+     진입점이 10곳이 넘는다 — 호출부마다 붙이면 새 진입점이 생길 때마다 또 빠진다.
+     그래서 **캘린더를 여는 이 한 곳**에서 닫는다.
+     ⚠️ 안 보이는 시트는 건드리지 않는다(닫기가 라우터 스택을 건드리므로). */
+  function _closeCoveringCustomerSheets() {
+    const shown = (id) => {
+      try {
+        const el = document.getElementById(id);
+        return !!(el && getComputedStyle(el).display !== 'none');
+      } catch (_e) { return false; }
+    };
+    try {
+      if (shown('customerDashSheet') && typeof window.closeCustomerDashboard === 'function') {
+        window.closeCustomerDashboard();
+      }
+    } catch (_e) { void _e; }
+    try {
+      if (shown('customerSheet') && typeof window.closeCustomers === 'function') {
+        window.closeCustomers();
+      }
+    } catch (_e) { void _e; }
+    /* [2026-09-12 BUG-D] 남아 있는 **완료 시트**도 여기서 치운다.
+       예약관리 진입은 언제나 달력에서 시작해야 한다. 이전에 열렸던 완료 시트가
+       display:flex 로 남아 있으면 원장 눈엔 "예약관리를 눌렀더니 웬 완료 창" 이다
+       (실측 당시 startFromBooking 호출 0회 = 새로 연 게 아니라 안 닫힌 것).
+       뒤로가기 등록은 따로 고쳤지만, 그건 back 경로 하나뿐이다 —
+       여기서 치우면 **어떤 경로로 남았든** 유령이 안 된다. */
+    try {
+      if (shown('completeFlowSheet') && window.CompleteFlow
+          && typeof window.CompleteFlow.close === 'function') {
+        window.CompleteFlow.close();
+      }
+    } catch (_e) { void _e; }
+  }
+
   window.openCalendarView = async function () {
     if (typeof window._perfMark === 'function') window._perfMark('calendar:open:start');
+    _closeCoveringCustomerSheets();
     const existing = _overlay(); if (existing) existing.remove();
 
     // [버그8] 예약관리 재진입 시 선택일은 항상 오늘로 초기화 — 이전 세션/선택 잔존으로
@@ -2580,6 +2867,21 @@
         _renderViewBody();
       } catch (_e) { void _e; }
     });
+
+    // [2026-08-31] SWR 백그라운드 갱신 → 화면 반영.
+    //   app-booking-api.js 의 list() 는 캐시된 옛 목록을 즉시 돌려주고 새 목록은
+    //   백그라운드로 받아 _cache 에만 넣었다. 아무도 다시 그리라고 안 해서, 새로 만든 예약이
+    //   캐시 TTL(5분) 지나고 화면을 한 번 더 전환해야 나타났다("적용에 시간이 걸리는 건가?").
+    //   ⚠️ 위의 itdasy:data-changed 와 달리 여기선 캐시를 비우지 않는다. 비우면
+    //      _loadMonth → 네트워크 → 응답 → 또 이 이벤트 → 무한 루프(사용량 폭발)가 된다.
+    //      새 데이터는 이미 _cache 에 들어와 있으므로 _loadMonth 는 그걸 그냥 읽어 간다.
+    window.addEventListener('itdasy:bookings-refreshed', async () => {
+      if (!_overlay()) return;
+      try {
+        _mappedCache = await _loadMonth(_curYear, _curMonth);
+        _renderViewBody();
+      } catch (_e) { void _e; }
+    });
   }
 
   // resize 시 PC↔모바일 전환
@@ -2594,7 +2896,10 @@
         const o = _overlay(); if (o) o.remove();
         if (_cachedIsPC) _renderPCLayout();
         else _renderMobileLayout();
+        return;
       }
+      // [2026-08-31] PC↔모바일 전환이 없어도 높이가 바뀌면(키보드·주소창·회전) 칸당 인원이 달라진다
+      _capMonthCellsSoon();
     }, 200);
   });
 

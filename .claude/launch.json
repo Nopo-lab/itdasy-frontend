@@ -4,20 +4,94 @@
     {
       "name": "itdasy-static",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8093"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8093"
+      ],
       "port": 8093
     },
     {
       "name": "itdasy-5500",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "5500"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5500"
+      ],
       "port": 5500
     },
     {
       "name": "itdasy-8097",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8097"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8097"
+      ],
       "port": 8097
+    },
+    {
+      "name": "itdasy-ci-8114",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8114"
+      ],
+      "port": 8114
+    },
+    {
+      "name": "itdasy-igtoken-8121",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8121"
+      ],
+      "port": 8121
+    },
+    {
+      "name": "itdasy-cmtqa-8137",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8137"
+      ],
+      "port": 8137
+    },
+    {
+      "name": "itdasy-audit-8151",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8151",
+        "--directory",
+        "/private/tmp/claude-501/fe-rebase"
+      ],
+      "port": 8151
+    },
+    {
+      "name": "itdasy-mobqa-8166",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8166"
+      ],
+      "port": 8166
+    },
+    {
+      "name": "itdasy-consentqa-8194",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8194"
+      ],
+      "port": 8194
     }
   ]
 }

@@ -127,6 +127,11 @@
     };
 
     const data = await _fetchJson('POST', '/persona/generate', payload);
+    // [AI 릴리스 게이트 2026-09-07] status:'clarification' 은 캡션이 아니라 안내문이다
+    //   (LLM 미호출·한도 미차감). 캡션으로 취급하면 화면엔 생성 성공처럼 보인다.
+    if (data && data.status === 'clarification') {
+      throw new Error(String(data.caption || '시술 내용을 조금만 더 알려주시면 글을 써드릴게요.'));
+    }
     return data.caption || '';
   }
 
@@ -189,7 +194,7 @@
 
   async function _renderStory(imageSrc, caption) {
     const brand = _brandKit();
-    const watermark = brand.watermark_text || brand.shop_name || (brand.instagram_handle ? '@' + brand.instagram_handle : '@itdasy');
+    const watermark = brand.watermark_text || brand.shop_name || window.igHandle(brand.instagram_handle) || '@itdasy';
     // app-story-template.js 의 renderStory 가 등록되어 있으면 그걸 우선 사용
     if (typeof window._renderStoryTemplate === 'function') {
       return window._renderStoryTemplate({ imageSrc, caption, tagLine: '오늘의 시술', watermark });
@@ -266,7 +271,7 @@
       <div style="width:100%; max-width:480px; background:#fff; border-radius:24px 24px 0 0; padding:24px 20px calc(32px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))); max-height:92vh; overflow-y:auto;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
           <div style="font-size:17px; font-weight:800;">1초 캡션</div>
-          <button id="_icClose" style="background:none; border:none; font-size:22px; width:44px; height:44px; cursor:pointer; color:var(--text-subtle);">✕</button>
+          <button class="ss-close" id="_icClose" style="background:transparent; border:none; font-size:22px; width:44px; height:44px; cursor:pointer; color:var(--text-subtle);"><svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
         <div style="font-size:12px; color:var(--text-muted); margin-bottom:14px; line-height:1.5;">
           시술 끝난 사진 1장만 골라주세요. 캡션 · 해시태그 · 9:16 스토리까지 한 번에 만들어드려요.
@@ -309,6 +314,9 @@
       </div>
     `;
     document.body.appendChild(p);
+    /* [2026-09-09] 뒤로가기 등록 — 전체화면 오버레이는 back 으로 자기가 닫혀야 한다.
+       안 하면 back 이 이 창 대신 뒤 화면을 닫아 작성 중이던 내용이 날아간다. */
+    try { window._bindSheetBack && window._bindSheetBack('instantcaption', p, () => { p.remove(); }); } catch (_bsb) { void _bsb; }
 
     p.addEventListener('click', (e) => { if (e.target === p) _close(); });
     p.querySelector('#_icClose').addEventListener('click', _close);

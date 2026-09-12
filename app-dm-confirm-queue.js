@@ -20,6 +20,19 @@
     return d;
   }
 
+  /* [2026-08-31] DM 확정 경로는 window.Booking.create() 를 안 거치고 BE 로 직접 POST 한다.
+     그래서 예약이 서버엔 생겼는데 프론트 예약 캐시(app-booking-api.js 의 _cache)는 그대로라
+     캘린더가 옛 목록을 계속 그렸다(원장님 "확정했는데 캘린더에 안 보여요"). 확정 성공 직후
+     캐시를 직접 비워, 다음 list() 가 무조건 서버에서 새로 받게 한다.
+     app-booking-api.js 의 public 이름은 _invalidateCache (언더바 포함) — 미로드 대비 방어적 호출. */
+  function _invalidateBookingCache() {
+    try {
+      if (window.Booking && typeof window.Booking._invalidateCache === 'function') {
+        window.Booking._invalidateCache();
+      }
+    } catch (_e) { /* ignore */ }
+  }
+
   function _ensureSheet() {
     let sheet = document.getElementById('dmConfirmQueueSheet');
     if (sheet) return sheet;
@@ -40,13 +53,21 @@
         </div>
         <style>@keyframes dcqSpin{to{transform:rotate(360deg)}}
           #dcqTabs::-webkit-scrollbar{display:none}
+          /* [2026-08-15 기기QA] 닫기 22x22 · 설정 27x27 로 16개 기기 전부에서 최소 터치영역(44px) 미달이었다.
+             겉모습은 그대로 두고 ::after 로 히트 영역만 44x44 로 넓힌다(아이콘 크기·간격 불변). */
+          #dcqClose, #dcqSettings{position:relative;}
+          #dcqClose::after, #dcqSettings::after{content:'';position:absolute;top:50%;left:50%;
+            width:44px;height:44px;transform:translate(-50%,-50%);}
           .dcq-tab{font-size:12.5px;padding:6px 11px;border-radius:9px;border:1px solid #E5E8EB;background:#fff;color:#8B95A1;white-space:nowrap;cursor:pointer;font-weight:600;font-family:inherit;flex:none;}
           .dcq-tab.on{background:#191F28;border-color:#191F28;color:#fff;}</style>
-        <div id="dcqTabs" style="display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;scrollbar-width:none;">
+        <!-- [2026-08-15] flex-wrap 추가 — 0건 탭을 숨겨도 4채널 다 살아있고 글씨 '크게'면 여전히 넘쳤다
+             (실측 내용 391px vs 칸 343px). 넘칠 때만 두 줄로 접힌다 = 보통 글씨·평상시엔 한 줄 그대로.
+             밀어서 보게 두면 안 된다 — scrollbar-width:none 이라 더 있다는 걸 알 방법이 없다. -->
+        <div id="dcqTabs" style="display:flex;flex-wrap:wrap;gap:6px;overflow-x:auto;margin-bottom:12px;scrollbar-width:none;">
           <button type="button" class="dcq-tab on" data-filter="all">전체 0</button>
           <button type="button" class="dcq-tab" data-filter="instagram">인스타 0</button>
           <button type="button" class="dcq-tab" data-filter="kakao">카톡 0</button>
-          <button type="button" class="dcq-tab" data-filter="naver">네이버 톡톡 0</button>
+          <button type="button" class="dcq-tab" data-filter="naver">네이버 0</button>
         </div>
         <div id="dcqList" style="flex:1;overflow-y:auto;">
           <div style="display:flex;justify-content:center;padding:40px 20px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation:dcqSpin .8s linear infinite" aria-label="불러오는 중"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
@@ -102,6 +123,9 @@
     if (_queuePollTimer) clearInterval(_queuePollTimer);
     _queuePollTimer = null;
   }
+  /* [2026-09-01 SESS-1] 세션이 죽으면 폴링을 멈춘다. 시트는 잠금화면 아래에 열린 채로 남는데
+     예전엔 이 4초 타이머가 그대로 돌아 401 을 무한히 때렸다(실측 26분 연속·7일 2,989건). */
+  document.addEventListener('itdasy:auth-expired', _stopQueuePoll);
 
   async function open() {
     const sheet = _ensureSheet();
@@ -360,12 +384,13 @@
   // [2026-06-16] 통합 인박스 — 채널 마크/필터. BE channel: 'instagram'|'kakao'|'naver'(talktalk 정규화됨).
   let _lastItems = [];
   let _activeFilter = 'all';
-  const _CH_LABEL = { all: '전체', instagram: '인스타', kakao: '카톡', naver: '네이버 톡톡' };
+  // [2026-08-15] '네이버 톡톡' → '네이버' — 탭 4개가 좁은 폰에서 넘쳐서 줄인다.
+  //   배지·카드에서 이미 채널 아이콘으로 구분되니 탭에서까지 풀네임일 필요가 없다.
+  const _CH_LABEL = { all: '전체', instagram: '인스타', kakao: '카톡', naver: '네이버' };
 
   // 채널 마크/정규화 — 공유 모듈(js/channel-mark.js) 정본 사용(중복 정의 금지). 폴백 instagram.
-  /* [2026-08-15] 대기 시간을 사람 말로. 예전엔 분을 그대로 찍어서 나흘 묵은 카드가
-     "5846분 전" 이었다(실계정 실측). 원장님이 그걸 보고 얼마나 오래됐는지 바로 못 읽는다 —
-     오래 기다린 손님일수록 급한데 말이다. */
+  /* [2026-08-15] 대기 시간 사람 말로 — 예전엔 분을 그대로 찍어서 이틀 묵은 카드가 "2880분 전" 이었다.
+     원장님이 그걸 보고 얼마나 오래됐는지 바로 못 읽는다. 오래 기다린 손님일수록 급한데 말이다. */
   function _waitKo(min) {
     var m = Number(min);
     if (!isFinite(m) || m <= 0) return '방금';
@@ -392,7 +417,16 @@
     const isReschedManual = !!am.reschedule_manual;  // [2026-06-28] 변경인데 대상 예약 0/2건+ → 원장 직접 확인
     const isNoshow = !!am.noshow_manual;  // [2026-06-28] 지각·당일 불참 통보 — 자동답장 X, 원장 알림만
     const isCancelManual = !!am.cancel_manual;  // [2026-06-28] 취소인데 대상 예약 0/2건+ → 원장 직접 확인
-    const noDraft = isRisk || isReschedManual || isNoshow || isCancelManual;  // 초안·전송 버튼 숨기고 직접 처리 안내만
+    // [2026-08-21] `isReschedManual` 을 뺐다 — 백엔드가 이제 **초안을 채워서 보낸다**.
+    //   전엔 백엔드가 `ai_draft_text=""` 를 보냈고 여기서도 숨겨서, 원장님이 카드를 열면
+    //   보낼 문장도 없고 버튼도 없었다(실측 dm_message_logs id=2724).
+    //   백엔드만 고치면 화면엔 안 나온다 — 이 줄이 그 지점이다.
+    //
+    //   나머지(risk·noshow·cancel)는 그대로 숨긴다. 그쪽은 여전히 초안이 없고
+    //   원장님이 직접 판단할 사안이다.
+    //
+    //   ⚠️ 초안이 실제로 비어 있으면(옛 카드) 아래 `_rawDraft` 조건이 버튼을 막는다.
+    const noDraft = isRisk || isNoshow || isCancelManual;  // 초안·전송 버튼 숨기고 직접 처리 안내만
     const pic = (it.profile_pic || '').trim();
     const avImg = pic
       ? `<img src="${_esc(pic)}" referrerpolicy="no-referrer" alt="" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%;">`
@@ -518,6 +552,9 @@
             <div style="font-size:11px;color:#8B95A1;margin-top:1px;">${_waitKo(it.minutes_waiting)} · ${_esc(_intentKo(it.intent))}</div>
             ${summary ? `<div style="font-size:11px;color:#8B95A1;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(summary)}</div>` : ''}
           </div>
+          ${(_normChannel(it.channel) === 'instagram' && it.sender_igsid) ? `<button class="dcq-thread" data-sender="${_esc(it.sender_igsid)}" title="이 손님과 나눈 대화 전체 보기" style="flex-shrink:0;align-self:center;background:none;border:none;padding:8px 2px 8px 8px;color:#8B95A1;font-size:11.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:1px;font-family:inherit;white-space:nowrap;">
+            대화 전체<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </button>` : ''}
         </div>
         ${photoOnlyBlock}
         ${photoAttachedBlock}
@@ -536,13 +573,18 @@
         ${(noDraft || am.deposit_sent) ? '' : isSetAddress ? _setAddressBlock() : `<div style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;">
           <div style="width:30px;height:30px;border-radius:50%;background:#F7EFF0;color:#BC6675;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" aria-hidden="true"><use href="#ic-bot"/></svg></div>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:11px;color:#8B95A1;font-weight:600;margin-bottom:4px;">${isSendForm ? '보낼 예약 양식 (탭하면 발송)' : '잇비 추천 답장'}</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px;">
+              <div style="font-size:11px;color:#8B95A1;font-weight:600;">${isSendForm ? '보낼 예약 양식 (탭하면 발송)' : '잇비 추천 답장'}</div>
+              ${isSendForm ? '' : `<button type="button" class="dcq-regen" title="새 정보 반영해서 답장 다시 만들기" style="background:none;border:none;padding:2px 4px;font-size:11px;color:#8B95A1;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:3px;">
+                <svg class="dcq-regen-ic" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>다시 만들기</button>`}
+            </div>
             <div class="dcq-draft" style="background:#F2F4F6;color:#191F28;border-radius:13px;border-top-left-radius:4px;padding:10px 13px;font-size:13.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word;">${_esc(draft)}</div>
-            <textarea class="dcq-edit" rows="3" style="display:none;width:100%;margin-top:6px;padding:10px 13px;border:1px solid #E5E8EB;border-radius:13px;font-size:13.5px;line-height:1.5;background:#fff;color:#191F28;resize:vertical;box-sizing:border-box;font-family:inherit;">${_esc(draft)}</textarea>
+            <!-- [2026-08-12] 수정 모드 = 말풍선과 같은 박스(회색·같은 radius·같은 글자)에서 그대로 고침 — 흰 테두리 박스로 바뀌던 이질감 제거 -->
+            <textarea class="dcq-edit" rows="3" style="display:none;width:100%;padding:10px 13px;border:none;outline:none;border-radius:13px;border-top-left-radius:4px;font-size:13.5px;line-height:1.5;background:#F2F4F6;color:#191F28;resize:vertical;box-sizing:border-box;font-family:inherit;">${_esc(draft)}</textarea>
           </div>
         </div>`}
         <div style="display:flex;gap:6px;margin-top:12px;">
-          ${(!noDraft && (!isFormAuto || _rawDraft)) ? `<button class="dcq-send" data-act="${isSendForm ? 'send-form' : 'send'}" style="flex:1;padding:11px;border:none;${_mainBtnStyle(it)}color:#fff;font-weight:700;font-size:13px;border-radius:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
+          ${(!noDraft && _rawDraft && (!isFormAuto || _rawDraft)) ? `<button class="dcq-send" data-act="${isSendForm ? 'send-form' : 'send'}" style="flex:1;padding:11px;border:none;${_mainBtnStyle(it)}color:#fff;font-weight:700;font-size:13px;border-radius:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z"/></svg>${_esc(_mainBtnLabel(it))}</button>` : ''}
           ${(noDraft || isSendForm || isSetAddress || am.deposit_sent || (isFormAuto && !_rawDraft)) ? '' : `<button class="dcq-edit-btn" data-act="edit" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#191F28;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">수정</button>`}
           <button class="dcq-discard" data-act="discard" title="카드 무시 (정보 보존)" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#8B95A1;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">무시</button>
@@ -575,11 +617,17 @@
       if (cnt) cnt.textContent = _lastItems.length + '건';
       _applyAndRender();
     } catch (e) {
-      list.innerHTML = `<div style="text-align:center;color:var(--danger);padding:20px;font-size:12px;">불러오기 실패: ${_esc(e.message)}</div>`;
+      list.innerHTML = `<div style="text-align:center;color:var(--danger);padding:20px;font-size:12px;">불러오기 실패: ${_esc((window._humanError ? window._humanError(e) : e.message))}</div>`;
     }
   }
 
   // [2026-06-16] 탭 카운트 갱신 — 전체 items 기준(필터 무관).
+  /* [2026-08-15 실사용 신고] "탭이 잘려 보인다" — 재현됨.
+     채널 탭 4개가 좁은 폰에 안 들어간다. 건수가 두 자리가 되거나 글씨를 '크게'로 바꾸면
+     내용 434px vs 칸 343px 로 넘쳐서 '네이버 톡톡' 이 잘렸다. overflow-x:auto 라 밀면 보이긴 하는데
+     scrollbar-width:none 으로 스크롤바를 숨겨놔서 **더 있다는 사실 자체를 모른다.**
+     → 0건인 채널 탭은 감춘다. 카톡 안 쓰는 원장님한테 '카톡 0' 은 자리만 먹는다.
+       (지금 보고 있는 탭은 0건이어도 남긴다 — 갑자기 사라지면 필터가 풀린 것처럼 보인다) */
   function _updateTabCounts(all) {
     const counts = { all: all.length, instagram: 0, kakao: 0, naver: 0 };
     all.forEach(it => { const c = _normChannel(it.channel); if (counts[c] != null) counts[c] += 1; });
@@ -587,6 +635,8 @@
       const f = t.getAttribute('data-filter');
       t.textContent = (_CH_LABEL[f] || f) + ' ' + (counts[f] || 0);
       t.classList.toggle('on', f === _activeFilter);
+      const keep = f === 'all' || f === _activeFilter || (counts[f] || 0) > 0;
+      t.style.display = keep ? '' : 'none';
     });
   }
 
@@ -656,9 +706,41 @@
     }));
     // [2026-07-02] 겹침 경고의 '캘린더 보기' — 탭만 전환(DM 안 닫힘), 확인 후 돌아오면 카드 유지
     list.querySelectorAll('.dcq-cal-jump').forEach(a => a.addEventListener('click', () => _gotoCalendar(a.dataset.ymd || '')));
+    // [2026-08-12] 답장 다시 만들기 — 카드는 그대로 두고 문구만 교체(BE /regenerate).
+    //   새 정보(예: "22인치로요")가 온 뒤 정리 정보는 갱신되는데 추천답장이 옛것에 머무는 문제 해소.
+    list.querySelectorAll('.dcq-regen').forEach(b => b.addEventListener('click', async () => {
+      const card = b.closest('[data-id]'); if (!card) return;
+      b.disabled = true; b.style.opacity = '0.5';
+      const ic = b.querySelector('.dcq-regen-ic');
+      if (ic) ic.style.animation = 'dcqSpin .8s linear infinite';
+      try {
+        const r = await _fetch('POST', `/dm-confirm-queue/${card.dataset.id}/regenerate`, {});
+        const txt = r && r.ai_draft_text;
+        if (!txt) throw new Error((r && r.message) || '재생성 실패');
+        const draft = card.querySelector('.dcq-draft');
+        const ta = card.querySelector('.dcq-edit');
+        if (draft) draft.textContent = txt;
+        if (ta) ta.value = txt;
+        if (window.showToast) window.showToast('답장을 다시 만들었어요 ✓');
+      } catch (e) {
+        if (window.showToast) window.showToast('다시 만들기 실패: ' + e.message);
+      } finally {
+        b.disabled = false; b.style.opacity = '1';
+        if (ic) ic.style.animation = '';
+      }
+    }));
     list.querySelectorAll('.dcq-discard').forEach(b => b.addEventListener('click', () => _doAction(b, 'discard')));
     list.querySelectorAll('.dcq-reset').forEach(b => b.addEventListener('click', () => _doAction(b, 'reset')));
     list.querySelectorAll('.dcq-confirm-deposit').forEach(b => b.addEventListener('click', () => _doAction(b, 'confirm-deposit')));
+    /* [2026-08-15] '대화 전체' — 이 손님과 주고받은 걸 시간순으로. 카드는 '답장 대기 1건'만 보여주므로
+       예전에 뭘 물었는지 알 방법이 없었다. 스레드는 app-dm-conversations.js(extras, lazy) 소관이라
+       loader 스텁(openDMThread)을 통해 부른다 — 스텁이 없으면 미로드 상태에서 조용히 죽는다. */
+    list.querySelectorAll('.dcq-thread').forEach(b => b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const sid = b.dataset.sender || '';
+      if (!sid) return;
+      if (typeof window.openDMThread === 'function') window.openDMThread(sid);
+    }));
   }
 
   async function _doAction(btn, action, editedText) {
@@ -718,6 +800,8 @@
         }
         r = await _fetch('POST', `/dm-confirm-queue/${id}/confirm-deposit`, _cbody);
         if (window.showToast) window.showToast(r.ok ? '캘린더 추가 + 고객 등록했어요 ✓' : (r.message || '확정 실패'));
+        if (!(r && r.ok)) { btn.disabled = false; btn.style.opacity = '1'; return; }
+        _invalidateBookingCache();  // 입금확인 → 예약 확정. BE 직접 POST 라 프론트 캐시를 여기서 비운다.
       } else if (action === 'reset') {
         const ok = await window.nativeConfirm('대화 초기화', '이 손님의 대화를 초기화할까요?\n성함·연락처·예약 정보가 모두 사라져요.').catch(() => false);
         if (!ok) { btn.disabled = false; btn.style.opacity = '1'; return; }
@@ -732,8 +816,17 @@
         r = await _fetch('POST', `/dm-confirm-queue/${id}/discard`);
       }
       // send / send_edit 성공 시 → 예약 캐시 무효화 + 홈/벨 갱신 + Undo 토스트
-      // (app-booking-api.js 의 _invalidateCache 가 itdasy:data-changed 리스너로 발동)
       const isApproveSend = (action === 'send' || action === 'send_edit');
+      if (isApproveSend && r && r.ok === false) {
+        // [P1 C-1] BE 가 200 + {ok:false} 로 예약 액션 실패를 알린 경우 — 성공 처리 금지
+        if (window.showToast) window.showToast(r.message || '전송 실패');
+        btn.disabled = false; btn.style.opacity = '1';
+        return;
+      }
+      // [2026-08-31] send/send_edit 도 BE 가 예약을 만들거나 옮긴다. 예전엔 아래 itdasy:data-changed
+      //   리스너가 대신 캐시를 비워주길 기대했는데(kind 문자열 정규식 매칭에 의존), 그 간접 경로가
+      //   끊기면 캘린더가 조용히 옛 목록을 그린다. 여기서 직접 비운다.
+      if (isApproveSend) _invalidateBookingCache();
       const undoLogId = r.log_id || r.action_log_id || null;
       // [F3] 전송 후 체크 토스트 — 밋밋한 "발송 완료" 대신 "전송했어요 ✓"
       const bookingYmd = card.dataset.bookingDate || '';

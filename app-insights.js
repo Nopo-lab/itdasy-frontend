@@ -43,7 +43,7 @@
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
           <span style="font-size:22px;">✨</span>
           <strong style="font-size:18px;">AI 인사이트</strong>
-          <button data-insights-close style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;" aria-label="닫기">✕</button>
+          <button class="ss-close" data-insights-close style="margin-left:auto;background:transparent;border:none;font-size:20px;cursor:pointer;" aria-label="닫기"><svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
         <div id="insightsBody" style="flex:1;overflow-y:auto;"></div>
       </div>
@@ -229,6 +229,12 @@
     _ensureSheet();
     document.getElementById('insightsSheet').style.display = 'block';
     document.body.style.overflow = 'hidden';
+    // [2026-08-16] 백스택 미등록이었다 — 뒤로가기가 인사이트를 안 닫고 뒤 화면을 닫았다.
+    //   await 앞에서 먼저 등록해야 로딩 중 뒤로가기도 잡힌다.
+    try {
+      if (typeof window._registerSheet === 'function') window._registerSheet('insights', window.closeInsights);
+      if (typeof window._markSheetOpen === 'function') window._markSheetOpen('insights');
+    } catch (_e) { void _e; }
     await _loadAndRender();
   };
 
@@ -236,6 +242,7 @@
     const sheet = document.getElementById('insightsSheet');
     if (sheet) sheet.style.display = 'none';
     document.body.style.overflow = '';
+    try { if (typeof window._markSheetClosed === 'function') window._markSheetClosed('insights'); } catch (_e) { void _e; }
   };
 
   // [2026-05-20] 다른 모듈에서 재활용 — 60일+ "X개월" / 14일+ "X주" / 미만 "X일"
@@ -300,7 +307,7 @@
           <span style="font-size:22px;">💝</span>
           <strong style="font-size:17px;">안부 문자 초안</strong>
           <span id="bulkProgress" style="margin-left:auto;font-size:12px;color:#888;font-weight:700;"></span>
-          <button id="bulkCloseBtn" style="margin-left:8px;background:none;border:none;font-size:20px;cursor:pointer;" aria-label="닫기">✕</button>
+          <button class="ss-close" id="bulkCloseBtn" style="margin-left:8px;background:transparent;border:none;font-size:20px;cursor:pointer;" aria-label="닫기"><svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
         <div style="font-size:11.5px;color:#888;margin-bottom:10px;line-height:1.5;">
           한 명씩 탭해서 문구를 확인하고 [카톡 공유]로 보내세요. 일괄 전송하지 않아요 — 원장님이 직접 승인.

@@ -364,7 +364,7 @@
       <div style="width:100%;max-width:420px;background:#fff;border-radius:20px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-height:85vh;overflow-y:auto;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
           <div style="font-size:15px;font-weight:900;">📋 안부 문자 초안</div>
-          <button id="kw-sms-close" style="width:30px;height:30px;border:none;border-radius:10px;background:#eee;cursor:pointer;">✕</button>
+          <button class="ss-close" id="kw-sms-close" style="width:30px;height:30px;border:none;border-radius:10px;background:transparent;cursor:pointer;"><svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
         ${hasBulk ? `
           <div style="font-size:11.5px;color:#888;margin-bottom:12px;line-height:1.5;">
@@ -392,6 +392,9 @@
       </div>
     `;
     document.body.appendChild(o);
+    /* [2026-09-09] 뒤로가기 등록 — 전체화면 오버레이는 back 으로 자기가 닫혀야 한다.
+       안 하면 back 이 이 창 대신 뒤 화면을 닫아 작성 중이던 내용이 날아간다. */
+    try { window._bindSheetBack && window._bindSheetBack('killerwidgets', o, () => { o.remove(); }); } catch (_bsb) { void _bsb; }
     o.addEventListener('click', (e) => { if (e.target === o) o.remove(); });
     o.querySelector('#kw-sms-close').addEventListener('click', () => o.remove());
     o.querySelector('#kw-sms-cancel').addEventListener('click', () => o.remove());

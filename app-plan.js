@@ -1,8 +1,7 @@
 /* ─────────────────────────────────────────────────────────────
-   플랜 팝업 — md 정리: 월 6,900원 단일 멤버십 + 사용량 안내
-
-   기존 planPopup HTML은 있었으나 열기·액션 함수가 없어서
-   모든 플랜 배지·업그레이드 버튼이 무반응이던 버그 수정.
+   플랜 팝업 — 잇데이 Pro: 월 9,900 / 연 99,000(2개월 무료) · 10일 체험(월간)
+   [2026-09-02 가격 개편] 금액 정본 = BE routers/billing.PLAN_PRICING.
+   해지(웹 PortOne)는 #cancelSheet 2단계 바텀시트, 스토어 결제는 딥링크.
    ──────────────────────────────────────────────────────────── */
 (function () {
   'use strict';
@@ -23,7 +22,7 @@
 
   function _planDisplayName(plan) {
     if (plan === 'free') return '체험';
-    return '잇데이';
+    return '잇데이 Pro';
   }
 
   async function openPlanPopup() {
@@ -32,6 +31,10 @@
 
     _selectedPlan = 'pro';
     pop.style.display = 'flex';
+    _lockBg();
+    // [2026-09-07 반응형 릴리즈게이트] 뒤로가기 등록. 결제 화면인데 history 엔트리가 0이라
+    //   안드로이드 하드웨어 백이 팝업을 닫는 대신 **앱을 종료**했다 (실측).
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('plan');
     _updatePlanCardHighlight();
     _stylePopularCard();
     if (window.hapticLight) window.hapticLight();
@@ -59,56 +62,94 @@
       });
     });
 
+    // [2026-09-07] ✕·배경 클릭이 display 를 직접 껐다 → _markSheetClosed 가 안 불려서
+    //   닫아도 history 엔트리가 남고, 다음 뒤로가기가 "눌러도 아무 일 없는" 칸이 됐다.
+    //   모든 닫기 경로를 closePlanPopup() 하나로 모은다.
     const closeBtn = document.getElementById('planCloseBtn');
     if (closeBtn && !closeBtn._bound) {
       closeBtn._bound = true;
-      closeBtn.addEventListener('click', () => { pop.style.display = 'none'; });
+      closeBtn.addEventListener('click', () => { closePlanPopup(); });
     }
     // 배경 클릭으로 닫기
     if (!pop._bgBound) {
       pop._bgBound = true;
-      pop.addEventListener('click', (e) => { if (e.target === pop) pop.style.display = 'none'; });
+      pop.addEventListener('click', (e) => { if (e.target === pop) closePlanPopup(); });
     }
+  }
+
+  // [2026-09-07 반응형 게이트 BUG-8] 배경 스크롤 잠금 — 이전 값 저장/복구로 중첩 안전.
+  //   플랜은 설정허브·잇비 위에 겹쳐 열린다. 닫을 때 `overflow=''` 로 밀면
+  //   **아직 열려 있는 아래 시트의 잠금까지** 풀려서 뒤 화면이 밀리기 시작한다.
+  let _prevOverflow = null;
+  function _lockBg() {
+    if (_prevOverflow === null) _prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+  }
+  function _unlockBg() {
+    if (_prevOverflow !== null) { document.body.style.overflow = _prevOverflow; _prevOverflow = null; }
   }
 
   function closePlanPopup() {
     const pop = document.getElementById('planPopup');
     if (pop) pop.style.display = 'none';
+    _unlockBg();
+    if (typeof window._markSheetClosed === 'function') window._markSheetClosed('plan');
   }
 
-  // 추천(pro) 카드 — index.html 수정 없이 JS에서 플랫 로즈 배지/보더로 통일
-  function _stylePopularCard() {
-    const proCard = document.getElementById('planCardPro');
-    if (!proCard) return;
-    proCard.style.border = '2px solid var(--brand)';
-    const badge = Array.from(proCard.children).find((el) => el.style && el.style.position === 'absolute');
-    if (badge) {
-      badge.textContent = '가장 인기';
-      badge.style.background = 'var(--brand)';
-      badge.style.borderRadius = 'var(--r-pill,999px)';
-      badge.style.fontSize = '11px';
-      badge.style.fontWeight = '700';
-      badge.style.padding = '3px 10px';
-    }
-  }
+  // [2026-09-02 가격 개편] 카드 디자인은 index.html(pw- 클래스)이 정본 — JS 덧칠 제거.
+  function _stylePopularCard() { /* no-op: v5 페이월은 HTML/CSS 가 디자인을 가진다 */ }
 
   function _updatePlanCardHighlight() {
     document.querySelectorAll('#planPopup .plan-card').forEach((card) => {
-      const selected = card.dataset.plan === _selectedPlan;
-      card.style.transform = selected ? 'scale(1.02)' : 'scale(1)';
-      card.style.boxShadow = selected ? 'var(--shadow-brand)' : 'none';
+      card.classList.toggle('pw-on', card.dataset.plan === _selectedPlan);
     });
     _updateActionButton();
+  }
+
+  // 지금 결제 중인 게 월간인가 연간인가.
+  //   DB 의 plan 은 둘 다 'pro' 라 **plan 만으로는 구분이 안 된다.** 서버가 같이 주는
+  //   product_id 로만 알 수 있다(app-iap.js PRODUCTS 의 역매핑).
+  //   웹 PortOne·폐기된 6,900 상품·데모 계정은 알 수 없으므로 null 을 돌려준다.
+  function _currentBillingKey() {
+    const map = (window.ItdasyIAP && window.ItdasyIAP.PRODUCTS) || null;
+    if (!map || !_productId) return null;
+    return Object.keys(map).find((k) => map[k] === _productId) || null;
   }
 
   function _updateActionButton() {
     const btn = document.getElementById('planActionBtn');
     if (!btn) return;
-    if (_selectedPlan === _currentPlan) {
+    const paidNow = ['pro', 'premium', 'membership'].includes(_currentPlan);
+    const billingKey = _currentBillingKey();
+
+    // [결제 게이트 2026-09-07] 예전엔 유료이기만 하면 월간·연간 **어느 카드를 골라도**
+    //   "현재 이용 중인 플랜입니다" 를 띄우고 버튼을 잠갔다. 실측(브라우저):
+    //     월간 결제자가 '연 99,000원' 카드를 누름 → 버튼 "현재 이용 중인 플랜입니다"(disabled)
+    //   ① 사실이 아니다 — 연간을 이용 중인 게 아니다.
+    //   ② 연간으로 올릴 길이 아예 없다. 연간 카드를 만든 이유(LTV)가 통째로 죽는다.
+    //   plan 컬럼은 둘 다 'pro' 라 구분이 안 되지만 product_id 는 구분된다 → 그걸 쓴다.
+    const sameAsNow = (_selectedPlan === _currentPlan)
+      || (paidNow && billingKey !== null && _selectedPlan === billingKey)
+      // 결제 주체를 모르는 유료 구독(웹 PG·폐기 상품·데모)은 예전처럼 보수적으로 '이용 중'.
+      || (paidNow && billingKey === null && (_selectedPlan === 'pro' || _selectedPlan === 'pro_yearly'));
+
+    if (sameAsNow) {
       btn.textContent = '현재 이용 중인 플랜입니다';
       btn.disabled = true;
       btn.style.opacity = '0.5';
       btn.style.cursor = 'not-allowed';
+      return;
+    }
+
+    // 유료인데 다른 주기를 골랐다 = 플랜 전환. 스토어 구독은 **스토어에서만** 바꿀 수 있다
+    //   (같은 구독 그룹 안의 업/다운그레이드는 Apple/Google 이 비례배분까지 처리한다).
+    //   앱에서 새로 order() 하면 그룹 설정이 어긋났을 때 **구독 2개가 동시에 살아** 이중청구가 된다.
+    //   그래서 여기선 구독관리 화면으로 보낸다 — 안전하고, 스토어 정책상으로도 이게 정답이다.
+    if (paidNow && billingKey !== null) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.style.cursor = 'pointer';
+      btn.textContent = (_selectedPlan === 'pro_yearly') ? '연간 결제로 바꾸기' : '월간 결제로 바꾸기';
       return;
     }
     btn.disabled = false;
@@ -116,13 +157,15 @@
     btn.style.cursor = 'pointer';
     if (_selectedPlan === 'free') {
       btn.textContent = '체험 상태로 유지';
-      btn.style.background = 'var(--text-subtle,#888)';
-    } else if (_selectedPlan === 'pro') {
-      btn.textContent = (_currentPlan === 'free') ? '월 6,900원 시작하기' : '잇데이 멤버십으로 전환';
-      btn.style.background = 'var(--brand)';
-    } else if (_selectedPlan === 'premium') {
-      btn.textContent = '잇데이 멤버십으로 전환';
-      btn.style.background = 'var(--brand)';
+    } else if (_selectedPlan === 'pro_yearly') {
+      // 연간은 무료체험 없이 즉시 결제 (체험 후 연간 청구 = 기만 패턴)
+      btn.textContent = '연 99,000원으로 시작하기';
+    } else {
+      // "10일 무료" 는 스토어 IAP 체험이 붙는 네이티브에서만 — 웹 PortOne 은 즉시 청구라
+      //   무료라고 쓰면 그 자체가 다크패턴이다.
+      btn.textContent = (_currentPlan === 'free')
+        ? (_isNative() ? '10일 무료로 시작하기' : '월 9,900원 시작하기')
+        : '잇데이 Pro 로 전환';
     }
   }
 
@@ -139,6 +182,11 @@
       // 기존 코드는 평면 필드(u.caption_today)를 읽어 항상 rows=0 → "불러올 수 없어요"로 빠지던 버그.
       const _fmtLimit = (l) => (l == null || l < 0) ? '∞' : l;
       const _defs = [
+        // [잇비 실측감사 2026-08-15] 잇비 대화가 이 목록에 없었다. 무료 25회/월인데 게이지에
+        //   항목이 없으니 원장님은 잔여를 볼 방법이 없고, 26번째 대화에서 예고 없이
+        //   "월간 사용 한도(25회)를 초과했습니다" 를 맞는다. 다른 한도는 다 보여주면서 이것만 빠져 있었다.
+        //   가장 자주 쓰는 기능이라 맨 위에 둔다. (BE 는 /subscription/usage.assistant 로 이미 준다)
+        ['assistant', 'AI 잇비 대화', ' (이번 달)'],
         ['caption', 'AI 캡션/해시태그', ''],
         ['removebg', '누끼·배경', ''],
         ['analyze', '말투 분석', ' (이번 달)'],
@@ -335,6 +383,18 @@
 
   async function doPlanAction() {
     if (_selectedPlan === _currentPlan) return;
+
+    // [결제 게이트 2026-09-07] 주기 전환(월↔연)은 **새로 결제하지 않는다.**
+    //   스토어 구독은 같은 구독 그룹 안에서만 바꿀 수 있고, 그 처리는 스토어가 한다
+    //   (비례배분·즉시전환/다음주기 여부까지). 앱에서 order() 를 다시 태우면 그룹 설정이
+    //   어긋났을 때 구독 2개가 동시에 살아 **이중청구**가 된다. 그래서 구독관리로 보낸다.
+    const _billingKey = _currentBillingKey();
+    const _paidNow = ['pro', 'premium', 'membership'].includes(_currentPlan);
+    if (_paidNow && _billingKey !== null && _selectedPlan !== _billingKey) {
+      _openStoreSubs();
+      return;
+    }
+
     if (_selectedPlan === 'free') {
       if (window.hapticMedium) window.hapticMedium();
       if (typeof window.showToast === 'function') window.showToast('체험 상태 변경은 설정에서 진행해주세요');
@@ -343,6 +403,15 @@
 
     // 네이티브 앱: 앱스토어 IAP 만 사용 (Apple/Google anti-steering — 웹 PG 호출 금지).
     if (_isNative()) {
+      // [2026-09-07 결제 정합성 → 2026-09-08 갱신] 연간을 고르면 월간이 청구되던 문제.
+      //   원래 조치는 "연간이면 무조건 막기" 였다. 그건 원인이 아니라 증상을 막은 것이고,
+      //   연간 카드를 영영 죽은 채로 둔다. 원인은 `purchaseMembership()` 이 **고른 플랜을
+      //   받지 않고** 단일 상품만 사던 것이었고, 그건 아래에서 인자를 넘겨 고쳤다.
+      //   (app-iap.js `PRODUCTS`: pro → 월간 / pro_yearly → 연간)
+      //
+      //   다만 **스토어에 연간 상품이 아직 없으면** store.get() 이 못 찾아
+      //   `reason:'no_product'` 로 돌아온다. 그 경우만 아래 결과 처리에서 안내한다.
+      //   → 잘못된 금액이 청구될 일은 없고(상품 자체가 다르니), 등록되는 순간 자동으로 열린다.
       if (window.hapticMedium) window.hapticMedium();
       // [C-1 2026-07-27] IAP 플러그인(cordova-plugin-purchase)이 설치된 빌드에서만 실제 결제.
       //   플러그인 없으면(현재 빌드) isAvailable()=false → 기존 '준비중' 안내 유지(무회귀).
@@ -353,7 +422,10 @@
       var _btn = document.getElementById('planActionBtn');
       var _orig = _btn ? _btn.textContent : '';
       if (_btn) { _btn.disabled = true; _btn.style.opacity = '0.6'; _btn.textContent = '결제 진행 중…'; }
-      window.ItdasyIAP.purchaseMembership().then(function (r) {
+      // [결제 게이트 2026-09-07] **고른 플랜을 넘긴다.** 예전엔 인자 없이 불렀고
+      //   app-iap.js 는 상품 ID 를 하나만 알고 있어서, "연 99,000원" 을 눌러도
+      //   폐기된 6,900원 월간 상품이 결제됐다(금액·기간·상품이 전부 달랐다).
+      window.ItdasyIAP.purchaseMembership(_selectedPlan).then(function (r) {
         if (r && r.ok) {
           if (window.hapticSuccess) window.hapticSuccess();
           _currentPlan = r.plan || 'membership';
@@ -365,6 +437,14 @@
           if (_btn) { _btn.disabled = false; _btn.style.opacity = '1'; _btn.textContent = _orig; }
           if (r && r.reason === 'cancelled') return; // 사용자가 취소 — 조용히
           if (typeof window.showToast === 'function') {
+            // 스토어에 그 상품이 아직 없을 때. "결제 실패" 라고 하면 원장님이 카드 문제로
+            //   오해한다 — 무엇이 없고 무엇을 하면 되는지 말한다.
+            if (r && r.reason === 'no_product') {
+              window.showToast(_selectedPlan === 'pro_yearly'
+                ? '연간 결제는 스토어에 아직 준비 중이에요. 월간으로 시작해 주세요'
+                : '상품 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요');
+              return;
+            }
             window.showToast(r && r.message ? ('결제 실패: ' + r.message) : '결제를 완료하지 못했어요. 잠시 후 다시 시도해 주세요');
           }
         }
@@ -381,7 +461,8 @@
     const orig = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '결제 진행 중…'; }
     try {
-      const r = await window.ItdasyBilling.startWebSubscription('pro');
+      // pro_yearly 도 서버 저장 플랜은 'pro' — 금액·기간만 billing.PLAN_PRICING 이 다르게 청구
+      const r = await window.ItdasyBilling.startWebSubscription(_selectedPlan);
       if (r && r.ok) {
         if (window.hapticSuccess) window.hapticSuccess();
         _currentPlan = 'pro';
@@ -400,18 +481,99 @@
 
   // 구독 취소 / 스토어 구독 관리.
   //   스토어(Apple·Google) 결제면 서버 취소 API 를 **부르지 않는다** — 위 _storeOwner() 주석 참고.
-  //   웹 PG(포트원) 결제일 때만 만료일까지 유지하는 취소 예약(cancel_at_period_end)을 건다.
+  //   웹 PG(포트원) 결제일 때만 해지 바텀시트(#cancelSheet)로 취소 예약(cancel_at_period_end)을 건다.
+  //   [2026-09-02] window.confirm → 2단계 시트(해지→완료). 시안: 시안_해지시트_390_360.html.
+  //   다크패턴 금지: 해지 버튼은 항상 활성, 단계는 시트 1장, 만류는 정보 제공(유지 혜택·연간 업셀)까지만.
   async function doCancelSubscription() {
     if (_storeOwner()) { _openStoreSubs(); return; }
     if (!window.ItdasyBilling) return;
-    if (!window.confirm('구독을 취소할까요?\n\n· 만료일까지는 계속 이용할 수 있어요.\n· 앱스토어·Play 스토어로 결제하셨다면 여기서는 해지되지 않아요. 스토어 구독 화면에서 해지해 주세요.')) return;
-    const r = await window.ItdasyBilling.cancelSubscription();
-    if (r && r.ok) { _cancelScheduled = true; _renderSubMeta(); }
+    _openCancelSheet();
+  }
+
+  function _fmtEndDate() {
+    if (!_periodEnd) return '만료일';
+    const dt = new Date(_periodEnd);
+    return isNaN(dt.getTime()) ? '만료일' : ((dt.getMonth() + 1) + '월 ' + dt.getDate() + '일');
+  }
+
+  function _openCancelSheet() {
+    const sheet = document.getElementById('cancelSheet');
+    if (!sheet) return;
+    document.querySelectorAll('#cancelSheet .csEndDate').forEach((el) => { el.textContent = _fmtEndDate(); });
+    const shA = document.getElementById('cancelSheetA');
+    const shB = document.getElementById('cancelSheetB');
+    if (shA) shA.style.display = 'block';
+    if (shB) shB.style.display = 'none';
+    document.querySelectorAll('#csChips .cs-chip').forEach((ch) => {
+      ch.style.borderColor = '#e5e5e5'; ch.style.background = '#fff'; ch.style.color = '#555';
+      ch.dataset.on = '';
+    });
+    sheet.style.display = 'flex';
+    _bindCancelSheet();
+  }
+
+  function _closeCancelSheet() {
+    const sheet = document.getElementById('cancelSheet');
+    if (sheet) sheet.style.display = 'none';
+  }
+
+  function _bindCancelSheet() {
+    const sheet = document.getElementById('cancelSheet');
+    if (!sheet || sheet._bound) return;
+    sheet._bound = true;
+    // 이유 칩(선택) — 서버 전송 없음, 단일 선택 토글
+    document.querySelectorAll('#csChips .cs-chip').forEach((ch) => {
+      ch.addEventListener('click', () => {
+        const on = ch.dataset.on === '1';
+        document.querySelectorAll('#csChips .cs-chip').forEach((c) => {
+          c.dataset.on = ''; c.style.borderColor = '#e5e5e5'; c.style.background = '#fff'; c.style.color = '#555';
+        });
+        if (!on) { ch.dataset.on = '1'; ch.style.borderColor = 'var(--brand)'; ch.style.background = '#fff5f7'; ch.style.color = '#BC6675'; }
+        if (window.hapticLight) window.hapticLight();
+      });
+    });
+    // 연간 업셀 → 시트 닫고 결제 팝업에서 연간 선택
+    const upsell = document.getElementById('csUpsellBtn');
+    if (upsell) upsell.addEventListener('click', () => {
+      _closeCancelSheet();
+      _selectedPlan = 'pro_yearly';
+      _updatePlanCardHighlight();
+    });
+    const stay = document.getElementById('csStayBtn');
+    if (stay) stay.addEventListener('click', _closeCancelSheet);
+    const closeB = document.getElementById('csCloseBtn');
+    if (closeB) closeB.addEventListener('click', _closeCancelSheet);
+    sheet.addEventListener('click', (e) => { if (e.target === sheet) _closeCancelSheet(); });
+    // 해지하기 → 서버 취소 예약 → 완료 상태(②)로 전환
+    const doIt = document.getElementById('csCancelBtn');
+    if (doIt) doIt.addEventListener('click', async () => {
+      if (!(window.ItdasyBilling && window.ItdasyBilling.cancelSubscription)) return;
+      doIt.disabled = true; doIt.textContent = '처리 중…';
+      const r = await window.ItdasyBilling.cancelSubscription();
+      doIt.disabled = false; doIt.textContent = '해지하기';
+      if (r && r.ok) {
+        _cancelScheduled = true; _renderSubMeta();
+        const a = document.getElementById('cancelSheetA');
+        const b = document.getElementById('cancelSheetB');
+        if (a) a.style.display = 'none';
+        if (b) b.style.display = 'block';
+      }
+    });
+    // 마음 바뀌면 다시 시작하기 → 해지 예약 철회(POST /billing/resume)
+    const resume = document.getElementById('csResumeBtn');
+    if (resume) resume.addEventListener('click', async () => {
+      if (!(window.ItdasyBilling && window.ItdasyBilling.resumeSubscription)) return;
+      resume.disabled = true;
+      const r = await window.ItdasyBilling.resumeSubscription();
+      resume.disabled = false;
+      if (r && r.ok) { _cancelScheduled = false; _renderSubMeta(); _closeCancelSheet(); }
+    });
   }
 
   // 전역 노출 (index.html onclick 에서 참조)
   window.openPlanPopup = openPlanPopup;
   window.closePlanPopup = closePlanPopup;
+  if (typeof window._registerSheet === 'function') window._registerSheet('plan', closePlanPopup);
   window.doPlanAction = doPlanAction;
   window.doCancelSubscription = doCancelSubscription;
   window.refreshPlanStatus = _loadStatus;   // 결제/취소 성공 후 app-billing 이 호출

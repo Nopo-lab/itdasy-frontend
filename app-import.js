@@ -38,7 +38,7 @@
       <div style="position:absolute;inset:auto 0 0 0;background:var(--bg,#fff);border-radius:20px 20px 0 0;max-height:90vh;display:flex;flex-direction:column;padding:16px;padding-bottom:max(16px,var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
           <strong style="font-size:18px;">다른 앱에서 가져오기</strong>
-          <button data-import-close style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;" aria-label="닫기">✕</button>
+          <button class="ss-close" data-import-close style="margin-left:auto;background:transparent;border:none;font-size:20px;cursor:pointer;" aria-label="닫기"><svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
         <div id="importBody" style="flex:1;overflow-y:auto;"></div>
       </div>
@@ -462,6 +462,9 @@
     _ensureSheet();
     document.getElementById('importSheet').style.display = 'block';
     document.body.style.overflow = 'hidden';
+    /* [2026-08-31] 뒤로가기 스택 등록 — 미등록 시 하드웨어 back 이 아래 화면까지 닫던 버그 */
+    if (typeof window._registerSheet === 'function') window._registerSheet('import', window.closeImport);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('import');
     _preview = null;
     _currentKind = null;
     _renderKindPicker();
@@ -471,5 +474,6 @@
     const sheet = document.getElementById('importSheet');
     if (sheet) sheet.style.display = 'none';
     document.body.style.overflow = '';
+    if (typeof window._markSheetClosed === 'function') window._markSheetClosed('import');
   };
 })();

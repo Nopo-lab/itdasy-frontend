@@ -1,43 +1,52 @@
 // Itdasy Studio - Instagram 연동 & 말투분석
 
-// [보안감사 H-7 준비 2026-07-27] 인스타 OAuth 시작을 (네이티브에서) 인앱 웹뷰 이동 대신
-//   Browser 플러그인(SFSafariViewController)으로 열기 위한 플래그. 기본 OFF.
+// [보안감사 H-7 준비 2026-07-27 · 2026-09-09 기본 ON] 인스타 OAuth 시작을 (네이티브에서)
+//   인앱 웹뷰 이동 대신 Browser 플러그인(SFSafariViewController / Chrome Custom Tabs)으로 연다.
 //   ▶ 켜야 iOS App-Bound Domains(H-7)를 걸어도 인스타 로그인이 안 깨진다(웹뷰가 우리 도메인 밖으로 안 나감).
-//   ▶ 기본 OFF 이므로 웹·현재 모든 네이티브 설치본은 기존 window.location.href 경로 그대로(바이트 동일).
-//   ▶ 실제 ON 은 기기/시뮬 E2E 검증하는 별도 빌드 세션에서. 그 전엔 아무 동작 변화 없음.
+//
+//   [2026-09-09] 기본을 ON 으로 바꿨다. 폰에서 연동을 누르면 **인스타 앱만 켜지고
+//   아무 동작이 없던** 실사용 장애 때문이다. 원인은 인스타가 자기 도메인 전 경로를
+//   앱에 넘기도록 선언해 둔 것 —
+//     iOS  AASA        com.burbn.instagram    → 전 경로 클레임 (/oauth/authorize 제외목록에 없음)
+//     Android assetlinks com.instagram.android → handle_all_urls
+//   웹뷰에서 window.location.href 로 나가면 OS 가 그대로 인스타 앱에 넘겨버린다.
+//   Browser 플러그인으로 열면 브라우저 컨텍스트라 앱으로 안 넘어간다(구글·카카오와 같은 방식).
+//   백엔드도 authorize URL 에 #weblink 를 붙여 같은 납치를 막는다(instagram.py) — 둘 다 필요하다.
+//   ▶ 웹은 isNative 가 false 라 이 플래그와 무관하게 기존 경로 그대로다.
 //   오버라이드(?securetoken 과 동일 패턴, 1회 쿼리→localStorage 고정):
-//     ?igbrowser=1 강제 ON(테스트) · ?igbrowser=0 강제 OFF(킬스위치) · 기본 null(OFF).
+//     ?igbrowser=1 강제 ON · ?igbrowser=0 강제 OFF(킬스위치) · 기본 ON.
 const _IG_BROWSER = (function () {
   try {
     if (/[?&]igbrowser=1/.test(location.search)) { try { localStorage.setItem('itdasy_igbrowser', '1'); } catch (_p) { void _p; } return true; }  // 쿼리 1회 → 리로드에도 유지
     if (/[?&]igbrowser=0/.test(location.search)) { try { localStorage.setItem('itdasy_igbrowser', '0'); } catch (_p) { void _p; } return false; }
-    return localStorage.getItem('itdasy_igbrowser') === '1';
-  } catch (_e) { return false; }
+    return localStorage.getItem('itdasy_igbrowser') !== '0';   // 명시적 OFF 만 끈다 — 기본 ON
+  } catch (_e) { return true; }
 })();
 
 // ===== 인스타 토큰 만료 배너 =====
-// Instagram Graph API 장기 토큰은 60일 만료. 7일 이내 또는 이미 만료 시 재연동 배너 노출.
-function _renderTokenExpiryBanner(expiresAtIso) {
+// 인스타 토큰 배너 — 판정은 js/instagram/token-status.js 한 곳에서만 한다.
+//
+// [2026-08-31] 예전엔 여기서 expires_at 만 보고 "N일 뒤 만료 — 지금 갱신하세요" 를 띄웠다.
+//   그런데 그 시점에 백엔드는 **이미 자동갱신을 하고 있었다.** 원장님한테는 손으로 뭔가
+//   하라는 뜻으로 읽힌다. 반대로 토큰이 권한취소로 죽었는데 만료일이 아직 남아 있으면
+//   배너가 **아무것도 안 떴다** — 정작 재연동이 필요한 그 상황에서.
+//   그래서 배너는 이제 '사람이 지금 해야 할 일이 있는' RECONNECT_REQUIRED 에서만 뜬다.
+function _renderIgTokenBanner(data) {
   const existing = document.getElementById('tokenExpiryBanner');
   if (existing) existing.remove();
-  if (!expiresAtIso) return;
 
-  const expMs = new Date(expiresAtIso).getTime();
-  if (isNaN(expMs)) return;
-  const remainDays = Math.floor((expMs - Date.now()) / 86400000);
-  if (remainDays > 7) return;  // 여유 있으면 표시 안 함
+  const S = window.IgTokenStatus;
+  if (!S) return;   // 모듈 미로드 — 조용히 넘어간다(배너는 보조 표시)
+  const st = S.resolve(data, { skewMs: window._igServerSkewMs || 0 });
+  if (!S.needsBanner(st)) return;
 
-  const isExpired = remainDays < 0;
-  const msg = isExpired
-    ? '인스타 연동이 만료됐어요 — 재연동이 필요합니다'
-    : `인스타 연동이 ${remainDays}일 뒤 만료돼요 — 지금 갱신하세요`;
-
+  const info = S.describe(st);
   const banner = document.createElement('div');
   banner.id = 'tokenExpiryBanner';
   banner.setAttribute('role', 'alert');
-  banner.className = `banner ${isExpired ? 'banner--danger' : 'banner--warn'}`;
-  banner.innerHTML = `<span style="flex:1;">${msg}</span>
-    <button class="banner__cta" data-ig-reconnect>재연동</button>`;
+  banner.className = 'banner banner--danger';
+  banner.innerHTML = `<span style="flex:1;">${_igEsc(info.title)} — ${_igEsc(info.detail)}</span>
+    <button class="banner__cta" data-ig-reconnect>${_igEsc(info.cta)}</button>`;
   // [보안감사 M-1 2026-07-26] 존재하지 않는 'connectInstaBtn'(실제 id 는 'instaBtn')을 클릭하려다
   //   폴백 no-op 으로 삼켜져 재연동 버튼이 죽어 있었다(토큰 만료 = 재연동이 가장 필요한 순간).
   //   홈 배너(app-home-customer-msgs)와 동일하게 connectInstagram() 을 직접 호출한다.
@@ -50,6 +59,11 @@ function _renderTokenExpiryBanner(expiresAtIso) {
   if (homePost && homePost.firstElementChild) {
     homePost.insertBefore(banner, homePost.firstElementChild);
   }
+}
+
+function _igEsc(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 // [F1] /instagram/status 의 살아있는 persona → itdasy_latest_analysis 재수화.
@@ -69,12 +83,130 @@ function _hydrateAnalysisCacheFromStatus(persona) {
   } catch (_e) { return false; }
 }
 
-// ===== 인스타그램 연동 =====
-async function checkInstaStatus(fromLogin = false) {
-  if (!getToken()) return;
+// [2026-08-22] 상태확인이 실패해도 조용히 죽지 않게 — 4초 간격 최대 2회 재시도.
+//   _igStatusSeq = 세대 가드: 재시도 대기 중 새 호출이 시작되면 낡은 재시도는 폐기.
+// [2026-09-01 사고복구] f7a3ea8 리팩터링이 이 세 정의를 지웠는데 checkInstaStatus 참조는 남아
+//   매 호출 ReferenceError → 로그인 유저 전원 홈 흰화면. 정의 복원. 지울 땐 참조 grep 필수.
+let _igStatusSeq = 0;
+// [2026-09-02] 사진편집 스타일 IDB 캐시(ig_text_analysis) 비우기 — 계정 교체 전용.
+//   이미지 해시 캐시라 옛 계정 사진 분석 결과가 남으면 새 계정 build() 가 그걸 재사용한다.
+//   전용 clear 헬퍼가 없어 getAll → delete 로 훑는다. 실패는 조용히 넘긴다(연동을 막을 일 아님).
+function _purgeIgTextStyleIDB() {
   try {
-    const res = await apiFetch('/instagram/status', { headers: authHeader() });
-    if (!res.ok) return;
+    if (typeof window.wmLearnAll !== 'function' || typeof window.wmLearnDel !== 'function') return;
+    Promise.resolve(window.wmLearnAll('ig_text_analysis'))
+      .then((rows) => Promise.all((rows || []).map((r) =>
+        r && r.id ? window.wmLearnDel('ig_text_analysis', r.id).catch(() => {}) : null)))
+      .catch(() => {});
+  } catch (_e) { void _e; }
+}
+
+// [2026-09-02] 사진편집 스타일 분석 파이프라인 트리거 (B-4).
+//   여태 InstagramTextStyle.build() 를 **아무도 부르지 않아** 페이지 2 가 영원히 빈 상태였다.
+//   · 이미 프로필이 있으면 skip — Vision 재호출은 곧 비용이다.
+//   · fire-and-forget. 실패해도 연동 플로우를 절대 막지 않는다.
+//   · 비용 가드(MAX_CALLS=12·이미지 해시 캐시·429 즉시 중단)는 모듈 안에 이미 있다 — 건드리지 않는다.
+// [2026-09-02] 실패 쿨다운 6시간. checkInstaStatus 는 부팅·가입·생체인증·OAuth 복귀·수동 새로고침
+//   5곳에서 불린다. 실패하면 get() 이 계속 null 이라, 쿨다운이 없으면 그 5곳이 매번 12장짜리
+//   파이프라인을 통째로 다시 돌린다(= 사용자가 겪은 오류 폭발).
+const _IG_STYLE_COOLDOWN_KEY = 'itdasy:ig_style_cooldown';
+const _IG_STYLE_COOLDOWN_MS = 6 * 60 * 60 * 1000;
+
+/* [2026-09-04] 게시물별 분석 → 자동 스타일 그룹 → 서버 저장.
+   실패는 전부 조용히 넘긴다 — 인스타 연동/말투 분석 흐름을 이것 때문에 막지 않는다.
+   그룹이 안 만들어져도(표본 부족·톤이 제각각) 그건 정상적인 결과다. 지어내지 않는다. */
+function _buildIgStyleGroups(media) {
+  return window.IgPostAnalysis.collect(media)
+    .then((posts) => {
+      if (!window.IgStyleGrouping || !posts || !posts.length) return null;
+      const r = window.IgStyleGrouping.group(posts);
+      try { window.dispatchEvent(new CustomEvent('itdasy:ig-style-grouped', { detail: r })); } catch (_e) { void _e; }
+      if (!r.groups.length || !window.IgStyleLibrary) return r;
+      return window.IgStyleLibrary.saveAuto(r.groups).then(() => r).catch(() => r);
+    })
+    .catch(() => null);
+}
+
+function _kickIgTextStyleBuild(force) {
+  try {
+    if (!window.InstagramTextStyle) return;
+    if (window.InstagramTextStyle.get()) return;              // 이미 분석됨 → 재분석 금지
+    if (_kickIgTextStyleBuild._inflight) return;              // 같은 세션 중복 트리거 방어
+    // [2026-09-02] force = OAuth 복귀 직후. "방금 연동 성공" 확정 신호가 있으므로,
+    //   연동 깨진 동안의 실패로 걸린 쿨다운을 풀고 즉시 재시도한다.
+    //   (같은 핸들 재연동은 계정교체 청소를 안 타서 쿨다운이 최대 6시간 잔류하던 문제)
+    if (force) { try { localStorage.removeItem(_IG_STYLE_COOLDOWN_KEY); } catch (_e) { void _e; } }
+    // 직전 시도가 프로필을 못 만들었으면 6시간은 쉰다.
+    try {
+      const _last = Number(localStorage.getItem(_IG_STYLE_COOLDOWN_KEY)) || 0;
+      if (_last && Date.now() - _last < _IG_STYLE_COOLDOWN_MS) return;
+    } catch (_e) { void _e; }
+    _kickIgTextStyleBuild._inflight = true;
+    apiFetch('/instagram/recent-media?limit=12', { headers: authHeader() })
+      .then((r) => (r && r.ok ? r.json() : null))
+      .then((j) => {
+        const media = j && Array.isArray(j.media) ? j.media : null;
+        if (!media || !media.length) return null;
+        /* [2026-09-04] 게시물별 분석 + 자동 스타일 그룹.
+           `IgPostAnalysis.collect` 는 **Vision 을 새로 부르지 않는다** — 안에서
+           `InstagramTextStyle.build(media, {onPost})` 를 그대로 부르고, 여태 버려지던
+           게시물별 결과를 media_id 에 붙여 남길 뿐이다(비용 가드는 그쪽에 그대로 있다).
+           모듈이 아직 안 실렸으면 예전 경로로 간다 — 말투 분석이 이것 때문에 막히면 안 된다. */
+        if (window.IgPostAnalysis) return _buildIgStyleGroups(media);
+        return window.InstagramTextStyle.build(media);         // 필드명은 thumb — 모듈이 처리
+      })
+      .catch(() => {})
+      .finally(() => {
+        _kickIgTextStyleBuild._inflight = false;
+        // 성공 판정은 "프로필이 실제로 저장됐나" 하나뿐이다. build 가 예외 없이 끝나도
+        //   표본이 모자라 프로필이 안 만들어질 수 있는데, 그것도 재시도해봐야 같은 결과다.
+        try {
+          if (!window.InstagramTextStyle.get()) {
+            localStorage.setItem(_IG_STYLE_COOLDOWN_KEY, String(Date.now()));
+          } else {
+            localStorage.removeItem(_IG_STYLE_COOLDOWN_KEY);
+          }
+        } catch (_e) { void _e; }
+      });
+  } catch (_e) { void _e; _kickIgTextStyleBuild._inflight = false; }
+}
+
+function _igStatusGiveUp() {
+  // 재시도 전부 실패 — 캐시가 '연동됨'이면 그대로 두고(오탐 방지), 아니면 연동 안내로 폴백.
+  try {
+    if (localStorage.getItem('itdasy:ig_connected_cache') === '1') return;
+    const pre = document.getElementById('homePreConnect');
+    const post = document.getElementById('homePostConnect');
+    if (pre) pre.style.display = 'flex';
+    if (post) post.style.display = 'none';
+  } catch (_e) { /* ignore */ }
+}
+
+async function checkInstaStatus(fromLogin = false, _attempt = 0, _seq = 0) {
+  if (!getToken()) return;
+  if (_attempt === 0) _seq = ++_igStatusSeq;
+  else if (_seq !== _igStatusSeq) return; // 그 사이 새 호출 시작됨 — 낡은 재시도 폐기
+  const _retry = () => {
+    if (_attempt >= 2) { _igStatusGiveUp(); return; }
+    // [2026-09-01] 4000 -> 1500. 2회 재시도면 최악 8초를 흰 화면으로 기다렸다.
+    setTimeout(() => { try { checkInstaStatus(fromLogin, _attempt + 1, _seq); } catch (_e) { /* ignore */ } }, 1500);
+  };
+  let res;
+  try {
+    res = await apiFetch('/instagram/status', { headers: authHeader() });
+  } catch (_e) { _retry(); return; }
+  if (!res.ok) {
+    if (res.status === 401) return; // 인증 만료 — 재시도해도 소용없음
+    _retry(); return;
+  }
+  // [2026-08-31] 서버 시각 보정 — 기기 시계가 틀어져 있어도 "자동 갱신까지 N일" 이
+  //   이상해지지 않게. status 응답의 HTTP Date 헤더가 곧 서버 시각이라 추가 호출이 0회다.
+  //   헤더가 없거나 파싱 실패하면 보정 0(기기 시계) — 없는 것보단 낫다.
+  try {
+    const _srv = Date.parse(res.headers.get('Date') || '');
+    window._igServerSkewMs = isFinite(_srv) ? (_srv - Date.now()) : 0;
+  } catch (_e) { window._igServerSkewMs = 0; }
+  try {
     const data = await res.json();
 
     // [2026-06-25] 재로그인 환영(showWelcome) 제거 — 인사는 app-core 의 _finishLoginLoad 가
@@ -92,10 +224,20 @@ async function checkInstaStatus(fromLogin = false) {
       // [2026-06-12 Bug] 다른 계정으로 재연동 시 옛 분석 리포트가 localStorage 에 잔존하는 문제.
       //   캐시된 핸들과 새 data.handle 이 다르면(둘 다 truthy) 옛 분석 캐시부터 제거 →
       //   아래 hydrate 가 새 persona 로 다시 채움.
+      // [2026-09-02] 계정 교체면 **사진편집 스타일 프로필까지** 함께 청소한다.
+      //   예전엔 itdasy_latest_analysis 만 지워서, 옛 계정에서 배운 글자 위치·크기가
+      //   새 계정 캡션 편집에 그대로 적용됐다(BE 는 이미 지우는데 FE 캐시만 남던 누수).
       try {
         const _prevHandle = localStorage.getItem('itdasy:ig_handle');
         if (_prevHandle && data.handle && _prevHandle !== data.handle) {
           localStorage.removeItem('itdasy_latest_analysis');
+          localStorage.removeItem('itdasy:ig_profile_pic');
+          localStorage.removeItem('itdasy:ig_handle');   // 바로 아래에서 새 handle 로 다시 채움
+          try { if (window.InstagramTextStyle) window.InstagramTextStyle.clear(); } catch (_e2) { void _e2; }
+          // 계정이 바뀌었으면 쿨다운도 푼다 — 옛 계정에서 실패해 걸린 쿨다운 때문에
+          //   새 계정 분석이 6시간 미뤄지면 안 된다.
+          localStorage.removeItem(_IG_STYLE_COOLDOWN_KEY);
+          _purgeIgTextStyleIDB();
         }
       } catch (_e) { void _e; }
       // [2026-06-12 Bug] 같은 핸들 재연동·재분석 후 서버는 done 인데 캐시가 옛 분석본을 유지해
@@ -121,7 +263,10 @@ async function checkInstaStatus(fromLogin = false) {
       try {
         localStorage.setItem('itdasy:ig_connected_cache', '1');
         // 프로필 사진/핸들도 캐시 — 내샵관리 등 다른 화면에서 즉시 사용
-        if (data.profile_picture_url) localStorage.setItem('itdasy:ig_profile_pic', data.profile_picture_url);
+        // [2026-08-16] "값이 있을 때만" 덮어쓰던 구조 제거 — 서버가 빈 값(만료 URL 폐기)을 주면
+        //   FE 캐시도 비워야 한다. 안 그러면 만료 URL 이 영구 잔류(45일 방치 사고). 키 자체가
+        //   없는 응답(구버전 BE)만 스킵.
+        if ('profile_picture_url' in data) localStorage.setItem('itdasy:ig_profile_pic', data.profile_picture_url || '');
         if (data.handle) localStorage.setItem('itdasy:ig_handle', data.handle);
       } catch (_e) { /* ignore */ }
       document.getElementById('homePreConnect').style.display = 'none';
@@ -134,7 +279,12 @@ async function checkInstaStatus(fromLogin = false) {
       _instaHandle = data.handle || '';
       updateHeaderProfile(_instaHandle, data.persona ? data.persona.tone : null, data.profile_picture_url || '');
       updateStep('stepInsta', true);
-      _renderTokenExpiryBanner(data.expires_at);
+      // [2026-05-08 hotfix] OAuth 직후 (?connected=success) 자동 분석이 곧 따라옴 → 옛 persona 안 깜빡이게 강제 숨김
+      const justOAuthed = (function(){ try { return new URLSearchParams(location.search).get('connected') === 'success'; } catch (_) { return false; } })();
+      // [2026-09-02] 사진편집 스타일 분석 — 연동 확인 시점에 딱 한 번. 비동기·무음.
+      //   OAuth 복귀면 실패 쿨다운을 풀고 즉시 빌드 (_kickIgTextStyleBuild 주석 참조).
+      _kickIgTextStyleBuild(justOAuthed);
+      _renderIgTokenBanner(data);
       // [죽은코드 정리 2026-07-27] KillerWidgets.renderRow('homeKillerWidgets') 호출 제거 —
       //   렌더 타깃 컨테이너 'homeKillerWidgets'/'dashKiller' 가 DOM 어디에도 없어(HomeV41 로 대체됨)
       //   render 가 getElementById=null 로 즉시 return, 모든 위젯이 안 떴다. 매 부팅 헛로드도 제거.
@@ -144,8 +294,6 @@ async function checkInstaStatus(fromLogin = false) {
       const persona = data.persona || {};
       const personaDone = !!(persona.style_summary);
       updateStep('stepPersona', personaDone);
-      // [2026-05-08 hotfix] OAuth 직후 (?connected=success) 자동 분석이 곧 따라옴 → 옛 persona 안 깜빡이게 강제 숨김
-      const justOAuthed = (function(){ try { return new URLSearchParams(location.search).get('connected') === 'success'; } catch (_) { return false; } })();
       if (personaDone && !justOAuthed) renderPersonaDash(persona);
       else { const _pd = document.getElementById('personaDash'); if (_pd) _pd.style.display = 'none'; }
       // 첫 글 완성 여부는 generationLog 기반. 백엔드 지원 전까진 localStorage hint로
@@ -210,15 +358,45 @@ async function checkInstaStatus(fromLogin = false) {
         //   작업실이 못 보고 되지도 않는 '인스타에 올리기' 버튼을 계속 띄운다.
         //   백엔드가 아직 안 주는 경우(구버전) undefined → 소비 측에서 낙관적 true 로 처리.
         capabilities: data.capabilities || null,
+        // [2026-08-31] 재연동 필요 여부를 이름 그대로 싣는다. 소비 측이 expires_at 을
+        //   각자 계산하다 서로 어긋나던 걸 막는다(판정은 IgTokenStatus 한 곳).
+        //   ⚠️ 미연동 응답에는 이 필드가 **없다** — 없는 걸 false 로 읽지 말 것.
+        reconnectRequired: (typeof data.reconnect_required === 'boolean')
+          ? data.reconnect_required
+          : (!!data.connected && data.token_valid === false),
+        tokenState: (window.IgTokenStatus
+          ? window.IgTokenStatus.resolve(data, { skewMs: window._igServerSkewMs || 0 }).state
+          : null),
         ts: Date.now(),
       };
       window._lastIgState = next;
-      if (prev.connected !== next.connected || prev.handle !== next.handle) {
+      // [2026-08-31] 재연동 필요/해소도 변경으로 친다 — 예전엔 connected·handle 만 봐서,
+      //   토큰이 죽어도(connected 는 그대로 true) 구독자에게 아무 신호가 안 갔다.
+      if (prev.connected !== next.connected || prev.handle !== next.handle
+          || prev.reconnectRequired !== next.reconnectRequired) {
         window.dispatchEvent(new CustomEvent('itdasy:ig:changed', { detail: next }));
       }
     } catch (_e) { /* ignore */ }
   } catch(_e) { /* ignore */ }
 }
+
+// [IG 게이트 2026-09-06 §28 멀티탭] 탭이 다시 보일 때 IG 상태를 새로 읽는다.
+//
+//   IGState 는 탭마다 따로 사는 메모리(window._lastIgState)라 탭간 동기화가 없었다.
+//   탭 A 에서 재연동을 끝내도 탭 B 는 계속 "재연동이 필요해요" 배너를 띄운다 —
+//   원장님 입장에선 **고쳤는데 안 고쳐진 것처럼** 보인다("복구됐는가?" 에 답을 못 준다).
+//
+//   ⚠️ 새 visibilitychange 리스너를 또 달지 않는다. app-core 의 focus-sync 가 이미
+//      **5분 스로틀**로 `itdasy:data-changed`(kind:'focus_sync')를 쏘고 있고,
+//      예전에 복귀마다 무방비로 요청을 쏴서 문제가 됐던 전례가 있다(app-perf-recovery 주석).
+//      그래서 있는 신호에 얹기만 한다 — 추가 요청은 5분에 한 번뿐이다.
+window.addEventListener('itdasy:data-changed', (e) => {
+  try {
+    if (!e || !e.detail || e.detail.kind !== 'focus_sync') return;
+    if (typeof getToken === 'function' && !getToken()) return;   // 로그아웃 상태면 부르지 않는다
+    checkInstaStatus();
+  } catch (_e) { /* 상태 갱신 실패는 화면을 깨뜨리지 않는다 */ }
+});
 
 // [QA #8] 외부 컴포넌트용 IG 상태 store — 현재 상태 read + 변경 구독.
 window.IGState = {
@@ -273,10 +451,10 @@ function showDetailedAnalysis() {
     let st = '';
     try { st = localStorage.getItem('itdasy_persona_status') || ''; } catch (_e) { st = ''; }
     if (st === 'pending') {
-      if (window.showToast) window.showToast('말투 분석 중이에요. 잠시 뒤 다시 확인해 주세요.');
+      if (window.showToast) window.showToast('인스타 분석 중이에요. 잠시 뒤 다시 확인해 주세요.');
     } else if (st === 'failed') {
       // [F2] safe 안내만 — 리포트 열기로 자동 재분석 금지. 재분석은 사용자가 직접 동선을 눌러야 함.
-      if (window.showToast) window.showToast('말투 분석에 실패했어요. 설정 → 말투 분석에서 다시 시도해 주세요.');
+      if (window.showToast) window.showToast('인스타 분석에 실패했어요. 설정 → 말투 분석에서 다시 시도해 주세요.');
     } else {
       if (window.showToast) window.showToast('학습된 말투 데이터가 없어요. 인스타 연동 후 분석을 진행해주세요');
     }
@@ -290,16 +468,21 @@ function showDetailedAnalysis() {
     // [2026-06-10 #5] 팝업이 다른 시트 아래에 깔리는 버그 — body 최상위로 이동해서 stacking context 이슈 완전 해결
     if (pop.parentElement !== document.body) document.body.appendChild(pop);
     pop.style.display = 'flex';
+    /* [2026-09-09] 뒤로가기 등록 — 전체화면 오버레이는 back 으로 자기가 닫혀야 한다.
+       안 하면 back 이 이 창 대신 뒤 화면을 닫아 작성 중이던 내용이 날아간다. */
+    try { window._bindSheetBack && window._bindSheetBack('instagramAnalyzeReport', pop, () => { pop.style.display = 'none'; }); } catch (_bsb) { void _bsb; }
   } else if (window.showToast) window.showToast('리포트 영역을 찾을 수 없어요');
 }
 
-// [2026-06-09 Phase2 v9] 말투 분석 리포트 — 회색 배경 + 헤더 카드 / 내용 카드 2장.
-// 흰 바탕·네이비 텍스트·중립 그레이, 로즈는 뱃지·CTA 포인트만. word-break:keep-all.
-// 제거: TOP5·"이렇게 쓰면"·추상 말투요약·자주 쓰는 어미 섹션.
+// [2026-08-31 v3] 말투 분석 리포트 — 포토카드 히어로(프사 스토리링 + 잇비 둥둥) + 절취선 + 장부식 리스트.
+// 시안: mockup_tone_report_v3.html (원영 확정). 폰트 11/13/15 고정(이모지 글리프 20px 예외).
+// 로즈는 1위 강조·고정문구 라인·태그 더보기만. word-break:keep-all.
+// 제거: 판단형 대표말투 헤드라인(tone), 중복 아바타 뱃지 행, 칩 3종 스타일(장부 행 통일).
+// 절취선 노치(실구멍)는 생략 — backdrop 이 반투명 blur 라 배경색 노치는 티가 나고,
+//   mask 실구멍은 히어로 높이 가변이라 과한 복잡도. 점선만 유지.
 function renderDetailedPopup(data) {
     const p = data.persona || {};
     const raw = data.raw_analysis || {};
-    const ROSE = '#BC6675';
     const _esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
         ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -316,6 +499,25 @@ function renderDetailedPopup(data) {
         ? (p.signature_phrases || raw.signature_phrases)
         : String(p.signature_phrases || raw.signature_phrases || '').split(/[,\s]+/).filter(Boolean);
 
+    // [2026-08-30] 사용 횟수 3종. BE 가 [[값, 횟수], ...] 로 내려준다.
+    //   BE 배포 전(필드 없음/[])에도 화면이 깨지면 안 되므로, 비면 [] 를 돌려주고
+    //   아래에서 기존 문자열 파싱(tagArr/sigArr/emojis)으로 폴백한다.
+    const _counts = (v) => (Array.isArray(v) ? v : [])
+        .filter(x => Array.isArray(x) && x.length === 2 && x[0] != null && Number.isFinite(Number(x[1])))
+        .map(x => [String(x[0]), Number(x[1])]);
+    const endCounts = _counts(raw.ending_counts);
+    const emoCounts = _counts(raw.emoji_counts);
+    const tagCounts = _counts(raw.hashtag_counts);
+
+    // 횟수는 숫자만. '회' 단위 붙이지 않고, 1 이어도 그대로 보여준다(하한 필터 없음). 의도된 결정.
+    const _rm = (() => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_e) { return false; } })();
+    // 폴백용: 이모지 문자열을 낱개로. ZWJ 결합 이모지가 쪼개지지 않게 grapheme 우선.
+    const _splitEmoji = (str) => {
+        const t = String(str).replace(/[\s,]+/g, '');
+        try { return Array.from(new Intl.Segmenter('ko', { granularity: 'grapheme' }).segment(t), g => g.segment); }
+        catch (_e) { return Array.from(t); }
+    };
+
     // 프사: localStorage 캐시 우선, 실패 시 실루엣 폴백
     const picUrl = (() => { try { return localStorage.getItem('itdasy:ig_profile_pic') || ''; } catch (_e) { return ''; } })();
     const SIL = '<svg viewBox="0 0 24 24" width="36" height="36" fill="#C9CDD4" aria-hidden="true"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2.2c-4.5 0-8 2.6-8 5.9V21h16v-.9c0-3.3-3.5-5.9-8-5.9Z"/></svg>';
@@ -323,107 +525,304 @@ function renderDetailedPopup(data) {
         ? `<img src="${_esc(picUrl)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentNode.querySelector('svg').style.display='block';" alt="">${SIL.replace('<svg', '<svg style="display:none"')}`
         : SIL;
 
-    // ── 히어로 섹션
+    // ── 히어로: 사실만 — 프사(인스타 스토리 링) + 잇비 둥둥 + @핸들 + 분석 수 pill(카운트업)
+    const IG_GLYPH = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#D62976" stroke-width="2" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4.5"/><circle cx="17.5" cy="6.5" r="1" fill="#D62976" stroke="none"/></svg>';
+    const pillText = postCount > 0
+        ? `게시물 <span data-count-up="${postCount}">0</span>개 인스타 분석 완료`
+        : '인스타 분석 완료';
     let html = `
-    <div style="background:#FBEAF0;border-radius:26px 26px 0 0;padding:32px 20px 24px;text-align:center;position:relative;">
-      <button data-static-action="analyze-result-close" aria-label="닫기" style="position:absolute;top:14px;right:14px;width:32px;height:32px;border:none;border-radius:50%;background:rgba(255,255,255,0.6);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">
+    <div style="position:relative;text-align:center;padding:32px 20px 22px;background:linear-gradient(180deg,#FDF3F6 0%,#FBEAF0 100%);border-radius:26px 26px 0 0;">
+      <button data-static-action="analyze-result-close" aria-label="닫기" style="position:absolute;top:14px;right:14px;width:32px;height:32px;border:none;border-radius:50%;background:rgba(255,255,255,0.75);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </button>
-      <div style="margin-bottom:14px;display:flex;justify-content:center;">
-        <svg width="46" height="46" class="itb-float" aria-hidden="true"><use href="#ic-bot"/></svg>
+      <div style="position:relative;display:inline-block;margin-bottom:12px;">
+        <div style="width:86px;height:86px;border-radius:50%;padding:3.5px;box-sizing:border-box;background:conic-gradient(from 210deg,#FEDA75,#FA7E1E,#D62976,#962FBF,#4F5BD5,#FEDA75);">
+          <div style="width:100%;height:100%;border-radius:50%;border:3px solid #fff;box-sizing:border-box;overflow:hidden;background:#F2F4F6;display:flex;align-items:center;justify-content:center;">${avatarInner}</div>
+        </div>
+        <div class="itb-float" style="position:absolute;right:-34px;top:-10px;color:var(--brand-strong);">
+          <svg width="34" height="34" aria-hidden="true"><use href="#ic-bot"/></svg>
+        </div>
       </div>
-      <div style="font-size:16px;font-weight:800;color:var(--text);line-height:1.4;margin-bottom:6px;">말투 분석이 완료됐어요!</div>
-      <div style="font-size:13px;color:${ROSE};font-weight:600;">${postCount > 0 ? `게시물 ${postCount}개 분석 완료` : '말투 분석 완료'}</div>
+      ${handle ? `<div style="font-size:15px;font-weight:800;color:var(--text);">@${_esc(handle)}</div>` : ''}
+      <div style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;background:rgba(255,255,255,0.85);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:600;color:var(--text-muted);">${IG_GLYPH}<span>${pillText}</span></div>
     </div>`;
 
-    // ── 아바타/핸들/배지
-    html += `
-    <div style="padding:20px 20px 16px;display:flex;align-items:center;gap:12px;border-bottom:0.5px solid var(--border);">
-      <div style="width:44px;height:44px;border-radius:50%;background:#F2F4F6;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;">${avatarInner}</div>
-      <div>
-        ${handle ? `<div style="font-size:15px;font-weight:700;color:var(--text);">@${_esc(handle)}</div>` : ''}
-        ${postCount > 0 ? `<div style="display:inline-flex;align-items:center;gap:4px;background:${ROSE};color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;margin-top:4px;"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>${postCount}개 분석</div>` : ''}
-      </div>
-    </div>`;
+    // ── 절취선 (티켓 카드 연출 — 점선만)
+    html += '<div style="position:relative;height:22px;background:var(--surface);"><div style="position:absolute;left:22px;right:22px;top:50%;border-top:1.5px dashed var(--border-strong);"></div></div>';
 
-    // ── 섹션 목록 (hairline 구분선)
+    // ── 장부식 섹션 (라벨 11 / 본문 13·15, hairline 구분선)
     const DIV = '<div style="height:.5px;background:var(--border);"></div>';
+    const _label = (t) => `<div style="font-size:11px;font-weight:600;color:var(--text-subtle);">${t}</div>`;
     const secs = [];
 
-    // 말투
+    // 잇비의 한 줄 요약 — 판단형 헤드라인(tone) 대신 관찰 요약 한 문장만 작게. 없으면 생략
     const styleSummary = String(raw.style_summary || p.style_summary || raw.tone_summary || '').trim();
     if (styleSummary) {
-        secs.push(`<div style="padding:18px 20px;">
-            <div style="font-size:11px;font-weight:600;color:var(--text-subtle);margin-bottom:6px;">원장님 말투</div>
-            <div style="font-size:14px;color:var(--text);line-height:1.7;word-break:keep-all;">${_esc(styleSummary)}</div>
+        secs.push(`<div style="padding:16px 20px;">${_label('잇비의 한 줄 요약')}
+            <div style="font-size:13px;color:var(--text-muted);line-height:1.7;word-break:keep-all;margin-top:8px;">${_esc(styleSummary)}</div>
         </div>`);
     }
 
-    // 말끝 칩 (고정문구보다 위에 배치)
-    if (sigArr.length) {
-        const sigChips = sigArr.map(s =>
-            `<span style="display:inline-flex;background:var(--surface);color:var(--text-muted);border:0.5px solid var(--border-strong);padding:5px 11px;border-radius:var(--r-pill);font-size:12px;font-weight:500;margin:3px 3px 0 0;word-break:keep-all;">${_esc(s)}</span>`
-        ).join('');
-        secs.push(`<div style="padding:18px 20px;">
-            <div style="font-size:11px;font-weight:600;color:var(--text-subtle);margin-bottom:10px;">원장님이 자주 쓰는 말끝</div>
-            <div style="line-height:1;">${sigChips}</div>
+    // 말끝 — 장부 행 + 미니 게이지(최댓값 대비 %). counts 없으면(구 응답 폴백) 값만
+    // [2026-09-02 v5] 상위 3개만 펼쳐두고 나머지는 "+N개" 접기 — 해시태그와 같은 패턴.
+    //   말끝이 6~8개씩 나오면 페이지 1 이 길어져서 스와이프 힌트까지 스크롤해야 보였다.
+    const endPairs = endCounts.length ? endCounts : sigArr.map(t => [t, null]);
+    if (endPairs.length) {
+        const maxN = Math.max(...endPairs.map(x => x[1] || 0), 1);
+        const topN = endCounts.length ? Math.max(...endCounts.map(x => x[1])) : -1;
+        const _endRow = ([t, n], i) => {
+            const isTop = n != null && n === topN;
+            const gauge = n == null ? '' :
+                `<span style="flex:1;height:5px;border-radius:999px;background:#F2F4F6;overflow:hidden;"><span style="display:block;height:100%;border-radius:999px;width:${Math.round(n / maxN * 100)}%;background:var(${isTop ? '--brand-strong' : '--brand'});"></span></span>`;
+            const num = n == null ? '' : `<span style="font-size:13px;font-weight:600;color:var(${isTop ? '--brand-strong' : '--text-subtle'});font-variant-numeric:tabular-nums;flex-shrink:0;">${n}</span>`;
+            return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;${i > 0 ? 'border-top:.5px solid var(--border);' : ''}">
+                <span style="font-size:15px;color:var(--text);word-break:keep-all;flex-shrink:0;min-width:86px;${isTop ? 'font-weight:700;' : ''}">${_esc(t)}</span>${gauge}${num}</div>`;
+        };
+        const headRows = endPairs.slice(0, 3).map(_endRow).join('');
+        const restRows = endPairs.slice(3).map((p, i) => _endRow(p, i + 3)).join('');
+        const restEndN = endPairs.length - 3;
+        secs.push(`<div style="padding:16px 20px 8px;">${_label('자주 쓰는 말끝')}<div style="margin-top:4px;">${headRows}<div data-ig-end-rest style="display:none;">${restRows}</div></div>${
+            restEndN > 0 ? `<button data-ig-end-toggle data-n="${restEndN}" style="font-size:13px;font-weight:600;color:var(--brand-strong);background:#FBEAF0;padding:6px 12px;border-radius:999px;border:none;cursor:pointer;margin-top:6px;">+${restEndN}개</button>` : ''
+        }</div>`);
+    }
+
+    // 해시태그 — 축소: 상위 3개 칩 한 줄 + "+N개" 펼침. counts 없으면 횟수 없이
+    const tagPairs = tagCounts.length ? tagCounts : tagArr.map(t => [t, null]);
+    if (tagPairs.length) {
+        const _tagChip = ([t, n]) =>
+            `<span style="display:inline-flex;align-items:baseline;font-size:13px;color:var(--text-muted);background:#F7F8FA;padding:6px 12px;border-radius:999px;word-break:keep-all;">${_esc(t)}${n == null ? '' : `<b style="font-weight:600;color:var(--text-subtle);margin-left:3px;">${n}</b>`}</span>`;
+        const head = tagPairs.slice(0, 3).map(_tagChip).join('');
+        const rest = tagPairs.slice(3).map(_tagChip).join('');
+        const restN = tagPairs.length - 3;
+        secs.push(`<div style="padding:16px 20px;">${_label('자주 쓰는 해시태그')}
+            <div data-ig-tag-chips style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${head}<span data-ig-tag-rest style="display:none;">${rest}</span>${rest ? `<button data-ig-tag-toggle data-n="${restN}" style="font-size:13px;font-weight:600;color:var(--brand-strong);background:#FBEAF0;padding:6px 12px;border-radius:999px;border:none;cursor:pointer;">+${restN}개</button>` : ''}</div>
         </div>`);
     }
 
-    // 고정문구: 항상 렌더, 없으면 '없음'
-    secs.push(`<div style="padding:18px 20px;">
-        <div style="font-size:11px;font-weight:600;color:var(--text-subtle);margin-bottom:10px;">원장님이 꼭 쓰는 고정문구</div>
-        ${capTmpl
-            ? `<div style="font-size:13.5px;color:var(--text);line-height:1.8;white-space:pre-wrap;word-break:keep-all;">${_esc(capTmpl)}</div>`
-            : `<div style="font-size:13.5px;color:var(--text-subtle);">없음</div>`
-        }
+    // 이모지 — 카드 없이 한 줄: 글리프 20px + 횟수 13px 페어, 1위 횟수만 로즈
+    const emoPairs = (emoCounts.length ? emoCounts : _splitEmoji(emojis).map(c => [c, null])).slice(0, 5);
+    if (emoPairs.length) {
+        const topE = emoCounts.length ? Math.max(...emoCounts.map(x => x[1])) : -1;
+        const pairs = emoPairs.map(([c, n]) =>
+            `<span style="display:inline-flex;align-items:baseline;gap:5px;"><span style="font-size:20px;line-height:1;">${_esc(c)}</span>${n == null ? '' : `<span style="font-size:13px;font-weight:600;color:var(${n === topE ? '--brand-strong' : '--text-subtle'});">${n}</span>`}</span>`).join('');
+        secs.push(`<div style="padding:16px 20px;">${_label('자주 쓰는 이모지')}
+            <div style="display:flex;gap:18px;align-items:baseline;margin-top:10px;">${pairs}</div>
+        </div>`);
+    }
+
+    // 고정문구 — 인용 블록. 항상 렌더, 없으면 '없음'
+    // [2026-09-04] 인라인 편집 추가 — 연필 버튼 누르면 그 자리에서 textarea 로 바뀌어
+    //   PATCH /persona/caption-template 저장(이모지 슬롯과 같은 manual 보호 규칙).
+    //   저장값은 캡션 생성 시 글 끝에 자동으로 붙는다(append_template). 팝업·화면이동 없음.
+    secs.push(`<div data-ig-tmpl-wrap style="padding:16px 20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">${_label('꼭 쓰는 고정문구')}
+            <button type="button" data-ig-tmpl-edit style="display:inline-flex;align-items:center;gap:4px;border:none;background:none;padding:2px 0;font-size:11px;font-weight:600;color:var(--text-subtle);cursor:pointer;">
+                <svg width="12" height="12" aria-hidden="true"><use href="#ic-pen-line"/></svg>${capTmpl ? '수정' : '직접 입력'}</button>
+        </div>
+        <div data-ig-tmpl-view>${capTmpl
+            ? `<div style="margin-top:8px;padding:2px 0 2px 12px;border-left:2px solid var(--brand);font-size:13px;color:var(--text-muted);line-height:1.8;white-space:pre-wrap;word-break:keep-all;">${_esc(capTmpl)}</div>`
+            : `<div style="font-size:13px;color:var(--text-subtle);margin-top:8px;">없음</div>`
+        }</div>
+        <div data-ig-tmpl-editbox style="display:none;margin-top:8px;">
+            <textarea data-ig-tmpl-input maxlength="1000" rows="4" placeholder="예약 안내·링크 등 글 끝에 항상 붙일 문구" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.7;color:var(--text-muted);background:var(--surface);resize:vertical;font-family:inherit;"></textarea>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                <button type="button" data-ig-tmpl-save style="border:none;border-radius:999px;background:var(--brand-strong);color:#fff;font-size:13px;font-weight:700;padding:7px 18px;cursor:pointer;">저장</button>
+                <button type="button" data-ig-tmpl-cancel style="border:none;border-radius:999px;background:none;color:var(--text-subtle);font-size:13px;font-weight:600;padding:7px 10px;cursor:pointer;">취소</button>
+            </div>
+            <div style="margin-top:6px;font-size:11px;color:var(--text-subtle);line-height:1.6;">저장하면 캡션 끝에 자동으로 붙고, 재분석해도 안 바뀌어요. 비우고 저장하면 다시 AI가 찾아요.</div>
+        </div>
     </div>`);
 
-    if (tagArr.length) {
-        const chips = tagArr.map(t =>
-            `<span style="display:inline-flex;background:var(--surface);color:var(--text-muted);border:0.5px solid var(--border-strong);padding:5px 11px;border-radius:var(--r-pill);font-size:12px;font-weight:500;margin:3px 3px 0 0;word-break:keep-all;">${_esc(t)}</span>`
-        ).join('');
-        secs.push(`<div style="padding:18px 20px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;">
-                <span style="font-size:11px;font-weight:600;color:var(--text-subtle);">원장님이 자주 쓰는 해시태그 <span style="font-weight:500;">${tagArr.length}개</span></span>
-                <button data-ig-tag-toggle style="background:none;border:none;padding:0;font-size:12px;color:var(--text-subtle);cursor:pointer;font-weight:600;">전체 보기 ›</button>
+    // ── [2026-09-02 v5] 절취선 아래를 2페이지 좌우 스와이프로.
+    //   시안: 기획/37_인스타분석카드_목업_v5_스와이프.html
+    //   페이지 2 는 사진편집 스타일(InstagramTextStyle 실데이터).
+    //   · enough=true  → 학습된 스타일 렌더
+    //   · enough=false → [2026-09-03] "일관된 스타일이 없어요" 빈 상태 (조용히 숨기지 않는다 — 원영 피드백)
+    //   · profile null(분석 자체가 안 됨) → '' → 1페이지 카드, 점·힌트·넛지도 안 만든다.
+    let page2 = '';
+    try {
+        const prof = (window.InstagramTextStyle && window.InstagramTextStyle.get()) || null;
+        const P2 = window.IgStyleCardPage2;
+        if (P2 && prof) {
+            page2 = P2.render(prof) || (P2.renderInsufficient ? P2.renderInsufficient(prof) : '');
+        } else if (P2 && P2.renderNotAnalyzed) {
+            /* [2026-09-04] 분석 전에도 페이지 2 를 만든다(§27).
+               예전엔 프로필이 없으면 페이지 2 를 통째로 안 그려서, 원장은 이 기능이
+               있는지조차 몰랐다 — '숨겨진 기능' 은 없는 기능과 같다. */
+            page2 = P2.renderNotAnalyzed();
+        }
+    } catch (_e) { page2 = ''; }
+
+    const PAGE1_HEAD = `<div style="display:flex;align-items:center;gap:6px;padding:14px 20px 0;color:var(--text-subtle);">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span style="font-size:11px;font-weight:700;color:var(--text-subtle);letter-spacing:.02em;">말투</span></div>`;
+
+    // 절취선 아래 전체를 스태거 대상으로 묶는다 (data-report-secs)
+    if (page2) {
+        // pager: flex:1 + min-height:0 → 페이지 내용만 세로로 흐르고 점은 항상 카드 하단.
+        html += `<div data-report-secs style="flex:1;min-height:0;display:flex;flex-direction:column;">
+            <div data-ig-pager style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-ms-overflow-style:none;flex:1;min-height:0;">
+                <div style="flex:0 0 100%;scroll-snap-align:start;scroll-snap-stop:always;overflow-y:auto;">${PAGE1_HEAD}${secs.join(DIV)}<div style="height:20px;"></div></div>
+                <div style="flex:0 0 100%;scroll-snap-align:start;scroll-snap-stop:always;overflow-y:auto;">${page2}<div style="height:20px;"></div></div>
             </div>
-            <div data-ig-tag-chips style="display:none;margin-top:10px;line-height:1;">${chips}</div>
-        </div>`);
-    }
-
-    if (emojis) {
-        secs.push(`<div style="padding:18px 20px;">
-            <div style="font-size:11px;font-weight:600;color:var(--text-subtle);margin-bottom:10px;">원장님이 자주 쓰는 이모지</div>
-            <div style="font-size:21px;letter-spacing:4px;word-break:break-all;">${_esc(emojis)}</div>
-        </div>`);
-    }
-
-    if (secs.length) {
-        html += `<div style="overflow:hidden;">${secs.join(DIV)}</div>`;
-    }
-
-    // ── 안내 문구(작업실/글쓰기 진입 CTA 제거 — 분석 결과 저장 위치만 안내) [2026-06-26]
-    html += `
-    <div style="padding:18px 22px 24px;">
-        <div style="display:flex;gap:8px;align-items:flex-start;background:var(--surface-2,#F7F8FA);border-radius:14px;padding:14px 16px;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="flex-shrink:0;margin-top:1px;color:var(--text-subtle);"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 11v5M12 8h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-            <span style="font-size:12.5px;color:var(--text-muted);line-height:1.65;word-break:keep-all;">원장님 말투 분석 결과는 <b style="font-weight:700;color:var(--text);">내샵관리 › 잇비/자동화 › 내 말투</b>에서 언제든 확인할 수 있어요.</span>
         </div>
-    </div>`;
+        <div style="flex-shrink:0;background:var(--surface);border-top:.5px solid var(--border);padding:10px 0 14px;text-align:center;">
+            <div style="display:flex;justify-content:center;gap:6px;">
+                <span data-ig-dot="0" style="width:16px;height:6px;border-radius:999px;background:var(--brand-strong);transition:all .25s;cursor:pointer;"></span>
+                <span data-ig-dot="1" style="width:6px;height:6px;border-radius:50%;background:#D8DCE2;transition:all .25s;cursor:pointer;"></span>
+            </div>
+            <span data-ig-hint style="display:inline-flex;align-items:center;gap:4px;margin-top:7px;font-size:11px;font-weight:600;color:var(--text-subtle);transition:opacity .4s;">옆으로 넘겨 사진편집 스타일 보기
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+            </span>
+        </div>`;
+    } else {
+        // 1페이지 폴백 — 기존 카드와 동일. 페이지 헤더·점·힌트 전부 없음.
+        html += `<div data-report-secs style="flex:1;min-height:0;overflow-y:auto;">${secs.join(DIV)}
+            <div style="height:20px;"></div></div>`;
+    }
 
     const body = document.getElementById('analyzeResultBody');
     if (!body) return;
+    // 카드 = flex column. 이게 있어야 pager 의 flex:1 이 먹고 점이 하단에 고정된다.
+    body.setAttribute('style', 'display:flex;flex-direction:column;min-height:0;flex:1;overflow:hidden;');
     body.innerHTML = html;
-    // [2026-06-26] '내 말투로 글 써보기' CTA 제거 — 말투분석 보고서에서 작업실/글쓰기 진입 차단(중복·혼동 방지).
-    //   분석 결과는 내샵관리 › 잇비/자동화 › 내 말투에서 확인. 닫기는 헤더 X(analyze-result-close).
+
+    /* [2026-09-04] 페이지 2 의 '내 스타일' 버튼들. innerHTML 로 새로 만든 노드라
+       매번 다시 붙여야 한다 — 안 붙이면 **버튼은 보이는데 눌러도 아무 일이 없다**
+       (이 앱에서 가장 자주 난 종류의 결함이라 여기 못 박는다). */
+    try { if (window.IgStyleCardPage2 && window.IgStyleCardPage2.bind) window.IgStyleCardPage2.bind(body); }
+    catch (_bindErr) { void _bindErr; }
+
+    // [2026-06-26] '내 말투로 글 써보기' CTA 제거 유지 — 작업실/글쓰기 진입 차단(중복·혼동 방지).
+    //   닫기는 헤더 X(analyze-result-close).
+
+    // 태그 "+N개" 펼침 토글 — rest 는 flex 부모 안이라 display:contents 로 펼쳐야 랩핑이 자연스럽다
     body.querySelector('[data-ig-tag-toggle]')?.addEventListener('click', function () {
-        const chips = body.querySelector('[data-ig-tag-chips]');
-        if (!chips) return;
-        const open = chips.style.display !== 'none';
-        chips.style.display = open ? 'none' : 'block';
-        this.textContent = open ? '전체 보기 ›' : '접기 ›';
+        const rest = body.querySelector('[data-ig-tag-rest]');
+        if (!rest) return;
+        const open = rest.style.display !== 'none';
+        rest.style.display = open ? 'none' : 'contents';
+        this.textContent = open ? `+${this.dataset.n}개` : '접기';
     });
+
+    // 말끝 "+N개" 펼침 토글 — 이쪽 rest 는 블록 컨테이너라 display:'' 로 충분하다.
+    body.querySelector('[data-ig-end-toggle]')?.addEventListener('click', function () {
+        const rest = body.querySelector('[data-ig-end-rest]');
+        if (!rest) return;
+        const open = rest.style.display !== 'none';
+        rest.style.display = open ? 'none' : '';
+        this.textContent = open ? `+${this.dataset.n}개` : '접기';
+    });
+
+    // ── [2026-09-04] 고정문구 인라인 편집 — 뷰↔편집 전환 + PATCH 저장.
+    //   apiFetch 는 비-GET 에서 raw Response 를 돌려주므로 res.ok 로 판정.
+    (function () {
+        const wrap = body.querySelector('[data-ig-tmpl-wrap]');
+        if (!wrap) return;
+        const view = wrap.querySelector('[data-ig-tmpl-view]');
+        const box = wrap.querySelector('[data-ig-tmpl-editbox]');
+        const input = wrap.querySelector('[data-ig-tmpl-input]');
+        const editBtn = wrap.querySelector('[data-ig-tmpl-edit]');
+        const saveBtn = wrap.querySelector('[data-ig-tmpl-save]');
+        let current = capTmpl || '';
+
+        const _show = (editing) => {
+            view.style.display = editing ? 'none' : '';
+            box.style.display = editing ? '' : 'none';
+            editBtn.style.display = editing ? 'none' : 'inline-flex';
+        };
+        const _paintView = () => {
+            view.innerHTML = current
+                ? `<div style="margin-top:8px;padding:2px 0 2px 12px;border-left:2px solid var(--brand);font-size:13px;color:var(--text-muted);line-height:1.8;white-space:pre-wrap;word-break:keep-all;">${_esc(current)}</div>`
+                : `<div style="font-size:13px;color:var(--text-subtle);margin-top:8px;">없음</div>`;
+            editBtn.lastChild.textContent = current ? '수정' : '직접 입력';
+        };
+
+        editBtn.addEventListener('click', () => { input.value = current; _show(true); input.focus(); });
+        wrap.querySelector('[data-ig-tmpl-cancel]').addEventListener('click', () => _show(false));
+        saveBtn.addEventListener('click', async () => {
+            const val = input.value.trim();
+            saveBtn.disabled = true;
+            saveBtn.textContent = '저장 중…';
+            try {
+                const res = await apiFetch('/persona/caption-template', {
+                    method: 'PATCH',
+                    headers: { ...authHeader(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: val }),
+                });
+                if (!res || !res.ok) throw new Error('save failed');
+                current = val;
+                _paintView();
+                _show(false);
+                if (window.showToast) window.showToast(val ? '고정문구를 저장했어요. 이제 캡션 끝에 항상 붙어요.' : '고정문구를 비웠어요. 다음 분석 때 AI가 다시 찾아요.');
+            } catch (_e) {
+                if (window.showToast) window.showToast('저장에 실패했어요. 잠시 뒤 다시 시도해 주세요.');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = '저장';
+            }
+        });
+    })();
+
+    // ── 스와이프 페이저: 점 동기화 · 점 탭 이동 · 힌트 · 최초 넛지 1회
+    const pager = body.querySelector('[data-ig-pager]');
+    if (pager) {
+        const dots = Array.from(body.querySelectorAll('[data-ig-dot]'));
+        const hint = body.querySelector('[data-ig-hint]');
+        const _paint = (i) => dots.forEach((d, k) => {
+            const on = k === i;
+            d.style.background = on ? 'var(--brand-strong)' : '#D8DCE2';
+            d.style.width = on ? '16px' : '6px';
+            d.style.borderRadius = on ? '999px' : '50%';
+        });
+        pager.addEventListener('scroll', () => {
+            const w = pager.clientWidth || 1;
+            const i = Math.round(pager.scrollLeft / w);
+            _paint(i);
+            if (i > 0 && hint) hint.style.opacity = '0';   // 2페이지 한 번 보면 힌트 제거
+        }, { passive: true });
+        dots.forEach((d, k) => d.addEventListener('click', () =>
+            pager.scrollTo({ left: k * pager.clientWidth, behavior: 'smooth' })));
+
+        // 최초 1회 34px 넛지 — "옆으로 넘어간다"를 몸으로 알린다.
+        //   넛지 동안 scroll-snap 을 끄지 않으면 34px 에서 스냅이 되받아쳐 덜컥거린다.
+        if (!_rm) {
+            setTimeout(() => {
+                if (!pager.isConnected) return;
+                pager.style.scrollSnapType = 'none';
+                pager.scrollTo({ left: 34, behavior: 'smooth' });
+                setTimeout(() => {
+                    pager.scrollTo({ left: 0, behavior: 'smooth' });
+                    setTimeout(() => { pager.style.scrollSnapType = ''; }, 400);
+                }, 450);
+            }, 900);
+        }
+    }
+
+    // 게시물 수 카운트업 0→N (약 0.8s ease-out). reduced-motion 이면 즉시
+    const cEl = body.querySelector('[data-count-up]');
+    if (cEl) {
+        const target = parseInt(cEl.getAttribute('data-count-up'), 10) || 0;
+        if (_rm || target <= 0) { cEl.textContent = String(target); }
+        else {
+            const t0 = performance.now(), DUR = 800;
+            const tick = (t) => {
+                const k = Math.min((t - t0) / DUR, 1);
+                cEl.textContent = String(Math.round(target * (1 - Math.pow(1 - k, 3))));
+                if (k < 1) requestAnimationFrame(tick);
+            };
+            requestAnimationFrame(tick);
+        }
+    }
+
+    // 절취선 아래 섹션 0.2s 지연 페이드업 — CSS 파일 수정 없이 인라인 트랜지션
+    const rb = body.querySelector('[data-report-secs]');
+    if (rb && !_rm) {
+        rb.style.opacity = '0';
+        rb.style.transform = 'translateY(8px)';
+        rb.style.transition = 'opacity .4s ease, transform .4s ease';
+        setTimeout(() => { rb.style.opacity = '1'; rb.style.transform = 'none'; }, 200);
+    }
 }
 
 // [2026-05-13 QA #blocker1] 인스타 연동 직후 자동 분석 진입점 — backend 가 _auto_analyze_persona_bg
@@ -455,7 +854,7 @@ async function runAutoAnalysisAfterConnect() {
     if (bar) bar.style.width = (22 + _mi * 18) + '%';
   }, 1200);
   if (subTxt)  subTxt.textContent  = '최근 사장님의 게시물들을 읽고 잇비가 학습 중이에요';
-  try { if (typeof showToast === 'function') showToast('🪄 AI 말투 분석을 시작했어요. 결과 곧 보여드릴게요'); } catch (_e) { void _e; }
+  try { if (typeof showToast === 'function') showToast('🪄 AI 인스타 분석을 시작했어요. 결과 곧 보여드릴게요'); } catch (_e) { void _e; }
 
   const startedAt = Date.now();
   const MAX_MS = 90_000;
@@ -522,7 +921,7 @@ async function runAutoAnalysisAfterConnect() {
       _endOverlay();
       console.log('[IG-ANALYZE] open-report');
       if (!_openReportPopupDirect(p)) {
-        try { if (typeof showToast === 'function') showToast('✅ 말투 분석 완료!'); } catch (_e2) { void _e2; }
+        try { if (typeof showToast === 'function') showToast('✅ 인스타 분석 완료!'); } catch (_e2) { void _e2; }
       }
     }, 1000);
     return;
@@ -546,7 +945,7 @@ async function runAutoAnalysisAfterConnect() {
         } catch (_e) { void _e; }
         _endOverlay();
         if (!_openReportPopupDirect(p)) {
-          try { if (typeof showToast === 'function') showToast('✅ 말투 분석 완료!'); } catch (_e) { void _e; }
+          try { if (typeof showToast === 'function') showToast('✅ 인스타 분석 완료!'); } catch (_e) { void _e; }
         }
         return;
       }
@@ -610,7 +1009,7 @@ function _showAnalyzeError(code) {
   }
   barEl.innerHTML = '<span style="flex:1;word-break:keep-all;line-height:1.4;"></span>' +
     '<button data-ig-retry style="flex-shrink:0;background:#A32D2D;color:#fff;border:none;border-radius:10px;padding:7px 13px;font-size:12px;font-weight:700;cursor:pointer;">다시 분석</button>';
-  barEl.querySelector('span').textContent = MSG[code] || '말투 분석에 실패했어요. 다시 시도해 주세요.';
+  barEl.querySelector('span').textContent = MSG[code] || '인스타 분석에 실패했어요. 다시 시도해 주세요.';
   barEl.style.display = 'flex';
   barEl.querySelector('[data-ig-retry]').onclick = () => {
     barEl.style.display = 'none';
@@ -721,7 +1120,7 @@ async function runPersonaAnalyze(force) {
               setTimeout(() => {
                 if (overlay) overlay.style.display = 'none';
                 if (!_openReportPopupDirect(sp)) {
-                  try { if (typeof showToast === 'function') showToast('말투 분석 완료!'); } catch(_e){ void _e; }
+                  try { if (typeof showToast === 'function') showToast('인스타 분석 완료!'); } catch(_e){ void _e; }
                 }
               }, 800);
               return;
@@ -797,7 +1196,8 @@ async function disconnectInstagram() {
   // OAuth provider (google/kakao/naver/email) 세션은 유지. IG 상태만 끊고 UI 갱신.
   if (!(await nativeConfirm(
     '인스타 연동 해제',
-    '인스타 연동을 끊을게요. 잇데이 로그인은 그대로 유지돼요.\n나중에 다시 연결하면 분석 결과를 새 인스타 기준으로 갱신해요.\n\n고객·예약·매출·말투 분석 데이터는 안전하게 보관돼요.'
+    // [2026-09-02] 문구 정정 — 이제 "무조건 갱신" 이 아니라 "같은 계정이면 유지" 다.
+    '인스타 연동을 끊을게요. 잇데이 로그인은 그대로 유지돼요.\n같은 계정으로 다시 연결하면 인스타 분석 결과는 그대로 쓸 수 있어요.\n\n고객·예약·매출·인스타 분석 데이터는 안전하게 보관돼요.'
   ))) return;
   try {
     const res = await apiFetch('/instagram/disconnect', {
@@ -810,11 +1210,13 @@ async function disconnectInstagram() {
     }
     // [2026-05-12 QA #1] 캐시 클린업 — checkInstaStatus 가 미연결 분기에서도 처리하지만
     // 다른 화면이 다음 렌더 전까지 stale 값 노출 가능 → disconnect 시점에 선제 청소.
+    // [2026-09-02 B-6] 해제 시엔 **프로필 사진·핸들 캐시만** 청소한다.
+    //   분석 데이터(itdasy_latest_analysis · InstagramTextStyle)는 남긴다 — BE 와 같은 원칙:
+    //   지우는 건 '계정 교체' 때뿐이고, 같은 계정으로 되돌아오면 그대로 쓴다.
     try {
       localStorage.removeItem('itdasy:ig_connected_cache');
       localStorage.removeItem('itdasy:ig_handle');
       localStorage.removeItem('itdasy:ig_profile_pic');
-      localStorage.removeItem('itdasy_latest_analysis');
     } catch (_e) { /* ignore */ }
     try { if (typeof window !== 'undefined') window._instaHandle = ''; } catch (_e) { /* ignore */ }
     showToast('✓ 인스타 해제됨');
@@ -879,6 +1281,13 @@ async function connectInstagram() {
     return;
   }
 
+  // [2026-09-02 B-5] 계정 교체 경고 카드 — 기존 분석 데이터가 있을 때만 뜬다.
+  //   환경 가드(카톡·iOS 비PWA)를 통과한 뒤에 띄운다. 앞에 두면 카드를 확인시켜 놓고
+  //   바로 "홈 화면에 추가하세요" 안내로 막는 꼴이 된다.
+  try {
+    if (window.IgConnectWarn && !(await window.IgConnectWarn.maybeConfirm())) return;
+  } catch (_e) { void _e; }   // 카드가 깨져도 연동 자체는 막지 않는다
+
   btn.textContent = '연결 중...';
   btn.disabled = true;
 
@@ -925,15 +1334,27 @@ async function connectInstagram() {
     //   대신 헤더 인증으로 60초짜리 1회용 티켓을 받아 그걸 주소에 싣는다.
     //   티켓이 로그에 남아도 연동 화면 진입 외엔 아무것도 못 한다.
     //   티켓 발급이 실패하면 옛 방식으로 폴백한다 — 연동이 아예 막히는 것보다 낫다.
+    //   [IG 게이트 2026-09-06] 티켓 발급을 **한 번 더 시도**한다.
+    //     폴백(`?token=`)은 로그에 JWT 를 남기는 바로 그 경로다. 없애면 티켓이 실패할 때
+    //     연동이 통째로 막히니 남기되, **일시적 실패로 폴백하는 일이 없게** 재시도를 넣는다.
+    //     실패 원인 대부분은 순간적인 네트워크 흔들림이고, 그건 한 번 더 부르면 대개 붙는다.
+    //     (BE 가 아예 죽어 있으면 어차피 그다음 단계도 실패하므로 폴백해도 소용없다.)
     let _entry = '';
-    try {
-      const tr = await apiFetch('/instagram/go-ticket', { method: 'POST' });
-      if (tr.ok) {
-        const tj = await tr.json();
-        if (tj && tj.ticket) _entry = `ticket=${encodeURIComponent(tj.ticket)}`;
-      }
-    } catch (_e) { void _e; }
-    if (!_entry) _entry = `token=${encodeURIComponent(token)}`;
+    for (let _try = 0; _try < 2 && !_entry; _try++) {
+      if (_try) await new Promise((r) => setTimeout(r, 400));
+      try {
+        const tr = await apiFetch('/instagram/go-ticket', { method: 'POST' });
+        if (tr.ok) {
+          const tj = await tr.json();
+          if (tj && tj.ticket) _entry = `ticket=${encodeURIComponent(tj.ticket)}`;
+        }
+      } catch (_e) { void _e; }
+    }
+    if (!_entry) {
+      // 여기까지 오면 JWT 가 주소에 실린다 — 왜 그랬는지 흔적을 남긴다(로그 노출 추적용).
+      console.warn('[instagram] go-ticket 2회 실패 — 레거시 token= 폴백 사용');
+      _entry = `token=${encodeURIComponent(token)}`;
+    }
     const goUrl = `${API}/instagram/go?${_entry}&origin=${origin}&return_to=${returnToEnc}`;
 
     if (_IG_BROWSER && isNative && window.Capacitor?.Plugins?.Browser) {
@@ -968,6 +1389,9 @@ function showInstaConflictModal(handle) {
     </div>
   `;
   document.body.appendChild(modal);
+  /* [2026-09-09] 뒤로가기 등록 — 전체화면 오버레이는 back 으로 자기가 닫혀야 한다.
+     안 하면 back 이 이 창 대신 뒤 화면을 닫아 작성 중이던 내용이 날아간다. */
+  try { window._bindSheetBack && window._bindSheetBack('instagram1', modal, () => { modal.remove(); }); } catch (_bsb) { void _bsb; }
 
   document.getElementById('igConflictClose').addEventListener('click', () => {
     modal.remove();
@@ -1108,7 +1532,7 @@ function openInstagramPreview(opts) {
           <div style="font-size:13px;font-weight:700;line-height:1.2;">${window._esc ? window._esc(shopName) : shopName}</div>
           <div style="font-size:11px;color:var(--text-subtle,#888);">미리보기 ${ratioBadge}</div>
         </div>
-        <button data-ig-preview-x style="background:transparent;border:none;font-size:20px;color:var(--text-subtle,#888);cursor:pointer;margin-left:8px;" aria-label="닫기">×</button>
+        <button class="ss-close" data-ig-preview-x style="background:transparent;border:none;font-size:20px;color:var(--text-subtle,#888);cursor:pointer;margin-left:8px;" aria-label="닫기"><svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-x"/></svg></button>
       </div>
       ${photoHtml}
       <div style="display:flex;align-items:center;gap:14px;padding:10px 12px 4px;">

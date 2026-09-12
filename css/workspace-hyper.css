@@ -42,6 +42,41 @@
   display: flex; align-items: center; justify-content: center;
 }
 
+/* [2026-09-03] 사진 빼기 / 추가 / 다시 고르기 — 레이아웃 화면에서 잘못 고른 사진을 그 자리에서 복구.
+   ⚠️ 아이콘은 작게 보이되 **터치 영역은 44px**(iOS HIG). ::after 로 히트영역만 넓혀
+   썸네일(60px) 레이아웃은 그대로 두면서 손가락으로 확실히 닿게 한다. */
+.wsc-sph__x {
+  position: absolute; right: 2px; top: 2px; width: 22px; height: 22px; border: 0; padding: 0;
+  border-radius: 11px; background: rgba(23,25,28,.78); color: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; -webkit-appearance: none; appearance: none;
+}
+/* 히트영역 확장은 **타일 안쪽(아래·왼쪽)으로** 넓힌다. 위·오른쪽으로 대칭 확장하면
+   .wsc-strip 의 overflow-x:auto(→ overflow-y 도 auto 로 계산됨)에 잘려 실제로는 안 닿는다.
+   레이아웃 화면의 타일 자체는 클릭 핸들러가 없어(업로드 화면 전용) 겹쳐도 뺏을 동작이 없다. */
+.wsc-sph__x::after { content: ""; position: absolute; inset: -4px -4px -22px -22px; }
+.wsc-sph__x:active { background: var(--danger, #E5484D); }
+.wsc-sph--add {
+  display: flex; align-items: center; justify-content: center; border: 1.5px dashed var(--border, #E9EBEE);
+  background: var(--surface-2, #F7F8FA); color: var(--text-subtle, #8B95A1); cursor: pointer;
+  -webkit-appearance: none; appearance: none; font: inherit;
+}
+.wsc-sph--add:active { border-color: var(--brand-strong, #C1697A); color: var(--brand-strong, #C1697A); }
+.wsc-repick {
+  margin-left: auto; border: 0; background: none; padding: 6px 2px 6px 10px; cursor: pointer;
+  font: inherit; font-size: 11.5px; font-weight: 800; color: var(--brand-strong, #C1697A);
+  -webkit-appearance: none; appearance: none; min-height: 32px;
+}
+.wsc-undo {
+  display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 8px 12px;
+  border-radius: 12px; background: var(--surface-2, #F7F8FA);
+  font-size: 12px; font-weight: 600; color: var(--text-muted, #6B7684);
+}
+.wsc-undo button {
+  margin-left: auto; border: 0; background: none; cursor: pointer; font: inherit;
+  font-size: 12.5px; font-weight: 800; color: var(--brand-strong, #C1697A);
+  padding: 8px 2px; min-height: 36px; -webkit-appearance: none; appearance: none;
+}
+
 /* 선택된 구성의 결과 미리보기 — 올라갈 이미지들을 그대로 나열(합치면 줄어드는 게 보인다) */
 .wsc-preview { background: var(--surface-2, #F7F8FA); border-radius: 18px; padding: 10px; }
 .wsc-frames {
@@ -105,6 +140,12 @@
 .wsc-one {
   height: min(52vh, 480px); aspect-ratio: 4 / 5; margin: 0 auto; border-radius: 18px;
   background-size: cover; background-position: center; background-color: var(--border, #E9EBEE);
+  /* [2026-09-12 ZH] `background-repeat` 기본값은 repeat 다. 예전엔 이 칸이 늘 cover 라
+     드러나지 않았는데, '사진 채우기' 선택으로 **contain 이 도달 가능해지면서**
+     가로 사진이 세로로 3번 반복돼 보였다(실측 2026-09-12, manicure 1.5:1 → 298×373 칸).
+     원장이 '전체 보이기' 를 고른 바로 그 화면에서 자기 사진이 타일처럼 깔린다.
+     다른 contain 배경(.ed-photo·.wshc-lb__slide·.pe-tplg-preview-canvas)엔 전부 있는 선언이다. */
+  background-repeat: no-repeat;
   max-width: 100%;
 }
 .wsc-onemsg {
@@ -119,4 +160,24 @@
 @media (prefers-reduced-motion: reduce) {
   .wsc-opt, .wsc-opt:active, .wsc-mini i { transition: none !important; transform: none !important; }
   .wsc-frames, .wsc-strip { scroll-behavior: auto; }
+}
+
+/* 🔴 [2026-09-11] 사진 채우기(꽉 채움 / 전체) — 기존 구성 칩(.wsc-opt)과 같은 시각 언어를 그대로 쓴다.
+   새 디자인 언어를 만들지 않는다. 미니 썸네일만 '여백 있음/없음'을 한눈에 보여준다. */
+.wsc-opts--fit { flex-direction: row; gap: 8px; }
+.wsc-opts--fit .wsc-opt { flex: 1 1 0; min-width: 0; gap: 10px; padding: 10px 12px; }
+.wsc-fitmini {
+  width: 34px; height: 42px; border-radius: 7px; flex: none;
+  background: var(--surface-2, #F7F8FA); border: 1px solid var(--border, #E9EBEE);
+  display: block; position: relative; overflow: hidden;
+}
+/* 꽉 채움 — 칸을 가득 채운 사진 */
+.wsc-fitmini--cover::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(135deg, #C9CED6, #9AA3AE);
+}
+/* 전체 보이기 — 위아래 흰 여백이 남는 사진 */
+.wsc-fitmini--contain::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 25%; height: 50%;
+  background: linear-gradient(135deg, #C9CED6, #9AA3AE);
 }
