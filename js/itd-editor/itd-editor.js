@@ -3515,6 +3515,14 @@
   function _draftSnap(sync) {
     try {
       if (!S || !root || !root.classList.contains('is-open')) return;
+      /* [2026-09-13 AUTH] 🔴 **세션이 만료되는 순간 편집 중이던 초안이 빈 초안으로 덮였다.**
+         만료 처리는 `body.itdasy-locked` 로 앱을 잠그고, 그 클래스가 편집기를 display:none 으로 숨긴다.
+         `_serLayer` 는 스테이지 크기가 0 이면 레이어를 버리므로(좌표를 비율로 못 잰다) 숨겨진 동안의
+         스냅샷은 `layers: []` 가 되고, 2초 틱이 **좋은 초안을 그걸로 덮어썼다.** 재로그인하면 되살릴 게 없다.
+         실측(2026-09-13, Chrome 실엔진 · 갱신 실패 목서버 · 토큰 35초): 'EXPIREKEEP' 초안(touched:true)
+         → 만료 10초 뒤 같은 페이지에서 `layers:[]`(touched:false) 로 교체. 재로드·삭제·외부 open 없음(스토리지 추적).
+         → **잴 수 없으면 쓰지 않는다.** 마지막으로 제대로 잰 초안이 남는다(숨김 원인이 무엇이든). */
+      try { var _sr = refs.stage && refs.stage.getBoundingClientRect(); if (!_sr || !_sr.width) return; } catch (_re) { void _re; return; }
       _flushEditingText();
       var st = _exportState(); if (!st) return;
       var sp = _splitDraft(st);
