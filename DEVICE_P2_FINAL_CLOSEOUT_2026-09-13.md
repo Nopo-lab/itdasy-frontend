@@ -205,6 +205,43 @@ Smoke:     passed (96 scripts, 182 lazy-group entries, git mode)
 
 ---
 
+## 9. 남은 항목 추가 종결 (같은 날 2차 · 커밋 e9cf4ba → 배포 8bdbcf9)
+
+### 9-1. 작업실 실사진 롱프레스 — 결함 1건 발견·수정·배포 ✅
+- 실사진이 든 작업실을 실제 WebKit(iOS 26.4 시뮬레이터 Safari)에서 길게 누름.
+- **발견:** 사진 캐러셀·썸네일 줄을 길게 누르면 사진·번호배지가 파랗게 선택되고
+  "복사하기 / 선택 영역 찾기" 팝업이 뜸.
+- **원인:** iOS WebKit 은 접두사 없는 `user-select` 를 무시한다.
+- **수정:** `css/workspace-hyper.css` 에서 `.wsc-strip, .wsc-frames` 에
+  `-webkit-user-select:none; user-select:none; -webkit-touch-callout:none` 추가.
+  스크롤러 두 곳에만 걸었다(안의 사진·배지까지 같이 막힘).
+- **재검증:** 같은 좌표로 다시 누르면 선택·팝업 0. 가로 스와이프는 그대로 동작(scrollLeft 0→289).
+- **이미 괜찮던 곳:** 캡션 단계 `<img>`(none/none), 편집기 캔버스 `itded__draw`
+  (user-select none · touch-action none), 오른쪽 도구 줄.
+- **라이브 확인:** 배포 마커 8bdbcf9 확인, 서빙 CSS 에 해당 줄이 있음을 확인.
+
+### 9-2. 운영 로그인 상태 실데이터 로드 ✅ (§A-3 한계 해소)
+- 보이는 최상위 페이지에서 다시 쟀다. 읽기 전용 가드를 걸고 `POST /auth/refresh` 만 허용했다.
+- 결과: GET 18건 · 실패 0 · JS 에러 0 · 막힌 쓰기 0.
+- **실데이터가 뜬 화면 7개:** 예약 · 고객 · 매출 · 작업실 · DM · 댓글(실제 건수) · 플랜.
+- 잇비는 헤더만 확인했다. rAF 로 그리는 화면이라 이 방법으로는 페인트를 판정할 수 없다.
+  데이터 실패는 아니다.
+- 실고객 데이터(PII)는 이 문서에 옮기지 않았다.
+
+### 9-3. iPad 윈도우형 앱 · Stage Manager (iPadOS 26.4 시뮬레이터) ✅
+
+| 구성 | 뷰포트 | 셸 | 결과 |
+|---|---|---|---|
+| 윈도우 좁게 | 375×693 | 모바일 | 15화면 · hit-test 3,365점 · WRONG/BLOCK/겹침/safe-area/JS에러 **0** |
+| 윈도우 중간 | 560×1006 | 모바일 | 15화면 · 3,115점 · 전부 **0** |
+| 윈도우 최대화 | 820×1048 | PC | 사이드바 정상 |
+| 크기 바꾸기 560→820→375 | — | 모바일↔PC | 고객화면·검색어 "김" 유지, 새로고침 0, 넘침 0, 에러 0 (시트 left 232↔0) |
+| Stage Manager | 375×733 | 모바일 | 고객화면 상태 유지 · 넘침 0 · 에러 0 |
+
+- 측정이 끝난 뒤 시뮬레이터 설정은 원래 값(윈도우형 앱)으로 되돌렸다.
+
+---
+
 ## Remaining NOT TESTED
 ```
 1. 실물 iPhone
@@ -212,9 +249,8 @@ Smoke:     passed (96 scripts, 182 lazy-group entries, git mode)
 3. 실물 iPad
 4. Samsung Internet
 5. 실제 사람 손가락 터치 정확도
-6. iPad Split View / Stage Manager
-7. 작업실 실사진 · 사진편집기 캔버스 위 롱프레스 (목 데이터에 사진 0건)
-8. 운영 로그인 상태의 화면 페인트 · 실데이터 로드 (§A-3)
+
+(6 Split View·Stage Manager / 7 실사진 롱프레스 / 8 운영 실데이터 로드 → §9 에서 종결)
 ```
 
 ## Final verdict
@@ -226,7 +262,9 @@ Membership unknown-result UX                                           ✅ PASS
 Network failure / retry                                                ✅ PASS
 Long press · Every button (앞 라운드)                                   ✅ PASS
 Tests                                                                  ✅ PASS
-Live operation smoke (로그인 · 셸/레이아웃 · 9화면 진입)                  ✅ PASS (§A-3 한계 있음)
+Live operation smoke (로그인 · 실데이터 7화면)                         ✅ PASS (§9-2)
+Real-photo long press                                                  ✅ PASS (결함 1건 수정 §9-1)
+iPad windowed / Stage Manager (시뮬레이터)                              ✅ PASS (§9-3)
 
 Physical iPhone / Galaxy / iPad                                        ❌ NOT TESTED
 Samsung Internet                                                       ❌ NOT TESTED
