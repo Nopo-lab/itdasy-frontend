@@ -97,3 +97,15 @@ test('다른 결과물 칸에는 크기를 적지 않는다', () => {
   expect(ns[0].style.aspectRatio).toBe('1080 / 1080');
   expect(ns[1].style.aspectRatio).toBe('');
 });
+
+describe('발행 버튼 장수 = 실제로 올라가는 장수', () => {
+  const C = SRC;
+  test('🔴 합성본 1장 피드에 사진 수(2장)를 붙이지 않는다', () => {
+    const i = C.indexOf('function _publishBlock()');
+    const body = C.slice(i, C.indexOf("'인스타에 바로 올리기'", i));
+    expect(body).toMatch(/var _n = !_multi \? 1 : \(_outN >= 2 \? _outN : \(editablePhotos\(\) \|\| \[\]\)\.length\);/);
+    expect(body).not.toMatch(/var _n = \(editablePhotos\(\) \|\| \[\]\)\.length;/);
+    // 발행 쪽 규칙과 같은 기준(합성본 2장 이상이면 합성본)
+    expect(C).toMatch(/\? \(_outs\.length >= 2 \? _outs : \(editablePhotos\(\) \|\| \[\]\)\.map\(function \(p\) \{ return dispUrl\(p\); \}\)\.filter\(Boolean\)\)/);
+  });
+});

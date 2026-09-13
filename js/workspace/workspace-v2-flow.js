@@ -1931,8 +1931,11 @@
 	      // [스토리/캐러셀] 피드 + 스토리, 사진 2장 이상이면 캐러셀(여러 장) 버튼도.
 	      // [버그수정 2026-07-10] ws-hyper 레이아웃은 여러 장을 '1장 합성본'(d.templateOutput)으로 합침 →
 	      //   캐러셀(여러 장 슬라이드)은 부적절하고 원본 여러 장을 보내 실패했음. 레이아웃이면 단일 피드로만.
-	      var _n = (editablePhotos() || []).length;
 	      var _multi = _publishKind() === 'carousel';
+	      /* [2026-09-13 ZH S20 Run4] 전·후 합치기(1장 합성본 피드)인데 버튼이 '인스타에 바로 올리기 (2장)' 이라고 했다.
+	         실제로 올라가는 장수(발행의 _imgs 규칙)로 센다: 피드=1 · 캐러셀=합성본 2장+ 이면 그 수, 아니면 선택 사진 수. */
+	      var _outN = (d.templateOutputs || []).filter(function (o) { return o && o.outputUrl; }).length;
+	      var _n = !_multi ? 1 : (_outN >= 2 ? _outN : (editablePhotos() || []).length);
 	      // [2026-07-26 원영] 마무리 재구성 — 발행 블록은 '주 행동 1개'(인스타에 올리기)만.
 	      //   계정태그·예약·사진편집은 _finishActions()/_tagsBlockHtml() 로 이동(버튼 5개 위계 없이 쌓이던 것).
 	      return '<div class="cap-pubrow" style="margin-top:10px">' +
