@@ -84,3 +84,30 @@ describe('[CASE-032] 프론트 지름길 턴도 서버 대화로 이어진다', 
     expect(b).toMatch(/localStorage\.setItem\('assistant_session_id'/);
   });
 });
+
+describe('[CASE-033] _send 앞단 가로채기는 **전부** 서버에 보고한다', () => {
+  const i = SRC.indexOf('  async function _send() {');
+  const j = SRC.indexOf('if (await _trySendShortcuts(input, q)) return;', i);
+  const seg = SRC.slice(i, j);
+  test('구간을 찾았다(테스트 자체 유효성)', () => {
+    expect(i).toBeGreaterThan(0);
+    expect(j).toBeGreaterThan(i);
+  });
+  test('`if (await _tryX(...)) return;` 형태로 보고 없이 끝나는 가로채기가 없다', () => {
+    // _fe(...) 로 감싸지 않은 직접 호출을 찾는다
+    const bare = [...seg.matchAll(/if \(await (_try\w+)\(input, q\)\) return;/g)].map(m => m[1]);
+    expect(bare).toEqual([]);
+    const bareSync = [...seg.matchAll(/if \((_try\w+)\(input, q\)\) return;/g)].map(m => m[1]);
+    expect(bareSync).toEqual([]);
+  });
+  test('실제로 감싼 가로채기 수가 줄지 않는다(최소 15개)', () => {
+    expect((seg.match(/_fe\('/g) || []).length).toBeGreaterThanOrEqual(15);
+  });
+  test('예약 조회 지름길(라이브 재현 경로)이 보고된다', () => {
+    expect(seg).toMatch(/_fe\('lookup_booking', \(\) => _tryLookupBookingShortcut\(input, q\)\)/);
+  });
+  test('via 표식은 앞단에서 꺼내고 백엔드로 넘기기 전에 되돌린다', () => {
+    expect(seg).toMatch(/const _via0 = _takeVia\(\);/);
+    expect(seg.trimEnd()).toMatch(/if \(_via0 === 'chip'\) window\.__itbiVia = 'chip';/);
+  });
+});

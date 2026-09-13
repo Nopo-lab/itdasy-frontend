@@ -5481,15 +5481,26 @@
     if (pendingFiles) { _uploadPhotos(pendingFiles); return; }
     const q = input ? input.value.trim() : '';
     if (!q) return;
+    // [ITBI Closeout 2026-09-13 · CASE-033] **아래 앞단 가로채기 ~18개는 보고가 없었다.**
+    //   지난 게이트의 handled_by 보고는 `_trySendShortcuts` 의 15개에만 걸려 있어서, 여기서 답한 턴
+    //   (예약 조회·생성·연락처·메모리·가격표·캡션·사진모드…)은 서버 관측 0 · 대화 기록 0 이었다.
+    //   라이브 재현: "E2E_A_박지우님 예약 있어?"(_tryLookupBookingShortcut) 뒤 "그분" → 김호영(한 칸 앞).
+    //   via 표식은 여기서 먼저 꺼내고, 백엔드로 넘어가기 직전에 되돌린다(_trySendShortcuts 와 같은 규칙).
+    const _via0 = _takeVia();
+    const _fe = async (name, fn) => {
+      const ok = await fn();
+      if (ok) { try { _reportClientTurn(name, q, _via0); } catch (_e) { void _e; } }
+      return ok;
+    };
     _photoModeReannounce = '';
     if (_pendingBA) { _pendingBA = null; }   // [P1] 전후 대기 중 다른 텍스트 요청 → pending 정리
     // [BA 동선] 다른 텍스트 요청이 오면 BA 자동연결 대기 해제(전후 재요청이면 _openBeforeAfterCreate 가 다시 세팅).
     if (_pendingBaIntent) { _pendingBaIntent = null; }
     // [QA#7] 메모리 의도("기억해"/"뭐 기억해?"/"기억하지 마") — 백엔드 전 가로채 dedupe.
-    if (await _tryMemoryShortcut(input, q)) return;
+    if (await _fe('memory', () => _tryMemoryShortcut(input, q))) return;
     // [구조 통합 P2] "작업실 열어"/"작업실에서 전후 만들어줘"/"게시글만 써줘" 등 명시 발화 → V2 작업실 cold-open.
     //   명시 발화만 매칭 → 일반 "사진 편집" 류는 아래 photo-mode 가 그대로 처리(가로채기 없음).
-    if (window.ItdasyWorkspaceNL?.tryOpen?.(input, q, { clearInput: _clearAssistantInput })) return;
+    if (await _fe('workspace_nl', async () => !!window.ItdasyWorkspaceNL?.tryOpen?.(input, q, { clearInput: _clearAssistantInput }))) return;
     // [모드 P1] 잇비 사진편집 모드 — 활성이거나 시작 발화면 photo-mode 가 우선 처리(메시지 객체 push).
     {
       // [2026-07-21 Phase2] 텍스트 사진편집 발화("이 사진 보정해줘")도 옛 photo-mode 대신 현재 작업실로.
@@ -5501,7 +5512,7 @@
         _clearAssistantInput(input);
         const _photos = _lastUserPhotos();
         const _ok = await _wsOpenFromChat(null, _photos, _photos.length ? 'edit' : null);
-        if (_ok) { _sendInFlight = false; _inflightCtrl = null; return; }
+        if (_ok) { _sendInFlight = false; _inflightCtrl = null; try { _reportClientTurn('photo_mode_workspace', q, _via0); } catch (_e) { void _e; } return; }
         _history.push({ role: 'user', text: q, local_only: true });
         _history.push({ role: 'assistant', text: '작업실에서 편집할게요. 편집할 사진을 먼저 보내주세요.', local_only: true });
         _renderHistory();
@@ -5511,43 +5522,44 @@
     }
     // [Phase3 §12 최우선] 연락처 자연어(전화번호 패턴 포함) — 가격표/템플릿/사진/백업으로 새지 않게 _send 앞단에서 가로챈다.
     //   phone-intent 는 PHONE_RE 가 있을 때만 매칭 → "그거 수정"(사진 카드) 등은 영향 없음.
-    if (await _tryCustomerPhoneIntent(input, q)) return;
+    if (await _fe('customer_phone_intent', () => _tryCustomerPhoneIntent(input, q))) return;
     // [M3] 자연어 "인스타 미리보기" — 활성/저장카드보다 먼저 미리보기 팝업으로.
-    if (await _tryInstaPreviewIntent(input, q)) return;
+    if (await _fe('insta_preview', () => _tryInstaPreviewIntent(input, q))) return;
     // [v499 4-1] "작업실에 저장" 명령 — 저장 확인 멘트(캡션 재노출 방지).
-    if (await _trySaveWorkshopCommand(input, q)) return;
+    if (await _fe('save_workshop', () => _trySaveWorkshopCommand(input, q))) return;
     // [activeCard P0] "그거 저장/수정/다시 보여줘" — 저장카드보다 '방금 만든/편집 중 카드'(activeCard) 우선. 없으면 false→아래로.
-    if (await _tryActiveCardShortcut(input, q)) return;
+    if (await _fe('active_card', () => _tryActiveCardShortcut(input, q))) return;
     // [QA#6] "저장한 카드 보여줘" — 가격표 '생성'(_tryPriceListDraft)보다 먼저: '보여줘'가 생성으로 새지 않게.
-    if (await _trySavedCardsShortcut(input, q)) return;
+    if (await _fe('saved_cards', () => _trySavedCardsShortcut(input, q))) return;
     // [§1 qa-E] 이벤트 의도 — 작업실/일반 템플릿 메뉴로 새지 않게 가장 먼저 이벤트 카드 선택지로.
-    if (_looksEventIntent(q)) { _clearAssistantInput(input); _history.push({ role: 'user', text: q }); await _pushEventCardChoices(q); return; }
+    if (_looksEventIntent(q)) { _clearAssistantInput(input); _history.push({ role: 'user', text: q }); await _pushEventCardChoices(q); try { _reportClientTurn('event_intent', q, _via0); } catch (_e) { void _e; } return; }
     // [§7] 캡션/문구 의도 — 사진이 있어도 사진편집(_looksPhotoFollowup)·템플릿으로 새지 않게 먼저 가로챈다.
-    if (await _tryCaptionConversation(input, q)) return;
+    if (await _fe('caption_conversation', () => _tryCaptionConversation(input, q))) return;
     // [P0a] pending 사진이 없어도, 직전에 채팅으로 올린 사진(≤5분)이 있고 텍스트가 사진 명령이면
     //   그 사진을 대상으로 기존 사진 shortcut 경로를 재사용("사진+네일 손님이야" 연결). 아니면 기존 흐름.
     // [핫픽스F #5] 진행 중 예약 draft(고객/시간 슬롯필링) + 명시적 예약 생성("…예약해/예약 잡아")은
     //   가격표/OCR/템플릿/사진 인텐트보다 우선 — 가격표가 "붙임머리 시술 예약"을 가로채던 오라우팅 차단.
-    if (await _tryBookingDraftShortcut(input, q)) return;
-    if (await _tryLookupBookingShortcut(input, q)) return;
-    if (await _tryCreateBookingShortcut(input, q)) return;
+    if (await _fe('booking_draft', () => _tryBookingDraftShortcut(input, q))) return;
+    if (await _fe('lookup_booking', () => _tryLookupBookingShortcut(input, q))) return;
+    if (await _fe('create_booking', () => _tryCreateBookingShortcut(input, q))) return;
     // [C1/C2] 홍보컷·홍보물·"가격표 말고/없이" — 가격표 매처/폴백 전에 가로채 홍보 흐름으로(가격표 오라우팅 차단).
-    if (await _tryPromoIntent(input, q)) return;
-    if (await _tryTemplateSampleShortcut(input, q)) return;   // 가격표 샘플은 기존 적용, 후기/전후 샘플은 사진모드로 연결
-    if (_tryPriceListDraft(input, q)) return;
+    if (await _fe('promo_intent', () => _tryPromoIntent(input, q))) return;
+    if (await _fe('template_sample', () => _tryTemplateSampleShortcut(input, q))) return;   // 가격표 샘플은 기존 적용, 후기/전후 샘플은 사진모드로 연결
+    if (await _fe('price_list_draft', async () => _tryPriceListDraft(input, q))) return;
     if (window.ItdasySourceImage && _looksPhotoFollowup(q)) {
       try {
         const src = window.ItdasySourceImage.resolve();
         if (src && src.origin === 'chat' && src.dataUrl) {
           _sendInFlight = true;   // _uploadPhotos 와 동일하게 이중 전송 가드
           try {
-            if (await _tryPhotoShortcut(q, [src.dataUrl])) { _clearAssistantInput(input); return; }
+            if (await _tryPhotoShortcut(q, [src.dataUrl])) { _clearAssistantInput(input); try { _reportClientTurn('photo_followup', q, _via0); } catch (_e) { void _e; } return; }
           } finally { _sendInFlight = false; }
         }
       } catch (_e) { void _e; }
     }
     // [QA퍼징] 업종 없는 bare 생성("가격표 만들어줘")은 매처가 못 잡음 → 백엔드 전 마지막으로 가로채 목적별 템플릿으로.
-    if (await _tryCreateIntentFallback(input, q)) return;
+    if (await _fe('create_intent_fallback', () => _tryCreateIntentFallback(input, q))) return;
+    try { if (_via0 === 'chip') window.__itbiVia = 'chip'; } catch (_e) { void _e; }
     if (await _trySendShortcuts(input, q)) return;
     // [P1-5] 세부편집/평가·재시도/문맥부족 발화는 백엔드로 보내지 말고(=인터넷오류 거짓 수렴 방지) 정직하게 안내.
     if (_tryUnsupportedGuide(input, q)) return;
