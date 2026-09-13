@@ -124,8 +124,10 @@
   function _resumeMsg(slot) {
     var photos = slot.photos || [];
     var edited = photos.some(function (p) { return p && (p.editedDataUrl || p.storyEdited || p.cropMeta); });
+    var hasCap = !!(slot.caption && String(slot.caption).trim());
+    if (hasCap) return '캡션까지 완료 · 발행만 남았어요';   // [2026-09-14 P3] 편집은 선택 — 캡션 있는 글에 '편집이 남았어요' 금지
     if (!edited) return '사진 완료 · 편집이 남았어요';
-    if (!(slot.caption && String(slot.caption).trim())) return '편집까지 완료 · 캡션이 남았어요';
+    if (!hasCap) return '편집까지 완료 · 캡션이 남았어요';
     return '캡션까지 완료 · 발행만 남았어요';
   }
   function _resumeCardHTML(slots) {
@@ -613,7 +615,8 @@
     var editDone = (slot.photos || []).some(function (p) { return p && (p.editedDataUrl || p.storyEdited || p.cropMeta); });
     var capDone = !!(slot.caption && String(slot.caption).trim());
     var STEPS = [
-      { act: '사진 편집', label: '사진 편집', done: editDone, hint: '다시 편집' },
+      // [2026-09-14 P3] 사진 편집은 선택 — 캡션까지 쓴 글에 '사진 편집 · 남은 단계' 로 되돌려 보내지 않는다.
+      { act: '사진 편집', label: '사진 편집', done: editDone || capDone, hint: editDone ? '다시 편집' : '꾸미기' },
       { act: '게시글 생성', label: '게시글 생성', done: capDone, hint: '수정' },
       { act: '인스타 미리보기', label: '미리보기·게시', done: pub, hint: '보기' },
       { act: '고객 연결', label: '고객 연결', done: !!slot.customer_id, hint: '연결' }

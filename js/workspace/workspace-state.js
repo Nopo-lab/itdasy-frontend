@@ -36,7 +36,7 @@
     if (slot.wsStatus && META[slot.wsStatus]) return slot.wsStatus;
     var photos = slot.photos || [];
     if (!photos.length) return STATUS.UPLOAD_PENDING;
-    if (!_hasEdit(photos)) return STATUS.NEEDS_CROP;
+    if (!_hasEdit(photos) && !_hasText(slot.caption)) return STATUS.NEEDS_CROP;   // [2026-09-14 P3] 편집은 선택 — 캡션 쓴 글에 '편집 필요' 금지
     if (!_hasText(slot.caption)) return STATUS.NEEDS_CAPTION;
     if (!slot.customer_id && _type(slot) !== 'price') return STATUS.NEEDS_CUSTOMER;
     return STATUS.READY;
@@ -56,7 +56,9 @@
       var hasA = photos.some(function (p) { return p.role === 'after'; });
       if (!hasB || !hasA) return { key: 'edit', label: '전/후 역할 확인' };
     }
-    if (!_hasEdit(photos)) return { key: 'crop', label: '비율 자르기' };
+    // [2026-09-14 P3] 사진 편집은 선택이다. 캡션까지 쓴 글을 '이어서' 로 열면 편집기로 되돌아가던 것 —
+    //   타일은 '작성 완료' 인데 이어서 카드는 '편집이 남았어요' 였다. 캡션이 있으면 편집 단계는 건너뛴다.
+    if (!_hasEdit(photos) && !_hasText(slot.caption)) return { key: 'crop', label: '비율 자르기' };
     if (!_hasText(slot.caption)) return { key: 'caption', label: '캡션 생성' };
     // [순서 수정] deriveStatus·CTA 흐름(캡션→고객연결→미리보기)과 맞춤 — 고객 연결을 미리보기보다 먼저.
     //   이전엔 preview 를 먼저 반환해 "이어서"가 고객연결 건너뛰고 미리보기로 직행했음.

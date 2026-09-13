@@ -203,3 +203,30 @@ test('P3 시술 추가 뒤 폼이 비워지고 채워진 값에도 칸 이름이
   expect(s).toMatch(/리터치 주기\(일\) · 선택/);
   expect(s).not.toMatch(/showToast\('시술 추가됨'\)/);
 });
+
+describe('P3 캡션까지 쓴 글에 "편집이 남았어요" 라고 하지 않는다', () => {
+  const ST = read('js/workspace/workspace-state.js');
+  const win = {};
+  // eslint-disable-next-line no-new-func
+  new Function('window', ST)(win);
+  const photo = { dataUrl: 'x' };
+  test('🔴 캡션 있음 + 편집 안 함 → 편집기로 되돌리지 않는다', () => {
+    expect(win.WorkspaceState.nextAction({ photos: [photo], caption: '글' }).key).not.toBe('crop');
+  });
+  test('캡션 없음 + 편집 안 함 → 예전처럼 편집부터', () => {
+    expect(win.WorkspaceState.nextAction({ photos: [photo], caption: '' }).key).toBe('crop');
+  });
+  test('이어서 카드 문구', () => {
+    const H = read('js/workspace/workspace-v2-home.js');
+    expect(H).toMatch(/if \(hasCap\) return '캡션까지 완료 · 발행만 남았어요';\s*\/\/[^\n]*\n\s*if \(!edited\) return '사진 완료 · 편집이 남았어요';/);
+  });
+});
+
+test('P3 캡션 쓴 글: 상태 배지·작업 흐름도 편집을 필수로 보지 않는다', () => {
+  const win = {};
+  // eslint-disable-next-line no-new-func
+  new Function('window', read('js/workspace/workspace-state.js'))(win);
+  expect(win.WorkspaceState.deriveStatus({ photos: [{ dataUrl: 'x' }], caption: '글' })).not.toBe('needs_crop');
+  expect(win.WorkspaceState.deriveStatus({ photos: [{ dataUrl: 'x' }], caption: '' })).toBe('needs_crop');
+  expect(read('js/workspace/workspace-v2-home.js')).toMatch(/done: editDone \|\| capDone, hint: editDone \? '다시 편집' : '꾸미기'/);
+});
