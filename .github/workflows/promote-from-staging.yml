@@ -82,6 +82,9 @@ jobs:
       BRANCH: promote/staging-${{ github.run_id }}-${{ github.run_attempt }}
       DRY_RUN: ${{ inputs.dry_run }}
       STAGING_REF: ${{ inputs.staging_ref }}
+      # deploy.yml 의 bump 가 건드리는 경로(게이트 후 원복 대상). $GITHUB_ENV 로 넘기지 않는다 —
+      # 공백 섞인 값은 러너와 셸이 다르게 해석해 원복이 조용히 빠질 수 있다(로컬 재현에서 실제로 빠졌다).
+      BUMPED: sw.js app-core.js index.html build.txt js/load-groups.js style.css
     steps:
       - name: Checkout 운영 main
         uses: actions/checkout@v5
@@ -257,7 +260,28 @@ jobs:
       - name: Install deps
         run: npm ci
 
-      # deploy.yml 과 같은 게이트를 머지 **전에** 돌린다.
+      # 🔴 deploy.yml 은 게이트 **전에** 빌드 버전과 ?v= 를 올린다. 그걸 빼고 smoke 를 돌리면
+      #    레포 원본의 CACHE_VERSION(sw.js) ≠ APP_BUILD(app-core.js) — 평상시 상태 — 때문에 **항상 실패**한다.
+      #    (smoke-check.js 는 --git 모드에서만 이 검사를 건너뛴다. 로컬에서 --git 으로 돌려 통과한 것에 속았다 —
+      #     2026-09-13 첫 실제 dry-run 이 이걸로 실패해서 잡았다.)
+      #    → deploy.yml 의 두 bump 를 **글자 그대로** 재현한다. 게이트 전용이고 커밋하지 않으며, 게이트 후 원복한다.
+      #    ⚠️ deploy.yml 의 bump 스텝을 고치면 여기도 같이 고쳐라.
+      - name: Simulate deploy.yml bumps (게이트 전용 · 커밋 안 함)
+        run: |
+          NEW_VERSION="promote-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          sed -i.bak -E "s|const CACHE_VERSION = '[^']*';|const CACHE_VERSION = '${NEW_VERSION}';|" sw.js && rm -f sw.js.bak
+          sed -i.bak -E "s|window.APP_BUILD = '[^']*';|window.APP_BUILD = '${NEW_VERSION}';|" app-core.js && rm -f app-core.js.bak
+          sed -i.bak -E "s|window.__LATEST_BUILD__ = '[^']*';|window.__LATEST_BUILD__ = '${NEW_VERSION}';|" index.html && rm -f index.html.bak
+          printf '%s' "${NEW_VERSION}" > build.txt
+          python3 scripts/bump_cache_busters.py "$NEW_VERSION"
+
+          # bump 가 건드린 경로가 예상 목록(job env BUMPED) 안인지 — 밖이면 원복이 불완전해진다
+          git status --porcelain | while read -r _ p; do
+            case " $BUMPED " in *" $p "*) ;; *) echo "::error::bump 가 예상 밖 경로를 바꿨다: $p"; exit 1 ;; esac
+          done
+          echo "bump 로 바뀐 파일:"; git status --porcelain
+
+      # deploy.yml 과 같은 게이트를 머지 **전에**, deploy 와 같은 순서로 돌린다.
       - name: Gate — lint:ci
         run: npm run lint:ci
       - name: Gate — smoke
@@ -283,6 +307,9 @@ jobs:
       - name: Verify working tree still clean after gates
         run: |
           fail() { echo "::error::$1"; exit 1; }
+          # 게이트용 bump 만 원복한다. 이 목록 밖의 변경이 남아 있으면 **게이트가 만든 것**이라 잡혀야 한다.
+          # shellcheck disable=SC2086
+          git checkout -- $BUMPED
           s=$(git status --porcelain)
           [ -z "$s" ] || { printf '%s\n' "$s"; fail "게이트 후 추적 대상 파일이 생기거나 바뀌었다"; }
           [ "$(git rev-parse HEAD)" = "$TEST_SHA" ] || fail "HEAD 가 움직였다"
