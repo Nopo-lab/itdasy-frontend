@@ -142,3 +142,17 @@ describe('기능 질문은 앞단 지름길을 건너뛰고 서버로', () => {
     ['_tryMemoryShortcut(input', 'ItdasyWorkspaceNL?.tryOpen', '_tryCreateIntentFallback(input', 'await _trySendShortcuts(input'].forEach(k => expect(send.indexOf(k)).toBeGreaterThan(a));
   });
 });
+
+describe('예약 복구 지름길이 조회 질문·다른 대상을 삼키지 않는다 (2026-09-14 라이브)', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '../js/assistant/core/booking-context.js'), 'utf8');
+  const body = src.slice(src.indexOf('function _looksRestore(q)'), src.indexOf('function _looksReschedule(q)'));
+  // eslint-disable-next-line no-new-func
+  const looks = new Function('_trim', body + '; return _looksRestore;')((x) => String(x || '').trim());
+  test.each([
+    '방금 취소한 거 복구해줘', '예약 되돌려줘', '그 예약 살려줘', '복구해', '되돌려', '취소 취소',
+  ])('예약 복구로 본다: %s', (q) => expect(looks(q)).toBe(true));
+  test.each([
+    'E2E_A_박지우님 마지막 방문 언제야? 복구테스트', '김호영님 메모 되돌려줘', '매출 복구된 거 알려줘',
+    '회원권 잔액 되살려줘', '캡션 되돌려', '데이터 복구', '계정 복구',
+  ])('예약 복구로 보지 않는다: %s', (q) => expect(looks(q)).toBe(false));
+});
