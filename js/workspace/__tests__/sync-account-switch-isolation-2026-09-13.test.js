@@ -102,3 +102,28 @@ describe('배선 — 서버에 닿는 모든 길목', () => {
     expect(C.slice(i, j)).not.toMatch(/_owner/);
   });
 });
+
+describe('로컬 목록 — 다른 계정 도장 슬롯은 보여주지 않는다(지우지도 않는다)', () => {
+  const GDB = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'app-gallery-db.js'), 'utf8');
+  function loadSlots(rows, cur) {
+    const i = GDB.indexOf('async function loadSlotsFromDB() {');
+    const j = GDB.indexOf('\nasync function deleteSlotFromDB', i);
+    const db = { transaction: () => ({ objectStore: () => ({ getAll: () => { const req = {}; setTimeout(() => { req.result = rows; req.onsuccess(); }); return req; } }) }) };
+    // eslint-disable-next-line no-new-func
+    const fn = new Function('openGalleryDB', '_gdbCurrentUser', '_GDB_STORE', GDB.slice(i, j) + '; return loadSlotsFromDB;')(
+      async () => db, () => cur, 'slots');
+    return fn();
+  }
+  test('🔴 계정 4 로 로그인된 탭의 작업실에 계정 5 도장 글이 안 나온다', async () => {
+    const out = await loadSlots([{ id: 'mine', _owner: '4', order: 1 }, { id: 'mtzft4mt5urkd', _owner: '5', order: 2 }, { id: 'legacy', order: 0 }], '4');
+    expect(out.map((s) => s.id)).toEqual(['mine', 'legacy']);
+  });
+  test('로그인 정보가 없으면 거르지 않는다(기존 동작)', async () => {
+    const out = await loadSlots([{ id: 'a', _owner: '5', order: 1 }], null);
+    expect(out.map((s) => s.id)).toEqual(['a']);
+  });
+  test('정렬(최신 위)은 그대로', async () => {
+    const out = await loadSlots([{ id: 'o', _owner: '4', order: 1 }, { id: 'n', _owner: '4', order: 9 }], '4');
+    expect(out.map((s) => s.id)).toEqual(['n', 'o']);
+  });
+});
