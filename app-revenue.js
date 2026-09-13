@@ -1032,8 +1032,10 @@
       let summary;
       try { summary = await window.RevenueMonth.fetchSummary(); }
       catch (_e) {
-        console.warn('[revenue] summary fetch 실패 — 클라이언트 폴백:', _e);
-        summary = window.RevenueMonth.fallbackSummary(_items);
+        console.warn('[revenue] summary fetch 실패:', _e);
+        /* [2026-09-13 UX·돈] 서버를 못 봤는데 로컬 목록으로 합계를 **지어** 0원·N건을 보여줬다
+           (지난달이면 이번달 목록으로 계산). 오프라인 모드(로컬 전용)일 때만 로컬 계산을 쓰고, 나머지는 실패로 그린다. */
+        summary = _isOffline ? window.RevenueMonth.fallbackSummary(_items) : { _loadFailed: true };
       }
       // [카오스] 이 await 사이 더 최근 네비/재렌더가 있었으면 폐기 — 라벨·수치 불일치(예: '5월' 라벨에 6월 매출) 방지
       if (_seq !== _rerenderSeq) return;

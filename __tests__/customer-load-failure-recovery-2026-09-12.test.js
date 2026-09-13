@@ -31,13 +31,15 @@ function loadEmptyBranch() {
   }
   const body = SRC.slice(start, end);
   // eslint-disable-next-line no-new-func
-  return new Function('items', '_cache', '_isOffline', 'seg', 'box', '_dupBannerHTML', '_bindDupBanner', '_bindListRetry',
+  // [2026-09-13] 검색 0건 → 새 손님 등록 잇기 로 의존(q·_esc·_openAddForm) 추가
+  return new Function('items', '_cache', '_isOffline', 'seg', 'box', '_dupBannerHTML', '_bindDupBanner', '_bindListRetry', 'q', '_esc', '_openAddForm',
     body + '\n; return null;');
 }
 
-function render({ cache, offline, seg = 'all' }) {
+function render({ cache, offline, seg = 'all', q = '' }) {
   const box = document.createElement('div');
-  loadEmptyBranch()([], cache, offline, seg, box, () => '', () => {}, () => {});
+  const esc = (x) => String(x).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  loadEmptyBranch()([], cache, offline, seg, box, () => '', () => {}, () => {}, q, esc, () => {});
   return box.innerHTML;
 }
 
@@ -108,5 +110,22 @@ describe('BUG-C2 · 첫 진입 실패에도 다시 시도할 길이 있다', () 
   test('기존 .dt-error flex 규칙을 건드리지 않았다', () => {
     const i = CSS.indexOf('.dt-error {');
     expect(CSS.slice(i, i + 120)).toMatch(/display:\s*flex/);
+  });
+});
+
+describe('[2026-09-13 UX] 검색 0건 → 찾던 이름으로 바로 새 손님 등록', () => {
+  test('이름 검색 0건이면 등록 버튼(이름 채움)', () => {
+    const html = render({ cache: [{ id: 1 }], offline: false, q: '김민지' });
+    expect(html).toMatch(/'김민지' 손님을 찾지 못했어요/);
+    expect(html).toMatch(/data-cust-add-q="김민지"/);
+  });
+  test('전화번호만 쳤으면 이름으로 등록 버튼을 만들지 않는다', () => {
+    const html = render({ cache: [{ id: 1 }], offline: false, q: '010-1234' });
+    expect(html).not.toMatch(/data-cust-add-q/);
+  });
+  test('검색어는 이스케이프된다', () => {
+    const box = document.createElement('div');
+    box.innerHTML = render({ cache: [{ id: 1 }], offline: false, q: '<img src=x onerror=1>' });
+    expect(box.querySelector('img')).toBeNull();
   });
 });

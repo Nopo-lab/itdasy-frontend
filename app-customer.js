@@ -959,7 +959,13 @@
          서버를 못 봤으면 그렇다고 말하고 다시 시도할 길을 준다. */
       let _emptyMsg;
       if (_cache && _cache.length) {
-        _emptyMsg = (seg !== 'all' ? '이 조건에 맞는 손님이 아직 없어요' : '검색 결과 없음');
+        /* [2026-09-13 UX] 검색 0건이 "검색 결과 없음" 한 줄이라, 새 손님이면 위로 올라가 [+] 를 찾아야 했다.
+           찾던 이름으로 바로 등록할 수 있게 잇는다(기존 추가 모달 재사용 · 이름만 채워 둠). */
+        const _qTrim = String(q || '').trim();
+        if (seg !== 'all') _emptyMsg = '이 조건에 맞는 손님이 아직 없어요';
+        else if (_qTrim) _emptyMsg = `'${_esc(_qTrim)}' 손님을 찾지 못했어요`
+          + (/^[0-9\-\s]+$/.test(_qTrim) ? '' : `<br><button type="button" class="dt-retry" data-cust-add-q="${_esc(_qTrim.slice(0, 50))}">+ '${_esc(_qTrim.slice(0, 50))}' 새 손님으로 등록</button>`);
+        else _emptyMsg = '검색 결과 없음';
       } else if (_isOffline) {
         _emptyMsg = '손님 목록을 불러오지 못했어요.<br>연결을 확인하고 다시 시도해 주세요.'
           + '<br><button type="button" class="dt-retry" data-cust-retry>다시 시도</button>';
@@ -967,6 +973,11 @@
         _emptyMsg = '+ 버튼을 눌러 첫 고객을 등록해보세요';
       }
       box.innerHTML = _dupBannerHTML() + `<div class="dt-empty">${_emptyMsg}</div>`;
+      const _addQ = box.querySelector('[data-cust-add-q]');
+      if (_addQ) _addQ.addEventListener('click', () => {
+        if (typeof window._openCustomerEditSheet === 'function') window._openCustomerEditSheet({ name: _addQ.getAttribute('data-cust-add-q') });
+        else _openAddForm();
+      });
       _bindDupBanner(box);
       _bindListRetry(box);
       return;
@@ -1344,7 +1355,7 @@
       try {
         await remove(id);
         if (window.hapticLight) window.hapticLight();
-        if (window.showToast) window.showToast('삭제 완료');
+        if (window.showToast) window.showToast('손님을 목록에서 지웠어요 — 매출 기록은 그대로 남아요');
         _rerender();
       } catch (e) {
         console.warn('[customer] delete 실패:', e);

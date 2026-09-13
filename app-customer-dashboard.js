@@ -522,10 +522,10 @@
     try {
       if (isNew) {
         await Customer.create(payload);
-        if (window.showToast) window.showToast(`${payload.name} 추가됨`);
+        if (window.showToast) window.showToast(`${payload.name}님을 손님 목록에 등록했어요`);
       } else {
         await Customer.update(c.id, payload);
-        if (window.showToast) window.showToast('저장 완료');
+        if (window.showToast) window.showToast('손님 정보를 저장했어요');
         _refreshCustomerDetailViews(c.id);
       }
       close();
