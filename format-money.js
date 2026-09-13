@@ -84,6 +84,35 @@
     return _sameDay(s, e) ? (head + ' ~ ' + _kHour(e)) : (head + ' ~ ' + fmtKDateTime(e));
   }
 
+  /* [2026-09-13 P2] 서버가 주는 시각은 UTC(tz-aware) 다. 그걸 **문자열로 자르면 안 된다** —
+     실측: `2026-09-12T18:00:00+00:00` 은 KST 9/13 03:00 인데 잘라 쓰면 09/12 로 나왔다.
+     위의 fmtK* 는 기기 로컬 시각을 쓴다. 장부·시술 기록은 샵 기준(KST)으로 고정해야 하므로
+     app-revenue-calendar.js `_kstDay()` 와 같은 의미로 Asia/Seoul 을 명시한다.
+     (같은 변환을 세 번째로 복붙하지 않으려고 날짜 포맷이 모여 있는 여기로 올렸다) */
+  function _kstParts(input) {
+    const d = _toDate(input); if (!d) return null;
+    try {
+      // en-CA 는 YYYY-MM-DD 고정폭이라 잘라 쓰기 안전하다.
+      const day = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+      const time = d.toLocaleTimeString('en-GB', {
+        timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false,
+      });
+      return { day: day, time: time };
+    } catch (_e) { return null; }
+  }
+  /** "09/13" — 날짜만, KST */
+  function fmtKMonthDay(input) {
+    const p = _kstParts(input);
+    return p ? p.day.slice(5).replace('-', '/') : '';
+  }
+  /** "09-13 12:36" — 날짜+시각, KST */
+  function fmtKShortDateTime(input) {
+    const p = _kstParts(input);
+    return p ? (p.day.slice(5) + ' ' + p.time) : '';
+  }
+
+  window.fmtKMonthDay = fmtKMonthDay;
+  window.fmtKShortDateTime = fmtKShortDateTime;
   window.fmtKDateLabel = fmtKDateLabel;
   window.fmtKTime = fmtKTime;
   window.fmtKDateTime = fmtKDateTime;

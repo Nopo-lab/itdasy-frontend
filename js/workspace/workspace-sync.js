@@ -556,9 +556,16 @@
     }
     // 진짜 충돌 — 서버본을 원본 자리에, 내 것은 사본으로 남긴다(둘 다 보존).
     log('conflict needs human', local.id, res.conflicts);
+    /* [2026-09-13 P1] `conflictOf` 를 같이 심는다.
+       왜: 여태 '이건 충돌 사본이다' 를 말해 주는 건 **id 규약과 라벨 문자열뿐**이었다.
+           라벨은 MERGE_FIELDS 라 이후 병합에서 서버 값으로 덮일 수 있고(실측: 사본 라벨에
+           '(다른 기기 수정본)' 이 없었다), id 규약은 화면 쪽에서 알아채기 어렵다.
+           META_SKIP 에 없으므로 meta 로 서버까지 왕복해 기기를 바꿔도 살아남는다. */
     var mine = Object.assign({}, local, {
       id: String(local.id) + '_conflict_' + Date.now(),
       label: (local.label || '작업') + ' (다른 기기 수정본)',
+      conflictOf: String(local.id),
+      conflictAt: Date.now(),
       _rev: null, _base: null, _pending: null, updatedAt: Date.now(), syncState: 'dirty',
     });
     delete mine._pending;

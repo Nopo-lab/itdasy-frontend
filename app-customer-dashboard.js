@@ -209,7 +209,10 @@
   }
 
   function _renderRevenueRow(r, hidden) {
-    const dt = String(r.recorded_at || '').slice(5, 10).replace('-', '/');
+    // [2026-09-13 P2] UTC 문자열을 자르면 KST 00:00~08:59 시술이 전부 **전날**로 보인다
+    //   (실측: 2026-09-12T18:00:00+00:00 = KST 9/13 03:00 인데 09/12 로 찍혔다).
+    //   유틸이 없으면 날짜만 비운다 — 날짜 한 칸 때문에 시술 기록 목록 전체가 죽으면 안 된다.
+    const dt = window.fmtKMonthDay ? window.fmtKMonthDay(r.recorded_at) : '';
     const amt = Number(r.amount) || 0;
     const man = amt > 0 ? Math.round(amt / 10000) + '만' : '-';
     const extra = hidden ? ' hidden" data-vr-extra="1' : '';

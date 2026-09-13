@@ -210,7 +210,9 @@
         const isUse = it.kind === 'use';
         const sign = isUse ? '−' : '+';
         const color = isUse ? '#0288D1' : 'var(--brand)';
-        const dt = (it.recorded_at || '').replace('T', ' ').slice(5, 16);
+        // [2026-09-13 P2] 같은 이유로 시각이 9시간 빨랐다(실측: 03:36 로 보였는데 실제 12:36).
+        //   같은 이유로 감싼다 — 일시 한 칸 때문에 충전/사용 내역이 통째로 사라지면 안 된다.
+        const dt = window.fmtKShortDateTime ? window.fmtKShortDateTime(it.recorded_at) : '';
         const svc = it.service_name ? ` · ${(it.service_name + '').replace(/[<>&"]/g,'')}` : '';
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid #f3f3f3;">
           <div style="font-size:12px;color:#444;">${dt}${svc}</div>

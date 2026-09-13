@@ -94,7 +94,12 @@ describe('홈 타일이 기기에만 있는 슬롯을 말한다', () => {
   test('실패 상태 + 미동기 슬롯이면 칩이 "기기에만 저장"', () => {
     const b = ext(HOME, '_feedTile');
     expect(b).toMatch(/var _local = !!\(_ss && _ss\.failed && slot\.syncState && slot\.syncState !== 'synced'\);/);
-    expect(b).toMatch(/var chip = _local \? '<span class="wf-chip wf-chip--local">기기에만 저장<\/span>'/);
+    /* [2026-09-13] 계약은 그대로, **검사 방식만** 바꿨다.
+       원래는 `var chip = _local ? ...` 라는 소스 한 줄을 통째로 문자열 비교했는데,
+       충돌 보존본 칩(P1)이 앞에 한 단계 붙으면서 줄 모양이 바뀌자 깨졌다.
+       기능은 그대로다 — 충돌 사본이 아니면 `_local` 이 '기기에만 저장' 을 만든다.
+       모양이 아니라 그 사실을 본다. */
+    expect(b).toMatch(/_local \?\s*'<span class="wf-chip wf-chip--local">기기에만 저장<\/span>'/);
   });
   test('상태가 바뀌면 보이는 홈을 다시 그린다', () => {
     expect(HOME).toMatch(/addEventListener\('itdasy:sync-status', function \(\) \{ if \(_lastRoot && _lastRoot\.isConnected && !document\.hidden\) refresh\(\); \}\)/);
