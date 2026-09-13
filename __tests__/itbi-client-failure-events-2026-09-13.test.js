@@ -75,3 +75,12 @@ describe('[CASE-030] 탭 구분 id', () => {
     expect('t' + 'ab'.repeat(8)).toHaveLength(17);
   });
 });
+
+describe('[CASE-032] 프론트 지름길 턴도 서버 대화로 이어진다', () => {
+  test('client-event turn 에 client_tab 을 싣고, 돌려받은 session_id 를 쓴다', () => {
+    const b = cut('_reportClientTurn');
+    expect(b).toMatch(/client_tab: _ITBI_TAB_ID/);
+    expect(b).toMatch(/j\.session_id !== _sessionId/);
+    expect(b).toMatch(/localStorage\.setItem\('assistant_session_id'/);
+  });
+});

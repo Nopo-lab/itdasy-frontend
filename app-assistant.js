@@ -5052,8 +5052,19 @@
           answer: (last && last.role === 'assistant' && typeof last.text === 'string')
             ? last.text.slice(0, 500) : null,
           app_build: (window.__ITDASY_BUILD__ || window.APP_BUILD || ''),
+          client_tab: _ITBI_TAB_ID,
         }),
-      }).catch(() => {});
+      })
+        // [ITBI Closeout 2026-09-13 · CASE-032] 서버가 이 턴을 **대화에 기록**하고 세션 id 를 돌려준다.
+        //   지름길이 첫 턴이면 아직 세션이 없다 — 받은 id 를 써야 다음 질문이 같은 대화로 이어진다.
+        .then((r) => (r && r.ok ? r.json() : null))
+        .then((j) => {
+          if (j && j.session_id && j.session_id !== _sessionId) {
+            _sessionId = j.session_id;
+            try { localStorage.setItem('assistant_session_id', String(_sessionId)); } catch (_e) { void _e; }
+          }
+        })
+        .catch(() => {});
     } catch (_e) { void _e; }
   }
 
