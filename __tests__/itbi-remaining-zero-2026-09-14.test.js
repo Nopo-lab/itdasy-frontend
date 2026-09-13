@@ -99,7 +99,7 @@ describe('세션 만료 질문 보관 · 수동 복구', () => {
   });
   test('401 은 두 경로(한글 detail 응답·throw) 모두 보관으로 이어진다', () => {
     expect(SRC).toMatch(/res\.status === 401\) return \{[^}]*_authExpired: true/);
-    expect(cut('  async function _send() {')).toMatch(/_resp && _resp\._authExpired\) \{\s*_saveFailedAsk\(q\)/);
+    expect(cut('  async function _askServer(')).toMatch(/_resp && _resp\._authExpired\) \{\s*_saveFailedAsk\(q\)/);
     expect(cut('  function _handleSendError(')).toMatch(/HTTP 401[\s\S]*_saveFailedAsk/);
   });
 });
@@ -119,5 +119,26 @@ describe('요금제 팝업은 요금제를 가리킬 때만', () => {
   });
   test.each(['플랜 변경', '요금제 보여줘', '구독 관리', '업그레이드 하고 싶어', 'Pro 가입', '결제 수단 변경'])('%s → 요금제 팝업', (q) => {
     expect(run(q)).toBe(1);
+  });
+});
+
+
+describe('기능 질문은 앞단 지름길을 건너뛰고 서버로', () => {
+  // eslint-disable-next-line no-new-func
+  const looks = new Function(constLine('_CAP_Q_RE') + constLine('_CAP_Q_NOT_RE') + cut('  function _looksCapabilityQuestion(') + '\nreturn _looksCapabilityQuestion;')();
+  const POS = ['잇비 뭐 할 수 있어?', '잇비 사용법 알려줘', '고객 관련 뭐 물어볼 수 있어?', '예약 관련 뭐 할 수 있어?', '매출 관련 뭐 물어봐도 돼?',
+    '회원권도 물어볼 수 있어?', '인스타 댓글도 돼?', '사진으로 뭐 할 수 있어?', '잇비가 직접 문자 보내?', '잇비가 댓글 자동으로 달아?',
+    '잇비가 돈 처리도 해?', '추천질문은 뭐야?', '신고는 어떻게 해?', '이 기능 어디까지 돼?', '잇비는 뭘 도와줄 수 있어?', 'DM도 돼?',
+    '잇비 기능 알려줘', '재고도 물어볼 수 있어?', '리뷰도 물어볼 수 있어?', '잇비가 예약 알아서 바꿔?', '잇비가 알아서 결제해?', '작업실도 돼?',
+    '잇비 쓰는 법 알려줘', '문자도 보낼 수 있어?', '이 단골들에게 메시지 보낼 수 있어?', '잇비가 혼자 DM 답장해?', '어떤 걸 물어봐도 돼?',
+    '생일도 물어볼 수 있어?', '잇비 어디까지 돼?', '신고하려면 어떻게 해?'];
+  test('30문장 전부 서버로', () => { expect(POS.filter(q => !looks(q))).toEqual([]); expect(POS).toHaveLength(30); });
+  test.each(['오늘 예약 알려줘', '작업실 열어줘', '가격표 만들어줘', '김호영님 예약 있어?', '문자 보내줘', '예약 취소해도 돼?', '단골 누구야?', '댓글 뭐 달렸어?'])(
+    '%s → 평소 경로', (q) => expect(looks(q)).toBe(false));
+  test('입구 판정이 모든 지름길보다 앞', () => {
+    const send = cut('  async function _send() {');
+    const a = send.indexOf('_looksCapabilityQuestion(q)');
+    expect(a).toBeGreaterThan(send.indexOf('_tryDesignOutOfScope(input, q, _via0)'));
+    ['_tryMemoryShortcut(input', 'ItdasyWorkspaceNL?.tryOpen', '_tryCreateIntentFallback(input', 'await _trySendShortcuts(input'].forEach(k => expect(send.indexOf(k)).toBeGreaterThan(a));
   });
 });

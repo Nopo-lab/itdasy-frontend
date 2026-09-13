@@ -5329,6 +5329,33 @@
     return true;
   }
 
+  // 서버 capability_help 분류(routers/assistant.py `_CAP_ASK_RE`·`_CAP_ACT_RE`)와 **같은 모양**만 비켜 준다.
+  //   여기서 넓게 잡아도 서버가 기능 질문이 아니라고 보면 평소 경로(조회·LLM)로 답하므로 오답이 되지 않는다.
+  const _CAP_Q_RE = /사용법|쓰는\s*법|사용\s*방법|어떻게\s*(써|쓰|사용)|(뭐|뭘|무엇|어떤\s*(것|거|걸))\s*(할\s*수|해\s*줄\s*수|물어볼\s*수|물어봐도|도와|되|돼)|어디까지\s*(돼|되|할|가능)|이\s*기능|기능\s*(뭐|알려|있|어디|소개|설명|목록)|물어볼\s*수\s*있|물어봐도\s*(돼|되)|(도|는)\s*(돼|되나|되니|가능해)\s*\??$|(보낼|발송할|답할|달|처리할|결제할)\s*수\s*있|추천\s*질문|신고(는|하려면|하는\s*법|\s*어떻게|\s*어디)|(직접|자동으로|알아서|혼자)\s*.{0,8}(보내|발송|달아|답해|답장|처리|결제|송금|바꿔|변경)(해|해요|하나|하니|요)?\s*(\?|나\?|니\?|$)|돈\s*(처리|관리|계산)\s*(도|는)?\s*(해|돼|되|가능)/;
+  const _CAP_Q_NOT_RE = /\d|님|오늘|내일|모레|어제|이번|지난|다음\s*주|줘(?![가-힣])|주세요|해줄래|부탁|써줘|만들어줘|해도\s*(돼|되)/;
+  function _looksCapabilityQuestion(q) {
+    const t = String(q || '').trim();
+    if (!t || !_CAP_Q_RE.test(t)) return false;
+    const aboutItbi = /잇비|사용법|쓰는\s*법|추천\s*질문|신고|기능|어디까지/.test(t);
+    return !(_CAP_Q_NOT_RE.test(t) && !aboutItbi);
+  }
+  async function _askServer(input, q) {
+    _beginTextAsk(input, q);
+    try {
+      const _resp = await _postAssistantAsk(q);
+      if (_resp && _resp._authExpired) {
+        _saveFailedAsk(q);
+        _resp.answer = '🔒 로그인이 끊겨서 이 질문을 보내지 못했어요. 다시 로그인하시면 "다시 보내기"로 이어서 보낼 수 있게 이 기기에 남겨 뒀어요.';
+      }
+      _finishAskResponse(q, _resp);
+    } catch (e) {
+      _handleSendError(e);
+    } finally {
+      _sendInFlight = false;
+      _inflightCtrl = null;
+    }
+  }
+
   /* [ITBI Remaining Zero 2026-09-14 · P3] **세션이 끊긴 사이 친 잇비 질문이 새로고침에 사라졌다.**
      실측(최종 게이트 세션 만료): 질문은 말풍선에만 남고 로컬 저장 0 · 로그인 화면의 '작업 보관' 안내는 잇비 질문엔 해당 없음.
      정책: 조회든 쓰기든 **자동 재전송 금지**. 이 기기에만(서버·로그 전송 0) 계정별로 짧게(6시간·최대 3개) 보관하고,
@@ -5651,6 +5678,15 @@
     };
     // [Remaining Zero · P3] 로고·심볼 제작은 지원 범위 밖 — 문구 편집 시트·작업실·사진모드로 새기 전에 여기서 정직하게.
     if (_tryDesignOutOfScope(input, q, _via0)) return;
+    // [Remaining Zero · P3] 기능·사용법 질문은 앞단 지름길을 **전부 건너뛰고** 서버 capability map 으로.
+    //   실측(기능 질문 30 라이브): "예약 관련 뭐 할 수 있어?" → 예약 숫자 규칙("📅 오늘 예약 없어요"),
+    //   "작업실도 돼?" → 저장카드 지름길이 작업실로 이동, "잇비가 알아서 결제해?" → 요금제 팝업.
+    //   지름길마다 막으면 다음 지름길이 또 받는다 — 입구에서 한 번에 비켜 준다(판정의 진실원은 서버).
+    if (_looksCapabilityQuestion(q)) {
+      try { if (_via0 === 'chip') window.__itbiVia = 'chip'; } catch (_e) { void _e; }
+      await _askServer(input, q);
+      return;
+    }
     _photoModeReannounce = '';
     if (_pendingBA) { _pendingBA = null; }   // [P1] 전후 대기 중 다른 텍스트 요청 → pending 정리
     // [BA 동선] 다른 텍스트 요청이 오면 BA 자동연결 대기 해제(전후 재요청이면 _openBeforeAfterCreate 가 다시 세팅).
@@ -5722,20 +5758,7 @@
     if (await _trySendShortcuts(input, q)) return;
     // [P1-5] 세부편집/평가·재시도/문맥부족 발화는 백엔드로 보내지 말고(=인터넷오류 거짓 수렴 방지) 정직하게 안내.
     if (_tryUnsupportedGuide(input, q)) return;
-    _beginTextAsk(input, q);
-    try {
-      const _resp = await _postAssistantAsk(q);
-      if (_resp && _resp._authExpired) {
-        _saveFailedAsk(q);
-        _resp.answer = '🔒 로그인이 끊겨서 이 질문을 보내지 못했어요. 다시 로그인하시면 "다시 보내기"로 이어서 보낼 수 있게 이 기기에 남겨 뒀어요.';
-      }
-      _finishAskResponse(q, _resp);
-    } catch (e) {
-      _handleSendError(e);
-    } finally {
-      _sendInFlight = false;
-      _inflightCtrl = null;
-    }
+    await _askServer(input, q);
     // [모드 P1] 사진편집 모드 중 무관 질문이었으면 응답 뒤 한 줄 재안내.
     if (_photoModeReannounce) {
       try { _history.push({ role: 'assistant', text: '하던 거 이어가요: ' + _photoModeReannounce }); _renderHistory(); } catch (_e) { void _e; }
