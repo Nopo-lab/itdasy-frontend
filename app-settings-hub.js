@@ -111,7 +111,11 @@
     return `
       <div class="ms-section__title">샵</div>
       <div class="ms-sh" id="shList">
-        ${_rowHTML('shopinfo', 'ic-store',    '샵 정보',          '영업시간 · 시술 메뉴', { boxColor: 'blue' })}
+        ${_rowHTML('shopinfo', 'ic-store',    '샵 정보',          '샵 이름 · 연락처 · 영업시간', { boxColor: 'blue' })}
+        ${/* [2026-09-13 UX] '샵 정보' 설명이 '시술 메뉴' 라고 했는데 그 화면엔 시술 메뉴가 없었고,
+             실제 시술 메뉴(이름·가격·시간) 화면은 **여는 버튼이 앱 어디에도 없었다**(openServiceTemplates 호출부 0).
+             원장이 가격·소요시간을 등록할 길이 막혀 있었다 → 기존 화면을 여는 줄만 붙인다. */ ''}
+        ${_rowHTML('services', 'ic-scissors', '시술 메뉴',        '시술 이름 · 가격 · 걸리는 시간', { boxColor: 'pink' })}
         ${_rowHTML('sync',     'ic-refresh-cw', '데이터 새로고침', '최신 버전·데이터로 새로고침 (껐다 켠 효과)', { boxColor: 'blue' })}
         ${_rowHTML('backup',   'ic-download', '백업 · 내보내기',  '자동 백업 · 데이터 내보내기', { boxColor: 'pink' })}
       </div>
@@ -262,6 +266,7 @@
 
   // ─── 9개 라우팅 (변동 X) ────────────────────────────────
   function _route(act) {
+    if (act === 'services')  { close(); setTimeout(() => window.openServiceTemplates && window.openServiceTemplates(), 200); return; }
     if (act === 'shopinfo')  { close(); setTimeout(() => window.openShopSettings && window.openShopSettings(), 200); return; }
     // [2026-05-24] powerview 액션 제거 — 파워뷰 기능 폐지
     if (act === 'sync')      { close(); setTimeout(() => window.forceAppUpdate && window.forceAppUpdate(), 200); return; }

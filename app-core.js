@@ -504,7 +504,10 @@ function showToast(msg, opts) {
     // [P2 2026-09-13] 영문 fetch/abort 문구·원시 JSON·라벨 중복도 같은 길목에서 흡수
     safe = window._userSafeToastText(safe);
   } catch (_e) { void _e; }
-  _toastQueue.push({ msg: safe, type: o.type || 'info', duration: d });
+  /* [2026-09-13 UX] 되돌리기 같은 **누를 수 있는** 토스트. 예전엔 `onClick` 을 넘겨도 무시돼
+     "· 되돌리기 →" 글자만 붙고 눌러도 아무 일이 없었다(잇비 되돌리기 토스트). action 이 있으면 버튼을 그리고 조금 더 오래 둔다. */
+  const act = (o.action && typeof o.action.onClick === 'function') ? o.action : null;
+  _toastQueue.push({ msg: safe, type: o.type || 'info', duration: act ? Math.max(d, 6000) : d, action: act });
   if (!_toastActive) _nextToast();
 }
 
@@ -522,7 +525,7 @@ function _nextToast() {
 
   if (!_toastQueue.length) { _toastActive = false; return; }
   _toastActive = true;
-  const { msg, type, duration } = _toastQueue.shift();
+  const { msg, type, duration, action } = _toastQueue.shift();
 
   let el;
   try {
@@ -544,6 +547,21 @@ function _nextToast() {
     el.style.background = c.bg;
     el.style.color = c.color;
     el.textContent = msg;
+    if (action) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = action.label || '되돌리기';
+      b.style.cssText = 'margin-left:10px;padding:5px 11px;border:none;border-radius:9px;background:var(--brand,#BC6675);color:#fff;font:inherit;font-size:13px;font-weight:700;cursor:pointer;';
+      b.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        b.disabled = true;
+        try { action.onClick(); } catch (_ae) { void _ae; }
+        if (_toastHideTimer) { clearTimeout(_toastHideTimer); _toastHideTimer = null; }
+        _hideToastEl(el);
+        _toastNextTimer = setTimeout(_nextToast, 320);
+      });
+      el.appendChild(b);
+    }
 
     requestAnimationFrame(() => {
       el.style.opacity = '1';
@@ -4126,11 +4144,38 @@ window._bookingCancelMsg = function (booking) {
     if (st === 'completed') {
       const amt = Number(booking && booking.amount) || 0;
       lines.push(amt > 0
-        ? `완료된 예약이에요. 기록된 매출 ${amt.toLocaleString('ko-KR')}원이 환불로 상계돼 합계에서 빠져요.`
-        : '완료된 예약이에요. 기록된 매출이 환불로 상계돼 합계에서 빠져요.');
+        ? `시술 완료된 예약이라, 넣어둔 매출 ${amt.toLocaleString('ko-KR')}원은 취소 기록이 붙어 이번달 합계에서 빠져요.`
+        : '시술 완료된 예약이라, 넣어둔 매출은 취소 기록이 붙어 이번달 합계에서 빠져요.');
     }
   } catch (_e) { void _e; }
+  if (booking) lines.push('손님 기록은 그대로 남고, 방금 취소한 예약은 바로 되돌릴 수 있어요.');
   return lines.join('\n');
+};
+
+/* [2026-09-13 UX] 실수로 누른 예약 취소를 **그 자리에서** 되돌린다.
+   예전엔 취소하면 달력에서 사라지고 복구 길은 잇비에게 "복구해" 라고 말하는 것뿐이었다(원장은 모른다).
+   되돌리면 '확정' 으로 돌아간다. 완료였던 예약도 확정으로 — 매출은 취소 기록이 이미 붙어 합계 0 이고
+   (라이브 실측: +40,000 / -40,000), 다시 '시술 완료' 하면 새로 기록된다. 돈을 여기서 몰래 되살리지 않는다. */
+window._showBookingCancelledToast = function (bookingId, prevStatus, onRestored) {
+  const restoreTo = (prevStatus && prevStatus !== 'completed' && prevStatus !== 'cancelled') ? prevStatus : 'confirmed';
+  showToast('예약을 취소했어요', {
+    action: {
+      label: '되돌리기',
+      onClick: async () => {
+        try {
+          if (window.Booking && typeof window.Booking.update === 'function') await window.Booking.update(bookingId, { status: restoreTo });
+          else throw new Error('booking api missing');
+          try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'update_booking', booking_id: bookingId } })); } catch (_e) { void _e; }
+          showToast(prevStatus === 'completed'
+            ? '예약을 되돌렸어요 — 확정 상태예요. 시술이 끝났으면 다시 \'시술 완료\' 를 눌러 주세요'
+            : '예약을 되돌렸어요', { type: 'success', duration: 4000 });
+          if (typeof onRestored === 'function') { try { await onRestored(); } catch (_r) { void _r; } }
+        } catch (err) {
+          showToast('되돌리지 못했어요 — ' + (window._humanError ? window._humanError(err) : '잠시 후 다시 시도해 주세요'), 'error');
+        }
+      },
+    },
+  });
 };
 
 // 2중 확인 유틸 — 레거시 호환 stub (호출처는 _inlineConfirm 으로 교체 완료)

@@ -1555,7 +1555,9 @@
               }, {});
             } catch (_e) { void _e; }
             window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'update_booking', booking_id: raw.id } }));
-            if (window.showToast) window.showToast('예약을 취소했어요');
+            if (typeof window._showBookingCancelledToast === 'function') {
+              window._showBookingCancelledToast(raw.id, raw.status, async () => { _mappedCache = await _loadMonth(_curYear, _curMonth); _renderViewBody(); });
+            } else if (window.showToast) window.showToast('예약을 취소했어요');
             close();   // [Phase3-B #8] 성공했을 때만 상세 닫기
             _mappedCache = await _loadMonth(_curYear, _curMonth);
             _renderViewBody();
@@ -2233,13 +2235,16 @@
             const d = await r2.value.json();
             (d.items || []).forEach(r => {
               if (!r.service_name) return;
+              /* [2026-09-13 UX] 매출 목록엔 취소·환불 기록(음수)과 회원권 충전행도 섞여 있어
+                 "속눈썹 연장 환불" 같은 게 **시술 칩**으로 떴다. 실제로 받은 시술만 센다. */
+              if (!(Number(r.amount) > 0) || Number(r.membership_delta) > 0 || /환불|충전|취소/.test(r.service_name)) return;
               allNames.add(r.service_name);
               freq.set(r.service_name, (freq.get(r.service_name) || 0) + 1);
             });
           }
         }
       } catch (_) { /* ignore */ }
-      if (!allNames.size) ['젤 리무브','손톱 케어','젤 풀','젤 + 케어','젤 보강'].forEach(n => allNames.add(n));
+      // [2026-09-13 UX] 목록이 비면 **네일 시술 5개를 지어서** 보여줬다(헤어샵에도). 없으면 '+ 직접' 만 둔다.
       // 빈도수 기준 정렬 (없는 건 뒤로)
       const sorted = Array.from(allNames).sort((a, b) => (freq.get(b) || 0) - (freq.get(a) || 0));
       _renderChips(sorted);
@@ -2456,9 +2461,20 @@
         }
         if (window.hapticLight) window.hapticLight();
         const _name = payload.customer_name || '';
-        const toastMsg = _name
-          ? `✓ ${_name}님 ${d} ${sTime} 예약 ${existing ? '수정' : '추가'}됨`
-          : `✓ ${d} ${sTime} 예약 ${existing ? '수정' : '추가'}됨`;
+        /* [2026-09-13 UX] "✓ 홍길동님 2026-09-13 09:00 예약 추가됨" — 날짜가 개발자 형식이고
+           이름이 '…님' 으로 끝나면 "님님" 이 됐다. 원장 말로: "9월 13일(일) 오전 9:00 · 홍길동님 예약을 저장했어요". */
+        const _when = (() => {
+          try {
+            const [yy, mm, dd] = String(d).split('-').map(Number);
+            const [hh, mi] = String(sTime).split(':').map(Number);
+            const wd = ['일', '월', '화', '수', '목', '금', '토'][new Date(yy, mm - 1, dd).getDay()];
+            const ap = hh < 12 ? '오전' : '오후';
+            const h12 = hh % 12 === 0 ? 12 : hh % 12;
+            return `${mm}월 ${dd}일(${wd}) ${ap} ${h12}:${String(mi).padStart(2, '0')}`;
+          } catch (_w) { return `${d} ${sTime}`; }
+        })();
+        const _who = _name ? (/님$/.test(_name) ? _name : _name + '님') + ' ' : '';
+        const toastMsg = `${_when} · ${_who}예약을 ${existing ? '고쳤어요' : '저장했어요'}`;
         if (window.showToast) window.showToast(toastMsg);
         if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
         _mappedCache = await _loadMonth(_curYear, _curMonth);
@@ -2524,11 +2540,13 @@
             }
             window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'update_booking', booking_id: existing.id, customer_id: existing.customer_id || null } }));
             if (window.hapticLight) window.hapticLight();
-            if (window.showToast) window.showToast(`상태를 '${STATUS_LABEL[newStatus]}'로 변경했어요`);
+            if (newStatus === 'cancelled' && typeof window._showBookingCancelledToast === 'function') {
+              window._showBookingCancelledToast(existing.id, existing.status, async () => { _mappedCache = await _loadMonth(_curYear, _curMonth); _renderViewBody(); });
+            } else if (window.showToast) window.showToast(`상태를 '${STATUS_LABEL[newStatus]}'로 바꿨어요`);
             if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
             _mappedCache = await _loadMonth(_curYear, _curMonth);
             _renderViewBody();
-          } catch (_) { if (window.showToast) window.showToast('상태 변경 실패'); }
+          } catch (_) { if (window.showToast) window.showToast('상태를 바꾸지 못했어요. 예약은 그대로예요 — 잠시 후 다시 시도해 주세요'); }
           finally { _statusBusy = false; }
         };
         // [핫픽스D #6] 모든 취소 경로 확인 통일 — 상태 '취소'는 확인 후에만 반영.

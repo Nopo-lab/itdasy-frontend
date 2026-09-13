@@ -101,8 +101,8 @@
     return `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;gap:12px;">
         <div style="min-width:0;">
-          <h2 style="font-size:20px;font-weight:700;color:#191F28;margin:0;">시술 프리셋</h2>
-          <p style="font-size:13px;color:#8B95A1;margin:4px 0 0;line-height:1.5;">한 번 설정하면 예약·매출이 자동으로 움직입니다</p>
+          <h2 style="font-size:20px;font-weight:700;color:#191F28;margin:0;">시술 메뉴</h2>
+          <p style="font-size:13px;color:#8B95A1;margin:4px 0 0;line-height:1.5;">시술 이름·가격·걸리는 시간을 적어두면 예약·매출 넣을 때 바로 골라 쓸 수 있어요</p>
         </div>
         <button type="button" class="svc-add-btn" style="padding:10px 18px;border-radius:999px;background:#BC6675;color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;">+ 새 시술 추가</button>
       </div>`;
@@ -155,7 +155,7 @@
 
   // ── 자동 연동 흐름 다이어그램 ───────────────────────────
   function _renderFlowDiagram() {
-    const steps = ['프리셋 설정', '예약 추가', '예약 완료', '매출 기록', '리터치 알림'];
+    const steps = ['시술 메뉴 적기', '예약 추가', '예약 완료', '매출 기록', '리터치 알림'];
     const item = (s, i) => `
       <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
         <div style="width:32px;height:32px;border-radius:50%;background:#F7EFF0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#BC6675;">${i + 1}</div>
@@ -178,7 +178,7 @@
       `<div id="svc-add-panel" style="display:none;margin-bottom:14px;">${_addFormHTML()}</div>` +
       `<div id="svc-list">${_renderCards()}</div>` +
       _renderFlowDiagram();
-    window.openSheet({ title: '시술 프리셋', body: html });
+    window.openSheet({ title: '시술 메뉴', body: html });
     setTimeout(_bindMainHandlers, 50);
   }
 

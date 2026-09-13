@@ -484,9 +484,10 @@
       if (eff.revenue_created) _emitChange('create_revenue', { booking_id: ctx.booking_id, customer_id: ctx.customer_id, revenue_id: eff.revenue_id });
       if (window.hapticSuccess) window.hapticSuccess();
       if (window.showToast) {
-        if (eff.membership_deducted) window.showToast(`회원권 ${_fmt(eff.membership_deducted)} 차감 완료`);
-        else if (eff.revenue_created) window.showToast(`${_fmt(ctx.amount)} 매출 자동 기록됨`);
-        else window.showToast('예약 완료 (매출 미기록)');
+        // [2026-09-13 UX] 원장 말로 — 무엇이 어디에 들어갔는지까지.
+        if (eff.membership_deducted) window.showToast(`시술 완료했어요 · 이번 시술에서 회원권 ${_fmt(eff.membership_deducted)}을 차감했어요`);
+        else if (eff.revenue_created) window.showToast(`시술 완료했어요 · ${_fmt(ctx.amount)}을 이번달 매출에 넣었어요`);
+        else window.showToast('시술 완료했어요 · 매출에는 넣지 않았어요');
       }
       _close();
       _refreshConnectedViews();
@@ -558,7 +559,8 @@
       _busy = false;
       _emitChange('update_booking', { booking_id: ctx.booking_id, customer_id: ctx.customer_id });
       _invalidateAllCaches();
-      if (window.showToast) window.showToast('예약이 취소됐어요');
+      if (typeof window._showBookingCancelledToast === 'function') window._showBookingCancelledToast(ctx.booking_id, ctx.status, () => { _invalidateAllCaches(); _refreshConnectedViews(); });
+      else if (window.showToast) window.showToast('예약이 취소됐어요');
       _close();
       _refreshConnectedViews();
     } catch (e) {

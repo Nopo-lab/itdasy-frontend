@@ -40,7 +40,7 @@ describe('BUG-A2 · 완료된 예약을 취소하면 매출이 상계된다고 �
   test('완료 + 금액 → 금액까지 말한다', () => {
     const m = load()({ status: 'completed', amount: 10000 });
     expect(m).toContain('10,000원');
-    expect(m).toMatch(/상계|빠져/);
+    expect(m).toMatch(/상계|빠져/);   // [2026-09-13] 문구는 원장 말로 바뀜('합계에서 빠져요')
   });
 
   test('🔴 확정(미완료) 예약에는 돈 이야기를 하지 않는다', () => {
