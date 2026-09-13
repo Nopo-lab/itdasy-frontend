@@ -852,16 +852,26 @@
     return _bookingForCustomer({ id: customer.id, name: customer.name }, text);
   }
 
+  // [ITBI Closeout 2026-09-13 · CASE-034] "아까 그분 예약 있어?" → "🔍 아까님을 못 찾았어요".
+  //   가리키는 말(그분·아까·N번째…)은 **대화 맥락**이 있어야 풀린다 — 그 맥락은 서버 세션에만 있다.
+  //   여기서 낱말을 이름으로 짐작하면 멈춘 채 틀린 답을 낸다. 서버로 넘긴다.
+  const _LOOKUP_REF_RE = /(그|이|저)\s*(분|고객|손님|사람)|아까|방금|번째|맨\s*(위|처음)/;
+
   async function tryLookupBooking(text) {
     if (_disabled() || !_looksBookingLookup(text)) return null;
+    if (_LOOKUP_REF_RE.test(_trim(text))) return null;
     const target = _extractLookupTarget(text);
     if (!target.name) return null;
+    //   호칭('님') 근거 없이 낱말에서 고른 이름은 **짐작**이다. 짐작이 고객 목록에 없으면
+    //   "못 찾았어요" 로 단정하지 않고 서버(대화 맥락·사전 대조)에 양보한다.
+    const _honored = new RegExp(target.name + '\\s*님').test(text);
     let customers;
     try { const r = await _fetchJson('/customers?limit=500'); customers = (r && r.items) || []; }
     catch (_e) { void _e; return { matched: true, kind: 'message', text: '⚠️ 고객 정보 조회 실패. 잠시 후 다시.' }; }
     const scored = customers.map((c) => ({ c, score: _nameMatches(target.name, c.name || '') }))
       .filter((x) => x.score > 0).sort((a, b) => b.score - a.score);
     if (!scored.length) {
+      if (!_honored) return null;
       return { matched: true, kind: 'message', text: `🔍 ${target.name}님을 못 찾았어요. 이름을 다시 확인해 주세요.` };
     }
     const picked = _decideCustomer(scored);
