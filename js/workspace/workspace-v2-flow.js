@@ -208,6 +208,18 @@
   function photoUrl(p) { return p ? (p.editedDataUrl || p.dataUrl) : ''; }
   // [P0-1] 표시용 URL 문자열 → blob URL (innerHTML 재파싱·재디코드 제거). 비-dataURL 은 그대로 통과.
   //   ⚠️ dispUrl(p)(아래, photo→dataURL 접근자)과 다른 것 — 이건 URL 문자열 변환기(표시 전용).
+  /* [2026-09-13 ZH] 캡션 화면 대표 미리보기의 실제 크기 기억(원본 URL → {w,h}). 아래 photoThumb 주석 참조.
+     load 는 버블이 안 되므로 capture 로 받는다. 키는 원본 URL(표시용 blob URL 은 바뀔 수 있다). */
+  var _capPreviewDims = {};
+  try {
+    document.addEventListener('load', function (e) {
+      var im = e.target;
+      if (!im || im.tagName !== 'IMG' || !im.closest || !im.closest('.wsl-cap-preview')) return;
+      if (!(im.naturalWidth > 0 && im.naturalHeight > 0) || !d || !d.templateOutput) return;
+      if (im.getAttribute('src') !== _blobDisp(d.templateOutput)) return;   // 그사이 대표가 바뀌었으면 남의 크기를 적지 않는다
+      _capPreviewDims[d.templateOutput] = { w: im.naturalWidth, h: im.naturalHeight };
+    }, true);
+  } catch (_pd) { void _pd; }
   function _blobDisp(u) { return (window.WSBlobUrl && window.WSBlobUrl.disp) ? window.WSBlobUrl.disp(u) : u; }
   // [이슈2/11] 게시 대표 이미지 — 전후 템플릿 "적용 결과물"(d.templateOutput)이 있으면 그것을, 없으면 대표 사진.
   //   합성 결과물은 별도 필드로만 관리한다. 편집화면 사진 스트립/썸네일은 절대 이 값을 쓰지 않으므로
@@ -1543,9 +1555,14 @@
 	         ⚠️ 한 번 `aspect-ratio: 4/5` 로 칸을 예약해 봤다가 **되돌렸다** —
 	         `d.templateOutput` 이 늘 4:5 합성본인 게 아니라 원본 사진(1920×1280 = 1.5:1)일 때도 있어서,
 	         칸만 4:5 로 잡히고 그 아래 300px 빈 흰칸이 남았다. 비율을 **추측하면 더 나빠진다.**
-	         남은 밀림은 보고서에 P3 로 기록한다(수정하려면 templateOutput 의 실제 비율을 알아야 한다). */
+	         [2026-09-13 ZH] 질문에 답할 때마다 화면을 다시 그리면서 이 <img> 가 새로 만들어져 **매번** 높이 0 에서 시작했다.
+	         실측(라이브 Chrome · 9:16 합성본 1080×1920): 답 클릭 직후 img h 0 · '특이사항' 앵커 y 1691 → 690(−1001px) → 디코드 후 1686.
+	         → 한 번 디코드된 **실제 크기**(naturalWidth/Height)를 기억했다가 다시 그릴 때 width/height 로 넣는다.
+	           브라우저가 그 비율로 칸을 먼저 잡으므로 밀리지 않고, 추측이 아니라 그 이미지의 진짜 비율이다. */
+	      var _pvDim = d.templateOutput ? _capPreviewDims[d.templateOutput] : null;
 	      var photoThumb = d.templateOutput   /* [버그수정 2026-07-06] 재오픈 초안도 합성본 썸네일 */
-	        ? '<div class="wsl-cap-preview"><img src="' + esc(_blobDisp(d.templateOutput)) + '" alt="미리보기"></div>'
+	        ? '<div class="wsl-cap-preview"><img src="' + esc(_blobDisp(d.templateOutput)) + '" alt="미리보기"' +
+	          (_pvDim ? ' width="' + _pvDim.w + '" height="' + _pvDim.h + '"' : '') + '></div>'
 	        : (_capCarouselHtml() || ((!d.textOnly && url) ?
 	        '<div class="cap-photo cap-photo--sm" style="background-image:url(' + esc(_blobDisp(url)) + ')"></div>' : ''));
 	      // [캡션재설계 v2 2026-07-15] 자유 서술 텍스트영역(500자) 제거 — 질문 3카드 + 시술 칩(단일선택) + 특이사항 한 줄.
