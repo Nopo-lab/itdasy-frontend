@@ -403,6 +403,8 @@
         createdAt: _now(), thumb: null,
         shopStyleId: _activeShopStyleId(),
         kind: _kindOf(state, (d && d.service) || (slot && slot.service) || ''),   // [T3] select 의 kindFit 근거
+        // [2026-09-13 ZH] 업종 — 자동 적용을 같은 시술에만 하려고 남긴다(엔진 _serviceMatch). 첫 시술 하나, 소문자·공백 정리.
+        service: String((d && d.service) || (slot && slot.service) || '').split(',')[0].replace(/\s+/g, ' ').trim().toLowerCase(),
         applyCount: 0, lastAppliedAt: 0,
         publishCount: 1, lastPublishedAt: _now()   // 캡처 = 저장/발행된 글에서 왔다 — publish:false 여도 사실
       }, state);

@@ -356,6 +356,20 @@
         원장이 "이건 이 스타일" 이라고 눌러서 알려준 정보라 추측보다 정확하다.
      ⚠️ 칸이 늘면 칸당 표본이 준다 → `resolve` 의 계층 조회(§11)가 반드시 같이 있어야 한다.
         스타일별 증거가 없으면 스타일 무관 증거로 내려간다. */
+  /* [2026-09-13 ZH] 기억의 업종이 지금 시술과 **분명히 다른가.** 첫 시술 하나를 소문자·공백 정리로 비교.
+     모르면 다르다고 하지 않는다(기존 동작 유지 · 추측 금지): 지금 시술 미선택 / 업종을 판별할 수 없는 옛 기억.
+     옛 기억(service 필드 없음)은 자동 이름 형식 `시술명 + ' ' + 구조어`(_makeName)와 **정확히 맞을 때만** 시술명을 읽는다.
+     원장이 이름을 바꾼 기억('내 시그니처')이나 시술명 없이 만든 기억('한 장, …')은 모름으로 둔다. */
+  var _AUTO_NAME_RE = /^(.{1,10}) (한 장|전후비교|콜라주 \d+장)(,|$)/;
+  function _svc(v) { return String(v || '').split(',')[0].replace(/\s+/g, ' ').trim().toLowerCase(); }
+  function _serviceMismatch(m, current) {
+    var cur = _svc(current);
+    if (!cur || !m) return false;
+    if (m.service) return _svc(m.service) !== cur;
+    var mm = _AUTO_NAME_RE.exec(String(m.name || '').trim());
+    if (!mm) return false;
+    return _svc(mm[1]) !== cur.slice(0, 10);
+  }
   function _setLast(info) { try { window.WorkMemoryEngine._lastSelect = info; } catch (_e) { void _e; } }
   /* once('이 스타일로 또') > auto(select) > ★(auto OFF 일 때만).
      consumeOnce: 편집기 경로만 true — 헤드리스(미리보기)가 1회 지정을 소비하면
@@ -374,6 +388,18 @@
           photoCount: o.photoCount, hasBeforeAfter: o.hasBeforeAfter, service: o.service,
           texts: (o.incoming || []).map(function (l) { return l && l.text; })
         });
+        /* [2026-09-13 ZH] 🔴 **다른 시술 사진에 원장 동의 없이 꾸밈이 얹혔다.**
+           `select` 는 점수 1등을 **무조건** 돌려주고(최소 점수 없음) 점수에 **업종 축이 없다.**
+           그래서 기억이 하나뿐이면 어느 시술이든 그게 이긴다.
+           실측(2026-09-13, 라이브 계정): 붙임머리 글에 ✨💎 스티커 + '첫 방문 이벤트' → 저장(기억 1개 자동 생성)
+           → 다음 글 **젤네일** 사진의 캡션 미리보기(= 발행본)에 💎 가 구워져 나왔다.
+           로그: via auto · kindFit −30 인데도 total 37 로 유일 후보라 채택. 글자는 dynamic 으로 빠졌지만 스티커는 통과.
+           → 기억의 시술이 지금 시술과 **분명히 다르면** 자동으로 얹지 않는다(모르면 기존 동작 — 추측 금지).
+             원장이 직접 고른 once('이 스타일로 또')·잇비 "평소 하던 대로"(ignoreFlag)는 그대로다. */
+        if (s.memory && !mode.ignoreFlag && _serviceMismatch(s.memory, o.service)) {
+          _setLast({ via: 'none', memoryId: null, reason: { blocked: 'service-mismatch', memoryId: s.memory.id }, candidates: s.candidates });
+          return null;
+        }
         _setLast({ via: s.memory ? 'auto' : 'none', memoryId: s.memory ? s.memory.id : null, reason: s.reason, candidates: s.candidates });
         return s.memory ? { rec: s.memory } : null;
       }
