@@ -439,6 +439,25 @@
       _send();
     });
     sheet.addEventListener('click', (e) => {
+      const sb = e.target.closest('[data-asst-fa-send]');
+      const db = e.target.closest('[data-asst-fa-del]');
+      if (!sb && !db) return;
+      const idx = parseInt(sb ? sb.dataset.asstFaSend : db.dataset.asstFaDel, 10);
+      const m = _history[idx];
+      if (!m || !m.failed_ask_id) return;
+      const list = _readFailedAsks();
+      const fa = list.find(x => x.id === m.failed_ask_id);
+      // 보내기 전에 **먼저 지운다** — 연타·다른 탭에서 같은 질문이 두 번 나가지 않게.
+      _writeFailedAsks(list.filter(x => x.id !== m.failed_ask_id));
+      _history.splice(idx, 1);
+      _renderHistory();
+      if (sb && fa) {
+        const input = document.getElementById('asstInput');
+        if (input) input.value = fa.q;
+        _send();
+      }
+    });
+    sheet.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-pm-nav]');
       if (!btn) return;
       const cmd = btn.dataset.pmNav === 'back' ? '← 이전'
@@ -591,7 +610,9 @@
       ? `<div style="background:#F2F4F6;border-radius:16px;border-top-left-radius:4px;padding:10px 14px;width:fit-content;max-width:100%;box-sizing:border-box;font-size:14px;line-height:1.55;color:#191F28;font-weight:500;white-space:pre-wrap;letter-spacing:-0.2px;">${_textInner}</div>`
       : `<div style="padding:2px 2px 0;font-size:14px;line-height:1.55;color:#191F28;font-weight:500;white-space:pre-wrap;letter-spacing:-0.2px;">${_textInner}</div>`);
     // [2026-06-10] 타임아웃 메시지에 [다시 시도] 버튼 — 같은 질문 재타이핑 없이 1탭 재시도
-    const retryHtml = m.retry_q ? `<div style="margin-top:8px;"><button type="button" data-asst-retry="${idx}" style="padding:9px 18px;border:1px solid #E5E8EB;border-radius:999px;background:#fff;color:#191F28;font-size:13px;font-weight:600;cursor:pointer;">다시 시도</button></div>` : '';
+    const retryHtml = (m.retry_q ? `<div style="margin-top:8px;"><button type="button" data-asst-retry="${idx}" style="padding:9px 18px;border:1px solid #E5E8EB;border-radius:999px;background:#fff;color:#191F28;font-size:13px;font-weight:600;cursor:pointer;">다시 시도</button></div>` : '')
+      // [Remaining Zero · P3] 세션이 끊겨 못 보낸 질문 — 자동 재전송은 없다. 원장님이 눌러야 한 번 보낸다.
+      + (m.failed_ask_id ? `<div style="margin-top:8px;display:flex;gap:6px;"><button type="button" data-asst-fa-send="${idx}" style="padding:9px 16px;border:1px solid #E5E8EB;border-radius:999px;background:#fff;color:#191F28;font-size:13px;font-weight:600;cursor:pointer;">다시 보내기</button><button type="button" data-asst-fa-del="${idx}" style="padding:9px 16px;border:1px solid #E5E8EB;border-radius:999px;background:#fff;color:#6B7684;font-size:13px;font-weight:600;cursor:pointer;">삭제</button></div>` : '');
     // [잇비 관측 2026-09-11] 신고에 **재현 좌표**를 같이 싣는다(대화·턴·intent·빌드·마스킹된 질문).
     //   이게 없으면 "답이 틀렸어요" 를 받아도 다음 업데이트에 반영할 방법이 없다.
     const _tr = (m && m.trace) || {};
@@ -4761,6 +4782,7 @@
     if (!res.ok) {
       let _detail = '';
       try { _detail = ((await res.clone().json()) || {}).detail || ''; } catch (_je) { _detail = ''; }
+      if (res.status === 401) return { answer: _detail || '로그인이 필요해요.', actions: [], _serverNotice: true, _authExpired: true };
       if (_detail && /[가-힣]/.test(_detail)) return { answer: _detail, actions: [], _serverNotice: true };
       throw new Error('HTTP ' + res.status);
     }
@@ -4858,6 +4880,16 @@
       const _nc = _networkErrorCode(e);
       if (_nc) _reportClientEvent('network_error', { error_code: _nc, error_stage: 'ask' });
     } catch (_e) { void _e; }
+    try {
+      if (/HTTP 401\b/.test(String((e && e.message) || ''))) {
+        const _lu = [..._history].reverse().find(m => m && m.role === 'user');
+        if (_lu && _lu.text) {
+          _saveFailedAsk(_lu.text);
+          _history.push({ role: 'assistant', text: '🔒 로그인이 끊겨서 이 질문을 보내지 못했어요. 다시 로그인하시면 "다시 보내기"로 이어서 보낼 수 있게 이 기기에 남겨 뒀어요.' });
+          _renderHistory(); _clearChatPending(); return;
+        }
+      }
+    } catch (_e2) { void _e2; }
     _history.push({ role: 'assistant', text: _sendErrorText(e) });
     _renderHistory();
     _clearChatPending();
@@ -5267,6 +5299,86 @@
     catch (_e) { void _e; }
   }
 
+  /* [ITBI Remaining Zero 2026-09-14 · P3] **로고 디자인 요청이 문구 편집 시트로 갔다.**
+     실측(최종 게이트 §7): "포토샵으로 로고 디자인해줘" → create_intent_fallback → '문구 편집' 시트가 열리고 잇비 창이 가려짐.
+     제품 결정 A(기본값): 로고·심볼·간판 시안 제작은 **현재 지원 범위 밖**. 억지로 편집기·작업실로 보내지 않고
+     못 한다고 말한 뒤, 지금 바로 되는 것(캡션·홍보 문구·가격표)만 칩으로 준다. 기존 로고를 사진에 넣는 말은 제외. */
+  const _DESIGN_OOS_RE = /(로고|심볼|엠블럼|엠블렘|브랜드\s*마크|간판\s*(로고|디자인|시안))/;
+  const _DESIGN_OOS_VERB_RE = /(만들|디자인|그려|그리|제작|시안|추천|뽑아|이미지|생성|짜\s*줘|해\s*줘|줘|어때)/;
+  const _DESIGN_OOS_SKIP_RE = /(넣어|올려|붙여|워터마크|업로드|교체|사진에|위치)/;
+  const _DESIGN_OOS_CHIPS = ['인스타 캡션 만들어줘', '홍보 문구 만들어줘', '가격표 만들어줘', '잇비 뭐 할 수 있어?'];
+  function _looksDesignOutOfScope(q) {
+    const t = String(q || '');
+    return _DESIGN_OOS_RE.test(t) && _DESIGN_OOS_VERB_RE.test(t) && !_DESIGN_OOS_SKIP_RE.test(t);
+  }
+  function _tryDesignOutOfScope(input, q, via) {
+    if (!_looksDesignOutOfScope(q)) return false;
+    _clearAssistantInput(input);
+    _history.push({ role: 'user', text: q });
+    try { _syncQuickSuggestVisibility(); } catch (_e) { void _e; }
+    _history.push({ role: 'assistant',
+      text: '🎨 로고·심볼 같은 디자인 제작은 아직 잇비가 지원하지 않아요.\n대신 샵 홍보에 바로 쓸 수 있는 건 지금 만들어 드릴게요 — 인스타 캡션, 홍보 문구, 가격표 카드.',
+      related: _DESIGN_OOS_CHIPS.slice() });
+    _renderHistory();
+    try { _reportClientEvent('unsupported_request', { handled_by: 'design_out_of_scope', fallback_reason: 'unsupported_capability', question: q, via: via || 'typed' }); } catch (_e) { void _e; }
+    return true;
+  }
+
+  /* [ITBI Remaining Zero 2026-09-14 · P3] **세션이 끊긴 사이 친 잇비 질문이 새로고침에 사라졌다.**
+     실측(최종 게이트 세션 만료): 질문은 말풍선에만 남고 로컬 저장 0 · 로그인 화면의 '작업 보관' 안내는 잇비 질문엔 해당 없음.
+     정책: 조회든 쓰기든 **자동 재전송 금지**. 이 기기에만(서버·로그 전송 0) 계정별로 짧게(6시간·최대 3개) 보관하고,
+     다시 로그인한 뒤 잇비를 열면 [다시 보내기]/[삭제] 를 보여준다. 쓰기 말이면 "확인 카드부터 다시" 라고 알린다 —
+     다시 보내도 확인 카드가 먼저 뜨고, 이미 누른 실행은 서버 멱등키가 막는다. 키는 itdasy_ 접두사라 계정 전환 시 지워진다. */
+  const _FAILED_ASK_PREFIX = 'itdasy_itbi_failed_ask::';
+  const _FAILED_ASK_TTL = 6 * 3600 * 1000;
+  const _FAILED_ASK_WRITE_RE = /(잡아|예약해|취소|변경|바꿔|추가|등록|기록|충전|차감|환불|보내|발송|삭제|지워|메모해|남겨|결제|사용해)/;
+  function _failedAskKey() {
+    try { const u = localStorage.getItem('last_user_id'); return u ? _FAILED_ASK_PREFIX + u : null; } catch (_e) { return null; }
+  }
+  function _readFailedAsks() {
+    const k = _failedAskKey(); if (!k) return [];
+    try {
+      const a = JSON.parse(localStorage.getItem(k) || '[]');
+      const now = Date.now();
+      return (Array.isArray(a) ? a : []).filter(x => x && x.q && x.id && x.expires_at > now).slice(-3);
+    } catch (_e) { return []; }
+  }
+  function _writeFailedAsks(list) {
+    const k = _failedAskKey(); if (!k) return;
+    try {
+      if (list && list.length) localStorage.setItem(k, JSON.stringify(list.slice(-3)));
+      else localStorage.removeItem(k);
+    } catch (_e) { void _e; }
+  }
+  function _saveFailedAsk(q) {
+    const t = String(q || '').trim(); if (!t) return;
+    const list = _readFailedAsks().filter(x => x.q !== t);
+    list.push({ id: 'fa_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), q: t,
+      write: _FAILED_ASK_WRITE_RE.test(t), conversation_id: _sessionId || null,
+      created_at: Date.now(), expires_at: Date.now() + _FAILED_ASK_TTL });
+    _writeFailedAsks(list);
+  }
+  function _offerFailedAsks() {
+    try {
+      if (window.__itdasyAuthDead) return;
+      const tok = (typeof window.getToken === 'function') ? window.getToken() : null;
+      if (!tok) return;
+      const list = _readFailedAsks();
+      if (!list.length) return;
+      let added = false;
+      list.forEach((fa) => {
+        if (_history.some(m => m && m.failed_ask_id === fa.id)) return;
+        const preview = fa.q.length > 40 ? fa.q.slice(0, 40) + '…' : fa.q;
+        _history.push({ role: 'assistant', local_only: true, failed_ask_id: fa.id,
+          text: '📨 로그인이 끊겨서 보내지 못한 잇비 질문이 있어요.\n"' + preview + '"'
+            + (fa.write ? '\n다시 보내면 확인 카드부터 다시 보여드려요. 원장님이 누르기 전엔 아무것도 바뀌지 않아요.' : '') });
+        added = true;
+      });
+      if (added) _renderHistory();
+    } catch (_e) { void _e; }
+  }
+  try { window.addEventListener('itdasy:session-ready', () => setTimeout(() => { if (document.getElementById('assistantSheet')) _offerFailedAsks(); }, 600)); } catch (_e) { void _e; }
+
   // [P1-5] 미지원(세부편집)/평가·재시도/문맥부족 발화를 백엔드로 안 보내고 정직하게 안내(인터넷오류 거짓 수렴 차단).
   function _tryUnsupportedGuide(input, q) {
     const U = window.ItbiUnsupportedIntent;
@@ -5532,6 +5644,8 @@
       if (ok) { try { _reportClientTurn(name, q, _via0); } catch (_e) { void _e; } }
       return ok;
     };
+    // [Remaining Zero · P3] 로고·심볼 제작은 지원 범위 밖 — 문구 편집 시트·작업실·사진모드로 새기 전에 여기서 정직하게.
+    if (_tryDesignOutOfScope(input, q, _via0)) return;
     _photoModeReannounce = '';
     if (_pendingBA) { _pendingBA = null; }   // [P1] 전후 대기 중 다른 텍스트 요청 → pending 정리
     // [BA 동선] 다른 텍스트 요청이 오면 BA 자동연결 대기 해제(전후 재요청이면 _openBeforeAfterCreate 가 다시 세팅).
@@ -5605,7 +5719,12 @@
     if (_tryUnsupportedGuide(input, q)) return;
     _beginTextAsk(input, q);
     try {
-      _finishAskResponse(q, await _postAssistantAsk(q));
+      const _resp = await _postAssistantAsk(q);
+      if (_resp && _resp._authExpired) {
+        _saveFailedAsk(q);
+        _resp.answer = '🔒 로그인이 끊겨서 이 질문을 보내지 못했어요. 다시 로그인하시면 "다시 보내기"로 이어서 보낼 수 있게 이 기기에 남겨 뒀어요.';
+      }
+      _finishAskResponse(q, _resp);
     } catch (e) {
       _handleSendError(e);
     } finally {
@@ -5798,6 +5917,7 @@
     // [2026-04-29 F1] 능동 제안 carousel — chat 입력창 위
     // [연준님 2026-08-16] 계정이 바뀌었으면 이전 원장 대화 상태부터 버린다(가장 먼저).
     _resetIfUserChanged();
+    _offerFailedAsks();
     _loadProactiveSuggestions();
     // [연준님 2026-08-15 · A] 계정 상태 기반 초기 추천질문 (LLM 0회, 1분 캐시)
     _loadStarters();
