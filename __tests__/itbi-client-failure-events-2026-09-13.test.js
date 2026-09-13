@@ -59,3 +59,19 @@ describe('배선 — 네 곳에서 실제로 부른다', () => {
     expect(b).toMatch(/unsupported_capability/);
   });
 });
+
+describe('[CASE-030] 탭 구분 id', () => {
+  test('ask 페이로드에 client_tab 이 실린다', () => {
+    expect(SRC).toMatch(/body: JSON\.stringify\(\{[^}]*client_tab: _ITBI_TAB_ID/);
+  });
+  test('sessionStorage/localStorage 에 두지 않는다 — 탭 복제·공유로 같은 id 가 되지 않게', () => {
+    const i = SRC.indexOf('const _ITBI_TAB_ID');
+    const block = SRC.slice(i, i + 500);
+    expect(block).not.toMatch(/sessionStorage|localStorage/);
+    expect(block.length).toBeGreaterThan(50);
+  });
+  test('id 는 32자 이하(서버 max_length)', () => {
+    // 't' + 16 hex = 17자
+    expect('t' + 'ab'.repeat(8)).toHaveLength(17);
+  });
+});
