@@ -171,8 +171,8 @@ describe('[J] 3경로 동일 — 헤드리스 / 편집기 / 잇비가 같은 꾸
     WM.captureFromSlot(slot([T(), { type: 'sticker', emoji: '✨', x: 0.2, y: 0.2, size: 0.1 }]), {});
     const opts = { incoming: [{ role: 'title', text: '이번 글' }], photoCount: 1, layersOnly: true };
     const headless = WM.defaultEditState(opts);
-    const editor = E.forEditor({ restore: false, incoming: opts.incoming, photoCount: 1, layersOnly: true });
-    const orch = E.forEditor({ restore: false, orch: { useRecentStyle: true }, incoming: opts.incoming, photoCount: 1, layersOnly: true });
+    const editor = E.forEditor({ restore: false, incoming: opts.incoming, photoCount: 1, service: '젤네일', layersOnly: true });
+    const orch = E.forEditor({ restore: false, orch: { useRecentStyle: true }, incoming: opts.incoming, photoCount: 1, service: '젤네일', layersOnly: true });
     // [T4 갱신] 편집기 경로엔 되돌리기용 런타임 태그(_src/_wmTok)가 붙는다 — 계약은 '같은 꾸밈'이지
     //   런타임 메타가 아니므로 태그를 벗기고 비교한다(태그 자체는 work-memory-apply-undo.test.js 가 잠금).
     const strip = (ls) => ls.map(({ _src, _wmTok, ...rest }) => rest);
@@ -255,7 +255,7 @@ describe("[T2'] 카운터 의미 — 헤드리스는 세지 않는다", () => {
     const { WM, E } = loadAll();
     // role 텍스트만 있으면 incoming:[] 일 때 toEditState 가 전부 드롭해 null(기존 동작) → 스티커 포함 픽스처.
     const rec = WM.captureFromSlot(slot([T(), { type: 'sticker', emoji: '✨', x: 0.2, y: 0.2, size: 0.1 }]), {});
-    E.forEditor({ restore: false, incoming: [], photoCount: 1 });
+    E.forEditor({ restore: false, incoming: [], photoCount: 1, service: '젤네일' });
     expect(WM.get(rec.id).applyCount).toBe(1);
     expect(WM.get(rec.id).publishCount).toBe(1);   // 발행은 안 올라감
   });
@@ -279,12 +279,12 @@ describe("[T2] applyOnce — '이 스타일로 또'가 ★를 덮어쓰지 않�
     expect(WM.getDefaultId()).toBe(a.id);          // applyOnce 가 ★를 안 바꿈 (구 setDefault 와 결정적 차이)
     const peek = WM.defaultEditState({ incoming: [], photoCount: 1, layersOnly: true });
     expect(peek.layers.some((l) => l.emoji === '🌙')).toBe(true);          // 미리보기도 b (피크)
-    const ed1 = E.forEditor({ restore: false, incoming: [], photoCount: 1, layersOnly: true });
+    const ed1 = E.forEditor({ restore: false, incoming: [], photoCount: 1, service: '젤네일', layersOnly: true });
     expect(ed1.layers.some((l) => l.emoji === '🌙')).toBe(true);           // 편집기 = b (소비)
     expect(E._lastSelect.via).toBe('once');
     // [T3 갱신] 소비 후엔 '강제'가 풀리고 자동 선택으로 돌아간다(★ 복귀가 아니라 상황 스코어).
     //   어느 기억이 뽑히는지는 스코어 소관 — 여기선 once 가 더는 강제되지 않음만 잠근다.
-    const ed2 = E.forEditor({ restore: false, incoming: [], photoCount: 1, layersOnly: true });
+    const ed2 = E.forEditor({ restore: false, incoming: [], photoCount: 1, service: '젤네일', layersOnly: true });
     expect(ed2).toBeTruthy();
     expect(E._lastSelect.via).toBe('auto');                                // once 아님 = 1회 강제 종료
     expect(WM.getDefaultId()).toBe(a.id);                                  // ★는 끝까지 a

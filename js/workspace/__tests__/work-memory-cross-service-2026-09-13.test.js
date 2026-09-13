@@ -69,11 +69,20 @@ describe('자동 적용은 같은 시술에만 — 라이브 재현 경로', () 
     expect(stickers(st).length).toBeGreaterThan(0);
   });
 
-  test('지금 시술을 모르면 기존 동작(추측해서 막지 않는다)', () => {
+  test('🔴 지금 시술을 모르면(잇비 → 시술 고르기 전 편집기) 시술이 분명한 기억은 얹지 않는다', () => {
     const { WM, E } = loadAll();
     WM.captureFromSlot(hairSlot(), { service: '붙임머리' });
     const st = E.forEditor({ restore: false, incoming: [], photoCount: 1 });
-    expect(stickers(st).length).toBeGreaterThan(0);
+    expect(stickers(st)).toEqual([]);
+    expect(E.decorateLayers([], { photoCount: 1, service: '' })).toEqual([]);
+    expect(E._lastSelect).toMatchObject({ via: 'none', reason: { blocked: 'service-mismatch' } });
+  });
+  test('둘 다 모르는 기억(시술 없이 저장·이름 바뀜)은 기존 동작', () => {
+    const { WM, E } = loadAll();
+    const s = hairSlot(); delete s.service;
+    WM.captureFromSlot(s, {});
+    const m = WM.list()[0]; WM.rename(m.id, '내 시그니처');
+    expect(stickers(E.forEditor({ restore: false, incoming: [], photoCount: 1 })).length).toBeGreaterThan(0);
   });
 
   test('잇비 "평소 하던 대로"(명시 요청)는 시술이 달라도 적용한다', () => {
@@ -103,6 +112,10 @@ describe('옛 기억(시술 필드 없음) — 자동 이름에서만 시술을 
   });
   test('원장이 이름을 바꾼 기억은 시술을 모르므로 막지 않는다', () => {
     expect(run('내 시그니처', '젤네일')).toEqual(['💎']);
+    expect(run('내 시그니처', '')).toEqual(['💎']);
+  });
+  test('🔴 옛 자동 이름 기억 + 지금 시술 모름 → 안 얹는다', () => {
+    expect(run('붙임머리 한 장, 글씨 아래 가운데정렬', '')).toEqual([]);
   });
   test('시술명 없이 만든 기억("한 장, …")도 모름', () => {
     expect(run('한 장, 스티커만', '젤네일')).toEqual(['💎']);

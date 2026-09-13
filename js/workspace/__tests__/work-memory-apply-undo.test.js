@@ -39,7 +39,7 @@ describe('[③] 태깅 경계 — wm 레이어만, 오염 없음', () => {
   test('forEditor 산출 레이어 전부 _src=wm + 같은 토큰, _lastApply 기록', () => {
     const { WM, E } = loadAll();
     seedOne(WM);
-    const st = E.forEditor({ restore: false, incoming: [], photoCount: 1, layersOnly: true });
+    const st = E.forEditor({ restore: false, incoming: [], photoCount: 1, service: '젤네일', layersOnly: true });
     expect(st.layers.length).toBeGreaterThan(0);
     expect(st.layers.every((l) => l._src === 'wm')).toBe(true);
     const toks = new Set(st.layers.map((l) => l._wmTok));
@@ -50,7 +50,7 @@ describe('[③] 태깅 경계 — wm 레이어만, 오염 없음', () => {
   test('base(우리샵/이번 글) 레이어는 병합 후에도 태그가 안 붙는다', () => {
     const { WM, E } = loadAll();
     seedOne(WM);
-    const wm = E.forEditor({ restore: false, incoming: [], photoCount: 1, layersOnly: true });
+    const wm = E.forEditor({ restore: false, incoming: [], photoCount: 1, service: '젤네일', layersOnly: true });
     const base = { layoutIdx: 4, layers: [{ role: 'title', text: '이번 글' }, { type: 'line', x: 0.5, y: 0.5 }] };
     const merged = E.mergeEditState(base, wm);
     merged.layers.forEach((l) => {
@@ -70,9 +70,9 @@ describe('[⑥] 토큰 identity — 적용마다 새 토큰', () => {
   test('두 번 적용 → 서로 다른 토큰 (A 배너가 B 적용을 못 지목)', () => {
     const { WM, E } = loadAll();
     seedOne(WM);
-    const a = E.forEditor({ restore: false, incoming: [], photoCount: 1, layersOnly: true });
+    const a = E.forEditor({ restore: false, incoming: [], photoCount: 1, service: '젤네일', layersOnly: true });
     const tokA = E._lastApply.token;
-    const b = E.forEditor({ restore: false, incoming: [], photoCount: 1, layersOnly: true });
+    const b = E.forEditor({ restore: false, incoming: [], photoCount: 1, service: '젤네일', layersOnly: true });
     const tokB = E._lastApply.token;
     expect(tokA).not.toBe(tokB);
     expect(a.layers[0]._wmTok).toBe(tokA);
@@ -81,15 +81,15 @@ describe('[⑥] 토큰 identity — 적용마다 새 토큰', () => {
   test('이번 오픈에 적용이 없으면 _lastApply 는 null 로 리셋(스테일 배너 방지)', () => {
     const { WM, E } = loadAll();
     seedOne(WM);
-    E.forEditor({ restore: false, incoming: [], photoCount: 1, layersOnly: true });
+    E.forEditor({ restore: false, incoming: [], photoCount: 1, service: '젤네일', layersOnly: true });
     expect(E._lastApply).toBeTruthy();
-    E.forEditor({ restore: true, incoming: [], photoCount: 1 });        // restore = 적용 안 함
+    E.forEditor({ restore: true, incoming: [], photoCount: 1, service: '젤네일' });        // restore = 적용 안 함
     expect(E._lastApply).toBeNull();
   });
   test('헤드리스(decorateLayers)는 _lastApply 를 안 만든다(배너 주체는 편집기뿐)', () => {
     const { WM, E } = loadAll();
     seedOne(WM);
-    E.decorateLayers([], { photoCount: 1 });
+    E.decorateLayers([], { photoCount: 1, service: '젤네일' });
     expect(E._lastApply).toBeNull();
   });
 });

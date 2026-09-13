@@ -67,7 +67,7 @@ describe('[G2] 캡처 → 적용 왕복 — 더는 조용히 사라지지 않는
     const rec = WM.captureFromSlot(slotWith([img(big), { type: 'sticker', emoji: '✨', x: 0.2, y: 0.2, size: 0.1 }]), {});
     await tick();
     expect(rec.layers.some((l) => l.assetRef)).toBe(true);
-    const st = E.forEditor({ restore: false, incoming: [], photoCount: 1, layersOnly: true });
+    const st = E.forEditor({ restore: false, incoming: [], photoCount: 1, service: '젤', layersOnly: true });
     const imgL = st.layers.find((l) => l.type === 'image');
     expect(imgL).toBeTruthy();
     expect(imgL.src).toBe(big);                               // 캐시에서 복원
@@ -103,7 +103,7 @@ describe('[안전] 자산 유실·스토어 부재', () => {
       shopStyleId: null, kind: 'unknown', applyCount: 0, lastAppliedAt: 0, publishCount: 1, lastPublishedAt: NOW,
     }]);
     global.localStorage._m['itdasy:work_memory:default'] = JSON.stringify('m1');
-    const st = E.forEditor({ restore: false, incoming: [], photoCount: 1, layersOnly: true });
+    const st = E.forEditor({ restore: false, incoming: [], photoCount: 1, service: '젤', layersOnly: true });
     expect(st).toBeTruthy();
     expect(st.layers.some((l) => l.assetRef || l.type === 'image')).toBe(false);   // 유령 참조 제외
     expect(st.layers.some((l) => l.emoji === '✨')).toBe(true);
@@ -115,7 +115,7 @@ describe('[안전] 자산 유실·스토어 부재', () => {
     const rec = WM.captureFromSlot(slotWith([img(big)]), {});
     expect(rec).toBeTruthy();
     expect(rec.layers.some((l) => l.assetRef)).toBe(true);
-    const st = E.forEditor({ restore: false, incoming: [], photoCount: 1, layersOnly: true });
+    const st = E.forEditor({ restore: false, incoming: [], photoCount: 1, service: '젤', layersOnly: true });
     expect(st.layers.find((l) => l.type === 'image').src).toBe(big);   // 같은 세션 = 메모리 캐시로 복원
   });
 });
@@ -135,7 +135,7 @@ describe('[T7 preflight] 발행물 굽기 — 자산 미해소면 통째 보류(
     const { E } = loadAll();
     seedGhost();
     const base = [{ role: 'title', text: '이번 글', type: 'text' }];
-    const out = E.decorateLayers(base, { photoCount: 1 });
+    const out = E.decorateLayers(base, { photoCount: 1, service: '젤' });
     expect(out).toBe(base);                                    // 보류 = 아무것도 안 얹음(부분 굽기 금지)
   });
   test('자산이 해소되면(웜업 완료 상당) 같은 호출이 정상 반영된다 — 보류는 일시적', async () => {
@@ -143,9 +143,9 @@ describe('[T7 preflight] 발행물 굽기 — 자산 미해소면 통째 보류(
     seedGhost();
     await window.saveAssetToDB({ id: 'img:ghost', dataUrl: bigSrc(9000), createdAt: Date.now() });
     // 웜업 재시도 경로: 미적재 상태에서 한 번 실패 → warm → 다음 호출은 캐시 적중
-    E.decorateLayers([], { photoCount: 1 });
+    E.decorateLayers([], { photoCount: 1, service: '젤' });
     await tick(); await tick();
-    const out = E.decorateLayers([], { photoCount: 1 });
+    const out = E.decorateLayers([], { photoCount: 1, service: '젤' });
     expect(out.some((l) => l.type === 'image' && l.src)).toBe(true);
     expect(out.some((l) => l.emoji === '✨')).toBe(true);
     void WM; void store;
@@ -153,7 +153,7 @@ describe('[T7 preflight] 발행물 굽기 — 자산 미해소면 통째 보류(
   test('편집기(forEditor)는 기존 fallback 유지 — 원장이 보는 단계라 그 레이어만 제외(합의 경계)', () => {
     const { E } = loadAll();
     seedGhost();
-    const st = E.forEditor({ restore: false, incoming: [], photoCount: 1, layersOnly: true });
+    const st = E.forEditor({ restore: false, incoming: [], photoCount: 1, service: '젤', layersOnly: true });
     expect(st).toBeTruthy();
     expect(st.layers.some((l) => l.emoji === '✨')).toBe(true);
     expect(st.layers.some((l) => l.type === 'image')).toBe(false);

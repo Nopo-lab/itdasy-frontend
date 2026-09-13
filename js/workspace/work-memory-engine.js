@@ -362,13 +362,24 @@
      원장이 이름을 바꾼 기억('내 시그니처')이나 시술명 없이 만든 기억('한 장, …')은 모름으로 둔다. */
   var _AUTO_NAME_RE = /^(.{1,10}) (한 장|전후비교|콜라주 \d+장)(,|$)/;
   function _svc(v) { return String(v || '').split(',')[0].replace(/\s+/g, ' ').trim().toLowerCase(); }
-  function _serviceMismatch(m, current) {
-    var cur = _svc(current);
-    if (!cur || !m) return false;
-    if (m.service) return _svc(m.service) !== cur;
+  /* 기억의 시술 — service 필드, 없으면 자동 이름("붙임머리 한 장, …")에서만. 모르면 ''. */
+  function _memService(m) {
+    if (!m) return '';
+    if (m.service) return _svc(m.service);
     var mm = _AUTO_NAME_RE.exec(String(m.name || '').trim());
-    if (!mm) return false;
-    return _svc(mm[1]) !== cur.slice(0, 10);
+    return mm ? _svc(mm[1]) : '';
+  }
+  /* [2026-09-13 ZH 2차] 지금 시술을 **모르는데** 기억은 시술이 분명하면 자동으로 얹지 않는다.
+     라이브 실측: 잇비에 얼굴 사진 + "글씨 얼굴 안 가리게 아래로 내려줘" → 작업실이 **시술을 고르기 전에** 편집기를 먼저 연다
+     → 1차 규칙("모르면 기존 동작")으로 붙임머리 기억이 통과해 💎 가 손님 **얼굴 위에** 얹혔다.
+     같은 시술인지 확인할 수 없으면 확인된 게 아니다. 둘 다 모르는 옛 기억(이름 바꾼 것)만 기존 동작. */
+  function _serviceMismatch(m, current) {
+    if (!m) return false;
+    var ms = _memService(m);
+    if (!ms) return false;
+    var cur = _svc(current);
+    if (!cur) return true;
+    return m.service ? ms !== cur : ms !== cur.slice(0, 10);
   }
   function _setLast(info) { try { window.WorkMemoryEngine._lastSelect = info; } catch (_e) { void _e; } }
   /* once('이 스타일로 또') > auto(select) > ★(auto OFF 일 때만).

@@ -3990,15 +3990,37 @@
       // [2026-07-22] 사진 + 편집 브리핑("좌측하단 텍스트·스티커 덕지덕지, 22인치 재시술")이면
       //   카드 대신 오케스트레이터로 — 레이아웃 고른 뒤 텍스트·스티커·캡션 자동.
       var _brief = (question && window.ItdasyPhotoBrief && window.ItdasyPhotoBrief.parse) ? window.ItdasyPhotoBrief.parse(question) : null;
+      /* [2026-09-13 ZH ITBI] 🔴 "글씨 얼굴 안 가리게 아래로 내려줘" · "문구 좀 더 크게" 에 잇비가
+         "알겠어요! 레이아웃만 고르면 시술내용 텍스트·캡션까지 자동으로 입혀드릴게요" 라고 **먼저 약속**하고 작업실을 열었는데,
+         넣을 문구가 문장에 없어서(휴리스틱·LLM 둘 다 text '') 만들어진 글자 레이어가 **0개**였다(라이브 실측).
+         이미 있는 글자를 옮기거나 키우는 명령은 작업실에 없다. → 실제로 만들어질 게 있을 때만 약속·이동하고,
+         없으면 무엇이 빠졌는지 사실대로 말한 뒤 평소 사진 흐름(구성 고르기)으로 간다. 약속 문구는 LLM 보강 **뒤에** 정한다. */
+      var _offerLayoutPicks = null;
       if (_brief && _brief.hasBrief && photoUrls.length && !_isOcrPhotoIntent(question)) {
         _history.push({ role: 'user', text: question, thumb: photoUrls[0], photos: photoUrls, local_only: true });
-        _history.push({ role: 'assistant', local_only: true,
-          text: '알겠어요! 레이아웃만 고르면 ' + (_brief.wantsText ? '시술내용 텍스트' : '') + (_brief.wantsText && _brief.wantsSticker ? '·' : '') + (_brief.wantsSticker ? '스티커' : '') + '·캡션까지 자동으로 입혀드릴게요' + (_brief.service ? ' (' + _brief.service + ')' : '') });
         _renderHistory();
         (async function () {
           // [Phase2b] 백엔드 LLM 으로 브리핑 보강(fail-safe: 실패하면 휴리스틱 _brief 그대로).
           var _finalBrief = _brief;
           try { if (window.ItdasyPhotoBrief && window.ItdasyPhotoBrief.parseSmart) { _finalBrief = (await window.ItdasyPhotoBrief.parseSmart(question)) || _brief; } } catch (_pe) { _finalBrief = _brief; }
+          var _built = [];
+          try { _built = (window.ItdasyPhotoBrief && window.ItdasyPhotoBrief.buildLayers) ? (window.ItdasyPhotoBrief.buildLayers(_finalBrief) || []) : []; } catch (_be) { _built = []; }
+          var _hasText = _built.some(function (l) { return l && l.type === 'text'; });
+          var _hasSticker = _built.some(function (l) { return l && l.type === 'sticker'; });
+          if (!_hasText && !_hasSticker && !(_finalBrief && _finalBrief.useRecentStyle)) {
+            _history.push({ role: 'assistant', local_only: true,
+              text: '넣을 문구를 못 찾았어요. 문구를 따옴표로 알려주시면 말씀하신 위치·크기로 넣어드릴게요 — 예: "첫 방문 이벤트" 아래에 크게.\n' +
+                '이미 넣은 글자를 옮기거나 키우는 건 사진 편집에서 손가락으로 바로 할 수 있어요.' });
+            _renderHistory();
+            // 2장 이상이면 구성 고르기 카드를 이어서 띄운다. 1장은 고를 구성이 없고 그 경로는 채팅을 닫아
+            //   방금 한 안내가 안 보이므로, 채팅에 남아 문구를 기다린다.
+            if (photoUrls.length >= 2 && typeof _offerLayoutPicks === 'function') _offerLayoutPicks(false);
+            return;
+          }
+          _history.push({ role: 'assistant', local_only: true,
+            text: '알겠어요! 레이아웃만 고르면 ' + (_hasText ? '글자' : '') + (_hasText && _hasSticker ? '·' : '') + (_hasSticker ? '스티커' : '') +
+              ((_hasText || _hasSticker) ? '·' : '') + '캡션까지 자동으로 입혀드릴게요' + (_finalBrief && _finalBrief.service ? ' (' + _finalBrief.service + ')' : '') });
+          _renderHistory();
           try { if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) await window.AppLoader.ensure('photo'); } catch (_e) { void _e; }
           try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_e) { void _e; }
           if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
@@ -4007,15 +4029,14 @@
         })();
         if (window.hapticLight) window.hapticLight();
         _sendInFlight = false; _inflightCtrl = null;
-        return;
       }
-      if (photoUrls.length && !_isOcrPhotoIntent(question) && !_isCaptionIntent) {
+      _offerLayoutPicks = function (pushUser) {
         /* [2026-07-22 보스] 사진만 던지면 **잇비 채팅 안에서** 레이아웃을 고르게 한다.
            예전 1: '게시글 만들기/전후 비교/후기 카드/사진 편집' 칩 4개 → 한 단계 군더더기.
            예전 2: 곧장 작업실 레이아웃 화면으로 이동 → 채팅에서 튕겨나가는 느낌.
            지금: 채팅에 구성 카드가 뜨고, 하나 누르면 그 구성으로 게시글 화면까지 직행 = "채팅 안에서 딸깍".
            선택지는 workspace/flow/layout.js 의 _compOptions 가 정본 — 여기서 지어내지 않는다. */
-        _history.push({ role: 'user', text: question || '', thumb: photoUrls[0] || '', photos: photoUrls, local_only: true });
+        if (pushUser !== false) _history.push({ role: 'user', text: question || '', thumb: photoUrls[0] || '', photos: photoUrls, local_only: true });
         _renderHistory();   // 사진은 **즉시** 보여준다 — 구성 목록을 기다리느라 채팅이 비어 보이면 안 된다
         (async function () {
           // 구성 목록을 물으려면 WorkspaceFlow(photo 그룹)가 먼저 로드돼 있어야 한다.
@@ -4042,6 +4063,10 @@
           }
           _renderHistory();
         })();
+      };
+      if (_brief && _brief.hasBrief && photoUrls.length && !_isOcrPhotoIntent(question)) return;   // 위 비동기가 이어서 처리(약속 or 구성 고르기)
+      if (photoUrls.length && !_isOcrPhotoIntent(question) && !_isCaptionIntent) {
+        _offerLayoutPicks(true);
         if (window.hapticLight) window.hapticLight();
         _sendInFlight = false; _inflightCtrl = null;
         return;

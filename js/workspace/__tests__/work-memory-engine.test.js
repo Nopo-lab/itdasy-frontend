@@ -92,7 +92,7 @@ describe('decorateLayers — 헤드리스 굽기 경로(구 _autoComposeTemplate
     const { WM, E } = loadAll(true);
     seedDefault(WM);
     const base = [{ role: 'title', text: '이번 글', type: 'text' }];
-    const out = E.decorateLayers(base, { photoCount: 1 });
+    const out = E.decorateLayers(base, { photoCount: 1, service: '젤네일' });
     expect(out).toHaveLength(2);   // base title + 기억 스티커(기억 title 은 role 겹침으로 제외)
     expect(out.find((l) => l.role === 'title').text).toBe('이번 글');
     expect(out.some((l) => l.type === 'sticker')).toBe(true);
@@ -101,7 +101,7 @@ describe('decorateLayers — 헤드리스 굽기 경로(구 _autoComposeTemplate
     const { WM, E } = loadAll(false);
     seedDefault(WM);
     const base = [{ role: 'title', text: '이번 글', type: 'text' }];
-    expect(E.decorateLayers(base, { photoCount: 1 })).toBe(base);
+    expect(E.decorateLayers(base, { photoCount: 1, service: '젤네일' })).toBe(base);
   });
 });
 
@@ -109,12 +109,12 @@ describe('forEditor — 편집기 경로(구 _openStoryEditor :582 인라인)', 
   test('restore(재편집 이어가기)면 기억을 계산하지 않는다 = null', () => {
     const { WM, E } = loadAll(true);
     seedDefault(WM);
-    expect(E.forEditor({ restore: true, incoming: [], photoCount: 1 })).toBeNull();
+    expect(E.forEditor({ restore: true, incoming: [], photoCount: 1, service: '젤네일' })).toBeNull();
   });
   test('★기본 + 플래그 ON → editState 반환, layersOnly 면 칸 배치 없음', () => {
     const { WM, E } = loadAll(true);
     seedDefault(WM);
-    const st = E.forEditor({ restore: false, incoming: [{ role: 'title', text: '이번 글' }], photoCount: 1, layersOnly: true });
+    const st = E.forEditor({ restore: false, incoming: [{ role: 'title', text: '이번 글' }], photoCount: 1, service: '젤네일', layersOnly: true });
     expect(st).toBeTruthy();
     expect(st.layoutIdx).toBeUndefined();
     expect(st.layers.find((l) => l.role === 'title').text).toBe('이번 글');
@@ -122,19 +122,19 @@ describe('forEditor — 편집기 경로(구 _openStoryEditor :582 인라인)', 
   test('플래그 OFF → null (기억 없던 시절과 100% 동일하게 깨끗이 열림)', () => {
     const { WM, E } = loadAll(false);
     seedDefault(WM);
-    expect(E.forEditor({ restore: false, incoming: [], photoCount: 1 })).toBeNull();
+    expect(E.forEditor({ restore: false, incoming: [], photoCount: 1, service: '젤네일' })).toBeNull();
   });
   test('잇비 "평소 하던 대로"(orch.useRecentStyle)는 플래그 OFF 여도 ★기본을 적용한다', () => {
     const { WM, E } = loadAll(false);
     seedDefault(WM);
-    const st = E.forEditor({ restore: false, orch: { useRecentStyle: true }, incoming: [{ role: 'title', text: '이번 글' }], photoCount: 1 });
+    const st = E.forEditor({ restore: false, orch: { useRecentStyle: true }, incoming: [{ role: 'title', text: '이번 글' }], photoCount: 1, service: '젤네일' });
     expect(st).toBeTruthy();
     expect(st.layers.some((l) => l.type === 'sticker')).toBe(true);
   });
   test('orch 가 텍스트를 주면(wantsText) 기억의 텍스트 role 은 비운다 — orch 레이어가 소유', () => {
     const { WM, E } = loadAll(false);
     seedDefault(WM);
-    const st = E.forEditor({ restore: false, orch: { useRecentStyle: true, wantsText: true }, incoming: [{ role: 'title', text: '이번 글' }], photoCount: 1 });
+    const st = E.forEditor({ restore: false, orch: { useRecentStyle: true, wantsText: true }, incoming: [{ role: 'title', text: '이번 글' }], photoCount: 1, service: '젤네일' });
     expect(st).toBeTruthy();
     expect(st.layers.some((l) => l.role === 'title')).toBe(false);   // incoming:[] → role 텍스트 드롭
     expect(st.layers.some((l) => l.type === 'sticker')).toBe(true);
