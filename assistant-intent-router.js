@@ -1212,6 +1212,10 @@
       const scored = customers.map((c) => ({ c, score: _nameMatches(name, c.name || '') }))
         .filter((x) => x.score > 0).sort((a, b) => b.score - a.score);
       if (!scored.length) {
+        /* [2026-09-13 UX] "손님 전화번호 전부 엑셀로 뽑아서 문자로 보내줘" → "🔍 **전화번호**님을 못 찾았어요"(라이브).
+           CASE-021/034 와 같은 계열 — 호칭 근거(님·씨) 없이 집은 단어가 손님 목록에도 없으면 **이름이 아니었던 것**이다.
+           지어낸 이름으로 답하지 않고 백엔드(할 수 있는 일·못 하는 일을 판단하는 쪽)로 넘긴다. */
+        if (!_NAME_EVIDENCE.test(t)) return null;
         return { kind: 'message', text: `🔍 ${name}님을 못 찾았어요. 이름을 확인해 주시거나 고객 상세를 먼저 열어주세요.` };
       }
       // [A4] 정확 일치(100·단독)만 자동 확정. 유사/동명이인은 조용히 선택 금지 → 확인·후보 안내로 멈춤.
