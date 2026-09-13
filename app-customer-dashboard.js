@@ -231,6 +231,27 @@
     `;
   }
 
+  /* [2026-09-14 첫원장 라이브] 새 손님으로 예약을 잡고 그 손님을 열면 **예약 흔적이 하나도 없었다** —
+     '0회 방문 · 0만' 만 보이고, 서버는 recent_bookings(최근 10건)에 방금 예약을 담아 보내는데 화면이 안 그렸다.
+     새로 만드는 게 아니라 이미 받은 값을 보여준다. 방문 횟수는 건드리지 않는다(완료 전 예약은 방문이 아니다). */
+  const _BK_STATUS = { confirmed: '확정', pending: '대기', completed: '완료', cancelled: '취소', canceled: '취소', no_show: '노쇼', noshow: '노쇼' };
+  function _renderBookingSection(bookings) {
+    const list = Array.isArray(bookings) ? bookings.filter(b => b && b.starts_at) : [];
+    if (!list.length) return '';
+    const now = Date.now();
+    const rows = list.slice(0, 5).map(b => {
+      const when = window.fmtKShortDateTime ? window.fmtKShortDateTime(b.starts_at).replace('-', '/') : '';
+      const future = new Date(b.starts_at).getTime() >= now;
+      const st = _BK_STATUS[String(b.status || '').toLowerCase()] || '';
+      const label = (future && st === '확정') ? '예정' : st;
+      return `<div class="vr"><div class="vr-d">${_esc(when)}</div><div class="vr-s">${_esc(b.service_name || '예약')}</div><div class="vr-p">${_esc(label)}</div></div>`;
+    }).join('');
+    return `
+      <div class="d-sec"><span>예약</span></div>
+      <div class="vr-wrap">${rows}</div>
+    `;
+  }
+
   // [T-005 2026-05-29] 시술 사진 타임라인 — 비동기 채움(로컬 갤러리 + 백엔드 recent_photos).
   //   _buildDetailHTMLv4 는 동기라 placeholder 만 두고, mount 후 _fillPhotoTimeline 이 채운다.
   function _photoThumb(src, label) {
@@ -305,6 +326,7 @@
         ${_renderDetailCards(m)}
         ${pref}
         ${_renderPhotoSection(m.c.id)}
+        ${_renderBookingSection(d && d.recent_bookings)}
         ${_renderRevenueSection(m.revenues)}
         ${memo}
       </div>
