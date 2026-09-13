@@ -44,9 +44,14 @@
   var PRON_RE = /(그거|이거|저거|그것|그\s*걸|그\s*카드|이\s*카드|방금\s*(거|것|만든|그)|아까\s*(거|것|그)|최근\s*(거|것)|마지막\s*(거|것)|다시\s*(열|보여|보기))/;
   var SAVE_RE = /(저장|보관|간직|저장해)/;
   var EDIT_RE = /(수정|편집|고쳐|고치|바꿔|바꾸|글자)/;
+  // [ITBI Closeout 2026-09-13 · CASE-035] "아까 그분 예약 있어?" 가 `아까\s*그` 에 걸려 **작업실로 화면이 넘어갔다.**
+  //   실측(전용 프로필 · user 4 · FE 7009595): "아까 그분 …"·"방금 그 사람 …" 20문장 전부
+  //   → '방금 만든 "…"를 작업실에 띄웠어요' + 잇비 창 닫힘. 사람을 가리키는 말은 카드가 아니다.
+  var PERSON_RE = /(그|이|저)\s*(분|고객|손님|사람|님)/;
   function classifyRef(q) {
     var t = String(q || '').trim();
     if (!t || !PRON_RE.test(t)) return null;
+    if (PERSON_RE.test(t)) return null;
     if (SAVE_RE.test(t)) return { verb: 'save' };
     if (EDIT_RE.test(t)) return { verb: 'edit' };
     return { verb: 'show' };   // 다시/보여/열어
