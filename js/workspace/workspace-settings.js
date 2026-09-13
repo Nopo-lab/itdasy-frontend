@@ -55,7 +55,16 @@
     var WM = window.WorkMemory;
     if (!WM) return '<div class="ss-card-sub">기억 기능을 불러오지 못했어요.</div>';
     var mine = WM.list(), defId = WM.getDefaultId();
-    var head = '<div class="ss-card-sub">발행하거나 저장할 때마다 원장님이 꾸민 그대로 기억해요. <b>★ 기본</b>으로 고른 건 다음 사진에 자동으로 올라가요.</div>';
+    /* [2026-09-13 ZH P3-D] 문구가 실제와 달랐다 — "★ 기본으로 고른 건 다음 사진에 자동으로" 라고 해서
+       ★ 를 해제하면 안 올라갈 줄 알았는데, 자동 선택(autoOn, 기본 ON)은 ★ 와 **무관하게** 기억 중 1등을 얹었다.
+       그리고 그걸 끄는 스위치가 화면 어디에도 없었다(setAutoOn 은 있는데 부르는 곳 0). → 스위치 + 사실대로 문구. */
+    var autoOn = WM.autoOn ? WM.autoOn() : true;
+    var head = '<div class="ss-card-sub">발행하거나 저장할 때마다 원장님이 꾸민 그대로 기억해요.</div>' +
+      '<div class="ss-toggle" style="margin:12px 0"><div><div class="ss-toggle-lbl">다음 사진에 자동으로 올리기</div>' +
+      '<div class="ss-toggle-sub">' + (autoOn
+        ? '켜져 있어요 — 기억 중 <b>같은 시술</b>에 가장 맞는 꾸밈이 새 사진에 자동으로 올라가요. 끄면 <b>★ 기본</b>으로 고른 것만 올라가요.'
+        : '꺼져 있어요 — <b>★ 기본</b>으로 고른 것만 올라가요. ★ 가 없으면 아무것도 안 올라가요.') + '</div></div>' +
+      '<div class="ss-switch' + (autoOn ? ' is-on' : '') + '" data-wm-auto role="switch" aria-checked="' + (autoOn ? 'true' : 'false') + '" aria-label="다음 사진에 자동으로 올리기" tabindex="0"></div></div>';
     if (!mine.length) {
       return head + '<div class="wm-empty"><svg width="15" height="15" aria-hidden="true"><use href="#ic-plus"/></svg><span>아직 기억이 없어요 — 사진을 꾸며서 발행하면 여기 쌓여요</span></div>';
     }
@@ -338,6 +347,12 @@
     //   여기선 그걸 부르고 "저장됐다"고 말해준다. 저장 경로가 둘로 갈라지지 않게 일부러 재사용.
     if (e.target.closest('[data-wss-save]')) { close(); toast('저장했어요'); return; }
     // ── 작업 기억 ★기본 지정(다시 누르면 해제)
+    // [2026-09-13 ZH P3-D] 작업 기억 자동 올리기 끄기/켜기
+    var wa = e.target.closest('[data-wm-auto]');
+    if (wa) {
+      try { var nowOn = window.WorkMemory.setAutoOn(!window.WorkMemory.autoOn()); toast(nowOn ? '다음 사진에 자동으로 올릴게요' : '자동으로 올리지 않을게요 — ★ 기본만 올라가요'); } catch (_e) { void _e; }
+      _refreshMem(); return;
+    }
     var st = e.target.closest('[data-wm-star]');
     if (st) {
       var sid = st.getAttribute('data-wm-star');
