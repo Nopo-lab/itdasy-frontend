@@ -1647,14 +1647,14 @@
             });
           } else if (trimmed) {
             // 검색어 있는데 결과 0건 → 즉석 신규 추가 UI 노출 + 1탭 버튼
+            /* [2026-09-14 P3 첫원장 라이브] 결과 0건이면 **추가 버튼이 두 개**였다 — 큰 '+ 새 고객으로 X 추가' 와
+               아래 줄의 '+ 추가하고 선택'. 둘 다 같은 onCreate 인데 원장은 뭐가 다른지 몰라 멈춘다.
+               연락처까지 넣을 수 있는 아래 줄 하나만 남기고, 안내가 그 줄을 가리키게 한다. */
             listEl.innerHTML = `
-              <div style="padding:18px 12px 12px;text-align:center;color:#888;font-size:13px;">'${_esc(trimmed)}' 고객을 찾을 수 없어요</div>
-              <button data-pick-quick-add style="display:block;width:100%;padding:14px;margin:0 0 10px;border:none;border-radius:14px;background:linear-gradient(135deg,var(--brand),#E96A7E);color:#fff;font-weight:700;font-size:14px;cursor:pointer;">+ 새 고객으로 '${_esc(trimmed)}' 추가</button>
+              <div style="padding:18px 12px 12px;text-align:center;color:#888;font-size:13px;line-height:1.6;">'${_esc(trimmed)}' 고객이 아직 없어요<br>아래에서 바로 새 고객으로 추가할 수 있어요</div>
             `;
             createRow.style.display = 'block';
             newNameEl.value = trimmed;
-            const quickBtn2 = listEl.querySelector('[data-pick-quick-add]');
-            if (quickBtn2) quickBtn2.addEventListener('click', () => onCreate());
           } else {
             listEl.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-subtle);font-size:13px;">' +
               '등록된 고객이 없어요. 아래에서 바로 추가할 수 있어요.' +

@@ -315,7 +315,8 @@
   // [EG-2] 채팅 버블은 white-space:pre-wrap 이라 메시지 끝 공백/과도한 개행이 그대로 보임.
   //   줄 끝 공백 제거 · 3줄 이상 개행을 2줄로 · 끝 공백 제거. (내부 의도된 줄바꿈은 보존)
   function _normMsg(t) {
-    return String(t == null ? '' : t).replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '');
+    const s = String(t == null ? '' : t).replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '');
+    return window.dedupeNim ? window.dedupeNim(s) : s;   // [2026-09-14 P3] 'QA첫손님님' 흡수 — 토스트와 같은 규칙
   }
 
   function _ensureSheet() {
@@ -1385,7 +1386,7 @@
         <span style="font-size:12px;font-weight:700;color:#191F28;letter-spacing:-0.2px;">${kindBadge.label}</span>
       </div>
       ${_safety}
-      <div style="font-size:13.5px;color:#191F28;font-weight:500;margin-bottom:12px;line-height:1.5;padding:11px 12px;background:#F7F8FA;border-radius:10px;">${_esc(action.confirmation_text || '')}</div>
+      <div style="font-size:13.5px;color:#191F28;font-weight:500;margin-bottom:12px;line-height:1.5;padding:11px 12px;background:#F7F8FA;border-radius:10px;">${_esc(_normMsg(action.confirmation_text || ''))}</div>
       <div style="display:flex;gap:6px;">
         <button data-action-edit="${historyIdx}" style="flex:1;padding:11px;border:0.5px solid #E5E8EB;border-radius:10px;background:#FFFFFF;color:#4E5968;font-weight:600;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:5px;">${_svg('ic-edit-3', 14)} 수정</button>
         <button data-action-run="${historyIdx}" style="flex:2;padding:11px;border:none;border-radius:10px;background:#191F28;color:#FFFFFF;font-weight:700;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:5px;letter-spacing:-0.2px;">${_runLabel} ${_svg('ic-check', 14)}</button>

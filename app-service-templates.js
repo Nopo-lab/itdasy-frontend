@@ -69,25 +69,30 @@
   const STARTERS = {
     nail: [{ name:'젤네일 기본', p:60000, d:90, r:21 }, { name:'손 케어', p:30000, d:45, r:28 }, { name:'패디 기본', p:70000, d:90, r:28 }],
     hair: [{ name:'디자인컷', p:35000, d:60, r:42 }, { name:'뿌리염색', p:70000, d:90, r:42 }, { name:'다운펌', p:50000, d:60, r:28 }],
+    // [2026-09-14 P3 첫원장] 붙임머리 샵이 hair 로 뭉개져 '디자인컷·뿌리염색·다운펌' 이 떴다 — 붙임머리 주문 단위로.
+    ext: [{ name:'붙임머리 100모', p:200000, d:120, r:28, c:'hair' }, { name:'22인치 붙임머리', p:250000, d:150, r:28, c:'hair' }, { name:'붙임머리 리터치', p:80000, d:90, r:28, c:'hair' }, { name:'붙임머리 제거', p:30000, d:40, r:0, c:'hair' }],
     eye: [{ name:'속눈썹펌', p:55000, d:60, r:35 }, { name:'속눈썹 연장', p:80000, d:90, r:21 }, { name:'리터치', p:45000, d:45, r:21 }],
     skin: [{ name:'피부 기본관리', p:70000, d:60, r:28 }, { name:'진정관리', p:80000, d:70, r:21 }, { name:'윤곽관리', p:90000, d:80, r:14 }],
     wax: [{ name:'브로우 정리', p:35000, d:40, r:28 }, { name:'왁싱 기본', p:60000, d:60, r:35 }, { name:'메이크업', p:100000, d:90, r:0 }],
   };
 
-  function _starterCat() {
+  function _starterCat(fallback) {
     try {
       const raw = localStorage.getItem('shop_type') || '';
       const norm = window.itdasyNormalizeShopType ? window.itdasyNormalizeShopType(raw) : null;
       const cat = (norm && norm.cat) || raw;
+      if (/붙임머리|extension/.test(raw) || /붙임머리/.test((norm && norm.label) || '')) return 'ext';   // hair 판정보다 먼저
       if (/lash|eye|속눈썹/.test(cat)) return 'eye';
       if (/nail|네일/.test(cat)) return 'nail';
       if (/hair|헤어|미용/.test(cat)) return 'hair';
       if (/skin|피부/.test(cat)) return 'skin';
       if (/wax|brow|makeup|왁싱|브로우|메이크업/.test(cat)) return 'wax';
     } catch (_e) { void 0; }
-    return 'nail';
+    return fallback || 'nail';
   }
 
+  // select 에 있는 값으로(ext 는 hair). [2026-09-14 P3] 새 시술 폼 분류 기본값이 늘 '기타' 였다 → 샵 업종을 따른다.
+  function _catForSelect() { const c = _starterCat('etc'); return c === 'ext' ? 'hair' : c; }   // 업종을 모르면 '기타' 그대로
   function _starterList() { return STARTERS[_starterCat()] || STARTERS.nail; }
   function _renderStarterChips() {
     const list = _starterList();
@@ -101,8 +106,9 @@
     return `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;gap:12px;">
         <div style="min-width:0;">
-          <h2 style="font-size:20px;font-weight:700;color:#191F28;margin:0;">시술 메뉴</h2>
-          <p style="font-size:13px;color:#8B95A1;margin:4px 0 0;line-height:1.5;">시술 이름·가격·걸리는 시간을 적어두면 예약·매출 넣을 때 바로 골라 쓸 수 있어요</p>
+          <!-- [2026-09-14 P3] 시트 헤더에 이미 '시술 메뉴' 가 있다. 본문 큰 제목이 스크롤되며 반투명 헤더 밑으로
+               지나가 '시술 메뉴' 가 두 번 겹쳐 보였다 → 본문 제목은 빼고 설명만(헤더는 불투명으로, generic-sheet). -->
+          <p style="font-size:13px;color:#8B95A1;margin:0;line-height:1.5;">시술 이름·가격·걸리는 시간을 적어두면 예약·매출 넣을 때 바로 골라 쓸 수 있어요</p>
         </div>
         <button type="button" class="svc-add-btn" style="padding:10px 18px;border-radius:999px;background:#BC6675;color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;">+ 새 시술 추가</button>
       </div>`;
@@ -147,7 +153,7 @@
 
   function _renderCards() {
     if (!_cache.length) {
-      if (window.emptyState) return window.emptyState({ icon: '', title: '아직 시술이 없어요', desc: '자주 하는 시술을 미리 등록하면 예약·매출 입력이 한 번에 끝나요.', ctaText: '첫 시술 추가' });
+      if (window.emptyState) return window.emptyState({ icon: 'ic-scissors', title: '아직 시술이 없어요', desc: '자주 하는 시술을 미리 등록하면 예약·매출 입력이 한 번에 끝나요.', ctaText: '첫 시술 추가' });
       return '<div style="padding:40px;text-align:center;color:#8B95A1;">등록된 시술 없음</div>';
     }
     return _cache.map(_renderCard).join('');
@@ -203,7 +209,7 @@
         <input id="svc-retouch" type="number" placeholder="리터치 주기 일수 (선택)" value="${_esc(p.retouch_period_days || '')}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:6px;background:#fff;">
         <div style="display:flex;gap:6px;align-items:center;">
           <select id="svc-cat" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;">
-            ${['etc','hair','nail','eye','skin','wax'].map(c => `<option value="${c}" ${(p.category||'etc')===c?'selected':''}>${_catLabel(c)}</option>`).join('')}
+            ${['etc','hair','nail','eye','skin','wax'].map(c => `<option value="${c}" ${(p.category||(p.id ? 'etc' : _catForSelect()))===c?'selected':''}>${_catLabel(c)}</option>`).join('')}
           </select>
           <button id="svc-add" type="button" style="padding:10px 18px;background:#BC6675;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">추가</button>
         </div>
@@ -275,7 +281,7 @@
     if (!s) return;
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
     set('svc-name', s.name); set('svc-price', s.p); set('svc-dur', s.d); set('svc-retouch', s.r || '');
-    set('svc-cat', _starterCat());
+    set('svc-cat', s.c || _catForSelect());
   }
 
   // ── 통합 편집 ──────────────────────────────────────────

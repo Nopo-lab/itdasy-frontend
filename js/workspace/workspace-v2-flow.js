@@ -1296,7 +1296,7 @@
        라이브 실측(2026-09-12): disabled=false · 라벨 "게시글 만들기" → 클릭 → 토스트 거절.
        → 같은 방식으로 잠그고 **이유를 버튼에 적는다**(왜 못 가는지 누르기 전에 보이게). */
     if (!String(d.service || '').trim()) {
-      return '<button type="button" class="capwiz__cta capwiz__cta--dis" data-fl-cgenlock="service">아래에서 시술을 골라주세요</button>';
+      return '<button type="button" class="capwiz__cta capwiz__cta--dis" data-fl-cgenlock="service">시술을 골라주세요</button>';
     }
     var hint = (String(d.service || '').trim() || String(d.specialNote || '').trim())
       ? '<p class="capwiz__ready">우리샵 말투로 더 정확하게 써드려요</p>' : '';
@@ -1322,6 +1322,13 @@
     var kws = [];
     try { if (typeof getShopKeywords === 'function') kws = getShopKeywords() || []; } catch (_e) { void _e; }
     kws = _applySvcOrder(kws);   // [관리모드] 저장된 순서 적용
+    // [2026-09-14 P3] 저장된 순서가 있으면 새로 등록한 시술이 '모르는 키워드'로 맨 뒤 → 앞 8개 밖으로 잘렸다.
+    //   순서에 아직 없는 등록 시술(최대 4)은 앞으로 당긴다. 원장이 관리에서 순서를 정한 뒤엔 그 순서를 따른다.
+    try {
+      var _ord = _loadSvcOrder(), _reg = (typeof _loadRegisteredServices === 'function' ? _loadRegisteredServices() : [])
+        .filter(function (k) { return _ord.indexOf(k) < 0 && kws.indexOf(k) >= 0; }).slice(0, 4);
+      if (_ord.length && _reg.length) kws = _reg.concat(kws.filter(function (k) { return _reg.indexOf(k) < 0; }));
+    } catch (_eo) { void _eo; }
     var stype = ''; try { stype = localStorage.getItem('shop_type') || ''; } catch (_e2) { void _e2; }
     // [#2] 업종이 키워드로 해석되면(가입값 hair/헤어샵/네일 등 정규화 성공) 태그 노출. 'beauty'·general 처럼 안 풀리면 업종 고르게.
     var _norm = ''; try { if (window.itdasyNormalizeShopType) _norm = window.itdasyNormalizeShopType(stype).label || ''; } catch (_en) { void _en; }
@@ -3772,7 +3779,13 @@
 	    if (opts._openStory) {
 	      var _rs = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
 	      var _tryStory = function (tries) {
-	        if (editablePhotos().length) { _openStoryEditor(); return; }
+	        if (editablePhotos().length) {
+	          /* [2026-09-14 P3] 캡션까지 끝난 글을 작업실 카드 '사진 편집' 으로 다시 열면 흐름은 layout(2/4) 에서
+	             편집기를 띄운다 → [완료] 가 setScreen(cur) 로 **사진 확인(2/4)** 에 떨어졌다. 원장은 방금 보던
+	             게시글(3/4)로 돌아가길 기대한다. 글이 이미 있으면 완료 목적지를 캡션으로(캡션은 그대로 유지). */
+	          if (String(d.caption || '').trim() && !d._editorNext) d._editorNext = 'caption';
+	          _openStoryEditor(); return;
+	        }
 	        if (tries > 0) _rs(function () { _tryStory(tries - 1); });
 	      };
 	      _rs(function () { _tryStory(30); });

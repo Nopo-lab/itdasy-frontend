@@ -77,7 +77,7 @@
     const goal = Number(brief.monthly_goal) || 0;
     const hl = won + (p == null ? '' : ` · 전월대비 ${p >= 0 ? '+' : ''}${p}%`);
     const desc = (goal > 0 && goal - total > 0)
-      ? `목표까지 ${Math.round((goal - total) / 10000)}만원 남았어요`
+      ? `목표까지 ${(goal - total) < 10000 ? (goal - total).toLocaleString('ko-KR') + '원' : Math.round((goal - total) / 10000) + '만원'} 남았어요`   // [2026-09-14 P3] 4,000원 남았는데 '0만원' 금지
       : (goal > 0 ? '이번달 목표 달성!' : '요일별 매출 패턴 보기');
     const card = { ...base, dot: (p != null && p < 0) ? 'var(--danger)' : '#3B82F6', hl, desc };
     if (p != null && p < 0) card.alert = true;       // 마이너스일 때만 '확인 필요'에 포함

@@ -503,6 +503,8 @@ function showToast(msg, opts) {
     }
     // [P2 2026-09-13] 영문 fetch/abort 문구·원시 JSON·라벨 중복도 같은 길목에서 흡수
     safe = window._userSafeToastText(safe);
+    // [2026-09-14 P3] 'QA첫손님님'·'원장님 님' — 이름+님을 조립하는 곳이 60군데가 넘어 한 곳씩은 또 샌다. 보여주는 길목에서 흡수.
+    if (typeof safe === 'string' && window.dedupeNim) safe = window.dedupeNim(safe);
   } catch (_e) { void _e; }
   /* [2026-09-13 UX] 되돌리기 같은 **누를 수 있는** 토스트. 예전엔 `onClick` 을 넘겨도 무시돼
      "· 되돌리기 →" 글자만 붙고 눌러도 아무 일이 없었다(잇비 되돌리기 토스트). action 이 있으면 버튼을 그리고 조금 더 오래 둔다. */
@@ -4084,6 +4086,7 @@ function _inlineConfirm(msg, onYes, onNo, opts) {
   /* [2026-09-13 UX] 기본 '취소' 버튼이 "예약을 취소할까요?"·"환불할까요?" 같은 질문에서 **정반대로 읽혔다**
      (라이브: 예약 취소 확인창의 [취소] 가 '안 한다' 였다). 질문의 대답이 되게 기본을 '아니요' 로. */
   const cancelText = opts.cancelText || '아니요';
+  if (typeof msg === 'string' && window.dedupeNim) msg = window.dedupeNim(msg);   // [2026-09-14 P3] 님 중복 흡수(토스트와 같은 길목)
   const el = document.createElement('div');
   el.className = 'bk-confirm-toast';
   el.innerHTML = `

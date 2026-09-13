@@ -132,6 +132,18 @@
     } catch (_e) { return null; }
   }
 
+  /* [2026-09-14 P3 첫원장 라이브] 새 손님 상세가 '총 매출 **0만**' — 원장 말로는 0원이다.
+     4,000원도 Math.round → '0만' 이었고 회원권 잔액 5,000원은 '회원권 0만'.
+     → 0원 · 만원 미만은 원 단위 그대로 · 그 이상은 반올림 만원. 음수(환불)는 앞에 −. */
+  function _wonShortParts(n) {
+    const v = Number(n) || 0;
+    const sign = v < 0 ? '−' : '';
+    const a = Math.abs(v);
+    if (a < 10000) return { v: sign + a.toLocaleString('ko-KR'), u: '원' };
+    return { v: sign + Math.round(a / 10000).toLocaleString('ko-KR'), u: '만원' };
+  }
+  function _wonShort(n) { const p = _wonShortParts(n); return p.v + p.u; }
+
   function _detailModel(d) {
     const c = (d && d.customer) || {};
     const stats = (d && d.stats) || {};
@@ -146,7 +158,7 @@
       stats,
       revenues,
       vc,
-      totalMan: totalRev > 0 ? Math.round(totalRev / 10000) : 0,
+      totalRev,
       avgDays,
       badge: _visitBadgeClass(vc),
       phone: c.phone ? _esc(c.phone) : '',
@@ -164,7 +176,7 @@
       <div class="d-header">
         <div class="d-name-row">
           <div style="display:flex;align-items:center;">
-            <div class="d-name">${_esc(m.c.name || '손님')} 님</div>
+            <div class="d-name">${_esc(window.withHonorific ? window.withHonorific(m.c.name || '손님') : (m.c.name || '손님') + '님')}</div>
             <span class="d-badge-lg c-badge ${m.badge}">${m.vc}회 방문</span>
           </div>
         </div>
@@ -194,7 +206,7 @@
   }
   function _mbBtn(m) {
     const bal = _mbBal(m);
-    const label = bal > 0 ? ('회원권 ' + Math.floor(bal / 10000) + '만') : '회원권';
+    const label = bal > 0 ? ('회원권 ' + _wonShort(bal)) : '회원권';
     return '<button class="d-act ghost" data-cv4-act="membership">' + _esc(label) + '</button>';
   }
 
@@ -202,7 +214,7 @@
     return `
       <div class="d-cards">
         <div class="dc"><div class="dc-v">${m.vc}<small>회</small></div><div class="dc-l">총 방문일</div></div>
-        <div class="dc"><div class="dc-v">${m.totalMan}<small>만</small></div><div class="dc-l">총 매출</div></div>
+        <div class="dc"><div class="dc-v">${_esc(_wonShortParts(m.totalRev).v)}<small>${_wonShortParts(m.totalRev).u}</small></div><div class="dc-l">총 매출</div></div>
         <div class="dc"><div class="dc-v">${m.avgDays || '—'}<small>${m.avgDays ? '일' : ''}</small></div><div class="dc-l">평균 재방문 일</div></div>
       </div>
     `;
@@ -214,7 +226,7 @@
     //   유틸이 없으면 날짜만 비운다 — 날짜 한 칸 때문에 시술 기록 목록 전체가 죽으면 안 된다.
     const dt = window.fmtKMonthDay ? window.fmtKMonthDay(r.recorded_at) : '';
     const amt = Number(r.amount) || 0;
-    const man = amt > 0 ? Math.round(amt / 10000) + '만' : '-';
+    const man = amt !== 0 ? _wonShort(amt) : '-';
     const extra = hidden ? ' hidden" data-vr-extra="1' : '';
     return `<div class="vr${extra}"><div class="vr-d">${_esc(dt)}</div><div class="vr-s">${_esc(r.service_name || '시술')}</div><div class="vr-p">${man}</div></div>`;
   }

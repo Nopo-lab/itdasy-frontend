@@ -655,7 +655,25 @@
       if (!root) return;
       const dashTab = document.getElementById('tab-dashboard');
       if (dashTab && dashTab.classList.contains('active')) _doRender(root);
+      else _dirtyWhileHidden = true;
     });
+    /* [2026-09-14 P3 첫원장 라이브] 예약 폼에서 새 손님을 추가하고 '내 샵 관리' 로 가면 **'고객관리 4명'** 그대로였다
+       (서버는 5명). 위 리스너는 탭이 보일 때만 다시 그리고, 탭을 다시 열 때는 이미 마운트돼 있어 안 그렸다.
+       → 숨어 있는 동안 바뀌었으면 표시해 두고, 탭이 active 가 되는 순간 다시 그린다(모바일 탭바·PC 사이드바 공통). */
+    let _dirtyWhileHidden = false;
+    const _watchDash = () => {
+      const dashTab = document.getElementById('tab-dashboard');
+      if (!dashTab || dashTab._mvDirtyObs) return;
+      dashTab._mvDirtyObs = true;
+      new MutationObserver(() => {
+        if (!_dirtyWhileHidden || !dashTab.classList.contains('active')) return;
+        _dirtyWhileHidden = false;
+        const root = document.getElementById('myshopV3Root');
+        if (root) _doRender(root);
+      }).observe(dashTab, { attributes: true, attributeFilter: ['class'] });
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _watchDash, { once: true });
+    else _watchDash();
     window.addEventListener('itdasy:plan-updated', () => {
       const root = document.getElementById('myshopV3Root');
       if (root) _doRender(root);

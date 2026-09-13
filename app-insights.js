@@ -209,7 +209,7 @@
     if (!ret && !fc) {
       body.innerHTML = `
         <div style="padding:30px 16px;text-align:center;color:var(--text-subtle);font-size:13px;line-height:1.6;">
-          <div style="font-size:36px;margin-bottom:10px;">🌱</div>
+          <div style="margin-bottom:10px;color:var(--brand-strong,#BC6675);"><svg width="36" height="36" aria-hidden="true"><use href="#ic-sparkles"/></svg></div>
           아직 분석할 데이터가 부족해요. 고객·매출·예약을 기록하면<br>며칠 뒤부터 AI가 선제 제안을 보여줘요.
         </div>
       `;

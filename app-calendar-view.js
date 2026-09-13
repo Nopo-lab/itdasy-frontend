@@ -2559,6 +2559,28 @@
     });
   }
 
+  /* [2026-09-14 P3 첫원장] 새 예약 기본 시각이 늘 영업 첫 슬롯(오전 9·10시)이라, 오후에 [+] 를 누르면
+     **이미 지난 시각**이 골라져 있었다(라이브: 00:57 에 오전 9:00). 바쁜 원장은 휠을 안 보고 저장한다.
+     → 오늘이면 '지금 이후 가장 가까운 30분 단위'(영업 슬롯 안에 있으면 그 슬롯). 늦은 밤(22:30 넘음)이면
+       내일 첫 슬롯. 다른 날짜를 골라 들어온 경우는 예전처럼 첫 슬롯. 반환 { dateStr, start, end(+60분) } */
+  function _defaultNewSlot(dateStr, slots, now) {
+    const toMin = (t) => { const a = String(t).split(':'); return (+a[0]) * 60 + (+a[1] || 0); };
+    const toHM = (m) => _pad(Math.floor(m / 60)) + ':' + _pad(m % 60);
+    const first = slots[0] || '10:00';
+    const plus60 = (t) => toHM(Math.min(toMin(t) + 60, 23 * 60 + 50));
+    now = now || new Date();
+    if (dateStr !== _ds(now)) return { dateStr, start: first, end: plus60(first) };
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const next = Math.floor(nowMin / 30) * 30 + 30;
+    if (next > 22 * 60 + 30) {
+      const t = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      return { dateStr: _ds(t), start: first, end: plus60(first) };
+    }
+    const inHours = slots.find(sl => toMin(sl) >= next);
+    const start = inHours || toHM(next);
+    return { dateStr, start, end: plus60(start) };
+  }
+
   function _openForm(date, existing) {
     const o = _overlay(); if (!o) return;
     const body = o.querySelector("#bk-body"); if (!body) return;
@@ -2569,9 +2591,10 @@
     const pendS  = pend?.starts_at ? new Date(pend.starts_at) : null;
     const pendE  = pend?.ends_at   ? new Date(pend.ends_at)   : null;
     const defDate = existing ? new Date(existing.starts_at) : (pendS || date);
-    const dateStr = _ds(defDate);
-    const defS = existing ? _fmt(new Date(existing.starts_at)) : (pendS ? _fmt(pendS) : slots[0]);
-    const defE = existing ? _fmt(new Date(existing.ends_at))   : (pendE ? _fmt(pendE) : (slots[2] || slots[slots.length - 1]));
+    const _auto = (!existing && !pendS) ? _defaultNewSlot(_ds(defDate), slots) : null;
+    const dateStr = _auto ? _auto.dateStr : _ds(defDate);
+    const defS = existing ? _fmt(new Date(existing.starts_at)) : (pendS ? _fmt(pendS) : _auto.start);
+    const defE = existing ? _fmt(new Date(existing.ends_at))   : (pendE ? _fmt(pendE) : _auto.end);
     body.innerHTML = '<div class="cv-form-wrap bf-wrap" style="flex:1;overflow-y:auto;">' + _buildFormHTML(existing, slots, dateStr, defS, defE, !!pendS) + '</div>';
     body.querySelector('#cv-form-back').addEventListener('click', () => _renderViewBody());
     // [2026-07-25 #5] 폼을 시트-백 레지스트리에 등록 — 안드로이드/브라우저 back 이 폼→목록으로만

@@ -357,7 +357,7 @@
         </div>
       </div>
       <div class="cf-itby">
-        놓치셨네요. 받으신 <b>예약금</b>만 매출에 잡고 ${_esc(c.customer_name || '')}님 기록엔 <b>미방문</b>으로 남길게요.
+        놓치셨네요. 받으신 <b>예약금</b>만 매출에 잡고 ${_esc(window.withHonorific ? (window.withHonorific(c.customer_name || '') || '손님') : (c.customer_name || '') + '님')} 기록엔 <b>미방문</b>으로 남길게요.
       </div>
       <div class="cf-sec">
         <div class="cf-label">받은 예약금</div>
