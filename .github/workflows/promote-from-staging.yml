@@ -1,0 +1,388 @@
+name: Promote from staging (yeunjun → 운영)
+
+# 스테이징(itdasy-frontend-test-yeunjun) main 의 내용을 이 레포(운영)로 승격하는 PR 을 만든다.
+#
+# 왜 만들었나 (2026-09-12)
+# -----------------------
+# 사람이 손으로 했다: 스테이징 트리를 뜨고 → 환경 분기 파일을 운영본으로 되돌리고 → 게이트 → push.
+# 하루에 5번 반복했고, 보존 목록은 사람 기억에만 있었다. 하나라도 빠뜨리면:
+#   · capacitor.config.json 을 덮으면     → 운영 네이티브 앱이 스테이징 번들을 띄운다
+#   · android-build.yml 을 덮으면         → server.url 가드가 스테이징 기준으로 뒤집혀 무력화된다
+#   · supabase-backup.yml 이 딸려오면     → 시크릿 없는 "가짜 초록" 백업 부활(백업 소유자는 yeunjun 하나)
+# 그 목록이 아래 env 의 KEEP_FROM_PROD / DROP 에 박혀 있고, 어겨지면 잡이 실패한다.
+#
+# 🔴 설계 결정 — 어기면 조용히 망가지는 것들
+# --------------------------------------------
+# 1) main 에 직접 push 하지 않고 PR 을 연다.
+#    GITHUB_TOKEN 으로 push 한 커밋은 다른 워크플로를 트리거하지 않는다(재귀 방지).
+#    직접 push 하면 deploy.yml 이 안 돌아 '커밋은 있는데 라이브는 그대로' 가 된다. 사람이 머지해야 뜬다.
+#    → 이 PR 을 만들려면 레포 설정 "Allow GitHub Actions to create and approve pull requests" 가 켜져 있어야 한다.
+#
+# 2) NO_CHANGES 는 '최종 승격 트리 == 현재 운영 트리' 로 판정한다.
+#    (옛 판정 `git diff --quiet PROD STAGING` 은 환경 분기 파일이 **항상** 달라서 절대 참이 안 됐다 —
+#     앱 내용이 똑같아도 매번 승격을 진행해 넷 제로 diff 의 빈 PR 을 만들었을 것이다. 2026-09-13 실측 확인.)
+#
+# 3) 최종 트리는 임시 index 로 만들고 커밋은 **1개**(부모 = 운영 main)만 만든다.
+#    '스테이징 트리 커밋 → 되돌림 커밋' 두 단계로 하면 중간 커밋에 환경 파일 변경이 찍혀
+#    PR 커밋 목록이 지저분해지고, 되돌림이 조용히 실패하면 그대로 새어나간다.
+#
+# 4) 스테이징은 FETCH_HEAD 가 아니라 이름 있는 ref 로 받고 SHA 를 한 번만 확정한다.
+#    FETCH_HEAD 는 이후 fetch 가 한 번이라도 끼면 바뀐다. 입력값은 셸에 직접 끼우지 않고 env 로 넘긴다(인젝션 방지).
+
+on:
+  workflow_dispatch:
+    inputs:
+      staging_ref:
+        description: '가져올 스테이징 ref — 브랜치 이름 또는 40자 커밋 SHA (기본 main)'
+        required: true
+        default: 'main'
+        type: string
+      dry_run:
+        description: 'true = PR 을 만들지 않고 판정·검증·게이트만 돌린다'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: promote-from-staging
+  cancel-in-progress: false
+
+defaults:
+  run:
+    # 명시해야 -eo pipefail 이 켜진다(생략하면 bash -e 뿐이라 파이프 실패를 삼킨다).
+    shell: bash
+
+env:
+  STAGING_REPO: https://github.com/Nopo-lab/itdasy-frontend-test-yeunjun.git
+  PROD_PAGES_URL: https://nopo-lab.github.io/itdasy-frontend/
+  # ── 환경 분기 목록 (SSOT) — 공백으로 구분, 경로에 공백 금지 ─────────────────
+  #   KEEP_FROM_PROD : 최종 트리에서 운영본과 byte-for-byte 같아야 하는 경로(운영에 없으면 최종에도 없음)
+  #   DROP           : 스테이징에 있어도 최종 트리에 절대 없어야 하는 경로(파일·디렉터리)
+  KEEP_FROM_PROD: >-
+    capacitor.config.json
+    .github/workflows/android-build.yml
+    .github/workflows/promote-from-staging.yml
+    js/photo/__tests__/module-registration.test.js
+  DROP: >-
+    .github/workflows/supabase-backup.yml
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # run_attempt 까지 넣어 재실행해도 브랜치 이름이 겹치지 않는다.
+      BRANCH: promote/staging-${{ github.run_id }}-${{ github.run_attempt }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      STAGING_REF: ${{ inputs.staging_ref }}
+    steps:
+      - name: Checkout 운영 main
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Guard — 실행 조건
+        run: |
+          fail() { echo "::error::$1"; exit 1; }
+          # 다른 브랜치에서 고친 워크플로가 운영 승격을 하면 안 된다.
+          [ "$GITHUB_REF" = "refs/heads/main" ] || fail "main 에서만 실행한다 (현재 $GITHUB_REF)"
+          case "$DRY_RUN" in true|false) ;; *) fail "dry_run 은 true/false: '$DRY_RUN'" ;; esac
+          case "$STAGING_REF" in
+            ''|-*|*..*|*[!A-Za-z0-9._/-]*) fail "staging_ref 형식이 이상하다: '$STAGING_REF'" ;;
+          esac
+          echo "dry_run=$DRY_RUN  staging_ref=$STAGING_REF  branch=$BRANCH"
+
+      - name: Resolve PROD / STAGING SHA
+        run: |
+          fail() { echo "::error::$1"; exit 1; }
+          PROD_SHA=$(git rev-parse --verify 'HEAD^{commit}')
+          ORIGIN_MAIN=$(git rev-parse --verify 'refs/remotes/origin/main^{commit}')
+          [ "$PROD_SHA" = "$ORIGIN_MAIN" ] || fail "체크아웃 HEAD($PROD_SHA) != origin/main($ORIGIN_MAIN)"
+
+          git remote add staging "$STAGING_REPO"
+          git fetch --no-tags --no-recurse-submodules staging "+${STAGING_REF}:refs/remotes/staging/promote-src"
+          STAGING_SHA=$(git rev-parse --verify 'refs/remotes/staging/promote-src^{commit}')
+
+          { echo "PROD_SHA=$PROD_SHA"; echo "STAGING_SHA=$STAGING_SHA"; } >> "$GITHUB_ENV"
+          echo "PROD_SHA    = $PROD_SHA   ($(git log -1 --format=%s "$PROD_SHA"))"
+          echo "STAGING_SHA = $STAGING_SHA   ($(git log -1 --format=%s "$STAGING_SHA"))"
+
+      - name: Build promotion tree (staging 내용 + 운영 KEEP 복원 + DROP 제거)
+        run: |
+          fail() { echo "::error::$1"; exit 1; }
+
+          # 정책 하한 — 목록은 늘릴 수는 있어도 줄이면 안 된다.
+          #   목록 기반 검사는 목록에서 빠진 경로를 못 본다: 누가 DROP 에서 supabase-backup.yml 을 지우면
+          #   가짜 초록 백업이 조용히 운영에 들어가고, KEEP 에서 가드 테스트를 지우면 조용히 사라진다.
+          has() { case " $1 " in *" $2 "*) return 0 ;; *) return 1 ;; esac; }
+          for f in capacitor.config.json .github/workflows/android-build.yml \
+                   .github/workflows/promote-from-staging.yml js/photo/__tests__/module-registration.test.js; do
+            has "$KEEP_FROM_PROD" "$f" || fail "정책 하한 위반: KEEP_FROM_PROD 에서 $f 가 빠졌다"
+          done
+          has "$DROP" ".github/workflows/supabase-backup.yml" \
+            || fail "정책 하한 위반: DROP 에서 .github/workflows/supabase-backup.yml 이 빠졌다"
+          echo "  ✅ 정책 하한 충족 (KEEP 4 · DROP 1)"
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # 임시 index 에서만 조립한다 — 작업 폴더·실제 index 는 건드리지 않는다.
+          IDX="$RUNNER_TEMP/promote.index"
+          rm -f "$IDX"
+          export GIT_INDEX_FILE="$IDX"
+          git read-tree "$STAGING_SHA"
+
+          # 파일이든 디렉터리든 index 에서 통째로 제거
+          remove_path() { git ls-files -z -- "$1" | xargs -0 -r git update-index --force-remove --; }
+
+          for f in $KEEP_FROM_PROD; do
+            remove_path "$f"   # 스테이징 쪽 값(수정·디렉터리 무엇이든)을 먼저 치운다
+            entry=$(git ls-tree "$PROD_SHA" -- "$f")
+            if [ -z "$entry" ]; then
+              echo "  KEEP  $f  (운영에 없음 → 최종에도 없음)"
+              continue
+            fi
+            read -r mode type oid _ <<< "$entry"
+            [ "$type" = "blob" ] || fail "KEEP 는 파일이어야 한다: $f (type=$type)"
+            git update-index --add --cacheinfo "$mode,$oid,$f"
+            echo "  KEEP  $f  ← 운영본 $oid"
+          done
+
+          for f in $DROP; do
+            n=$(git ls-files -- "$f" | wc -l)
+            remove_path "$f"
+            echo "  DROP  $f  (스테이징 쪽 엔트리 ${n}개 제거)"
+          done
+
+          FINAL_TREE=$(git write-tree)
+          unset GIT_INDEX_FILE
+          PROD_TREE=$(git rev-parse --verify "${PROD_SHA}^{tree}")
+          { echo "FINAL_TREE=$FINAL_TREE"; echo "PROD_TREE=$PROD_TREE"; } >> "$GITHUB_ENV"
+          echo "PROD_TREE  = $PROD_TREE"
+          echo "FINAL_TREE = $FINAL_TREE"
+
+          if [ "$FINAL_TREE" = "$PROD_TREE" ]; then
+            { echo "NO_CHANGES=1"; echo "TEST_SHA=$PROD_SHA"; } >> "$GITHUB_ENV"
+            echo "✅ NO_CHANGES — 최종 승격 트리가 운영 트리와 같다(스테이징과의 차이는 환경 분기뿐). PR 을 만들지 않는다."
+          else
+            PROMO_SHA=$(git commit-tree "$FINAL_TREE" -p "$PROD_SHA" \
+              -m "sync(운영 승격): 스테이징 ${STAGING_SHA:0:7} 반영" \
+              -m "staging: ${STAGING_SHA}" \
+              -m "prod base: ${PROD_SHA}")
+            { echo "NO_CHANGES=0"; echo "PROMO_SHA=$PROMO_SHA"; echo "TEST_SHA=$PROMO_SHA"; } >> "$GITHUB_ENV"
+            echo "PROMO_SHA  = $PROMO_SHA  (커밋 1개, 부모 = $PROD_SHA)"
+          fi
+
+      - name: Verify promotion tree (KEEP byte-for-byte · DROP 부재 · 가드)
+        run: |
+          fail() { echo "::error::$1"; exit 1; }
+
+          for f in $KEEP_FROM_PROD; do
+            p=$(git rev-parse -q --verify "${PROD_SHA}:${f}" || true)
+            q=$(git rev-parse -q --verify "${FINAL_TREE}:${f}" || true)
+            [ "$p" = "$q" ] || fail "KEEP 불일치: $f  prod=${p:-없음}  final=${q:-없음}"
+            echo "  ✅ KEEP  $f  = ${p:-(양쪽 모두 없음)}"
+          done
+
+          for f in $DROP; do
+            left=$(git ls-tree -r --name-only "$FINAL_TREE" -- "$f")
+            [ -z "$left" ] || fail "DROP 잔존: $f → $left"
+            echo "  ✅ DROP  $f  (최종 트리에 없음)"
+          done
+
+          url=$(git show "${FINAL_TREE}:capacitor.config.json" \
+                | python3 -c 'import json,sys; print(json.load(sys.stdin)["server"]["url"])')
+          [ "$url" = "$PROD_PAGES_URL" ] || fail "capacitor server.url 이 운영이 아니다: $url"
+          echo "  ✅ capacitor server.url = $url"
+
+          git show "${FINAL_TREE}:.github/workflows/android-build.yml" | grep -qF "$PROD_PAGES_URL" \
+            || fail "android-build.yml 의 server.url 가드가 운영 URL 이 아니다"
+          echo "  ✅ android-build.yml 가드 = 운영 URL"
+
+          git cat-file -e "${FINAL_TREE}:.github/workflows/promote-from-staging.yml" \
+            || fail "승격 워크플로 자신이 최종 트리에서 사라졌다"
+          echo "  ✅ promote-from-staging.yml 생존"
+
+          # 목록과 무관한 내용 검사 — 결과물에 백업 워크플로가 없어야 한다
+          if [ -n "$(git ls-tree -r --name-only "$FINAL_TREE" -- .github/workflows/supabase-backup.yml)" ]; then
+            fail "supabase-backup.yml 이 최종 트리에 있다 — 운영엔 백업 워크플로가 없어야 한다"
+          fi
+          echo "  ✅ supabase-backup.yml 부재 (내용 검사)"
+
+          echo "--- .github/workflows 변화 (운영 → 최종) ---"
+          wf=$(git diff --name-status "$PROD_TREE" "$FINAL_TREE" -- .github/workflows/)
+          if [ -z "$wf" ]; then echo "  (없음)"; else printf '%s\n' "$wf" | sed 's/^/  ⚠️ /'; fi
+
+          git diff --name-status "$PROD_TREE" "$FINAL_TREE" > "$RUNNER_TEMP/changed.txt"
+          echo "--- 최종 diff (운영 → 최종): $(wc -l < "$RUNNER_TEMP/changed.txt") 파일 ---"
+          cat "$RUNNER_TEMP/changed.txt"
+          git diff --stat "$PROD_TREE" "$FINAL_TREE" | tail -1
+
+          # 환경 분기 경로는 KEEP 이면 diff 에 절대 나오면 안 된다(DROP 은 운영에 있으면 D 로 나올 수 있다)
+          for f in $KEEP_FROM_PROD; do
+            if grep -qE "[[:space:]]${f//./\\.}$" "$RUNNER_TEMP/changed.txt"; then
+              fail "KEEP 경로가 diff 에 들어갔다: $f"
+            fi
+          done
+          echo "  ✅ KEEP 경로는 diff 에 없음"
+
+      - name: Checkout promotion tree + clean check + diff --check
+        run: |
+          fail() { echo "::error::$1"; exit 1; }
+          git checkout -q --detach "$TEST_SHA"
+          [ "$(git rev-parse 'HEAD^{tree}')" = "$FINAL_TREE" ] || fail "체크아웃 트리가 최종 트리와 다르다"
+          s=$(git status --porcelain)
+          [ -z "$s" ] || { printf '%s\n' "$s"; fail "체크아웃 직후 작업 폴더가 깨끗하지 않다"; }
+          echo "  ✅ HEAD tree == FINAL_TREE · git status clean"
+
+          echo "--- git diff --check ${PROD_SHA:0:7}..HEAD ---"
+          if ! git diff --check "${PROD_SHA}..HEAD"; then
+            fail "들어오는 변경에 공백 오류가 있다(위 목록). 스테이징에서 고친 뒤 다시 돌려라."
+          fi
+          echo "  ✅ 공백 오류 없음"
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      # deploy.yml 과 같은 게이트를 머지 **전에** 돌린다.
+      - name: Gate — lint:ci
+        run: npm run lint:ci
+      - name: Gate — smoke
+        run: npm run smoke
+      - name: Gate — audit:overlay
+        run: npm run audit:overlay
+      - name: Gate — test
+        run: |
+          # `jest --passWithNoTests` 라서 테스트를 0개 찾아도 초록이 뜬다 — 개수까지 본다.
+          npm test -- --ci --json --outputFile="$RUNNER_TEMP/jest.json"
+          python3 - "$RUNNER_TEMP/jest.json" <<'PY'
+          import json, sys
+          r = json.load(open(sys.argv[1]))
+          total, failed = r["numTotalTests"], r["numFailedTests"]
+          suites = r["numTotalTestSuites"]
+          print(f"jest: suites={suites} tests={total} failed={failed}")
+          if total == 0:
+              print("::error::테스트를 0개 찾았다 — passWithNoTests 로 가짜 초록"); sys.exit(1)
+          if failed:
+              sys.exit(1)
+          PY
+
+      - name: Verify working tree still clean after gates
+        run: |
+          fail() { echo "::error::$1"; exit 1; }
+          s=$(git status --porcelain)
+          [ -z "$s" ] || { printf '%s\n' "$s"; fail "게이트 후 추적 대상 파일이 생기거나 바뀌었다"; }
+          [ "$(git rev-parse HEAD)" = "$TEST_SHA" ] || fail "HEAD 가 움직였다"
+          echo "  ✅ git status clean · HEAD == $TEST_SHA"
+
+      - name: Guard — 이미 열린 승격 PR
+        if: env.NO_CHANGES == '0' && env.DRY_RUN == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          open=$(gh pr list --state open --base main --limit 100 --json headRefName \
+                 --jq '[.[] | select(.headRefName | startswith("promote/staging-"))] | length')
+          if [ "$open" != "0" ]; then
+            gh pr list --state open --base main --limit 100 --json number,headRefName,url \
+              --jq '.[] | select(.headRefName | startswith("promote/staging-")) | "  #\(.number) \(.headRefName) \(.url)"'
+            echo "::error::열린 승격 PR 이 이미 있다. 둘이 살아 있으면 옛 것을 머지하는 순간 롤백된다 — 먼저 정리하라."
+            exit 1
+          fi
+          echo "  ✅ 열린 승격 PR 없음"
+
+      - name: Open promotion PR
+        if: env.NO_CHANGES == '0' && env.DRY_RUN == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          fail() { echo "::error::$1"; exit 1; }
+          git push origin "${PROMO_SHA}:refs/heads/${BRANCH}"
+          echo "PUSHED=1" >> "$GITHUB_ENV"
+
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          BODY="$RUNNER_TEMP/pr-body.md"
+          {
+            echo "스테이징 \`${STAGING_SHA:0:7}\` → 운영 승격. 워크플로 실행: ${RUN_URL}"
+            echo
+            echo "| | SHA |"
+            echo "|---|---|"
+            echo "| 운영 base | \`${PROD_SHA}\` |"
+            echo "| 스테이징 | \`${STAGING_SHA}\` |"
+            echo "| 승격 커밋 | \`${PROMO_SHA}\` (1개) |"
+            echo
+            echo "## 들어오는 변경 ($(wc -l < "$RUNNER_TEMP/changed.txt") 파일)"
+            echo '```'
+            cat "$RUNNER_TEMP/changed.txt"
+            echo '```'
+            echo
+            echo "## 환경 분기 — 잡에서 검증됨"
+            echo "- KEEP(운영본과 byte-for-byte 동일): ${KEEP_FROM_PROD// /, }"
+            echo "- DROP(최종 트리에 없음): $DROP"
+            echo "- capacitor server.url = ${PROD_PAGES_URL}"
+            echo
+            echo "## 게이트"
+            echo "lint:ci · smoke · audit:overlay · test(개수 확인) · git diff --check · status clean — 전부 통과"
+            echo
+            echo "⚠️ **머지하면 바로 라이브다** — deploy.yml 이 돈다."
+          } > "$BODY"
+
+          if ! PR_URL=$(gh pr create --base main --head "$BRANCH" \
+                --title "sync(운영 승격): 스테이징 ${STAGING_SHA:0:7} 반영" --body-file "$BODY"); then
+            fail "PR 생성 실패. 레포 Settings → Actions → General → 'Allow GitHub Actions to create and approve pull requests' 가 꺼져 있으면 이렇게 된다."
+          fi
+          echo "PR_URL=$PR_URL" >> "$GITHUB_ENV"
+          echo "PR: $PR_URL"
+
+          head=$(gh pr view "$PR_URL" --json headRefOid --jq .headRefOid)
+          [ "$head" = "$PROMO_SHA" ] || fail "PR head($head) != PROMO_SHA($PROMO_SHA)"
+          commits=$(gh pr view "$PR_URL" --json commits --jq '.commits | length')
+          [ "$commits" = "1" ] || fail "PR 커밋이 1개가 아니다: $commits"
+          echo "  ✅ PR head == PROMO_SHA · 커밋 1개"
+
+      # 중간에 실패하면 올린 브랜치를 남기지 않는다(열린 PR 도 닫는다).
+      - name: Cleanup on failure
+        if: failure() && env.PUSHED == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "${PR_URL:-}" ]; then
+            gh pr close "$PR_URL" --comment "승격 워크플로 검증 실패로 자동으로 닫는다: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" || true
+          fi
+          git push origin --delete "$BRANCH" || true
+          echo "정리: $BRANCH 삭제"
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ "${NO_CHANGES:-}" = "1" ]; then result="NO_CHANGES — PR 안 만듦(승격할 내용 없음)"
+          elif [ "$DRY_RUN" = "true" ]; then result="DRY RUN — PR 안 만듦(dry_run=true)"
+          elif [ -n "${PR_URL:-}" ]; then result="PR 생성: $PR_URL"
+          else result="PR 없음(실패 또는 미도달)"; fi
+          echo "RESULT: $result"
+          {
+            echo "## Promote from staging"
+            echo "| 항목 | 값 |"
+            echo "|---|---|"
+            echo "| dry_run | ${DRY_RUN} |"
+            echo "| staging_ref | ${STAGING_REF} |"
+            echo "| PROD_SHA | \`${PROD_SHA:-?}\` |"
+            echo "| STAGING_SHA | \`${STAGING_SHA:-?}\` |"
+            echo "| PROD_TREE | \`${PROD_TREE:-?}\` |"
+            echo "| FINAL_TREE | \`${FINAL_TREE:-?}\` |"
+            echo "| NO_CHANGES | ${NO_CHANGES:-?} |"
+            echo "| PROMO_SHA | \`${PROMO_SHA:-없음}\` |"
+            echo "| 결과 | ${result} |"
+          } >> "$GITHUB_STEP_SUMMARY"
