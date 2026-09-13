@@ -4537,14 +4537,27 @@
     bookings: ['오늘 빈 시간 알려줘', '내일 예약 있어?', '이번 달 매출 얼마야?'],
     bookings_lookup: ['{name}님 마지막 방문 언제야?', '{name}님 메모 있어?', '오늘 예약 알려줘'],
   };
+  //   같은 **뜻**도 거른다 — 실측(칩 그래프 130클릭): "재료비 얼마 썼어?" → "이번 달 매출" → 칩 "이번 달 지출 얼마야?"(재추천 1).
+  //   문장 비교만으로는 재료비=지출을 못 알아본다. 서버 `_dedupe_followups` 의 '최근 3턴 같은 intent' 규칙과 같은 취지.
+  const _FE_CHIP_FAMILY = [
+    [/지출|재료비|나간\s*돈|쓴\s*돈|비용/, /지출/],
+    [/매출/, /매출/],
+    [/빈\s*시간|비는\s*시간|빈자리/, /빈 시간/],
+    [/내일.*(예약|손님|일정)/, /내일 예약/],
+    [/오늘.*(예약|손님|일정)/, /오늘 예약/],
+    [/시술\s*목록|메뉴|서비스\s*목록|시술\s*종류/, /시술 목록/],
+    [/단골|자주\s*오/, /단골/],
+  ];
   function _feFollowups(kind, name) {
     const base = _FE_FOLLOWUPS[kind] || [];
     const norm = (t) => String(t || '').replace(/[\s?!.~]/g, '');
-    const asked = _history.filter(m => m && m.role === 'user').slice(-3).map(m => norm(m.text));
+    const recent = _history.filter(m => m && m.role === 'user').slice(-3).map(m => String(m.text || ''));
+    const asked = recent.map(norm);
+    const sameFamily = (chip) => _FE_CHIP_FAMILY.some(([askedRe, chipRe]) => chipRe.test(chip) && recent.some(q => askedRe.test(q)));
     return base
       .filter(t => name || !/\{name\}/.test(t))
       .map(t => t.replace(/\{name\}/g, name || ''))
-      .filter(t => !asked.includes(norm(t)))
+      .filter(t => !asked.includes(norm(t)) && !sameFamily(t))
       .slice(0, 3);
   }
 

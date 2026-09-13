@@ -14,7 +14,7 @@ function cut(src, startMarker) {
   throw new Error('안 닫힘');
 }
 
-const TABLE = SRC.slice(SRC.indexOf('  const _FE_FOLLOWUPS = {'), SRC.indexOf('  function _feFollowups('));
+const TABLE = SRC.slice(SRC.indexOf('  const _FE_FOLLOWUPS = {'), SRC.indexOf('  function _feFollowups('));  // _FE_CHIP_FAMILY 포함
 const FN = cut(SRC, '  function _feFollowups(');
 function make(history) {
   // eslint-disable-next-line no-new-func
@@ -28,6 +28,14 @@ describe('_feFollowups', () => {
   test('방금 물은 질문은 다시 권하지 않는다', () => {
     const f = make([{ role: 'user', text: '오늘 빈 시간 알려줘' }, { role: 'user', text: '오늘 예약 몇 개야?' }]);
     expect(f('bookings')).not.toContain('오늘 빈 시간 알려줘');
+  });
+  test('같은 뜻을 방금 물었으면 거른다 — 재료비 → 매출 → 지출 칩 금지(라이브 재추천 1건)', () => {
+    const f = make([{ role: 'user', text: '재료비 얼마 썼어?' }, { role: 'user', text: '이번 달 매출 얼마야?' }]);
+    expect(f('revenue')).not.toContain('이번 달 지출 얼마야?');
+    expect(f('revenue').length).toBeGreaterThan(0);
+  });
+  test('관련 없는 질문 뒤엔 지출 칩이 그대로 나온다', () => {
+    expect(make([{ role: 'user', text: '이번 달 매출 얼마야?' }])('revenue')).toContain('이번 달 지출 얼마야?');
   });
   test('이름 템플릿은 이름이 있을 때만', () => {
     expect(make([])('bookings_lookup', '김호영')).toContain('김호영님 마지막 방문 언제야?');
