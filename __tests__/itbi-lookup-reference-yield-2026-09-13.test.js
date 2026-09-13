@@ -67,3 +67,16 @@ describe('기존 동작 보존', () => {
     expect(r.text).toMatch(/김호영님/);
   });
 });
+
+describe('② 숫자 규칙(가게 전체)도 특정인 지칭엔 손을 뗀다', () => {
+  test.each([
+    '아까 그분 예약 있어?', '그분 예약 몇 건이야?', '그 고객 예약 있어?', '첫 번째 손님 예약 있어?', '이 사람 오늘 예약 있어?',
+  ])('%s → findAsyncRule null', (q) => {
+    const { I } = load(CUSTOMERS);
+    expect(I.findAsyncRule(q)).toBeNull();
+  });
+  test.each(['오늘 예약 있어?', '예약 뭐 있어?', '이번 주 예약 몇 건이야?', '오늘 손님 예약 몇 건?'])('가게 전체 질문 %s 는 그대로 규칙이 받는다', (q) => {
+    const { I } = load(CUSTOMERS);
+    expect(I.findAsyncRule(q)).not.toBeNull();
+  });
+});

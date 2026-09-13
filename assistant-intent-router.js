@@ -29,6 +29,13 @@
 
   function _trim(s) { return String(s == null ? '' : s).trim(); }
 
+  // [ITBI Closeout 2026-09-13 · CASE-034] 가리키는 말(그분·아까·N번째·맨 위…)은 **대화 맥락**이 있어야 풀린다.
+  //   그 맥락은 서버 세션에만 있다. 앞단 지름길이 여기서 답하면 멈춘 채 틀린 답을 낸다 — 실측 두 겹:
+  //     ① 예약 조회 지름길: "아까 그분 예약 있어?" → "🔍 아까님을 못 찾았어요" ('아까' 를 이름으로 짐작)
+  //     ② 숫자 규칙(bookings_today): 같은 질문 → "📅 오늘 예약 없어요" (그 사람이 아니라 가게 전체)
+  //   지름길은 손을 떼고 서버로 넘긴다.
+  const _PERSON_REF_RE = /(그|이|저)\s*(분|고객|손님|사람)|아까|방금|번째|맨\s*(위|처음)/;
+
   function _bumpStats(type) {
     try {
       const s = window[STATS_KEY];
@@ -410,6 +417,7 @@
     if (_disabled()) return null;
     const q = _trim(text);
     if (!q || q.length > 40) return null;
+    if (_PERSON_REF_RE.test(q)) return null;      // CASE-034 ② — 특정인 지칭은 가게 전체 숫자로 답하지 않는다
     // [2026-06-10 QA] 조언성 질문은 숫자 숏컷이 가로채면 안 됨 — "오늘 매출 조언해줘"가
     //   매출 숫자만 띄우고 끝나던 버그. 조언/분석 의도면 LLM 으로 보낸다.
     if (/조언|추천|어떻게|어떡|어떄|팁|전략|분석|아이디어|뭐부터|뭘 해야|개선/.test(q)) return null;
@@ -852,14 +860,9 @@
     return _bookingForCustomer({ id: customer.id, name: customer.name }, text);
   }
 
-  // [ITBI Closeout 2026-09-13 · CASE-034] "아까 그분 예약 있어?" → "🔍 아까님을 못 찾았어요".
-  //   가리키는 말(그분·아까·N번째…)은 **대화 맥락**이 있어야 풀린다 — 그 맥락은 서버 세션에만 있다.
-  //   여기서 낱말을 이름으로 짐작하면 멈춘 채 틀린 답을 낸다. 서버로 넘긴다.
-  const _LOOKUP_REF_RE = /(그|이|저)\s*(분|고객|손님|사람)|아까|방금|번째|맨\s*(위|처음)/;
-
   async function tryLookupBooking(text) {
     if (_disabled() || !_looksBookingLookup(text)) return null;
-    if (_LOOKUP_REF_RE.test(_trim(text))) return null;
+    if (_PERSON_REF_RE.test(_trim(text))) return null;
     const target = _extractLookupTarget(text);
     if (!target.name) return null;
     //   호칭('님') 근거 없이 낱말에서 고른 이름은 **짐작**이다. 짐작이 고객 목록에 없으면
