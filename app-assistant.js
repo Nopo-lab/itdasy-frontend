@@ -555,7 +555,15 @@
     _renderRafId = (window.requestAnimationFrame || window.setTimeout).call(window, () => {
       _renderRafId = 0;
       _lastRenderedSig = _historySig();
-      _renderHistoryImpl();
+      try {
+        _renderHistoryImpl();
+      } catch (err) {
+        // [Closeout 2026-09-13] 그리다가 터지면 원장님 화면엔 **말풍선이 안 뜬다** — 서버에선 흔적 0 이었다.
+        _lastRenderedSig = '';   // 다음 렌더에서 다시 시도하게
+        _reportClientEvent('client_render_error', {
+          error_code: (err && err.name) || 'Error', error_stage: 'render_history' });
+        throw err;               // 기존 동작(전역 에러·Sentry)은 그대로
+      }
     }, 0);
   }
   // assistant 메시지 한 개 → HTML. 캐시 가능하도록 분리.
@@ -2761,10 +2769,17 @@
   }
 
   function _handleSuggestionClick(e) {
-    return typeof _assistantSuggestionControls.handleClick === 'function' && _assistantSuggestionControls.handleClick(e, {
+    try {
+      return typeof _assistantSuggestionControls.handleClick === 'function' && _assistantSuggestionControls.handleClick(e, {
         isSending: () => _sendInFlight,
         send: _send,
       });
+    } catch (err) {
+      // [Closeout 2026-09-13] 추천칩을 눌렀는데 아무 일도 안 일어나는 실패 — 경보 recommendation_fail 의 원천.
+      _reportClientEvent('recommendation_click_error', {
+        error_code: (err && err.name) || 'Error', error_stage: 'suggestion_click', via: 'chip' });
+      return false;
+    }
   }
 
   // 캐시 무효화 + data-changed 이벤트 (단일 액션 실행 후 공통 로직)
@@ -4774,6 +4789,10 @@
       _clearChatPending();
       return;
     }
+    try {
+      const _nc = _networkErrorCode(e);
+      if (_nc) _reportClientEvent('network_error', { error_code: _nc, error_stage: 'ask' });
+    } catch (_e) { void _e; }
     _history.push({ role: 'assistant', text: _sendErrorText(e) });
     _renderHistory();
     _clearChatPending();
@@ -4966,6 +4985,43 @@
     } catch (_e) { return 'typed'; }
   }
 
+  // [ITBI Closeout 2026-09-13 · §7] 프론트에서만 보이는 실패를 서버 [ITBI] 로 보낸다.
+  //   서버 허용목록엔 network_error · client_render_error · recommendation_click_error ·
+  //   unsupported_request 가 있었는데 **프론트가 한 번도 보내지 않았다** — 이벤트 이름만 있고 원천이 없었다.
+  //   원문 답변·예외 메시지는 보내지 않는다(메시지에 고객명이 섞일 수 있다). 코드성 값만.
+  function _reportClientEvent(event, fields) {
+    try {
+      if (typeof apiFetch !== 'function') return;
+      if (window.__itdasyAuthDead) return;   // 세션이 죽었으면 보내지 않는다(401 폭주 방지)
+      const f = fields || {};
+      apiFetch('/assistant/client-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(window.authHeader ? window.authHeader() : {}) },
+        body: JSON.stringify({
+          event: event,
+          conversation_id: _sessionId || null,
+          handled_by: f.handled_by || null,
+          fallback_reason: f.fallback_reason || null,
+          error_code: f.error_code ? String(f.error_code).slice(0, 48) : null,
+          error_stage: f.error_stage ? String(f.error_stage).slice(0, 48) : null,
+          via: f.via || null,
+          question: f.question ? String(f.question).slice(0, 500) : null,
+          app_build: (window.__ITDASY_BUILD__ || window.APP_BUILD || ''),
+        }),
+      }).catch(() => {});
+    } catch (_e) { void _e; }
+  }
+
+  // 서버가 **응답을 준** 실패(4xx/5xx)는 서버가 이미 기록한다 — 여기선 응답 자체가 없던 것만 센다.
+  function _networkErrorCode(e) {
+    const msg = String((e && e.message) || '');
+    if (/\b[45]\d\d\b/.test(msg)) return null;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'offline';
+    if (/timeout|timed out|너무 오래/i.test(msg)) return 'client_timeout';
+    if (/failed to fetch|load failed|network/i.test(msg)) return 'fetch_failed';
+    return (e && e.name) ? String(e.name).slice(0, 32) : 'unknown';
+  }
+
   function _reportClientTurn(handledBy, q, via) {
     try {
       if (typeof apiFetch !== 'function') return;
@@ -5127,6 +5183,10 @@
     if (!U || typeof U.classify !== 'function') return false;
     const c = U.classify(q);
     if (!c) return false;
+    // [Closeout 2026-09-13] "못 해요" 로 끝나는 턴도 서버에 남긴다 — 무엇을 원했는데 못 해줬는지가 로드맵이다.
+    _reportClientEvent('unsupported_request', {
+      handled_by: 'unsupported_guide:' + String(c.kind || ''), fallback_reason: 'unsupported_capability',
+      question: q, via: (window.__itbiVia === 'chip') ? 'chip' : 'typed' });
     _clearAssistantInput(input);
     _history.push({ role: 'user', text: q });
     const AC = window.ItbiActiveCard;
