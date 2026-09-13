@@ -87,7 +87,12 @@
     var img = _thumb(slot), sel = !!_selected[slot.id];
     // [개편 2026-07-15] 타일 뱃지 소음 제거 — 발행된 타일은 사진만. 진행 중만 좌하단 흰 칩 하나.
     // [버그6] 칩 3단계: 예약 발행 = '예약' / 사진·캡션 완료 = '작성 완료' / 그 외 = '작성 중'.
-    var chip = _isPub(slot) ? ''
+    /* [2026-09-13 ZH] 서버에 못 올라간 슬롯은 칩에 '기기에만' 을 먼저 말한다 — 원장이 다른 기기에서 안 보이는 이유를 알 수 있게.
+       push 가 실제로 실패했을 때만(막 저장해서 올라가는 중인 건 아님). 발행된 타일에도 붙인다(발행 후 수정분이 안 올라간 경우). */
+    var _ss = (window.WorkspaceSync && window.WorkspaceSync.status) ? window.WorkspaceSync.status() : null;
+    var _local = !!(_ss && _ss.failed && slot.syncState && slot.syncState !== 'synced');
+    var chip = _local ? '<span class="wf-chip wf-chip--local">기기에만 저장</span>'
+      : _isPub(slot) ? ''
       : '<span class="wf-chip">' + ((slot.publish && slot.publish.status === 'scheduled') ? '예약'
         : (_isReady(slot) ? '작성 완료' : '작성 중')) + '</span>';
     return '<button type="button" class="wf-tile' + (_selectMode ? ' wf-tile--sel' : '') + (sel ? ' is-sel' : '') +
@@ -284,6 +289,8 @@
 	    _scrollToEnteredCard();  // [v547] 카드에서 진입했었다면 복귀 후 그 카드로 정밀 복원
 	  }
 
+	  // [2026-09-13 ZH] 동기화 상태가 바뀌면(실패↔회복) 보이는 홈 칩을 다시 그린다.
+	  try { window.addEventListener('itdasy:sync-status', function () { if (_lastRoot && _lastRoot.isConnected && !document.hidden) refresh(); }); } catch (_se) { void _se; }
 	  function refresh() {
 	    if (typeof initWorkshopTab === 'function') { Promise.resolve(initWorkshopTab()).catch(function () {}); return; }
 	    if (!_lastRoot || typeof loadSlotsFromDB !== 'function') return;

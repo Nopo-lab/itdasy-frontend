@@ -826,7 +826,10 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 
 /* PC: 고정 사이드바 가림 방지. [v716] var(--side-nav-width) — ≥768px 232 / ≥1200px 260 자동 정합 */
 @media (width >= 768px) and (height >= 600px) {
-  .wsv2flow { left: var(--side-nav-width); }
+  /* [2026-09-13 ZH] 🔴 PC·태블릿에서 플로우 상단바(뒤로·제목·단계)가 **앱 헤더 밑에 깔려** 뒤로 버튼이 안 눌렸다.
+     이 구간의 .app-header 는 position:fixed · z-index 11000(style-responsive.css)인데 플로우는 top:0 · z 9800.
+     실측(Chrome 1147×844): '뒤로'(248,11,40×40) elementFromPoint = .app-header. 다른 허브들처럼 헤더 아래에서 시작한다. */
+  .wsv2flow { left: var(--side-nav-width); top: var(--app-header-h); }
   .wsv2flow__s { padding: 6px 24px 24px; }
   .wsv2flow .cap-card { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .wsv2flow .cap-card .cap-photo { height: 100%; min-height: 200px; margin-bottom: 0; }   /* [fix] 편집카드 전용 — 캡션 썸네일(.cap-photo--sm)에 새어들어 사진이 거대해지던 것 차단 */

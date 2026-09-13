@@ -419,9 +419,33 @@
 
   // ── PUSH — dirty slot 업서트 + tombstone 삭제 반영 ───────────
   var _pushing = false;
+  /* [2026-09-13 ZH] 🔴 **서버에 못 올라갔는데 원장은 알 방법이 없었다.**
+     push 가 500·네트워크 끊김·세션 만료로 실패하면 슬롯은 로컬에 dirty 로 남고(데이터는 안전) 다음 트리거에서
+     재시도되지만, 화면엔 편집기의 "사진을 꾸몄어요" 만 뜨고 **`syncState` 를 읽는 UI 가 한 곳도 없었다.**
+     그래서 원장은 다른 기기에서 안 보이는 이유를 모르고, 서버가 회복돼도 앱이 그대로 켜져 있으면 재시도 트리거가 없었다.
+     실측(2026-09-13, 라이브 계정 · upsert 를 500 으로 막음): push 2회 모두 실패·dirty 유지, 안내 0.
+     → push 가 끝날 때마다 남은 개수와 실패 여부를 이벤트로 알리고, 실패→회복 **전이**에서만 한 번씩 말한다.
+       실패로 남아 있으면 화면이 보이는 동안 1분마다 다시 올려 본다. */
+  var _status = { pending: 0, failed: false, at: 0 };
+  var _roundFailed = false, _retryTimer = null;
+  function status() { return { pending: _status.pending, failed: _status.failed, at: _status.at }; }
+  function _publishStatus(slots) {
+    var pending = (slots || []).filter(function (s) { return s && s.syncState !== 'synced'; }).length;
+    var failed = _roundFailed && pending > 0;
+    var wasFailed = _status.failed, hadPending = _status.pending;
+    _status = { pending: pending, failed: failed, at: Date.now() };
+    try {
+      if (failed && !wasFailed && window.showToast) window.showToast('서버에 아직 못 올렸어요 — 작업은 이 기기에 있어요. 연결되면 자동으로 올라가요');
+      else if (!failed && wasFailed && hadPending > 0 && pending < hadPending && window.showToast) window.showToast('이 기기에 있던 작업을 서버에 올렸어요');
+    } catch (_t) { void _t; }
+    try { window.dispatchEvent(new CustomEvent('itdasy:sync-status', { detail: status() })); } catch (_e) { void _e; }
+    if (_retryTimer) { clearTimeout(_retryTimer); _retryTimer = null; }
+    if (failed) _retryTimer = setTimeout(function () { _retryTimer = null; if (!document.hidden) pushAll(); }, 60000);
+  }
   function pushAll() {
     if (!ready() || _pushing) return Promise.resolve();
     _pushing = true;
+    _roundFailed = false;
     return flushTombstones()
       .then(loadAllLocal)
       .then(function (slots) {
@@ -429,8 +453,8 @@
         log('push dirty', dirty.length);
         return dirty.reduce(function (p, slot) { return p.then(function () { return pushSlot(slot); }); }, Promise.resolve());
       })
-      .catch(function (e) { log('pushAll err', e); })
-      .then(function () { _pushing = false; });
+      .catch(function (e) { log('pushAll err', e); _roundFailed = true; })
+      .then(function () { _pushing = false; return loadAllLocal().then(_publishStatus, function () { void 0; }); });
   }
   function pushSlot(slot) {
     var startedAt = slot && slot.updatedAt;   // [버그수정 2026-07-09 TOCTOU] push 시작 스냅샷
@@ -459,6 +483,7 @@
           var remote = b && b.detail && b.detail.slot;
           return remote ? resolveConflict(slot, remote).then(function () { return { _conflict: true }; }) : null;
         });
+        if (!r.ok) _roundFailed = true;   // 서버 오류·권한·세션 만료 — 이번 라운드는 실패로 센다
         return r.ok ? r.json() : null;
       }); }).then(function (j) {
         if (j && j._conflict) return;   // 병합이 처리 — 이번 push 는 여기서 끝(병합본이 dirty 로 남아 다음 push)
@@ -489,6 +514,7 @@
       });
     }).catch(function (e) {
       log('pushSlot err', slot && slot.id, e);
+      _roundFailed = true;
       /* 응답을 못 받았다 = 서버가 커밋했는지 **모른다.** 보낸 내용의 지문을 남겨
          다음 409 에서 '내 것이 늦게 도착한 것' 인지 가릴 수 있게 한다.
          새로고침을 겪어도 살아남아야 하므로 로컬에 영속한다(재-dirty 안 하는 원본 저장). */
@@ -784,7 +810,7 @@
     try {
       if (localStorage.getItem(PURGE_PENDING_KEY) === '1') clearLocal();
     } catch (_e) { void 0; }
-    window.WorkspaceSync = { enabled: true, sync: sync, pull: pull, push: pushAll, hydratePhotos: hydratePhotos, beginEdit: beginEdit, settleSlot: settleSlot, clearLocal: clearLocal, _debug: { buildPayload: buildPayload, remoteToLocal: remoteToLocal, hydratePhotos: hydratePhotos, merge3: merge3, makeBase: makeBase, photoSig: photoSig } };
+    window.WorkspaceSync = { enabled: true, status: status, sync: sync, pull: pull, push: pushAll, hydratePhotos: hydratePhotos, beginEdit: beginEdit, settleSlot: settleSlot, clearLocal: clearLocal, _debug: { buildPayload: buildPayload, remoteToLocal: remoteToLocal, hydratePhotos: hydratePhotos, merge3: merge3, makeBase: makeBase, photoSig: photoSig } };
     // 최초 동기화 — 로그인 상태 갖춰지면. 아니면 이후 트리거에서 재시도.
     var tries = 0;
     (function boot() { if (ready()) { sync(); } else if (tries++ < 20) { setTimeout(boot, 800); } })();
