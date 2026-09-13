@@ -78,6 +78,22 @@
   // ── 미리보기용 실제 저장값 (영업시간/주소/가격표) — 설정 읽기라 사실상 공짜, 무조건 fetch ──
   let _real = null; // { HOURS, LOCATION, PRICE }
   function _won(p) { const n = Number(p); return (p === '' || p == null || isNaN(n)) ? String(p || '') : n.toLocaleString('ko-KR') + '원'; }
+  // [2026-09-13] 영업시간 미리보기 정본 통일 — BE 발송(_dm_hours_lines)은 business_hours_json 만
+  //   읽는데 미리보기는 레거시 d.hours 텍스트를 읽어서, 미리보기와 실제 발송이 달랐다.
+  //   BE 와 같은 포맷("월 10:00–20:00\n일 휴무")으로 JSON 우선, 텍스트는 폴백.
+  const _BH_DAYS = [['mon', '월'], ['tue', '화'], ['wed', '수'], ['thu', '목'], ['fri', '금'], ['sat', '토'], ['sun', '일']];
+  function _bhLines(raw) {
+    let bh = raw;
+    if (typeof bh === 'string') { try { bh = JSON.parse(bh); } catch (_e) { return ''; } }
+    if (!bh || typeof bh !== 'object' || Array.isArray(bh)) return '';
+    const lines = [];
+    _BH_DAYS.forEach(([k, ko]) => {
+      const d = bh[k];
+      if (!d || typeof d !== 'object') return;
+      lines.push(d.off ? `${ko} 휴무` : `${ko} ${d.open || '?'}–${d.close || '?'}`);
+    });
+    return lines.join('\n');
+  }
   async function _fetchReal() {
     const out = { HOURS: '', LOCATION: '', PRICE: '' };
     const auth = window.authHeader ? window.authHeader() : {};
@@ -85,11 +101,11 @@
       const res = await apiFetch(apiUrl('/shop/settings'), { headers: auth });
       if (res.ok) {
         const d = await res.json().catch(() => null) || {};
-        out.HOURS = (d.hours || '').toString().trim();
+        out.HOURS = _bhLines(d.business_hours_json) || (d.hours || '').toString().trim();
         out.LOCATION = (d.address || '').toString().trim();
       }
     } catch (_e) { void _e; }
-    try { if (!out.HOURS) out.HOURS = (localStorage.getItem('itdasy_shop_hours') || '').trim(); } catch (_e) { void _e; }
+    try { if (!out.HOURS) out.HOURS = _bhLines(localStorage.getItem('itdasy_business_hours_json')) || (localStorage.getItem('itdasy_shop_hours') || '').trim(); } catch (_e) { void _e; }
     try { if (!out.LOCATION) out.LOCATION = (localStorage.getItem('itdasy_shop_addr') || '').trim(); } catch (_e) { void _e; }
     try {
       const list = (window.ServiceTemplates && window.ServiceTemplates.list) ? await window.ServiceTemplates.list() : null;
@@ -106,7 +122,8 @@
     const val = (_real && _real[key]) || '';
     const g = (greet || '').replace(/\s+$/, '');
     if (val) return (g ? g + '\n' : '') + val;
-    return (g ? g + '\n' : '') + `(아직 ${_DATA_LABEL[key]}을 설정 안 했어요 — 아래 '${_DATA_LABEL[key]} 수정'에서 추가하면 여기에 보여요)`;
+    // [2026-09-13 카피 정리] 한 줄로 축약 — '수정 →' 버튼은 같은 편집기 안에 있다.
+    return (g ? g + '\n' : '') + `(${_DATA_LABEL[key]} 미설정 — '${_DATA_LABEL[key]} 수정 →'에서 채워주세요)`;
   }
   function _refreshPreviews() {
     document.querySelectorAll(`#${ID} [data-preview]`).forEach(node => {
@@ -527,8 +544,8 @@
         if (typeof window.openPricelistUpload === 'function') window.openPricelistUpload();
         else _toast('가격표 설정 화면을 찾을 수 없어요');
       } else {
-        // TODO: 영업시간/주소 전용 섹션 앵커가 생기면 연결. 현재는 샵 설정 화면 진입.
-        if (typeof window.openShopSettings === 'function') window.openShopSettings();
+        // [2026-09-13] 앵커 연결 — 샵 설정을 열고 영업시간/주소 칸으로 바로 스크롤(TODO 해소).
+        if (typeof window.openShopSettings === 'function') window.openShopSettings(_JUMP[k]);
         else _toast('설정 화면을 찾을 수 없어요');
       }
       _haptic(); return;
