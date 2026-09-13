@@ -4081,7 +4081,9 @@ function _inlineConfirm(msg, onYes, onNo, opts) {
   // [Phase3-B #8] opts.okText / opts.cancelText 로 버튼 라벨 커스터마이즈(예: '예약 취소' / '아니요'). 미지정 시 기존 '확인'/'취소'.
   opts = opts || {};
   const okText = opts.okText || '확인';
-  const cancelText = opts.cancelText || '취소';
+  /* [2026-09-13 UX] 기본 '취소' 버튼이 "예약을 취소할까요?"·"환불할까요?" 같은 질문에서 **정반대로 읽혔다**
+     (라이브: 예약 취소 확인창의 [취소] 가 '안 한다' 였다). 질문의 대답이 되게 기본을 '아니요' 로. */
+  const cancelText = opts.cancelText || '아니요';
   const el = document.createElement('div');
   el.className = 'bk-confirm-toast';
   el.innerHTML = `

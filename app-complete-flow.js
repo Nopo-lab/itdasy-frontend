@@ -409,7 +409,9 @@
     if (!c.customer_id) { c._memBal = null; return; }
     if (c._memBalLoading) return;
     c._memBalLoading = true;
-    Promise.resolve(window.apiFetch ? window.apiFetch('/customers/' + encodeURIComponent(c.customer_id)) : null)
+    // 응답이 매달려도 '확인 중' 에 영영 머물지 않게 8초 상한(라이브에서 한 번 멈춘 채 남음).
+    const _timeout = new Promise((res) => setTimeout(() => res(null), 8000));
+    Promise.race([Promise.resolve(window.apiFetch ? window.apiFetch('/customers/' + encodeURIComponent(c.customer_id)) : null), _timeout])
       .then((r) => (r && r.ok ? r.json() : null))
       .then((d) => { c._memBal = (d && d.membership_balance != null && Number.isFinite(Number(d.membership_balance))) ? Number(d.membership_balance) : null; })
       .catch(() => { c._memBal = null; })
@@ -569,7 +571,8 @@
     const _msg = (typeof window._bookingCancelMsg === 'function')
       ? window._bookingCancelMsg({ status: _ctx.status, amount: _ctx.amount })
       : '이 예약을 취소할까요?';
-    if (window._inlineConfirm) { window._inlineConfirm(_msg, () => _doCancelBooking()); return; }
+    // [2026-09-13 UX] 버튼이 '취소 / 확인' 이라 "예약 취소할까요?" 에서 **'취소' 가 '안 한다'** 였다(누르면 예약이 그대로).
+    if (window._inlineConfirm) { window._inlineConfirm(_msg, () => _doCancelBooking(), function () { /* 아니요 */ }, { okText: '예약 취소', cancelText: '아니요' }); return; }
     if (!window.confirm(_msg)) return;
     return _doCancelBooking();
   }
