@@ -2925,11 +2925,15 @@ window.addEventListener('load', async function() {
   _bindLoginSocialButtons();
   applyStoreReviewLoginGuard();
 
-  // Enter 키 로그인 (IME 조합 중 무시)
-  const loginPw = document.getElementById('loginPassword');
-  if (loginPw) loginPw.addEventListener('keydown', e => {
-    if (e.isComposing || e.keyCode === 229) return;
-    if (e.key === 'Enter') login();
+  /* [2026-09-13 P2] 로그인 경로를 **form submit 하나**로 합쳤다.
+     전에는 (1) loginBtn click (2) 비밀번호 Enter keydown 두 경로였고,
+     여기에 form 을 씌우면 submit 까지 셋이 되어 /auth/login 이 두 번 나간다.
+     이제 버튼은 type="submit" 이라 click 도 Enter 도 같은 submit 으로 들어온다.
+     (IME 조합 중 Enter 는 브라우저가 form 제출로 올리지 않는다 — 조합 확정에 쓰인다) */
+  const loginForm = document.getElementById('loginForm');
+  if (loginForm) loginForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (typeof login === 'function') login();
   });
 
   // 비밀번호 보기 토글
@@ -3822,7 +3826,6 @@ Object.assign(window, {
     if (el) el.addEventListener('click', fn);
   }
   const ready = () => {
-    on('loginBtn', () => typeof login === 'function' && login());
     on('forgotPwLink', () => typeof forgotPassword === 'function' && forgotPassword());
     on('logoutBtn', () => {
       if (typeof closeSettings === 'function') closeSettings();

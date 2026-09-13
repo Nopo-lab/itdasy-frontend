@@ -17,6 +17,12 @@
 const fs = require('fs');
 const path = require('path');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'app-membership.js'), 'utf8');
+const MONEY = fs.readFileSync(path.join(__dirname, '..', 'format-money.js'), 'utf8');
+
+/* [2026-09-13 P2] 내역의 일시는 이제 공용 KST 헬퍼(format-money.js)가 만든다.
+   브라우저에선 이 파일이 비-defer 로 먼저 실행되므로, 테스트도 같은 조건을 만들어 준다.
+   (안 실으면 날짜만 비고 목록은 그대로 나온다 — 그 degrade 도 아래에서 확인한다) */
+beforeAll(() => { new Function('window', MONEY)(window); });
 
 /** IIFE 내부의 _loadHistory 를 꺼내 실행 가능한 형태로 만든다. */
 function loadFn(fetchImpl) {
@@ -81,6 +87,8 @@ describe('회원권 머리글 잔액은 서버가 진실원이다', () => {
     }));
     await load(711, wrap);
     expect(wrap.innerHTML).toContain('최근 내역');
+    // [2026-09-13 P2] 일시는 KST 로 찍힌다 — UTC 문자열을 자르면 9시간 빨랐다.
+    expect(wrap.innerHTML).toMatch(/\d{2}-\d{2} \d{2}:\d{2}/);
     expect(wrap.innerHTML).toContain('10,000원');   // display_amount 우선 (amount=0 이 아니라)
     expect(wrap.innerHTML).toContain('−');          // 사용은 음수 표기
   });

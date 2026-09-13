@@ -844,20 +844,29 @@ window.__LATEST_BUILD__ = '20260705-v709-fillwide';
   <div class="login-form login-fade-3" style="width:100%;max-width:340px;">
     <div id="sessionExpiredMsg" style="display:none;margin-bottom:14px;font-size:13px;color:var(--accent);font-weight:600;text-align:center;">로그인이 필요해요.<br>작업 중이던 내용은 이 기기에 보관했어요.<br>다시 로그인하면 이어서 저장할 수 있어요.</div>
 
-    <input type="email" class="login-field" id="loginEmail" placeholder="이메일" autocomplete="email" inputmode="email">
+    <!-- [2026-09-13 P2] 진짜 <form> 으로 감싼다.
+         왜: 입력칸이 form 밖에 떠 있으면 submit 이벤트가 없어 브라우저 비밀번호 관리자가
+             '로그인'으로 인식하지 못한다. 실측에서 Chrome 에 자격증명이 **이미 저장돼 있는데도**
+             로그인 화면에서 자동으로 채워지지 않았다(iOS 키체인·Google 비밀번호 관리자 동일).
+             원장이 앱을 열 때마다 손으로 골라야 했다.
+         주의: form 안의 버튼은 type 을 안 적으면 submit 이 된다 —
+               보조 버튼(눈 아이콘·비밀번호 찾기)에 type="button" 이 반드시 있어야 한다. -->
+    <form id="loginForm" novalidate>
+      <input type="email" class="login-field" id="loginEmail" name="email" placeholder="이메일" autocomplete="email" inputmode="email">
 
-    <div class="login-pw-field">
-      <input type="password" class="login-field" id="loginPassword" placeholder="비밀번호" autocomplete="current-password">
-      <button type="button" id="loginPwToggle" aria-label="비밀번호 보기" class="login-pw-eye">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-      </button>
-    </div>
+      <div class="login-pw-field">
+        <input type="password" class="login-field" id="loginPassword" name="password" placeholder="비밀번호" autocomplete="current-password">
+        <button type="button" id="loginPwToggle" aria-label="비밀번호 보기" class="login-pw-eye">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
 
-    <button type="button" class="login-forgot" id="forgotPwLink">비밀번호를 잊으셨나요?</button>
-    <div class="login-forgot-msg" id="forgotPwMsg" style="display:none"></div>
+      <button type="button" class="login-forgot" id="forgotPwLink">비밀번호를 잊으셨나요?</button>
+      <div class="login-forgot-msg" id="forgotPwMsg" style="display:none"></div>
 
-    <div class="login-error" id="loginError"></div>
-    <button class="login-cta" id="loginBtn">로그인</button>
+      <div class="login-error" id="loginError"></div>
+      <button type="submit" class="login-cta" id="loginBtn">로그인</button>
+    </form>
 
     <div class="login-divider"><span>간편 로그인</span></div>
 

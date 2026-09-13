@@ -91,7 +91,11 @@
        push 가 실제로 실패했을 때만(막 저장해서 올라가는 중인 건 아님). 발행된 타일에도 붙인다(발행 후 수정분이 안 올라간 경우). */
     var _ss = (window.WorkspaceSync && window.WorkspaceSync.status) ? window.WorkspaceSync.status() : null;
     var _local = !!(_ss && _ss.failed && slot.syncState && slot.syncState !== 'synced');
-    var chip = _local ? '<span class="wf-chip wf-chip--local">기기에만 저장</span>'
+    /* [2026-09-13 P1] 충돌 사본이면 그것부터 말한다 — 같은 사진·같은 제목이 두 장 보이는 이유가
+       이거 하나뿐이라, 표시가 없으면 원장은 '왜 두 개지' 하고 하나를 지운다.
+       판정은 라벨 문자열이 아니라 `conflictOf`(+옛 데이터는 id 규약) 로 한다 — 라벨은 병합에서 덮인다. */
+    var chip = _isConflictCopy(slot) ? '<span class="wf-chip wf-chip--conflict">다른 기기 수정본</span>'
+      : _local ? '<span class="wf-chip wf-chip--local">기기에만 저장</span>'
       : _isPub(slot) ? ''
       : '<span class="wf-chip">' + ((slot.publish && slot.publish.status === 'scheduled') ? '예약'
         : (_isReady(slot) ? '작성 완료' : '작성 중')) + '</span>';
@@ -165,12 +169,25 @@
   // [v779 보스] 옛 버그(v663 이전)로 한 콘텐츠가 업로드/레이아웃/캡션 단계마다 별도 초안으로 쌓인 걸
   //   목록에서 합친다. 같은 사진 묶음(사진 id 셋)인 '초안'끼리는 가장 최근(진행 더 된) 것만 남긴다.
   //   발행본은 절대 안 합치고(각각 유지), 사진 없는 초안도 그대로 둔다. 데이터 삭제 아님 — 표시만 정리.
+  /* [2026-09-13 P1] 동기화 충돌로 **일부러** 남긴 사본인가.
+     workspace-sync.js `resolveConflict()` 는 진짜 충돌이면 서버본과 내 것을 둘 다 남긴다 —
+     자동으로 고를 근거가 원리적으로 없으니 사람이 고르라고 남기는 것이다.
+     그런데 충돌 쌍은 **사진이 같아 지문도 같다.** 아래 dedup 이 그걸 중복으로 보고 합쳐 버려서
+     서버본이 화면에서 사라졌다(실측 2026-09-13: 로컬 3 · 서버 3 인데 타일 2).
+     판별은 의미 필드(`conflictOf`) 우선, 그게 없는 옛 데이터는 id 규약으로 받아 준다. */
+  function _isConflictCopy(s) {
+    if (!s) return false;
+    if (s.conflictOf) return true;
+    return /_conflict_\d+$/.test(String(s.id || ''));
+  }
   function _dedupDrafts(slots) {
     var newest = {}, order = [];
     var t = function (x) { return (x && (x.updatedAt || x.completedAt || x.createdAt)) || 0; };
     (slots || []).forEach(function (s) {
       var key;
-      if (_isPub(s)) { key = 'pub:' + (s.id || (order.length + '_' + t(s))); }
+      // 충돌 사본은 자기만의 칸을 쓴다 = 절대 합쳐지지 않는다. 원본은 아래 지문 규칙 그대로 살아남는다.
+      if (_isConflictCopy(s)) { key = 'conflict:' + (s.id || (order.length + '_' + t(s))); }
+      else if (_isPub(s)) { key = 'pub:' + (s.id || (order.length + '_' + t(s))); }
       else {
         var sig = (s.photos || []).map(function (p) { return p && (p.id || String(p.dataUrl || p.editedDataUrl || '').slice(-48)); })
           .filter(Boolean).sort().join('|');
