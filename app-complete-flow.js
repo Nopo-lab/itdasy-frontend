@@ -516,7 +516,13 @@
           window.showToast(`시술 완료했어요 · 회원권 ${_fmt(eff.membership_deducted)}을 차감했어요` + (_left != null && _left >= 0 ? ` · 남은 잔액 ${_won(_left)}` : ''));
         }
         else if (eff.revenue_created) window.showToast(`시술 완료했어요 · ${_fmt(ctx.amount)}을 이번달 매출에 넣었어요`);
-        else window.showToast('시술 완료했어요 · 매출에는 넣지 않았어요');
+        /* [2026-09-13 여러 탭 실측] 두 탭에서 같은 예약을 동시에 완료하면 서버는 **한 번만** 차감하고
+           늦은 쪽엔 기존 기록 id(revenue_id)만 돌려준다. 그런데 늦은 탭은 "매출에는 넣지 않았어요" 라고 해서
+           원장이 회원권이 안 빠진 줄 알고 다시 차감할 수 있었다(서버 잔액 40,000 — 실제로는 빠짐). */
+        else if (eff.revenue_id) window.showToast(ctx.method === 'membership'
+          ? '이미 완료된 예약이에요 · 회원권 차감은 한 번만 반영돼 있어요 (다시 빠지지 않았어요)'
+          : '이미 완료된 예약이에요 · 매출은 한 번만 기록돼 있어요');
+        else window.showToast(includeRev ? '시술 완료했어요' : '시술 완료했어요 · 매출에는 넣지 않았어요');
       }
       _close();
       _refreshConnectedViews();
@@ -524,7 +530,9 @@
       if (_ctx !== ctx) return;
       _busy = false;
       btn.disabled = false; btn.textContent = '시술 완료';
-      if (window.showToast) window.showToast('실패: ' + (e.message || ''));
+      if (window.showToast) window.showToast('시술 완료를 저장하지 못했어요 — ' + (e.message || '잠시 후 다시 시도해 주세요'));
+      // [2026-09-13 여러 탭] 다른 탭이 먼저 잔액을 쓰면 여기로 온다 — 옛 잔액 줄을 서버 값으로 다시 맞춘다.
+      if (ctx.method === 'membership') { ctx._memBal = undefined; ctx._memBalLoading = false; _render(); }
     }
   }
 

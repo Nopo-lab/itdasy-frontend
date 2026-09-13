@@ -345,6 +345,17 @@
   //    지금 booking_id 가 하는 일은 하나뿐이다: **이 차감이 어느 예약에서 나왔는지
   //    원장에 남겨 나중에 설명할 수 있게 하는 것.**
   //    (백엔드는 이 값이 내 원장·이 손님의 예약일 때만 기록하고, 아니면 조용히 버린다.)
+  async function _refreshUseSheet(sheet, customerId, customerName) {
+    try {
+      const c = await _fetch('GET', '/customers/' + encodeURIComponent(customerId));
+      const bal = c && c.membership_balance != null ? Number(c.membership_balance) : null;
+      if (bal == null || !Number.isFinite(bal)) return;
+      const subEl = sheet.querySelector('#msSub');
+      if (subEl) subEl.textContent = `${customerName || '고객'}님 · 현재 잔액 ${formatMoney(bal)}`;
+      _loadHistory(customerId, sheet.querySelector('#msHistoryWrap'));
+    } catch (_e) { void _e; }
+  }
+
   function openUseSheet(customerId, customerName, currentBalance, bookingId) {
     const balanceTxt = currentBalance != null ? `현재 잔액 ${formatMoney(currentBalance)}` : '';
     const html = `
@@ -397,7 +408,10 @@
         const _m = _moneyError(e, '차감');
         const _txt = _m.certain ? ('차감 실패 — ' + _m.text) : (_slow.fired ? _MONEY_STILL_UNKNOWN : _m.text);
         _toast(_txt, { error: true });
-        // [2026-07-22 fix] 실패 시 재활성화 — 안 하면 버튼 영구 잠김(충전 시트엔 있던 로직)
+        /* [2026-09-13 여러 탭 실측] 다른 탭이 먼저 차감하면 이 탭은 '잔액 부족' 으로 거절되는데
+           시트 머리말은 열 때 읽은 **옛 잔액(50,000원)** 을 그대로 보여 서버(10,000원)와 어긋났다.
+           실패하면 서버 잔액·내역을 다시 읽어 화면을 맞춘다. */
+        _refreshUseSheet(sheet, customerId, customerName);
         _slow.stop();
         _busy(btn, false, '차감 중…', '차감하기');
       }
