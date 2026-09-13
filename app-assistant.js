@@ -4687,7 +4687,7 @@
     const res = await apiFetch('/assistant/ask', {
       method: 'POST',
       headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: q, session_id: _sessionId || undefined, context_hint: _hint || undefined, via: _takeVia() }),
+      body: JSON.stringify({ question: q, session_id: _sessionId || undefined, context_hint: _hint || undefined, via: _takeVia(), client_tab: _ITBI_TAB_ID }),
       signal: ctrl.signal,
     });
     // [2026-07-22 보스] 서버가 사람 말로 이유를 줬으면(429 "AI 비서가 잠시 붐비고 있어요" 등)
@@ -4977,6 +4977,20 @@
   // [ITBI 2차게이트 2026-09-12 · §8] 추천칩 클릭 표식을 **한 번만** 소비한다.
   //   칩이 입력창을 채우고 send() 를 부르므로, 지우지 않으면 그 다음 직접 입력까지
   //   'chip' 으로 집계돼 추천칩 실패율이 실제보다 좋아 보인다(지표가 스스로를 속인다).
+  // [ITBI Closeout 2026-09-13 · CASE-030] 이 **페이지 로드**를 가리키는 임시 id — 탭 구분용.
+  //   대화 세션 id 는 localStorage 라 같은 계정 두 탭이 **같은 대화**를 쓴다(여러 기기 이어보기 설계).
+  //   그래서 탭 B 에서 목록을 보고 "그 고객" 이라 했는데 탭 A 가 방금 말한 사람으로 풀렸다.
+  //   서버는 이 값으로 "이 탭이 직접 주고받은 턴" 에서 먼저 대명사를 푼다.
+  //   sessionStorage 에 두지 않는다 — '탭 복제' 가 sessionStorage 를 그대로 복사해 같은 id 가 된다.
+  //   새로고침하면 새 id 가 되는데, 그때 화면엔 서버 전체 기록이 다시 뜨므로 전체 기준이 맞다.
+  const _ITBI_TAB_ID = (() => {
+    try {
+      const a = new Uint8Array(8);
+      (window.crypto || {}).getRandomValues ? window.crypto.getRandomValues(a) : a.forEach((_, i) => { a[i] = Math.floor(Math.random() * 256); });
+      return 't' + Array.from(a, (b) => b.toString(16).padStart(2, '0')).join('');
+    } catch (_e) { return 't' + Date.now().toString(36); }
+  })();
+
   function _takeVia() {
     try {
       const v = window.__itbiVia || null;
