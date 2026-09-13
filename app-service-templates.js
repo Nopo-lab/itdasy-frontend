@@ -188,10 +188,16 @@
       <div style="padding:16px;background:#F7F8FA;border-radius:14px;">
         <div style="font-size:13px;font-weight:700;color:#191F28;margin-bottom:10px;">새 시술 정보</div>
         ${p.id ? '' : _renderStarterChips()}
-        <div style="display:grid;grid-template-columns:2fr 1fr 80px;gap:6px;margin-bottom:6px;">
-          <input id="svc-name" placeholder="시술 이름" value="${_esc(p.name || '')}" style="padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;">
-          <input id="svc-price" type="number" placeholder="기본 금액" value="${_esc(p.default_price || '')}" style="padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;">
-          <input id="svc-dur" type="number" placeholder="분" value="${_esc(p.default_duration_min || 60)}" style="padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;">
+        <!-- [2026-09-14 첫원장] 2fr 1fr 80px 는 input 최소폭 때문에 줄어들지 못해 411px 폰에서 금액칸이 잘리고
+             '분' 칸이 화면 밖(x=536)으로 밀려 걸리는 시간을 아예 못 넣었다 → minmax(0,…) + min-width:0.
+             값이 들어가면 placeholder 가 사라져 '60' 이 뭔지 모르므로 칸 이름을 위에 적는다. -->
+        <div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.3fr) minmax(0,1fr);gap:6px;margin-bottom:3px;font-size:11px;font-weight:600;color:#6B7684;">
+          <span>시술 이름</span><span>금액(원)</span><span>시간(분)</span>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.3fr) minmax(0,1fr);gap:6px;margin-bottom:6px;">
+          <input id="svc-name" placeholder="시술 이름" value="${_esc(p.name || '')}" style="min-width:0;width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;">
+          <input id="svc-price" type="number" inputmode="numeric" placeholder="기본 금액" value="${_esc(p.default_price || '')}" style="min-width:0;width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;">
+          <input id="svc-dur" type="number" inputmode="numeric" placeholder="분" value="${_esc(p.default_duration_min || 60)}" style="min-width:0;width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;">
         </div>
         <input id="svc-material" type="number" placeholder="재료비 (선택, 실마진 계산용)" value="${_esc(p.material_cost || '')}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:6px;background:#fff;">
         <input id="svc-retouch" type="number" placeholder="리터치 주기 일수 (선택)" value="${_esc(p.retouch_period_days || '')}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:6px;background:#fff;">
@@ -206,16 +212,24 @@
 
   function _bindMainHandlers() {
     // 추가 패널 토글
-    document.querySelector('.svc-add-btn')?.addEventListener('click', () => {
+    const _toggleAddPanel = (forceOpen) => {
       const panel = document.getElementById('svc-add-panel');
       if (!panel) return;
-      const opening = panel.style.display === 'none';
+      const opening = forceOpen || panel.style.display === 'none';
       panel.style.display = opening ? '' : 'none';
-      if (opening) { setTimeout(() => document.getElementById('svc-name')?.focus(), 30); _bindAddHandlers(); }
-    });
+      if (opening) {
+        panel.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        setTimeout(() => document.getElementById('svc-name')?.focus(), 30); _bindAddHandlers();
+      }
+    };
+    document.querySelector('.svc-add-btn')?.addEventListener('click', () => _toggleAddPanel(false));
     _bindAddHandlers();
     // 카드 "수정" 클릭
     document.getElementById('svc-list')?.addEventListener('click', (e) => {
+      /* [2026-09-14 첫원장] 빈 화면 가운데 [첫 시술 추가] 가 아무 반응이 없었다(라이브) —
+         emptyState 는 버튼만 그리고 바인딩은 호출부 몫인데 여기서 bindEmptyCta 를 안 불렀다.
+         목록이 다시 그려져도(추가 후 삭제로 빈 화면 복귀) 살아 있게 위임으로 받는다. */
+      if (e.target.closest && e.target.closest('[data-empty-cta]')) { e.preventDefault(); _toggleAddPanel(true); return; }
       const editId = e.target.getAttribute('data-svc-edit');
       if (editId) { e.preventDefault(); edit(editId); }
     });
