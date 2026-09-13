@@ -302,12 +302,13 @@
       <div class="cf-sec">
         <div class="cf-label">결제수단</div>
         <div class="cf-pay-grid">${methodsHtml}</div>
+        ${c.method === 'membership' ? _memBalanceHtml(c) : ''}
       </div>
       <div class="cf-opts">
         <div class="cf-opt-row" data-opt="includeRevenue"${c.method === 'membership' ? ' style="opacity:.55;pointer-events:none"' : ''}>
           <div class="cf-opt-text">
             <div class="cf-opt-label">매출에 포함</div>
-            <div class="cf-opt-desc">${c.method === 'membership' ? '회원권 차감은 항상 기록돼요' : (c.includeRevenue ? '이번달 매출에 더해요' : '매출에서 빠져요')}</div>
+            <div class="cf-opt-desc">${c.method === 'membership' ? '매출은 충전할 때 이미 들어갔어요 — 이번엔 잔액에서만 빠져요' : (c.includeRevenue ? '이번달 매출에 더해요' : '매출에서 빠져요')}</div>
           </div>
           <div class="cf-toggle ${(c.method === 'membership' || c.includeRevenue) ? 'on' : ''}"></div>
         </div>
@@ -390,6 +391,29 @@
       _ctx[key] = Number.isFinite(num) && num > 0 ? num : null;
       e.target.value = _ctx[key] ? _ctx[key].toLocaleString('ko-KR') : '';
     });
+  }
+
+  /* [2026-09-13 UX·돈] 회원권을 고르면 **잔액이 어디에도 안 보였다.** 원장은 얼마 남았는지 모른 채 차감하고,
+     모자라면 저장을 누른 뒤에야 오류를 본다. 서버 잔액을 읽어 '지금 → 차감 후' 를 보여준다(모르면 모른다고). */
+  function _memBalanceHtml(c) {
+    const bal = c._memBal;
+    if (bal === undefined) { _loadMemBalance(c); return '<div class="cf-opt-desc" style="margin-top:8px;">회원권 잔액 확인 중…</div>'; }
+    if (bal === null) return '<div class="cf-opt-desc" style="margin-top:8px;">회원권 잔액을 확인하지 못했어요 — 저장하면 서버가 잔액을 다시 확인해요</div>';
+    const amt = Number(c.amount) || 0;
+    const after = bal - amt;
+    if (after < 0) return `<div class="cf-opt-desc" style="margin-top:8px;color:var(--danger,#D14343);font-weight:700;">남은 잔액 ${_won(bal)} — ${_won(-after)} 모자라요. 결제수단을 바꾸거나 먼저 충전해 주세요</div>`;
+    return `<div class="cf-opt-desc" style="margin-top:8px;">남은 잔액 <b>${_won(bal)}</b> → 차감 후 <b>${_won(after)}</b></div>`;
+  }
+  function _won(n) { return (Number(n) || 0).toLocaleString('ko-KR') + '원'; }
+  function _loadMemBalance(c) {
+    if (!c.customer_id) { c._memBal = null; return; }
+    if (c._memBalLoading) return;
+    c._memBalLoading = true;
+    Promise.resolve(window.apiFetch ? window.apiFetch('/customers/' + encodeURIComponent(c.customer_id)) : null)
+      .then((r) => (r && r.ok ? r.json() : null))
+      .then((d) => { c._memBal = (d && d.membership_balance != null && Number.isFinite(Number(d.membership_balance))) ? Number(d.membership_balance) : null; })
+      .catch(() => { c._memBal = null; })
+      .then(() => { c._memBalLoading = false; if (_ctx === c) _render(); });
   }
 
   function _render() {
@@ -485,7 +509,10 @@
       if (window.hapticSuccess) window.hapticSuccess();
       if (window.showToast) {
         // [2026-09-13 UX] 원장 말로 — 무엇이 어디에 들어갔는지까지.
-        if (eff.membership_deducted) window.showToast(`시술 완료했어요 · 이번 시술에서 회원권 ${_fmt(eff.membership_deducted)}을 차감했어요`);
+        if (eff.membership_deducted) {
+          const _left = (typeof ctx._memBal === 'number') ? ctx._memBal - (Number(eff.membership_deducted) || 0) : null;
+          window.showToast(`시술 완료했어요 · 회원권 ${_fmt(eff.membership_deducted)}을 차감했어요` + (_left != null && _left >= 0 ? ` · 남은 잔액 ${_won(_left)}` : ''));
+        }
         else if (eff.revenue_created) window.showToast(`시술 완료했어요 · ${_fmt(ctx.amount)}을 이번달 매출에 넣었어요`);
         else window.showToast('시술 완료했어요 · 매출에는 넣지 않았어요');
       }

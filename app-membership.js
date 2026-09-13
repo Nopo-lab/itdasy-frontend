@@ -311,11 +311,11 @@
         _txnDone(_sig);   // 성공했으니 이 키는 버린다 — 다음 충전은 새 시도다
         // [2026-04-29] 충전 성공 — 큰 confetti
         if (window.Fun && window.Fun.celebrate) {
-          window.Fun.celebrate(`${customerName}님 +${formatMoney(amount)} (잔액 ${formatMoney(r.membership_balance)})`, {
+          window.Fun.celebrate(`${customerName}님 회원권 ${formatMoney(amount)} 충전했어요 · 남은 잔액 ${formatMoney(r.membership_balance)}`, {
             emojis: ['✨', '💖', '🌷'], count: 16,
           });
         } else {
-          _toast(`충전 완료! 잔액 ${formatMoney(r.membership_balance)}`);
+          _toast(`회원권 ${formatMoney(amount)} 충전했어요 · 남은 잔액 ${formatMoney(r.membership_balance)}`);
         }
         sheet.style.display = 'none';
         try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'membership_topup' } })); } catch (_) { void 0; }

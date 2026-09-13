@@ -380,7 +380,7 @@
         <div class="dmm-ghd">
           <div class="tx">
             <div class="dmm-gh">버튼·기본 안내가 바로 나가요</div>
-            <div class="dmm-gs">써둔 답이 그대로 나가요 · 요금 안 써요</div>
+            <div class="dmm-gs">버튼을 누르거나 영업시간·위치를 물어보면 · 써둔 답이 손님에게 바로 나가요 · 요금 안 써요</div>
           </div>
           ${_tgHtml(!!_menu.enabled, 'master', '')}
         </div>
@@ -408,8 +408,8 @@
               ? '잇비 답장이 바로 나가요'
               : '잇비 초안이 나한테 먼저 와요'}</div>
             <div class="dmm-gs">버튼 밖 질문은 잇비가 ${autoSendOn
-              ? '<b>바로 답장해요</b>'
-              : '초안 써요'} · 요금 써요</div>
+              ? '답장을 써서 <b>손님에게 바로 보내요</b>'
+              : '초안만 써요 — 내가 보고 보내요'} · 요금 써요</div>
           </div>
           ${_tgHtml(aiOn, 'draft', '')}
         </div>
@@ -420,10 +420,14 @@
               : '켜면 내 확인 없이 손님에게 바로 나가요'}</span></div>
             ${_tgHtml(autoSendOn, 'autosend', '')}
           </div>
-          ${autoSendOn ? `<div class="dmm-master dmm-asnote">
-            <span class="dmm-warnico" aria-hidden="true"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg></span>
-            <div class="t"><b>환불 · 민원 · 거친 말은 안 나가요</b><span>그런 문의는 사장님 확인 목록으로 넘어와요</span></div>
-          </div>` : ''}
+          <div class="dmm-master dmm-asnote">
+            <span class="${autoSendOn ? 'dmm-warnico' : 'dmm-okico'}" aria-hidden="true">${autoSendOn
+              ? '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>'
+              : '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'}</span>
+            <div class="t">${autoSendOn
+              ? '<b>환불 · 민원 · 거친 말은 안 나가요</b><span>그런 문의는 사장님 확인 목록으로 넘어와요</span>'
+              : '<b>잇비가 마음대로 안 보내요</b><span>초안을 보고 \'보내기\'를 눌러야 나가요</span>'}</div>
+          </div>
           ${_gaugeHtml()}
         </div>
       </div>`;
