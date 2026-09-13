@@ -4729,7 +4729,12 @@
     if (/(음성|녹음|받아쓰|마이크|보이스|voice).*(캡션|글|입력|문구)?/.test(q)) {
       if (typeof window.openVoiceCaption === 'function') { _runSheetShortcut(input, () => window.openVoiceCaption()); return true; }
     }
-    if (/(결제|플랜|구독|업그레이드|pro|premium)\s*(변경|선택|보|관리|업)?/.test(q)) return _tryPlanShortcut(input);
+    /* [ITBI Remaining Zero 2026-09-14] **'결제'·'pro' 라는 글자만 있으면 요금제 팝업이 떴다.**
+       실측(기능 질문 30 라이브 · user 5 · FE 043940d): "잇비가 알아서 결제해?" → Pro 결제 팝업(z 11500)이 잇비 창을 덮음.
+       뒤의 동사 묶음이 선택(?)이라 사실상 `/결제|pro/` 였다 — "결제 금액 얼마야?"·"카드 결제 매출"·"profile" 도 해당.
+       요금제·구독을 **가리키는 말**이 있을 때만 연다. 잇비 자신에게 되는지 묻는 말은 기능 안내(서버)로 보낸다. */
+    if (!/잇비(가|는|도)/.test(q)
+        && /(플랜|요금제|구독|업그레이드|멤버십\s*(가입|결제|해지)|\bpro\b|프로\s*(요금|플랜|구독|가입)|premium|결제\s*(수단|정보|관리|카드\s*변경))/i.test(q)) return _tryPlanShortcut(input);
     return false;
   }
 

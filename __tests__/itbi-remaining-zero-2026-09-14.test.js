@@ -103,3 +103,21 @@ describe('세션 만료 질문 보관 · 수동 복구', () => {
     expect(cut('  function _handleSendError(')).toMatch(/HTTP 401[\s\S]*_saveFailedAsk/);
   });
 });
+
+describe('요금제 팝업은 요금제를 가리킬 때만', () => {
+  const fn = cut('  function _tryUtilityShortcut(');
+  function run(q) {
+    let opened = 0;
+    // eslint-disable-next-line no-new-func
+    const f = new Function('window', '_runSheetShortcut', '_tryPlanShortcut', fn + '\nreturn _tryUtilityShortcut;')(
+      {}, () => {}, () => { opened++; return true; });
+    f(null, q);
+    return opened;
+  }
+  test.each(['잇비가 알아서 결제해?', '결제 금액 얼마야?', '카드 결제한 매출 알려줘', '회원권 결제했어', 'profile 사진 바꿔줘'])('%s → 팝업 안 뜸', (q) => {
+    expect(run(q)).toBe(0);
+  });
+  test.each(['플랜 변경', '요금제 보여줘', '구독 관리', '업그레이드 하고 싶어', 'Pro 가입', '결제 수단 변경'])('%s → 요금제 팝업', (q) => {
+    expect(run(q)).toBe(1);
+  });
+});
