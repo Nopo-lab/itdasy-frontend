@@ -40,9 +40,14 @@
 
   // 분류: { matched:true, mode:'open'|'query'|'edit' } 또는 null.
   //   생성("만들어줘")은 조회/편집/저장단서/다시 단서가 없으면 양보(null) → _send 앞단 생성경로가 잡음.
+  // [ITBI Closeout 2026-09-13 · CASE-035] 사람을 가리키는 말("아까 그분"·"방금 그 사람")은 카드 지칭이 아니다.
+  //   `PRONOUN_REF_RE` 의 `아까\s*그|방금\s*그` 가 "아까 그분 메모 있어?" 까지 잡아 작업실로 보냈다
+  //   (활성 카드가 있을 땐 active-card 가 먼저 같은 식으로 잡았다 — 라이브 20/20). 서버 세션 맥락으로 넘긴다.
+  var PERSON_REF_RE = /(그|이|저)\s*(분|고객|손님|사람|님)/;
   function classify(q) {
     var t = String(q || '').trim();
     if (!t) return null;
+    if (PERSON_REF_RE.test(t) && !EXPLICIT_RE.test(t)) return null;
     var hasShow = SHOW_RE.test(t), hasEdit = EDIT_RE.test(t);
     var again = /다시/.test(t);
     // 1) 작업실/편집화면 열기 — 생성 가드보다 먼저(예: "카드 만드는 화면 열어줘"는 '만들' 포함이지만 진입 의도).
