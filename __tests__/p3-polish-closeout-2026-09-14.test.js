@@ -195,3 +195,11 @@ test('P3-3 빈 상태 기본 아이콘이 이모지가 아니다', () => {
 test('P3-15 캡션까지 끝난 글을 사진 편집으로 다시 열면 완료 후 캡션 화면으로', () => {
   expect(read('js/workspace/workspace-v2-flow.js')).toMatch(/if \(String\(d\.caption \|\| ''\)\.trim\(\) && !d\._editorNext\) d\._editorNext = 'caption';\s*_openStoryEditor\(\); return;/);
 });
+
+test('P3 시술 추가 뒤 폼이 비워지고 채워진 값에도 칸 이름이 보인다', () => {
+  const s = read('app-service-templates.js');
+  expect(s).toMatch(/\['svc-name', 'svc-price', 'svc-material', 'svc-retouch'\]\.forEach\(\(id\) => \{ const el = document\.getElementById\(id\); if \(el\) el\.value = ''; \}\);/);
+  expect(s).toMatch(/재료비\(원\) · 선택/);
+  expect(s).toMatch(/리터치 주기\(일\) · 선택/);
+  expect(s).not.toMatch(/showToast\('시술 추가됨'\)/);
+});

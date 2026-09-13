@@ -205,8 +205,10 @@
           <input id="svc-price" type="number" inputmode="numeric" placeholder="기본 금액" value="${_esc(p.default_price || '')}" style="min-width:0;width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;">
           <input id="svc-dur" type="number" inputmode="numeric" placeholder="분" value="${_esc(p.default_duration_min || 60)}" style="min-width:0;width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;">
         </div>
-        <input id="svc-material" type="number" placeholder="재료비 (선택, 실마진 계산용)" value="${_esc(p.material_cost || '')}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:6px;background:#fff;">
-        <input id="svc-retouch" type="number" placeholder="리터치 주기 일수 (선택)" value="${_esc(p.retouch_period_days || '')}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:6px;background:#fff;">
+        <div style="font-size:11px;font-weight:600;color:#6B7684;margin:2px 0 3px;">재료비(원) · 선택</div>
+        <input id="svc-material" type="number" inputmode="numeric" placeholder="재료비 (선택, 실마진 계산용)" value="${_esc(p.material_cost || '')}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:6px;background:#fff;">
+        <div style="font-size:11px;font-weight:600;color:#6B7684;margin:2px 0 3px;">리터치 주기(일) · 선택</div>
+        <input id="svc-retouch" type="number" inputmode="numeric" placeholder="리터치 주기 일수 (선택)" value="${_esc(p.retouch_period_days || '')}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:6px;background:#fff;">
         <div style="display:flex;gap:6px;align-items:center;">
           <select id="svc-cat" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;">
             ${['etc','hair','nail','eye','skin','wax'].map(c => `<option value="${c}" ${(p.category||(p.id ? 'etc' : _catForSelect()))===c?'selected':''}>${_catLabel(c)}</option>`).join('')}
@@ -269,7 +271,10 @@
         if (list) list.innerHTML = _renderCards();
         const panel = document.getElementById('svc-add-panel');
         if (panel) panel.style.display = 'none';
-        if (window.showToast) window.showToast('시술 추가됨');
+        // [2026-09-14 P3] 추가 뒤 폼을 다시 열면 방금 값이 그대로라 [추가] 한 번에 같은 시술이 또 생겼다 → 비운다.
+        ['svc-name', 'svc-price', 'svc-material', 'svc-retouch'].forEach((id) => { const el = document.getElementById(id); if (el) el.value = ''; });
+        { const du = document.getElementById('svc-dur'); if (du) du.value = 60; }
+        if (window.showToast) window.showToast(`'${body.name}' 시술을 메뉴에 넣었어요`);
       } catch (e) {
         if (window.showToast) window.showToast('추가 실패: ' + (window._humanError ? window._humanError(e) : e.message), 'error');
       }
