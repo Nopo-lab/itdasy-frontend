@@ -220,6 +220,25 @@
       _capPreviewDims[d.templateOutput] = { w: im.naturalWidth, h: im.naturalHeight };
     }, true);
   } catch (_pd) { void _pd; }
+  // [2026-09-13 ZH S20 Run4] 결과 미리보기용 구워진 결과물 실제 크기(원본 URL → {w,h}). _igCarouselHtml 참조.
+  var _outDims = {};
+  function _probeOutDims(u) {
+    if (!u || _outDims[u] === null) return;
+    _outDims[u] = null;   // 읽는 중(중복 요청 방지) — 렌더에선 falsy 라 기존 칸으로 그린다
+    try {
+      var im = new Image();
+      im.onload = function () {
+        if (!(im.naturalWidth > 0 && im.naturalHeight > 0)) { delete _outDims[u]; return; }
+        _outDims[u] = { w: im.naturalWidth, h: im.naturalHeight };
+        var disp = _blobDisp(u);
+        Array.prototype.forEach.call(document.querySelectorAll('.ig-photo[data-fl-igout]'), function (n) {
+          if (String(n.style.backgroundImage || '').indexOf(disp) >= 0) n.style.aspectRatio = im.naturalWidth + ' / ' + im.naturalHeight;
+        });
+      };
+      im.onerror = function () { delete _outDims[u]; };
+      im.src = _blobDisp(u);
+    } catch (_e) { delete _outDims[u]; }
+  }
   function _blobDisp(u) { return (window.WSBlobUrl && window.WSBlobUrl.disp) ? window.WSBlobUrl.disp(u) : u; }
   // [이슈2/11] 게시 대표 이미지 — 전후 템플릿 "적용 결과물"(d.templateOutput)이 있으면 그것을, 없으면 대표 사진.
   //   합성 결과물은 별도 필드로만 관리한다. 편집화면 사진 스트립/썸네일은 절대 이 값을 쓰지 않으므로
@@ -1747,6 +1766,17 @@
 	    var items = _displayItems();
 	    if (items.length <= 1) {
 	      var u = items.length ? items[0].url : fallbackUrl;
+	      /* [2026-09-13 ZH S20 Run4] 🔴 전·후 합치기 결과 미리보기에 'BEFORE' 가 'RE' 로 잘려 보였다.
+	         레이아웃 합성본(전후·2장·4컷)은 **1:1(1080×1080)** 로 구워지고 발행도 그대로 나가는데,
+	         이 칸은 규격(4:5) 고정 + cover 라 좌우 10%씩 잘라 보여줬다 → "실제 게시 모습과 동일" 이 거짓.
+	         구워진 결과물(kind 'output')만 **실제 픽셀 크기**로 칸 비율을 맞춘다(비율 추측 금지 — 모르면 한 번 읽어서).
+	         원본 사진(kind 'photo')은 기존 동작 그대로. */
+	      if (items.length && items[0].kind === 'output' && u) {
+	        var od = _outDims[u] || _capPreviewDims[u];
+	        if (!od) _probeOutDims(u);
+	        return '<div class="ig-photo' + (_wsFormat() === '11' ? ' ig-photo--sq' : '') + '" data-fl-igout="1" style="background-image:url(' + esc(_blobDisp(u)) + ')' +
+	          (od ? ';aspect-ratio:' + od.w + ' / ' + od.h : '') + '"></div>';
+	      }
 	      return '<div class="ig-photo' + (_wsFormat() === '11' ? ' ig-photo--sq' : '') + '" style="background-image:url(' + esc(_blobDisp(u)) + ')"></div>';
 	    }
 	    var active = (d.activeDisplayId && items.some(function (it) { return it.id === d.activeDisplayId; })) ? d.activeDisplayId : items[0].id;
