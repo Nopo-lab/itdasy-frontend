@@ -4225,6 +4225,9 @@
       const result = await window.AssistantIntent.tryLookupBooking(q);
       if (!result || !result.matched) return false;
       try { window.ItdasyBookingContext?.rememberList?.({ type: result.type, data: result.data }); } catch (_ctxErr) { void _ctxErr; }
+      if (result.type === 'bookings_lookup' && !Array.isArray(result.related)) {
+        result.related = _feFollowups('bookings_lookup', result.customer_name || '');
+      }
       _pushShortcutResult(input, q, result);
       return true;
     } catch (_e) {
@@ -4523,6 +4526,28 @@
     }
   }
 
+  // [ITBI Closeout 2026-09-13 · P3 막다른 길] 프론트 지름길이 답한 턴엔 **후속 추천칩이 0개**였다.
+  //   실측(최종 회귀 추천칩 그래프 · FE 1c48ce3): 나쁜 막다른 길 20건 중 16건이 여기 —
+  //   "이번 달 매출 얼마야?" → "📊 이번 달 매출 415,000원 (25건)" 뒤에 칩 없음,
+  //   "E2E_A_박지우님 예약 있어?" → "📅 …예정된 예약이 없어요." 뒤에 칩 없음.
+  //   같은 질문이 서버로 가면 `_READONLY_FOLLOWUPS` 칩이 붙는다. 서버 표와 **같은 문장**을 쓴다(경로 따라 동선이 갈리지 않게).
+  //   방금 물은 질문은 다시 권하지 않는다(최근 3개 사용자 발화와 같으면 뺀다).
+  const _FE_FOLLOWUPS = {
+    revenue: ['이번 달 지출 얼마야?', '시술 목록 뭐 있어?', '단골 누구야?'],
+    bookings: ['오늘 빈 시간 알려줘', '내일 예약 있어?', '이번 달 매출 얼마야?'],
+    bookings_lookup: ['{name}님 마지막 방문 언제야?', '{name}님 메모 있어?', '오늘 예약 알려줘'],
+  };
+  function _feFollowups(kind, name) {
+    const base = _FE_FOLLOWUPS[kind] || [];
+    const norm = (t) => String(t || '').replace(/[\s?!.~]/g, '');
+    const asked = _history.filter(m => m && m.role === 'user').slice(-3).map(m => norm(m.text));
+    return base
+      .filter(t => name || !/\{name\}/.test(t))
+      .map(t => t.replace(/\{name\}/g, name || ''))
+      .filter(t => !asked.includes(norm(t)))
+      .slice(0, 3);
+  }
+
   async function _runAsyncIntentRule(rule) {
     try {
       const result = await window.AssistantIntent.execAsyncRule(rule);
@@ -4534,11 +4559,12 @@
         ? result.data.items.filter((b) => b && b.status !== 'cancelled') : [];
       if (isBooking && bItems.length) {
         const header = String(result.response || '').split('\n')[0];
-        _history.push({ role: 'assistant', text: header, booking_cards: bItems });
+        _history.push({ role: 'assistant', text: header, booking_cards: bItems, related: _feFollowups('bookings') });
       } else if (isBooking) {
-        _history.push({ role: 'assistant', text: (result.response || '예약이 없어요.') + ' 새 예약을 잡을까요?', related: ['예약 잡기'] });
+        _history.push({ role: 'assistant', text: (result.response || '예약이 없어요.') + ' 새 예약을 잡을까요?', related: ['예약 잡기'].concat(_feFollowups('bookings').slice(0, 2)) });
       } else {
-        _history.push({ role: 'assistant', text: result.response });
+        const _rel = /^revenue_/.test(result.type || '') ? _feFollowups('revenue') : undefined;
+        _history.push({ role: 'assistant', text: result.response, related: _rel });
       }
       _renderHistory();
     } catch (fetchErr) {
