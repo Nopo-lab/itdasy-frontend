@@ -2,7 +2,7 @@
 
 ## 결과
 
-현재 앱 작업실에서 쓰는 사진편집기 기준으로 수정했다. 옛 사진편집 화면은 건드리지 않았다.
+현재 앱 작업실에서 쓰는 사진편집기 기준으로 수정했고 GitHub Pages 배포까지 완료했다. 옛 사진편집 화면은 건드리지 않았다.
 
 ## 바꾼 것
 
@@ -22,6 +22,7 @@
 - `npm run smoke:flow` 통과: 9/9
 - `npm run audit:overlay` 통과
 - 모바일 크기 브라우저 화면 확인: `output/playwright/editor-manipulation-one-row-color-390x844.png`
+- GitHub Pages 배포 확인: 커밋 `0f25f64`, 라이브 편집기 파일에 한 줄 색상표/가로·세로 확대 코드 포함
 
 ## 안전
 
