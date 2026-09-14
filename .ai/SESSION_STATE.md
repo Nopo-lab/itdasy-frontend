@@ -2,7 +2,7 @@
 
 > 새 세션이 시작되면 **이 파일을 먼저 읽고** 현재 단계·대기 결정·마지막 체크포인트를 파악한다.
 
-**LAST UPDATED:** 2026-09-15 · 원장 스타일 학습 다양성 흐름 QA — 검사 PASS
+**LAST UPDATED:** 2026-09-15 · 원장 스타일 학습 다양성 흐름 QA — LIVE PASS
 
 ---
 
@@ -25,7 +25,7 @@
 - `output/STYLE_LEARNING_DIVERSE_OWNER_FLOW_QA_2026-09-15.md`
 
 판정:
-- 현재 웹 작업실 기준 PASS. 배포 대기.
+- 현재 웹 작업실 기준 PASS. LIVE BUILD `20260914-2251-fa6fcf2` 확인.
 
 ---
 
