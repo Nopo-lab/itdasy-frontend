@@ -1,6 +1,6 @@
 # BOARD — 터미널 상태 대시보드
 
-**LAST UPDATED:** 2026-09-14 by Codex (최신 작업실 사진편집 업그레이드 — 로컬 검사 통과)
+**LAST UPDATED:** 2026-09-14 by Codex (최신 작업실 사진편집 업그레이드 — 배포 웹 PASS / Android BLOCKED)
 
 bootstrap:OK @ 2026-09-14 13:14
 
@@ -36,7 +36,7 @@ bootstrap:OK @ 2026-06-24 07:53
 
 ---
 
-## 2026-09-14 — 최신 작업실 사진편집 업그레이드 (Codex, LOCAL PASS / DEPLOY NEXT)
+## 2026-09-14 — 최신 작업실 사진편집 업그레이드 (Codex, DEPLOY WEB PASS / ANDROID BLOCKED)
 
 완료:
 - 현재 앱 작업실과 사진편집기 기준으로 스타일 기억 안전화.
@@ -45,10 +45,14 @@ bootstrap:OK @ 2026-06-24 07:53
 - 뷰티 보정 9개, 살롱 SVG 스티커 29개, 새 글자 하단 배치 추가.
 - 보정만 기억한 스타일도 적용·빼기·재편집 표시까지 확인.
 - 전체 검사 3,124개 통과, 현재 작업실 흐름 9/9 통과, 새 자동 검사 오류 0개.
+- GitHub Pages 배포 완료: `20260914-1357-277e533` / 커밋 `277e533`.
+- 배포 웹에서 저장→재편집→보정 프리셋 유지 PASS.
+- iOS 새 빌드 로그인 화면 로드 PASS.
 - 보고서: `output/WORKSHOP_NORTH_STAR_IMPLEMENTATION_2026-09-14.md`.
 
 대기:
-- 스테이징 배포 뒤 앱에서 QA 계정 전체 흐름과 실제 iPhone/Android 확인 전 GREEN 선언 안 함.
+- Android 설치본은 옛 개발 서버를 보고 있어 제외. 새 Android 빌드는 Java 21 부재로 막힘.
+- QA 계정 네이티브 전체 흐름과 4업종 실사진 비교 전 GREEN 선언 안 함.
 
 ---
 
