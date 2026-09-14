@@ -67,9 +67,9 @@ describe('사다리(§11) — 좁은 칸부터 넓은 칸으로', () => {
     const store = ['ss1|perm|1|service|', 'ss2|perm|1|service|', 'ss1|perm|3|promotion|ba'];
     const hit = (i) => store.filter((k) => E.contextKeyMatches(k, L[i].want));
     expect(hit(0)).toEqual(['ss1|perm|1|service|']);                       // 스타일+상황
-    expect(hit(1).sort()).toEqual(['ss1|perm|1|service|', 'ss1|perm|3|promotion|ba']);  // 스타일+시술
+    expect(hit(1)).toEqual(['ss1|perm|1|service|']);                       // 스타일+시술+같은 목적/전후
     expect(hit(2).sort()).toEqual(['ss1|perm|1|service|', 'ss2|perm|1|service|']);      // 상황(스타일 무관)
-    expect(hit(3).length).toBe(3);                                          // 시술만
+    expect(hit(3).sort()).toEqual(['ss1|perm|1|service|', 'ss2|perm|1|service|']);      // 시술+같은 목적/전후
   });
 });
 

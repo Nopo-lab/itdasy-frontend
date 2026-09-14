@@ -302,10 +302,12 @@
     var out = [];
     if (ss) {
       out.push({ via: 'style_exact', want: [ss, sv, pc, kd, ba] });
-      out.push({ via: 'style_service', want: [ss, sv, null, null, null] });
+      // 같은 샵스타일 안에서도 완성샷/이벤트/전후사진은 다르다.
+      // 사진 수만 넓히고, 게시목적(kind)·전후(ba)는 유지한다.
+      out.push({ via: 'style_service', want: [ss, sv, null, kd, ba] });
     }
     out.push({ via: 'exact', want: [null, sv, pc, kd, ba] });
-    out.push({ via: 'service', want: [null, sv, null, null, null] });
+    out.push({ via: 'service', want: [null, sv, null, kd, ba] });
     // 같은 조건이 두 번 나오면(상황이 비어 style_service 와 style_exact 가 같아지는 경우) 하나만
     var seen = {};
     return out.filter(function (r) {
