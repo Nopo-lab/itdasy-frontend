@@ -71,7 +71,7 @@
   function _cpOutside(e) { if (_cpState && _cpState.el && !_cpState.el.contains(e.target) && e.target !== _cpState.anchor) _closeColorPicker(); }
   function _openColorPicker(anchor, target) {
     _closeColorPicker();
-    var cur = (target === 'text' ? (activeText() && activeText().color) : target === 'shape' ? S.shapeColor : target === 'draw' ? S.drawColor : target === 'cutbg' ? (S.photoBg && S.photoBg[S.adjSel] && S.photoBg[S.adjSel].color) : S.collageBg) || '#BC6675';
+    var cur = (target === 'textactive' ? (_textColorTarget() === 'textbg' ? ((activeText() && activeText().bgColor) || '#15181D') : (activeText() && activeText().color)) : target === 'text' ? (activeText() && activeText().color) : target === 'textbg' ? ((activeText() && activeText().bgColor) || '#15181D') : target === 'shape' ? S.shapeColor : target === 'draw' ? S.drawColor : target === 'cutbg' ? (S.photoBg && S.photoBg[S.adjSel] && S.photoBg[S.adjSel].color) : S.collageBg) || '#BC6675';
     var hsv = _hexToHsv(cur);
     var box = el('div', 'itcp');
     // [스크린샷 매칭] 사각형: X=색조(무지개) · Y=채도(위=진함, 아래=흰색). 오른쪽 세로바=밝기.
@@ -116,8 +116,17 @@
       document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up);
     });
   }
+  function _textColorTarget() { return (S && S.textColorTarget === 'textbg') ? 'textbg' : 'text'; }
+  function _setTextColorTarget(t) {
+    if (!S) return;
+    S.textColorTarget = (t === 'textbg') ? 'textbg' : 'text';
+    if (refs.colorTarget) refs.colorTarget.querySelectorAll('[data-ctarget]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-ctarget') === S.textColorTarget); });
+  }
+
   function _colorPickApply(t, v) {
+    if (t === 'textactive') { _colorPickApply(_textColorTarget(), v); return; }
     if (t === 'text') { applyColor(v); if (root) root.querySelectorAll('[data-color]').forEach(function (x) { x.classList.remove('on'); }); }
+    else if (t === 'textbg') { applyBgColor(v); if (root) root.querySelectorAll('[data-color]').forEach(function (x) { x.classList.remove('on'); }); }
     else if (t === 'shape') { S.shapeColor = v; if (refs.panels && refs.panels.shape) refs.panels.shape.querySelectorAll('[data-scolor]').forEach(function (x) { x.classList.remove('on'); }); applyShapeStyle(); }
     else if (t === 'draw') { S.drawColor = v; if (root) root.querySelectorAll('[data-dcolor]').forEach(function (x) { x.classList.remove('on'); }); }
     else if (t === 'layout') { S.collageBg = v; S.collageBgImg = null; saveBgPref(); if (refs.panels && refs.panels.layout) refs.panels.layout.querySelectorAll('[data-bg]').forEach(function (x) { x.classList.remove('on'); }); renderCollage(); applyFit(); recutWithBg(); }
@@ -514,7 +523,10 @@
           '<span class="itsize itsize--tilt">기울기<input type="range" min="-45" max="45" step="1" value="0" data-r="tilt" aria-label="글자 기울기"><b data-r="tiltout">0\u00B0</b></span>' +
         '</div>' +
         '<div class="itfonts" data-r="fonts">' + fonts + '</div>' +
-        '<div class="itcolors" data-r="colors">' + colors + _rbSw('text', 'itsw') + _pipSw('text', 'itsw') + '</div>' +
+        '<div class="ittext__colorbar"><span class="itctarget" data-r="colorTarget">' +
+          '<button type="button" class="on" data-ctarget="text">글자</button>' +
+          '<button type="button" data-ctarget="textbg">배경</button>' +
+        '</span><div class="itcolors" data-r="colors">' + colors + _rbSw('textactive', 'itsw') + _pipSw('textactive', 'itsw') + '</div></div>' +
       '</div>';
   }
   // [보정] 사진별 보정 패널 — 위 사진 스트립에서 사진 고르고 아래 슬라이더로 그 사진만 보정.
@@ -721,7 +733,7 @@
 
   function cacheRefs() {
     ['tstyle', 'tilt', 'tiltout',
-      'stage', 'photowrap', 'photo', 'photofx', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'wmSuggest', 'wmRemove', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkTabs', 'stkBody', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut', 'adjCutBg', 'adjBgImg', 'layFit', 'layBgImg', 'undo', 'redo', 'peek', 'drawClear', 'addText'].forEach(function (k) {
+      'stage', 'photowrap', 'photo', 'photofx', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'wmSuggest', 'wmRemove', 'aln', 'size', 'fonts', 'colors', 'colorTarget', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkTabs', 'stkBody', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut', 'adjCutBg', 'adjBgImg', 'layFit', 'layBgImg', 'undo', 'redo', 'peek', 'drawClear', 'addText'].forEach(function (k) {
       refs[k] = root.querySelector('[data-r="' + k + '"]');
     });
     refs.panels = {};
@@ -773,6 +785,11 @@
     fitStageToRatio();
   }
 
+  function _sx(L) { return (L && L.scaleX != null) ? L.scaleX : 1; }
+  function _sy(L) { return (L && L.scaleY != null) ? L.scaleY : 1; }
+  function _xfSnap(L) { return { scale: (L && L.scale) || 1, scaleX: _sx(L), scaleY: _sy(L), rot: (L && L.rot) || 0 }; }
+  function _applyXfSnap(L, v) { if (!L || !v) return; L.scale = v.scale || 1; L.scaleX = v.scaleX || 1; L.scaleY = v.scaleY || 1; L.rot = v.rot || 0; applyXf(L); }
+
   /* ── 레이어 공통(드래그) ── */
   function makeLayer(type) {
     var box = el('div', 'itl');
@@ -780,7 +797,7 @@
       '<button class="itl__dup" aria-label="복제">' + svg('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>', 2.1) + '</button>' +
       '<button class="itl__rot" aria-label="\ud68c\uc804">' + svg('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>', 2.2) + '</button>' +
       '<button class="itl__rs" aria-label="\ud06c\uae30 \uc870\uc808">' + IC.rs + '</button>';
-    var L = { type: type, el: box, x: 0, y: 0, scale: 1, rot: 0 };
+    var L = { type: type, el: box, x: 0, y: 0, scale: 1, scaleX: 1, scaleY: 1, rot: 0 };
     box.addEventListener('pointerdown', function (e) { onLayerDown(e, L); });
     // [#8b] 삭제/복제 핸들은 몸통과 겹쳐 있어, 몸통을 탭하면 그 위의 ×가 눌려 레이어가 사라지곤 했다.
     //   → 핸들에 '직접 pointerdown' 한 경우에만 동작(arm). 몸통 pointerdown(onLayerDown)은 disarm.
@@ -817,7 +834,7 @@
   function _fitTextInStage(L) {
     if (!L || !L.el || !refs.stage) return;
     var R = refs.stage.getBoundingClientRect(); if (!R.width) return;
-    var w = L.el.offsetWidth * (L.scale || 1), h = L.el.offsetHeight * (L.scale || 1);
+    var w = L.el.offsetWidth * (L.scale || 1) * _sx(L), h = L.el.offsetHeight * (L.scale || 1) * _sy(L);
     if (!L._moved) L.x = (R.width - w) / 2;
     // 박스가 스테이지보다 크면 클램프가 의미 없다 — 그때는 가운데로 둔다.
     L.x = (w >= R.width) ? (R.width - w) / 2 : Math.max(0, Math.min(R.width - w, L.x));
@@ -864,11 +881,11 @@
     if (L.type === 'shape' && L.w != null && L.h != null) {
       L.el.style.width = L.w + 'px'; L.el.style.height = L.h + 'px';
     }
-    L.el.style.transform = 'translate(' + L.x + 'px,' + L.y + 'px) rotate(' + (L.rot || 0) + 'deg) scale(' + L.scale + ')';
+    L.el.style.transform = 'translate(' + L.x + 'px,' + L.y + 'px) rotate(' + (L.rot || 0) + 'deg) scale(' + ((L.scale || 1) * _sx(L)) + ',' + ((L.scale || 1) * _sy(L)) + ')';
     // [#8] 레이어가 커져도 조작 버튼(× 복사 회전 크기)은 화면상 같은 크기 유지 → 역스케일.
     if (L._handles) {
-      var inv = 1 / (L.scale || 1);
-      for (var _i = 0; _i < L._handles.length; _i++) { L._handles[_i].style.transform = 'scale(' + inv + ')'; }
+      var invX = 1 / ((L.scale || 1) * _sx(L)), invY = 1 / ((L.scale || 1) * _sy(L));
+      for (var _i = 0; _i < L._handles.length; _i++) { L._handles[_i].style.transform = 'scale(' + invX + ',' + invY + ')'; }
     }
   }
   // [#2] 직각 자석 — 0·90·180·270 근처(±7°)면 딱 맞춤(수직/수평 느낌으로 중력이 잡아주듯).
@@ -880,7 +897,7 @@
   function onRotDown(e, L) {
     e.preventDefault(); e.stopPropagation(); selectLayer(L);
     var b = L.el.getBoundingClientRect();
-    rotd = { L: L, cx: b.left + b.width / 2, cy: b.top + b.height / 2, start: (L.rot || 0), s0: (L.scale || 1), a0: Math.atan2(e.clientY - (b.top + b.height / 2), e.clientX - (b.left + b.width / 2)) };
+    rotd = { L: L, cx: b.left + b.width / 2, cy: b.top + b.height / 2, start: (L.rot || 0), s0: (L.scale || 1), sx0: _sx(L), sy0: _sy(L), a0: Math.atan2(e.clientY - (b.top + b.height / 2), e.clientX - (b.left + b.width / 2)) };
     try { e.target.setPointerCapture(e.pointerId); } catch (_) { void _; }
   }
   // 크기조절 핸들 — 중심에서의 거리 비율로 scale 조정(모든 레이어 공통).
@@ -890,8 +907,8 @@
     var b = L.el.getBoundingClientRect(); var cx = b.left + b.width / 2, cy = b.top + b.height / 2;
     // [#10] 도형은 '늘리기'(비균등 box 크기), 그 외는 예전대로 균등 scale.
     var isShape = L.type === 'shape' && L.w != null && L.h != null;
-    rsd = { L: L, cx: cx, cy: cy, d0: Math.max(8, Math.hypot(e.clientX - cx, e.clientY - cy)), s0: (L.scale || 1), r0: (L.rot || 0),
-      shape: isShape, sx: e.clientX, sy: e.clientY, w0: L.w, h0: L.h, x0: L.x, y0: L.y, before: isShape ? { w: L.w, h: L.h, x: L.x, y: L.y } : null };
+    rsd = { L: L, cx: cx, cy: cy, d0: Math.max(8, Math.hypot(e.clientX - cx, e.clientY - cy)), s0: (L.scale || 1), sx0: _sx(L), sy0: _sy(L), r0: (L.rot || 0),
+      shape: isShape, sx: e.clientX, sy: e.clientY, w0: L.w || L.el.offsetWidth || b.width, h0: L.h || L.el.offsetHeight || b.height, x0: L.x, y0: L.y, before: isShape ? { w: L.w, h: L.h, x: L.x, y: L.y } : null };
     try { rsd._serSnap = _serLayer(L); } catch (_rs) { void _rs; rsd._serSnap = null; }   // [T8-H+ V2] 정규화 기준
     try { e.target.setPointerCapture(e.pointerId); } catch (_) { void _; }
   }
@@ -1065,7 +1082,8 @@
     st.textShadow = (k === 'shadow' || k === 'outline') ? TS.shadowCss : 'none';
     st.webkitTextStroke = (k === 'outline') ? TS.strokeCss : '';
     if (k === 'bg') {
-      st.background = L.color; st.color = _inkOn(L.color);
+      var bgc = L.bgColor || L.color;
+      st.background = bgc; st.color = L.bgColor ? L.color : _inkOn(L.color);
       st.padding = TS.bgPadY + 'px ' + TS.bgPadX + 'px';
       st.borderRadius = TS.bgRadius + 'px';
       st.boxDecorationBreak = 'clone'; st.webkitBoxDecorationBreak = 'clone';
@@ -1077,7 +1095,7 @@
   function _styleOf(L) {
     if (!L) return null;
     return { font: (L.font && L.font.key) || null, color: L.color, align: L.align,
-      scale: L.scale, fontSize: L.fontSize, tstyle: _tstyleOf(L), rot: L.rot || 0 };
+      scale: L.scale, scaleX: _sx(L), scaleY: _sy(L), fontSize: L.fontSize, tstyle: _tstyleOf(L), bgColor: L.bgColor || null, rot: L.rot || 0 };
   }
   function _applyStyleTo(L, v) {
     if (!L || !v) return;
@@ -1089,6 +1107,9 @@
     if (v.align != null) { L.align = v.align; if (L.tx) L.tx.style.textAlign = v.align; }
     if (v.fontSize != null) { L.fontSize = v.fontSize; if (L.tx) L.tx.style.fontSize = v.fontSize + 'px'; }
     if (v.scale != null) L.scale = v.scale;
+    if (Object.prototype.hasOwnProperty.call(v, 'scaleX')) L.scaleX = v.scaleX || 1;
+    if (Object.prototype.hasOwnProperty.call(v, 'scaleY')) L.scaleY = v.scaleY || 1;
+    if (Object.prototype.hasOwnProperty.call(v, 'bgColor')) L.bgColor = v.bgColor || null;
     applyXf(L);
     try { if (L.type === 'text') syncTextControls(L); } catch (_e) { void _e; }
   }
@@ -1164,7 +1185,7 @@
     if (op.op === 'xf') {
       var xf = undo ? op.before : op.after;
       if (op.L) {
-        op.L.scale = xf.scale; op.L.rot = xf.rot; applyXf(op.L);
+        _applyXfSnap(op.L, xf);
         if (op.L.type === 'text' && refs.size) refs.size.value = op.L.scale;
         selectLayer(op.L);
       }
@@ -1241,7 +1262,7 @@
     if (!L) L = S.active; if (!L) return;
     var c = makeLayer(L.type);
     // [#3] 도형 굵기(strokeW)는 예전에 빠져 있어(엉뚱한 'thick' 키만 복사) 복제본이 '얇게 하기 전' 굵기로 나왔다.
-    ['font', 'color', 'align', 'fontSize', 'text', 'role', 'stroke', 'shadow', 'badge', 'emoji', 'src', 'shape', 'fill', 'strokeW', 'thick', 'fontSizePx', 'w', 'h', 'radius', 'wrapW'].forEach(function (k) { if (L[k] !== undefined) c[k] = L[k]; });
+    ['font', 'color', 'align', 'fontSize', 'text', 'role', 'stroke', 'shadow', 'badge', 'emoji', 'src', 'shape', 'fill', 'strokeW', 'thick', 'fontSizePx', 'w', 'h', 'radius', 'wrapW', 'scaleX', 'scaleY', 'bgColor'].forEach(function (k) { if (L[k] !== undefined) c[k] = L[k]; });
     if (L.tx) { var node = L.tx.cloneNode(true); node.removeAttribute('contenteditable'); c.el.appendChild(node); c.tx = node; }
     // [#3] 도형은 복제한 DOM을 현재 strokeW/색/채움으로 다시 칠해 원본과 100% 일치시킨다.
     if (c.type === 'shape' && c.tx) { try { styleShape(c.tx, c); } catch (_e) { void _e; } }
@@ -1264,7 +1285,7 @@
     if (ids.length >= 2) {   // [#4] 두 손가락 → 핀치(크기+회전), 단일 드래그 중지
       drag = null;
       var q1 = L._pts[ids[0]], q2 = L._pts[ids[1]];
-      lpinch = { L: L, ids: [ids[0], ids[1]], d0: Math.max(8, Math.hypot(q1.x - q2.x, q1.y - q2.y)), a0: Math.atan2(q2.y - q1.y, q2.x - q1.x), s0: L.scale || 1, r0: L.rot || 0 };
+      lpinch = { L: L, ids: [ids[0], ids[1]], d0: Math.max(8, Math.hypot(q1.x - q2.x, q1.y - q2.y)), a0: Math.atan2(q2.y - q1.y, q2.x - q1.x), s0: L.scale || 1, sx0: _sx(L), sy0: _sy(L), r0: L.rot || 0 };
       try { lpinch._serSnap = _serLayer(L); } catch (_ps) { void _ps; lpinch._serSnap = null; }   // [T8-H+ V2] 정규화 기준 스냅샷
       return;
     }
@@ -1298,9 +1319,12 @@
         rsd.L.x = rsd.x0 - (nw - rsd.w0) / 2; rsd.L.y = rsd.y0 - (nh - rsd.h0) / 2;   // 중심 유지
         rsd.L.w = nw; rsd.L.h = nh; applyXf(rsd.L); return;
       }
-      var d = Math.hypot(e.clientX - rsd.cx, e.clientY - rsd.cy);
-      rsd.L.scale = Math.max(0.2, Math.min(6, rsd.s0 * d / rsd.d0)); applyXf(rsd.L);
-      if (rsd.L.type === 'text' && refs.size) refs.size.value = rsd.L.scale; return;
+      var ndx = e.clientX - rsd.sx, ndy = e.clientY - rsd.sy;
+      var nrad = -(rsd.L.rot || 0) * Math.PI / 180, ncs = Math.cos(nrad), nsn = Math.sin(nrad);
+      var nldx = ndx * ncs - ndy * nsn, nldy = ndx * nsn + ndy * ncs;
+      rsd.L.scaleX = Math.max(0.2, Math.min(6, rsd.sx0 * (1 + nldx / Math.max(24, rsd.w0 / 2))));
+      rsd.L.scaleY = Math.max(0.2, Math.min(6, rsd.sy0 * (1 + nldy / Math.max(24, rsd.h0 / 2))));
+      applyXf(rsd.L); return;
     }
     if (wd) {
       // [2026-07-26 원영] 가로 늘리기 — 이동량을 레이어 로컬 가로축으로 환산(회전 고려), scale 나눠 실제 폭 px 로.
@@ -1340,7 +1364,7 @@
             before: lpinch._serSnap.size, after: _pa.size });
         }
       }
-      if (_pl) _pushXf(_pl, lpinch.s0, lpinch.r0);   // [2026-09-13 ZH] 핀치 확대·회전도 되돌리기(↩)에
+      if (_pl) _pushXf(_pl, { scale: lpinch.s0, scaleX: lpinch.sx0, scaleY: lpinch.sy0, rot: lpinch.r0 });   // [2026-09-13 ZH] 핀치 확대·회전도 되돌리기(↩)에
       lpinch = null;
     }
     if (drag) {
@@ -1382,16 +1406,16 @@
        다시 실행(↷)은 거대한 상태로만 돌아와서 작은 스티커로 돌아갈 길이 없었다.
        실측(2026-09-13, iPhone 시뮬레이터 · 네일 사진): 스티커 ≈12pt → 가운데를 끌었더니 ≈190pt,
        ↩ 1회 → 스티커 없음, ↷ → 190pt.  → 끝났을 때 scale/rot 전후를 한 번 남긴다. */
-    if (rsd && !rsd.shape) _pushXf(rsd.L, rsd.s0, rsd.r0);
-    if (rotd) _pushXf(rotd.L, rotd.s0, rotd.start);
+    if (rsd && !rsd.shape) _pushXf(rsd.L, { scale: rsd.s0, scaleX: rsd.sx0, scaleY: rsd.sy0, rot: rsd.r0 });
+    if (rotd) _pushXf(rotd.L, { scale: rotd.s0, scaleX: rotd.sx0, scaleY: rotd.sy0, rot: rotd.start });
     rotd = null; rsd = null; wd = null;
   }
   // 크기·회전이 실제로 바뀌었을 때만 기록한다(탭만 하면 안 남긴다 — move 와 같은 규칙).
-  function _pushXf(L, s0, r0) {
+  function _pushXf(L, before) {
     if (!L) return;
-    var s1 = L.scale || 1, r1 = L.rot || 0;
-    if (s1 === (s0 || 1) && r1 === (r0 || 0)) return;
-    _pushOp({ op: 'xf', L: L, before: { scale: s0 || 1, rot: r0 || 0 }, after: { scale: s1, rot: r1 } });
+    var after = _xfSnap(L), b = before || { scale: 1, scaleX: 1, scaleY: 1, rot: 0 };
+    if (after.scale === (b.scale || 1) && after.scaleX === (b.scaleX || 1) && after.scaleY === (b.scaleY || 1) && after.rot === (b.rot || 0)) return;
+    _pushOp({ op: 'xf', L: L, before: b, after: after });
   }
 
   /* ── 사진 핀치 확대/이동 (두 손가락, 빈 배경에서) ── */
@@ -1460,7 +1484,7 @@
       }
     }
     var L = makeLayer('text');
-    L.font = FONTS[0]; L.color = COLORS[0]; L.align = 'center'; L.fontSize = 30; L.text = PLACEHOLDER;
+    L.font = FONTS[0]; L.color = COLORS[0]; L.bgColor = 'rgba(20,16,18,.62)'; L.align = 'center'; L.fontSize = 30; L.text = PLACEHOLDER;
     L.tstyle = 'shadow';   // [2026-09-11] 예전엔 CSS 가 전원에게 그림자를 강제했다 — 기본값을 맞춰 보이는 건 그대로.
     // [2026-07-26 원영] white-space:pre — 편집 중 자동 줄바꿈 금지(엔터 친 곳만 줄바꿈).
     //   export 캔버스는 split('\n')으로 엔터만 줄바꿈이라, 편집 화면도 동일해야 WYSIWYG.
@@ -1552,7 +1576,7 @@
   // [#5/#6] 이모지 스티커 레이어 재생성 — 재편집 복원 + 헤드리스 compose 양쪽에서 사용.
   function addShopSticker(spec, R) {
     var L = makeLayer('sticker'); L.emoji = spec.emoji; L.fontSize = 64; L.rot = spec.rot || 0;
-    L.scale = spec.size != null ? (spec.size * R.height) / 64 : (spec.scale || 1);
+    L.scale = spec.size != null ? (spec.size * R.height) / 64 : (spec.scale || 1); L.scaleX = spec.scaleX || 1; L.scaleY = spec.scaleY || 1;
     var s = el('div', 'itl-sticker'); s.textContent = spec.emoji; L.el.appendChild(s); L.tx = s;
     /* [2026-09-03] 예전엔 `- 32`(64px 의 절반) 고정이었는데 이모지 글리프 박스는 정확히 64px 가 아니라,
        _serLayer 가 저장하는 **실측 중심**과 어긋나 저장→복원마다 스티커가 밀렸다(실측 4회: cx 0.7996→0.7980).
@@ -1572,6 +1596,7 @@
     L.role = spec.role || '';
     L.font = fontByKey(spec.font) || FONTS[0];
     L.color = spec.color || '#FFFFFF';
+    L.bgColor = spec.bgColor || spec.bg || null;
     L.align = spec.align || 'center';
     L.fontSize = Math.max(12, Math.round((spec.size != null ? spec.size : 0.06) * R.height));
     L.text = spec.text || '';
@@ -1660,7 +1685,7 @@
        도형은 `L.rot = spec.rot` 을 하는데 텍스트 경로에만 없어서, 기울여 놓은 글자가
        저장했다 다시 열면 똑바로 돌아왔다(_serLayer 는 rot 를 실어 보내고 있었다).
        실측으로 잡았다: -12° 로 완료 → 재편집하니 transform 이 matrix(1,0,0,1,…) 이었다. */
-    L.rot = spec.rot || 0;
+    L.rot = spec.rot || 0; L.scale = spec.scale || 1; L.scaleX = spec.scaleX || 1; L.scaleY = spec.scaleY || 1;
     /* [2026-09-11] 저장된 좌표는 원장의 배치다 — 자동 가운데로 덮지 않는다.
        (`moved` 가 없는 옛 초안도 좌표는 저장돼 있으니 존중한다.)
        다만 스테이지 밖으로 나간 상태로 저장됐다면 되돌려 넣는다 — 그대로 두면 발행본에서 잘린다. */
@@ -1712,7 +1737,7 @@
     return L;
   }
   function addShopImage(spec, R) {
-    var L = makeLayer('image'); L.role = spec.role || 'logo'; L.src = spec.src;
+    var L = makeLayer('image'); L.role = spec.role || 'logo'; L.src = spec.src; L.scale = spec.scale || 1; L.scaleX = spec.scaleX || 1; L.scaleY = spec.scaleY || 1; L.rot = spec.rot || 0;
     var im = document.createElement('img'); im.src = spec.src; im.alt = '';
     im.style.cssText = 'display:block;width:' + Math.round((spec.w != null ? spec.w : 0.24) * R.width) + 'px;height:auto;opacity:' + (spec.opacity != null ? spec.opacity : 1) + ';pointer-events:none';
     L.el.appendChild(im); L.tx = im;
@@ -2091,7 +2116,10 @@
   }
   function syncTextControls(L) {
     root.querySelectorAll('[data-font]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-font') === L.font.key); });
-    root.querySelectorAll('[data-color]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-color') === L.color); });
+    var _target = _textColorTarget();
+    var _selColor = _target === 'textbg' ? (L.bgColor || '') : L.color;
+    root.querySelectorAll('[data-color]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-color') === _selColor); });
+    _setTextColorTarget(_target);
     refs.aln.querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-aln') === L.align); });
     refs.size.value = L.scale;
     // [2026-09-11] 스타일 칩·기울기도 현재 레이어를 따라간다 — 안 하면 레이어를 바꿔도 옛 선택이 켜져 보인다.
@@ -2128,6 +2156,7 @@
     _fitTextInStage(L);
     _own(L, 'font');  _pushStyle(L, _b); }
   function applyColor(c) { var L = activeText(); if (!L) return; var _b = _styleOf(L); _sig('color_changed', { layerKey: L.role || L.type, before: L.color, after: c }); L.color = c; L.tx.style.color = c; _applyTextStyle(L); _own(L, 'color');  _pushStyle(L, _b); }
+  function applyBgColor(c) { var L = activeText(); if (!L) return; var _b = _styleOf(L); L.bgColor = c; if (_tstyleOf(L) !== 'bg') L.tstyle = 'bg'; _applyTextStyle(L); _fitTextInStage(L); _own(L, 'bgColor'); _own(L, 'tstyle'); _pushStyle(L, _b); syncTextControls(L); }
   function applyAlign(a) { var L = activeText(); if (!L) return; var _b = _styleOf(L); _sig('alignment_changed', { layerKey: L.role || L.type, before: L.align, after: a }); L.align = a; L.tx.style.textAlign = a; _own(L, 'align');  _pushStyle(L, _b); }
   function applyScale(v) { var L = S.active; if (!L) return; L.scale = parseFloat(v); applyXf(L); }
   /* [2026-09-11] 글자 스타일(기본/그림자/외곽선/배경) — 원장이 고른 건 _own 도장을 찍어
@@ -3112,7 +3141,7 @@
         var cx = b.left - r.left + b.width / 2, cy = b.top - r.top + b.height / 2;
         // 비회전 크기(레이아웃 기준 × scale) — 회전 레이어도 정확히 합성(AABB 왜곡 방지)
         var ow = (L.el.offsetWidth || b.width) * (L.scale || 1), oh = (L.el.offsetHeight || b.height) * (L.scale || 1);
-        c.save(); c.translate(cx, cy); if (L.rot) c.rotate(L.rot * Math.PI / 180);
+        c.save(); c.translate(cx, cy); if (L.rot) c.rotate(L.rot * Math.PI / 180); if (_sx(L) !== 1 || _sy(L) !== 1) c.scale(_sx(L), _sy(L));
         if (L.type === 'shape') {
           drawShape(c, L, ow, oh);
         } else if (L.type === 'image') {
@@ -3151,7 +3180,7 @@
           if (_ts === 'bg') {
             var _bw = ow, _bh = oh;
             var _rd = Math.min(TS.bgRadius * (L.scale || 1), _bh / 2, _bw / 2);
-            c.save(); c.shadowBlur = 0; c.shadowColor = 'transparent'; c.fillStyle = L.color;
+            c.save(); c.shadowBlur = 0; c.shadowColor = 'transparent'; c.fillStyle = L.bgColor || L.color;
             c.beginPath();
             if (c.roundRect) c.roundRect(-_bw / 2, -_bh / 2, _bw, _bh, _rd);
             else {
@@ -3162,7 +3191,7 @@
             }
             c.fill(); c.restore();
             c.font = L.font.weight + ' ' + fs + 'px ' + L.font.family;
-            c.fillStyle = _inkOn(L.color); c.textAlign = _al; c.textBaseline = 'middle';
+            c.fillStyle = L.bgColor ? L.color : _inkOn(L.color); c.textAlign = _al; c.textBaseline = 'middle';
           }
 
           /* 외곽선 — webkit 은 획 중앙 기준이라 lineWidth 를 2배로 잡고 **fill 전에** 그린다
@@ -3255,7 +3284,8 @@
     refs.stage.addEventListener('pointerdown', function (e) { if (e.target === refs.stage || e.target === refs.photo || e.target.classList.contains('itded__scrim')) selectLayer(null); });
     // 텍스트 컨트롤
     refs.fonts.addEventListener('click', function (e) { var b = e.target.closest('[data-font]'); if (!b) return; applyFont(b.getAttribute('data-font')); root.querySelectorAll('[data-font]').forEach(function (x) { x.classList.toggle('on', x === b); }); });
-    refs.colors.addEventListener('click', function (e) { var b = e.target.closest('[data-color]'); if (!b) return; applyColor(b.getAttribute('data-color')); root.querySelectorAll('[data-color]').forEach(function (x) { x.classList.toggle('on', x === b); }); });
+    refs.colors.addEventListener('click', function (e) { var b = e.target.closest('[data-color]'); if (!b) return; (_textColorTarget() === 'textbg' ? applyBgColor : applyColor)(b.getAttribute('data-color')); root.querySelectorAll('[data-color]').forEach(function (x) { x.classList.toggle('on', x === b); }); });
+    if (refs.colorTarget) refs.colorTarget.addEventListener('click', function (e) { var b = e.target.closest('[data-ctarget]'); if (!b) return; _setTextColorTarget(b.getAttribute('data-ctarget')); if (S && S.active && (S.active.type === 'text' || S.active.type === 'badge')) syncTextControls(S.active); });
     if (refs.tstyle) refs.tstyle.addEventListener('click', function (e) { var b = e.target.closest('[data-tstyle]'); if (!b) return; applyTStyle(b.getAttribute('data-tstyle')); });
     /* 기울기: 드래그 중엔 화면만 바꾸고(input), 손 떼면 되돌리기 한 칸(change) — 크기 슬라이더와 같은 계약. */
     if (refs.tilt) {
@@ -3496,8 +3526,8 @@
       if (L.type === 'sticker') return { type: 'emoji', emoji: L.emoji, x: cx, y: cy };
       var fs = (L.fontSize || 30) * (L.scale || 1);
       return { type: 'text', role: L.role || '', text: L.text, x: cx, y: cy, w: w,
-        font: L.font && L.font.key, color: L.color, align: L.align,
-        size: fs / R.height, weight: L.font && L.font.weight,
+        font: L.font && L.font.key, color: L.color, bgColor: L.bgColor || null, align: L.align,
+        size: fs / R.height, weight: L.font && L.font.weight, scaleX: _sx(L), scaleY: _sy(L),
         stroke: !!L.stroke, shadow: !!L.shadow };
     }).filter(Boolean);
   }
@@ -3558,9 +3588,9 @@
     var R = refs.stage.getBoundingClientRect(); if (!R.width) return null;
     var b = L.el.getBoundingClientRect();
     var base = { x: (b.left - R.left + b.width / 2) / R.width, y: (b.top - R.top + b.height / 2) / R.height,
-      w: b.width / R.width, rot: L.rot || 0, scale: L.scale || 1, role: L.role || '' };
+      w: b.width / R.width, rot: L.rot || 0, scale: L.scale || 1, scaleX: _sx(L), scaleY: _sy(L), role: L.role || '' };
     if (L.type === 'sticker') { base.type = 'sticker'; base.emoji = L.emoji; base.size = ((L.fontSize || 64) * (L.scale || 1)) / R.height; return base; }
-    if (L.type === 'image') { base.type = 'image'; base.src = L.src; return base; }
+    if (L.type === 'image') { base.type = 'image'; base.src = L.src; base.w = ((L.el.offsetWidth || b.width) * (L.scale || 1)) / R.width; return base; }
     if (L.type === 'shape') {
       base.color = L.color;
       /* [#10 2026-07-18] box 크기(w/h)를 상대값으로 저장 — 늘리기(비균등) 보존. 회전 도형은 bounding rect(AABB)가
@@ -3582,7 +3612,8 @@
     }
     var fs = ((L.fontSize || 30) * (L.scale || 1)) / R.height;
     base.type = (L.type === 'badge') ? 'badge' : 'text';
-    base.text = L.text; base.font = L.font && L.font.key; base.color = L.color; base.align = L.align;
+    base.w = ((L.el.offsetWidth || b.width) * (L.scale || 1)) / R.width;
+    base.text = L.text; base.font = L.font && L.font.key; base.color = L.color; if (L.bgColor) base.bgColor = L.bgColor; base.align = L.align;
     /* [2026-09-03] weight 는 **L.weight 우선**. 예전엔 항상 폰트 기본값을 실어보내서,
        자동배치가 준 얇은 글씨(600)가 재편집 후 800 으로 굵어졌다(복제·undo 는 이미 L.weight 를 쓰고 있었다). */
     base.size = fs; base.weight = L.weight || (L.font && L.font.weight); base.stroke = !!L.stroke; base.shadow = !!L.shadow;
@@ -3945,7 +3976,7 @@
       shapeColor: COLORS[2], shapeFill: false, shapeThick: 6,
       adj: photos.map(function () { return defAdj(); }), adjSel: 0, collageGap: 3,
       presetByPhoto: {},
-      collageBg: (loadBgPref().color || '#FFFFFF'), collageBgImg: null, cellCrop: [], cellSel: -1, fitMode: 'contain',   // [#5] 배경색만 기억, 배경'이미지'는 매번 초기화(예전 stale 배경이 누끼에 자동적용되던 문제)
+      collageBg: (loadBgPref().color || '#FFFFFF'), collageBgImg: null, cellCrop: [], cellSel: -1, fitMode: 'contain', textColorTarget: 'text',   // [#5] 배경색만 기억, 배경'이미지'는 매번 초기화(예전 stale 배경이 누끼에 자동적용되던 문제)
       ratio: _safeRatio(opts.ratio), undo: [], redo: [], photoDraw: {}, photoBg: {}, layersByPhoto: {},   // [#5/#6] 사진별 레이어 보관
       matte: {}, fgMask: {},   // [#11 2026-07-18] matte=누끼 PNG(재합성 캐시) · fgMask[i]=합성본 정렬 사람 마스크(배경 보정 제외용). 매트처럼 세션 전용.
       photoUrl: photo, photoCss: _cssUrl(photo), photos: photos,
@@ -4168,7 +4199,7 @@
     var Wpx = EXPORT_W, Hpx = Math.round(Wpx * rh / rw);
     S = { layers: [], active: null, tool: null, layout: LAYOUTS[0], layoutOrder: [],
       brush: 'pen', brushSize: 10, drawColor: COLORS[2], shapeColor: COLORS[2], shapeFill: false, shapeThick: 6,
-      adj: photos.map(function () { return defAdj(); }), adjSel: 0, presetByPhoto: {}, collageGap: 3, collageBg: '#FFFFFF', collageBgImg: null, cellCrop: [], cellSel: -1, fitMode: 'contain',
+      adj: photos.map(function () { return defAdj(); }), adjSel: 0, presetByPhoto: {}, collageGap: 3, collageBg: '#FFFFFF', collageBgImg: null, cellCrop: [], cellSel: -1, fitMode: 'contain', textColorTarget: 'text',
       ratio: (opts.ratio || '4:5'),
       photoUrl: photo, photoCss: _cssUrl(photo), photos: photos, shopName: '', pz: { scale: 1, tx: 0, ty: 0 }, incoming: (opts.layers || []) };
     refs.layers.innerHTML = ''; refs.frame.className = 'itded__frame';

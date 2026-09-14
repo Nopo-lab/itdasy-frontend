@@ -264,7 +264,8 @@ describe('[T8-H+ 12·13] continuous 신호 — 조작이 끝날 때 딱 한 번'
   test('종료 지점(cleanupLayerPointer)에서만 continuous 신호를 낸다', () => {
     const i = src.indexOf('function cleanupLayerPointer');
     expect(i).toBeGreaterThan(-1);
-    const blk = src.slice(i, i + 2200);
+    const j = src.indexOf('function _pushXf', i);
+    const blk = src.slice(i, j > i ? j : i + 3600);
     expect(blk).toMatch(/position_changed/);
     expect(blk).toMatch(/size_changed/);
     expect(blk).toMatch(/shape_geometry_changed/);
