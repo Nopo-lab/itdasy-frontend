@@ -394,9 +394,32 @@
     { k: 's', label: '채도', min: 0, max: 200 }, { k: 'w', label: '온도', min: 0, max: 100 },
     { k: 'sh', label: '선명도', min: 0, max: 100 }
   ];
+  // 뷰티 사진용 보수적 프리셋. 현재 편집기의 실제 다섯 슬라이더만 사용한다.
+  var BEAUTY_PRESETS = [
+    { id: 'natural_bright', name: '자연스럽게 밝게', b: 108, c: 101, s: 101, w: 0, sh: 0 },
+    { id: 'hair_texture', name: '머리결 또렷하게', b: 105, c: 103, s: 100, w: 0, sh: 4 },
+    { id: 'nail_color', name: '네일 컬러 그대로', b: 104, c: 102, s: 100, w: 0, sh: 0 },
+    { id: 'lash_clear', name: '속눈썹 또렷하게', b: 104, c: 103, s: 98, w: 0, sh: 3 },
+    { id: 'skin_natural', name: '피부톤 자연스럽게', b: 104, c: 99, s: 98, w: 1, sh: 0 },
+    { id: 'low_light', name: '저조도 살리기', b: 112, c: 99, s: 97, w: 0, sh: 2 },
+    { id: 'before_after_clear', name: '전후 비교 선명하게', b: 106, c: 104, s: 100, w: 0, sh: 3 },
+    { id: 'salon_warm', name: '따뜻한 살롱톤', b: 104, c: 100, s: 99, w: 4, sh: 0 },
+    { id: 'calm_mood', name: '차분한 무드톤', b: 99, c: 98, s: 92, w: 0, sh: 0 }
+  ];
+  function _beautyPreset(id) {
+    return BEAUTY_PRESETS.filter(function (p) { return p.id === id; })[0] || null;
+  }
+  function _presetAdj(mark) {
+    var p = mark && _beautyPreset(mark.presetId); if (!p) return null;
+    var strength = Math.max(0, Math.min(1, Number(mark.presetStrength == null ? 1 : mark.presetStrength)));
+    var base = defAdj(), out = defAdj();
+    ADJ_CTRLS.forEach(function (c) { out[c.k] = Math.round(base[c.k] + (p[c.k] - base[c.k]) * strength); });
+    return out;
+  }
 
   // [#6] 오리지널 데코 스티커 — 직접 그린 SVG(저작권 안전). img(svg dataURL) 레이어로 올림.
   var DECO = (window.ItdDecos || []);   // [B-분할] 데코 스티커 데이터 → js/itd-editor/data/itd-decos.js
+  var BEAUTY_STICKERS = (window.ItdBeautyStickers || []);
 
   var S = null;   // session state
   var root = null, refs = {};
@@ -428,6 +451,8 @@
           '<button class="itded__ic" data-r="redo" aria-label="다시 실행" disabled>' + svg('<path d="M21 7v6h-6"/><path d="M21 13a9 9 0 1 1-2.6-7.8L21 7"/>', 2.1) + '</button>' +
           '<button class="itded__ic" data-r="peek" aria-label="사진 전체 보기">' + svg('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>', 2) + '</button>' +
         '</div>' +
+        '<button class="itded__wmchip itded__wmsuggest" data-r="wmSuggest" hidden>지난 스타일 적용</button>' +
+        '<button class="itded__wmchip itded__wmremove" data-r="wmRemove" hidden>이번 스타일 빼기</button>' +
         '<button class="itded__done" data-r="done">완료</button>' +
       '</div>' +
       '<div class="itded__rail" data-r="rail">' +
@@ -503,6 +528,9 @@
         '<div class="itgrip itgrip--p" data-pgrip></div>' +
               '<div class="itadj__sub">보정할 사진을 고르세요</div>' +
       '<div class="itadj__strip" data-r="adjStrip"></div>' +
+      '<div class="itadj__presets" aria-label="뷰티 사진 프리셋">' + BEAUTY_PRESETS.map(function (p) {
+        return '<button type="button" data-adjpreset="' + p.id + '">' + p.name + '</button>';
+      }).join('') + '</div>' +
       '<div class="itadj__bgrow"><button class="itadj__bg" data-r="adjCut">' + IC.cut + ' 배경 지우기(누끼)</button>' +
         '<button class="itadj__bg itadj__bg--undo" data-r="adjUncut">원본</button></div>' +
       // [#4] 누끼 배경을 바로 옆에서 — 색 탭/사진 업로드. 한 번 누끼하면 색 변경은 0초(매트 캐시 재사용).
@@ -528,7 +556,7 @@
      탭 목록은 itd-icon-stickers.js 가 정본 — 여기 하드코딩하지 않는다(세트가 늘면 그쪽만 고치면 됨).
      데이터가 아직 안 실렸으면(지연 로드) 기존 탭만 보인다 — 편집기는 그대로 동작한다. */
   var _ICS = window.ItdIconStickers || null;
-  var STK_TABS = [['reco', '추천'], ['beauty', '뷰티'], ['cute', '귀여움'], ['mz', '트렌디']]
+  var STK_TABS = [['reco', '추천'], ['salon', '살롱'], ['beauty', '뷰티'], ['cute', '귀여움'], ['mz', '트렌디']]
     .concat((_ICS && _ICS.tabs) ? _ICS.tabs : [])
     .concat([['deco', '도형'], ['my', '내 스티커']]);
   function buildSticker() {
@@ -550,6 +578,30 @@
       return '<button class="itdeco" data-stkcat="' + cat + '" data-stkidx="' + i + '"><img src="' + u + '" alt="" draggable="false"></button>';
     }).join('') + '</div>';
   }
+  function _beautyStickerGrid(arr) {
+    return '<div class="itsgrid itsgrid--salon">' + (arr || []).map(function (s) {
+      return '<button class="itdeco" data-bstk="' + s.id + '" aria-label="' + s.name + '" title="' + s.name + '">' +
+        '<img src="' + s.src + '" alt="" draggable="false"></button>';
+    }).join('') + '</div>';
+  }
+  function _stickerIndustry(raw) {
+    var t = String(raw || '').toLowerCase();
+    if (/(붙임머리|extension)/.test(t)) return '붙임머리';
+    if (/(헤어|미용|hair)/.test(t)) return '헤어';
+    if (/(네일|nail)/.test(t)) return '네일';
+    if (/(속눈썹|lash)/.test(t)) return '속눈썹';
+    if (/(눈썹|brow|반영구)/.test(t)) return '눈썹';
+    if (/(왁싱|wax)/.test(t)) return '왁싱';
+    if (/(피부|에스테틱|skin)/.test(t)) return '피부관리';
+    if (/(메이크업|makeup)/.test(t)) return '메이크업';
+    return '기타';
+  }
+  function _recommendedBeautyStickers() {
+    var industry = _stickerIndustry(localStorage.getItem('shop_type') || '');
+    return BEAUTY_STICKERS.filter(function (s) {
+      return s.industries.indexOf(industry) >= 0 || s.industries.length >= 9;
+    }).slice(0, 10);
+  }
   function _recoChips() {
     // [2026-07-10] 기능 스티커(위치·예약·전화·가격·시간)는 '작업실 설정'으로 이관 — 편집기에서 완전 제거.
     //   입력은 작업실 홈 → 설정에서. 값은 캡션 `_shopCTA()` 가 글 끝에 붙인다.
@@ -562,9 +614,9 @@
     var ST = window.ItdStickers || {};
     var html = '';
     if (key === 'reco') {
-      var st = (localStorage.getItem('shop_type') || '').trim();
-      var em = ST.shopEmojiByType && ST.shopEmojiByType[st];
-      html = _recoChips() + _emGrid(em && em.length ? em.concat(ST.beautyEmoji || []) : (ST.beautyEmoji || EMOJI));
+      html = _recoChips() + _beautyStickerGrid(_recommendedBeautyStickers());
+    } else if (key === 'salon') {
+      html = _beautyStickerGrid(BEAUTY_STICKERS);
     } else if (key === 'beauty') {
       html = _emGrid(ST.beautyEmoji || EMOJI);
     } else if (key === 'cute') {
@@ -669,7 +721,7 @@
 
   function cacheRefs() {
     ['tstyle', 'tilt', 'tiltout',
-      'stage', 'photowrap', 'photo', 'photofx', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkUpload', 'stkTabs', 'stkBody', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut', 'adjCutBg', 'adjBgImg', 'layFit', 'layBgImg', 'undo', 'redo', 'peek', 'drawClear', 'addText'].forEach(function (k) {
+      'stage', 'photowrap', 'photo', 'photofx', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'wmSuggest', 'wmRemove', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkTabs', 'stkBody', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut', 'adjCutBg', 'adjBgImg', 'layFit', 'layBgImg', 'undo', 'redo', 'peek', 'drawClear', 'addText'].forEach(function (k) {
       refs[k] = root.querySelector('[data-r="' + k + '"]');
     });
     refs.panels = {};
@@ -796,6 +848,13 @@
     var r = refs.stage.getBoundingClientRect();
     L.x = r.width / 2 - (w || L.el.offsetWidth) / 2;
     L.y = r.height / 2 - (h || L.el.offsetHeight) / 2;
+    applyXf(L);
+  }
+  function placeSafeBottom(L, w, h) {
+    var r = refs.stage.getBoundingClientRect();
+    var ew = w || L.el.offsetWidth || 180, eh = h || L.el.offsetHeight || 44;
+    L.x = Math.max(16, Math.min(r.width - ew - 16, (r.width - ew) / 2));
+    L.y = Math.max(16, Math.min(r.height - eh - 64, r.height * 0.74 - eh / 2));
     applyXf(L);
   }
   function applyXf(L) {
@@ -1139,6 +1198,11 @@
         if (det) { var wi = S.layers.indexOf(WL); if (wi >= 0) S.layers.splice(wi, 1); if (WL.el) WL.el.remove(); if (S.active === WL) S.active = null; }
         else { if (refs.layers && WL.el) refs.layers.appendChild(WL.el); if (S.layers.indexOf(WL) < 0) S.layers.push(WL); }
       });
+      if (op.adjPack) _restoreMemoryPreset(op.adjPack, det ? 'before' : 'after');
+      try {
+        var wmLast = window.WorkMemoryEngine && window.WorkMemoryEngine._lastApply;
+        if (wmLast && (!op.wmToken || wmLast.token === op.wmToken)) wmLast.undone = det;
+      } catch (_wmHist) { void _wmHist; }
       return;
     }
     /* [2026-09-03 P1] 부호가 뒤집혀 있었다 — 주석("undo: add→제거")과 코드가 반대였다.
@@ -1413,7 +1477,8 @@
       + (_stR.width ? ';max-width:' + Math.round(_stR.width * 0.88) + 'px' : '');
     L.el.appendChild(t); L.tx = t;
     _applyTextStyle(L);
-    placeCenter(L, 180, 50); selectLayer(L);
+    // 새 글자는 사진 중앙을 가리지 않도록 하단 안전영역에서 시작한다.
+    placeSafeBottom(L, 180, 44); selectLayer(L);
     _pushOp({ op: 'add', L: L });   // [P1-3] 추가 되돌리기
     editText(L);   // [2026-09-05] 동기 호출 필수 — setTimeout 으로 미루면 모바일 키보드가 안 올라온다(위 주석 ③)
     /* [2026-08-23] 이 장에 글자가 처음 생겼다 → 그 장 기준으로 자동 초안을 한 번 돌린다.
@@ -1458,6 +1523,31 @@
     if (spec.type === 'rect') return addShopRect(spec, R);
     if (spec.type === 'sticker' || spec.type === 'emoji') return addShopSticker(spec, R);   // [#5/#6] 이모지 스티커도 복원/합성(compose)에서 렌더
     return _addShopLayerText(spec, R);   // 기본: 텍스트/배지
+  }
+  function _tagMemoryLayer(L, spec) {
+    if (L && spec && spec._src === 'wm') {
+      L._src = 'wm'; L._wmTok = spec._wmTok || null;
+    }
+    return L;
+  }
+  function _markSuggestedPreset(suggestion) {
+    var p = suggestion && suggestion.adjustmentPreset;
+    if (!p || !p.presetId || !root) return;
+    var b = root.querySelector('[data-adjpreset="' + p.presetId + '"]');
+    if (b) { b.classList.add('is-recommended'); b.setAttribute('aria-label', b.textContent + ' · 지난 스타일 추천'); }
+  }
+  function _applyWmSuggestion() {
+    var sug = S && S.wmSuggestion;
+    if (!sug || !sug.state || !Array.isArray(sug.state.layers)) return;
+    var before = S.layers.length; renderIncoming(sug.state.layers);
+    var added = S.layers.slice(before).filter(function (L) { return L && L._wmTok === sug.token; });
+    var adjPack = _applyMemoryPreset(sug.adjustmentPreset);
+    if (!added.length && !adjPack) return;
+    if (window.WorkMemoryEngine && window.WorkMemoryEngine.acceptSuggestion) window.WorkMemoryEngine.acceptSuggestion(sug);
+    _pushOp({ op: 'wmApply', Ls: added, adjPack: adjPack, wmToken: sug.token });
+    if (refs.wmSuggest) refs.wmSuggest.hidden = true;
+    if (refs.wmRemove) refs.wmRemove.hidden = false;
+    toastIt('지난 ' + (sug.industry || '샵') + ' 스타일을 적용했어요');
   }
   // [#5/#6] 이모지 스티커 레이어 재생성 — 재편집 복원 + 헤드리스 compose 양쪽에서 사용.
   function addShopSticker(spec, R) {
@@ -1642,13 +1732,13 @@
     var have = {}; S.layers.forEach(function (L) { if (L.role) have[L.role] = 1; });
     var R = refs.stage.getBoundingClientRect();
     var added = false;
-    list.forEach(function (spec) { if (spec.role && !have[spec.role]) { try { addShopLayer(spec, R); added = true; } catch (_e) { void _e; } } });
+    list.forEach(function (spec) { if (spec.role && !have[spec.role]) { try { _tagMemoryLayer(addShopLayer(spec, R), spec); added = true; } catch (_e) { void _e; } } });
     if (added) { S.active = null; S.layers.forEach(function (x) { x.el.classList.remove('is-active'); }); }
   }
   function renderIncoming(layers) {
     if (!Array.isArray(layers) || !layers.length) return;
     var R = refs.stage.getBoundingClientRect();
-    layers.forEach(function (spec) { try { addShopLayer(spec, R); } catch (_) { void _; } });
+    layers.forEach(function (spec) { try { _tagMemoryLayer(addShopLayer(spec, R), spec); } catch (_) { void _; } });
     _deOverlapIncoming();   // [#2] 텍스트 길이 무관 — 자동배치 글자/선이 서로 안 겹치게 세로로 벌림
     S.active = null; S.layers.forEach(function (x) { x.el.classList.remove('is-active'); });
     _applySafeZone();   // [P2-1] 얼굴/피사체 위 자동 텍스트 비켜놓기(비동기, 폴백 안전)
@@ -2106,12 +2196,23 @@
     gripEl.addEventListener('pointercancel', function () { gd = null; if (panel) { panel.style.transition = ''; panel.style.transform = ''; } });
   }
   /* ── 이미지 스티커(데코·내 스티커) #6/#7 ── */
-  function addImageSticker(src) {
+  function _placeImageSticker(L, meta, w, h) {
+    if (!meta || !meta.defaultPosition) { placeCenter(L, w, h); return; }
+    var r = refs.stage.getBoundingClientRect(), pad = 24, bottom = 64;
+    var x = (r.width - w) / 2, y = (r.height - h) / 2;
+    if (/left/.test(meta.defaultPosition)) x = pad;
+    if (/right/.test(meta.defaultPosition)) x = r.width - w - pad;
+    if (/top/.test(meta.defaultPosition)) y = pad + 42;
+    if (/bottom/.test(meta.defaultPosition)) y = r.height - h - bottom;
+    L.x = Math.max(pad, x); L.y = Math.max(pad, y); applyXf(L);
+  }
+  function addImageSticker(src, meta) {
     var L = makeLayer('image'); L.role = 'sticker'; L.src = src;
     var im = document.createElement('img'); im.src = src; im.alt = ''; im.setAttribute('draggable', 'false');
-    im.style.cssText = 'display:block;width:120px;height:auto;pointer-events:none';
+    var size = (meta && meta.defaultSize) || 120;
+    im.style.cssText = 'display:block;width:' + size + 'px;height:auto;pointer-events:none';
     L.el.appendChild(im); L.tx = im;
-    var place = function () { placeCenter(L, L.el.offsetWidth || 120, L.el.offsetHeight || 120); };
+    var place = function () { _placeImageSticker(L, meta, L.el.offsetWidth || size, L.el.offsetHeight || size); };
     if (im.complete && im.naturalWidth) place(); else im.onload = place;
     place(); selectLayer(L); _pushOp({ op: 'add', L: L }); closeStickerSheet();
   }
@@ -2454,6 +2555,45 @@
 
   /* ── 사진별 보정(밝기/대비/채도/온도/선명도) ── */
   function adjOf(i) { if (!S.adj[i]) S.adj[i] = defAdj(); return S.adj[i]; }
+  function _adjPackSnapshot() {
+    return { adj: (S.adj || []).map(function (a) { return Object.assign({}, a); }),
+      presets: Object.assign({}, S.presetByPhoto || {}) };
+  }
+  function _restoreMemoryPreset(pack, side) {
+    var snap = pack && pack[side]; if (!snap) return;
+    S.adj = (snap.adj || []).map(function (a) { return Object.assign(defAdj(), a); });
+    S.presetByPhoto = Object.assign({}, snap.presets || {});
+    try { syncAdjSliders(); applyAdjToDisplay(); applyStraighten(); renderAdjust(); } catch (_e) { void _e; }
+  }
+  function _applyMemoryPreset(mark) {
+    var v = _presetAdj(mark); if (!v) return null;
+    var pack = { before: _adjPackSnapshot() };
+    (S.photos || []).forEach(function (_u, i) {
+      S.adj[i] = Object.assign({}, v);
+      S.presetByPhoto[String(i)] = { presetId: mark.presetId, presetStrength: mark.presetStrength == null ? 1 : mark.presetStrength };
+    });
+    pack.after = _adjPackSnapshot();
+    try { syncAdjSliders(); applyAdjToDisplay(); renderAdjust(); } catch (_e) { void _e; }
+    return pack;
+  }
+  function _removeMemoryPreset(pack) {
+    if (!pack || !pack.before || !pack.after) return null;
+    var current = _adjPackSnapshot(), removed = {
+      adj: current.adj.map(function (a) { return Object.assign({}, a); }),
+      presets: Object.assign({}, current.presets || {})
+    }, changed = false;
+    (pack.after.adj || []).forEach(function (a, i) {
+      if (JSON.stringify(current.adj[i]) !== JSON.stringify(a)) return;   // 원장이 적용 뒤 직접 바꾼 보정은 보존
+      removed.adj[i] = Object.assign(defAdj(), (pack.before.adj || [])[i]);
+      var old = pack.before.presets && pack.before.presets[String(i)];
+      if (old) removed.presets[String(i)] = old; else delete removed.presets[String(i)];
+      changed = true;
+    });
+    if (!changed) return null;
+    var removePack = { before: removed, after: current };
+    _restoreMemoryPreset(removePack, 'before');
+    return removePack;
+  }
   function adjReadout(c, v) { return (c.k === 'w' || c.k === 'sh') ? ('' + v) : ((v - 100 >= 0 ? '+' : '') + (v - 100)); }
   var _adjRaf = 0;
   function applyAdjThrottled() { if (_adjRaf) return; var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _adjRaf = raf(function () { _adjRaf = 0; applyAdjToDisplay(); }); }
@@ -2511,6 +2651,12 @@
     });
     if (refs.adjRot) refs.adjRot.value = a.rot || 0;
     if (refs.adjRotOut) refs.adjRotOut.textContent = (a.rot || 0) + '°';
+    var selected = S.presetByPhoto && S.presetByPhoto[String(S.adjSel)];
+    root.querySelectorAll('[data-adjpreset]').forEach(function (b) {
+      var on = !!(selected && selected.presetId === b.getAttribute('data-adjpreset'));
+      b.classList.toggle('is-selected', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
   }
   function renderAdjust() {
     if (!refs.adjStrip) return;
@@ -3081,6 +3227,12 @@
     document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') _draftSnap(true); });
   } catch (_lce) { void _lce; }
   function wire() {
+    if (refs.wmSuggest) refs.wmSuggest.addEventListener('click', _applyWmSuggestion);
+    if (refs.wmRemove) refs.wmRemove.addEventListener('click', function () {
+      var ap = window.WorkMemoryEngine && window.WorkMemoryEngine._lastApply;
+      var n = undoWmApply(ap && ap.token);
+      if (n) { refs.wmRemove.hidden = true; if (refs.wmSuggest && S.wmSuggestion) refs.wmSuggest.hidden = false; }
+    });
     refs.rail.addEventListener('click', function (e) {
       var b = e.target.closest('[data-tool]'); if (!b) return;
       var tool = b.getAttribute('data-tool');
@@ -3155,6 +3307,12 @@
       var tab = e.target.closest('[data-sttab]'); if (tab) { refs.stkTabs.querySelectorAll('[data-sttab]').forEach(function (x) { x.classList.toggle('on', x === tab); }); _renderStkTab(tab.getAttribute('data-sttab')); return; }
       var del = e.target.closest('[data-minedel]'); if (del) { e.stopPropagation(); delMyStk(+del.getAttribute('data-minedel')); return; }
       var mine = e.target.closest('[data-mine]'); if (mine) { var arr = loadMyStk(); var u = arr[+mine.getAttribute('data-mine')]; if (u) addImageSticker(u); return; }
+      var bs = e.target.closest('[data-bstk]');
+      if (bs) {
+        var bo = BEAUTY_STICKERS.find(function (s) { return s.id === bs.getAttribute('data-bstk'); });
+        if (bo) addImageSticker(bo.src, bo);
+        return;
+      }
       var sc = e.target.closest('[data-stkcat]'); if (sc) { var cat = sc.getAttribute('data-stkcat'); var list = (window.ItdStickers || {})[cat + 'Svg'] || []; var su = list[+sc.getAttribute('data-stkidx')]; if (su) addImageSticker(su); return; }
       var ic = e.target.closest('[data-icstk]');
       if (ic) {
@@ -3201,10 +3359,17 @@
     document.addEventListener('pointerup', onCellUp);
     // 보정 — 사진 선택 + 슬라이더(선택 사진만) + 초기화
     refs.panels.adjust.addEventListener('click', function (e) { var t = e.target.closest('[data-adjthumb]'); if (t) onAdjThumb(+t.getAttribute('data-adjthumb')); });
+    refs.panels.adjust.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-adjpreset]'); if (!b) return;
+      var p = _beautyPreset(b.getAttribute('data-adjpreset')); if (!p) return;
+      var before = Object.assign({}, adjOf(S.adjSel)); ADJ_CTRLS.forEach(function (c) { adjOf(S.adjSel)[c.k] = p[c.k]; });
+      S.presetByPhoto[String(S.adjSel)] = { presetId: p.id, presetStrength: 1 };
+      _pushAdj(S.adjSel, before); syncAdjSliders(); applyAdjToDisplay(); renderAdjust();
+    });
     refs.panels.adjust.addEventListener('input', function (e) {
       var s = e.target.closest('[data-adj]'); if (!s) return; var k = s.getAttribute('data-adj');
       if (!_adjSnap) _adjSnap = { idx: S.adjSel, v: Object.assign({}, adjOf(S.adjSel)) };   // [BUG-03]
-      adjOf(S.adjSel)[k] = +s.value;
+      adjOf(S.adjSel)[k] = +s.value; delete S.presetByPhoto[String(S.adjSel)];
       var c0 = ADJ_CTRLS.filter(function (x) { return x.k === k; })[0]; var out = root.querySelector('[data-adjout="' + k + '"]'); if (out) out.textContent = adjReadout(c0, +s.value);
       applyAdjThrottled(); var th = refs.adjStrip && refs.adjStrip.querySelector('[data-adjthumb="' + S.adjSel + '"]'); if (th) th.style.filter = filterStr(adjOf(S.adjSel));
     });
@@ -3221,7 +3386,7 @@
       root.classList.add('is-leveling'); clearTimeout(S._lvlT); S._lvlT = setTimeout(function () { root.classList.remove('is-leveling'); }, 900);
       applyStraighten();
     });
-    refs.adjReset.addEventListener('click', function () { var _ab = Object.assign({}, adjOf(S.adjSel)); S.adj[S.adjSel] = defAdj(); _pushAdj(S.adjSel, _ab); syncAdjSliders(); applyAdjToDisplay(); applyStraighten(); renderAdjust(); });
+    refs.adjReset.addEventListener('click', function () { var _ab = Object.assign({}, adjOf(S.adjSel)); S.adj[S.adjSel] = defAdj(); delete S.presetByPhoto[String(S.adjSel)]; _pushAdj(S.adjSel, _ab); syncAdjSliders(); applyAdjToDisplay(); applyStraighten(); renderAdjust(); });
     if (refs.adjCut) refs.adjCut.addEventListener('click', function () { doCutout(); });
     if (refs.adjUncut) refs.adjUncut.addEventListener('click', undoCutout);
     // [#4] 누끼 배경 색 — 탭하면 즉시 재합성(매트 캐시 있으면 0초). 누끼 전이면 배경만 기억.
@@ -3711,6 +3876,7 @@
         cellCrop: (S.cellCrop || []).slice(), collageBg: S.collageBg, collageBgImg: S.collageBgImg || null,
         collageGap: S.collageGap, fitMode: S.fitMode, ratio: S.ratio,
         adj: (S.adj || []).map(function (a) { return Object.assign({}, a); }),
+        presetByPhoto: Object.assign({}, S.presetByPhoto),
         photoDraw: Object.assign({}, S.photoDraw), photoBg: Object.assign({}, S.photoBg),
         pz: Object.assign({ scale: 1, tx: 0, ty: 0 }, S.pz),   // [버그수정 2026-07-06] 사진 핀치줌/이동 구도 재편집 시 유실 방지
         photos: (S.photos || []).slice(), layers: (S.layers || []).map(_serLayer).filter(Boolean) };
@@ -3732,6 +3898,8 @@
        통째로 옮겨지고 크기까지 달라진다 = "저장한 화면과 다시 연 화면이 다르다". */
     if (st.ratio) S.ratio = _safeRatio(st.ratio);
     if (Array.isArray(st.adj) && st.adj.length) S.adj = st.adj.map(function (a) { return Object.assign(defAdj(), a); });
+    if (st.presetByPhoto) S.presetByPhoto = Object.assign({}, st.presetByPhoto);
+    if (st.adjustmentPreset) S._wmAdjPack = _applyMemoryPreset(st.adjustmentPreset);
     if (st.photoDraw) S.photoDraw = Object.assign({}, st.photoDraw);
     if (st.photoBg) S.photoBg = Object.assign({}, st.photoBg);
     if (st.pz) S.pz = Object.assign({ scale: 1, tx: 0, ty: 0 }, st.pz);   // [버그수정 2026-07-06] 재편집 시 사진 구도(핀치줌/이동) 복원
@@ -3756,7 +3924,7 @@
         var L2 = addShopLayer(spec, R); if (L2 && spec.rot) { L2.rot = spec.rot; applyXf(L2); }
         // [T4] 작업 기억 출처 태그 — '이번엔 빼기'(undoWmApply)가 이 레이어만 골라 지운다.
         //   _serLayer 화이트리스트엔 없어 저장/사진전환 직렬화엔 안 실린다(런타임 전용).
-        if (L2 && spec._src === 'wm') { L2._src = 'wm'; L2._wmTok = spec._wmTok || null; }
+        _tagMemoryLayer(L2, spec);
         /* [STAGE C] 복원된 레이어는 **전부 원장 소유**로 본다.
            클릭 기록(`_own`)은 런타임 값이라 저장에 안 실린다. 그렇다고 "표시가 없으니
            기본값이겠지" 라고 보면, 이어서 편집하는 원장의 작업물을 자동 초안이 덮는다.
@@ -3776,6 +3944,7 @@
       brush: 'pen', brushSize: 10, drawColor: COLORS[2],
       shapeColor: COLORS[2], shapeFill: false, shapeThick: 6,
       adj: photos.map(function () { return defAdj(); }), adjSel: 0, collageGap: 3,
+      presetByPhoto: {},
       collageBg: (loadBgPref().color || '#FFFFFF'), collageBgImg: null, cellCrop: [], cellSel: -1, fitMode: 'contain',   // [#5] 배경색만 기억, 배경'이미지'는 매번 초기화(예전 stale 배경이 누끼에 자동적용되던 문제)
       ratio: _safeRatio(opts.ratio), undo: [], redo: [], photoDraw: {}, photoBg: {}, layersByPhoto: {},   // [#5/#6] 사진별 레이어 보관
       matte: {}, fgMask: {},   // [#11 2026-07-18] matte=누끼 PNG(재합성 캐시) · fgMask[i]=합성본 정렬 사람 마스크(배경 보정 제외용). 매트처럼 세션 전용.
@@ -3793,6 +3962,8 @@
          → 학습에 쓰는 그 context 를 그대로 들고 있다가 조회에도 쓴다. */
       planCategory: (opts.category || (opts.wmContext && opts.wmContext.service) || null),
       wmContext: opts.wmContext || null };
+    S.wmSuggestion = opts.wmSuggestion || null;
+    _markSuggestedPreset(S.wmSuggestion);
     var _ed = (opts.editState && opts.editState.v) ? opts.editState : null;   // [#4/#8/#11/#16] 재편집 이어가기
     if (_ed) { try { _restoreState(_ed); } catch (_re) { _ed = null; } }   // 복원 실패 시 일반 열기로 폴백(앱 안전)
     /* [2026-09-12 ZH] 캐러셀 재편집 — **장별 레이어와 활성 장**을 되살린다.
@@ -3897,7 +4068,16 @@
       //   (배너를 놓쳐도 ↩ 가 회수 경로). 사진 전환으로 레이어가 직렬화 재생성되면 참조가 끊기지만
       //   op 의 indexOf 가드로 무해 — 기존 add/del op 와 같은 한계.
       var _wmLs = S.layers.filter(function (L) { return L._src === 'wm'; });
-      if (_wmLs.length) _pushOp({ op: 'wmApply', Ls: _wmLs });
+      var _wmApply = window.WorkMemoryEngine && window.WorkMemoryEngine._lastApply;
+      if (_wmLs.length || S._wmAdjPack) _pushOp({ op: 'wmApply', Ls: _wmLs, adjPack: S._wmAdjPack || null,
+        wmToken: _wmApply && _wmApply.token });
+      if (refs.wmRemove) {
+        refs.wmRemove.hidden = !(_wmLs.length || S._wmAdjPack) || !_wmApply || !_wmApply.token;
+      }
+      if (refs.wmSuggest) {
+        refs.wmSuggest.hidden = !!_wmLs.length || !S.wmSuggestion;
+        if (S.wmSuggestion) refs.wmSuggest.textContent = '지난 ' + (S.wmSuggestion.industry || '샵') + ' 스타일 적용';
+      }
       // [#5] 시술내용 텍스트가 이미 올라왔으면 그걸 선택 → setTool('text')이 빈 '내용을 입력하세요'를 덧붙이지 않음.
       var firstText = S.layers.filter(function (L) { return L.type === 'text'; })[0];
       if (firstText) selectLayer(firstText);   // 텍스트 선택 → selectLayer 가 폰트 패널까지 연다(조건부 노출)
@@ -3988,7 +4168,7 @@
     var Wpx = EXPORT_W, Hpx = Math.round(Wpx * rh / rw);
     S = { layers: [], active: null, tool: null, layout: LAYOUTS[0], layoutOrder: [],
       brush: 'pen', brushSize: 10, drawColor: COLORS[2], shapeColor: COLORS[2], shapeFill: false, shapeThick: 6,
-      adj: photos.map(function () { return defAdj(); }), adjSel: 0, collageGap: 3, collageBg: '#FFFFFF', collageBgImg: null, cellCrop: [], cellSel: -1, fitMode: 'contain',
+      adj: photos.map(function () { return defAdj(); }), adjSel: 0, presetByPhoto: {}, collageGap: 3, collageBg: '#FFFFFF', collageBgImg: null, cellCrop: [], cellSel: -1, fitMode: 'contain',
       ratio: (opts.ratio || '4:5'),
       photoUrl: photo, photoCss: _cssUrl(photo), photos: photos, shopName: '', pz: { scale: 1, tx: 0, ty: 0 }, incoming: (opts.layers || []) };
     refs.layers.innerHTML = ''; refs.frame.className = 'itded__frame';
@@ -4027,10 +4207,20 @@
   function undoWmApply(token) {
     if (!S || !root || !root.classList.contains('is-open')) return 0;
     var Ls = (S.layers || []).filter(function (L) { return L && L._src === 'wm' && (!token || L._wmTok === token); });
-    if (!Ls.length) return 0;
+    var src = (S.undo || []).slice().reverse().filter(function (op) {
+      if (!op || op.op !== 'wmApply') return false;
+      if (!token) return !!((op.Ls || []).length || op.adjPack);
+      return op.wmToken === token || (op.Ls || []).some(function (L) { return L && L._wmTok === token; });
+    })[0];
+    if (!Ls.length && !(src && src.adjPack)) return 0;
     Ls.forEach(function (L) { var i = S.layers.indexOf(L); if (i >= 0) S.layers.splice(i, 1); if (L.el) L.el.remove(); if (S.active === L) S.active = null; });
-    _pushOp({ op: 'wmRemove', Ls: Ls });
-    return Ls.length;
+    var removePack = src && src.adjPack ? _removeMemoryPreset(src.adjPack) : null;
+    _pushOp({ op: 'wmRemove', Ls: Ls, adjPack: removePack, wmToken: token || (src && src.wmToken) });
+    try {
+      var wmLast = window.WorkMemoryEngine && window.WorkMemoryEngine._lastApply;
+      if (wmLast && (!token || wmLast.token === token)) wmLast.undone = true;
+    } catch (_wmDone) { void _wmDone; }
+    return Ls.length || 1;
   }
   window.ItdEditor = { open: open, close: close, compose: compose, undoWmApply: undoWmApply, isOpen: function () { return !!(root && root.classList.contains('is-open')); } };
 })();

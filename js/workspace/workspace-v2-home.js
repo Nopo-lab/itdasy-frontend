@@ -79,14 +79,14 @@
   var _PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>';
   var _PHIC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
   // [버그6 2026-07-25] 사진+캡션 다 만들어 저장까지 끝낸 슬롯 — 발행만 안 한 상태.
-  //   전부 '작성 중'으로 떠서 "완료했는데 왜 작성 중?" 혼란 → '작성 완료' 칩으로 구분.
+  //   전부 '작성 중'으로 떠서 "완료했는데 왜 작성 중?" 혼란 → '게시 준비' 칩으로 구분.
   function _isReady(slot) {
     return !!(slot && (slot.photos || []).length && slot.caption && String(slot.caption).trim());
   }
   function _feedTile(slot) {
     var img = _thumb(slot), sel = !!_selected[slot.id];
     // [개편 2026-07-15] 타일 뱃지 소음 제거 — 발행된 타일은 사진만. 진행 중만 좌하단 흰 칩 하나.
-    // [버그6] 칩 3단계: 예약 발행 = '예약' / 사진·캡션 완료 = '작성 완료' / 그 외 = '작성 중'.
+    // [버그6] 칩 3단계: 예약 발행 = '예약' / 사진·캡션 완료 = '게시 준비' / 그 외 = '작성 중'.
     /* [2026-09-13 ZH] 서버에 못 올라간 슬롯은 칩에 '기기에만' 을 먼저 말한다 — 원장이 다른 기기에서 안 보이는 이유를 알 수 있게.
        push 가 실제로 실패했을 때만(막 저장해서 올라가는 중인 건 아님). 발행된 타일에도 붙인다(발행 후 수정분이 안 올라간 경우). */
     var _ss = (window.WorkspaceSync && window.WorkspaceSync.status) ? window.WorkspaceSync.status() : null;
@@ -98,7 +98,7 @@
       : _local ? '<span class="wf-chip wf-chip--local">기기에만 저장</span>'
       : _isPub(slot) ? ''
       : '<span class="wf-chip">' + ((slot.publish && slot.publish.status === 'scheduled') ? '예약'
-        : (_isReady(slot) ? '작성 완료' : '작성 중')) + '</span>';
+        : (_isReady(slot) ? '게시 준비' : '작성 중')) + '</span>';
     return '<button type="button" class="wf-tile' + (_selectMode ? ' wf-tile--sel' : '') + (sel ? ' is-sel' : '') +
       '" data-wsv2-slot="' + _esc(slot.id) + '" data-haptic="light"' + (img ? ' style="background-image:url(' + _esc(_disp(img)) + ')"' : '') + '>' +
       (_selectMode ? '<span class="wf-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>' : '') +
@@ -122,13 +122,8 @@
   }
   // [개편 2026-07-15] 이어서 카드 — 썸네일 + 제목 + 상태 한 줄 + 검정 '이어서' 버튼(목업 ① 톤).
   function _resumeMsg(slot) {
-    var photos = slot.photos || [];
-    var edited = photos.some(function (p) { return p && (p.editedDataUrl || p.storyEdited || p.cropMeta); });
-    var hasCap = !!(slot.caption && String(slot.caption).trim());
-    if (hasCap) return '캡션까지 완료 · 발행만 남았어요';   // [2026-09-14 P3] 편집은 선택 — 캡션 있는 글에 '편집이 남았어요' 금지
-    if (!edited) return '사진 완료 · 편집이 남았어요';
-    if (!hasCap) return '편집까지 완료 · 캡션이 남았어요';
-    return '캡션까지 완료 · 발행만 남았어요';
+    if (!(slot.caption && String(slot.caption).trim())) return '사진을 올렸어요 · 게시글을 써볼까요?';
+    return '게시 준비가 됐어요 · 사진 꾸미기는 선택';
   }
   function _resumeCardHTML(slots) {
     var cand = slots.filter(function (s) { return !_isPub(s) && (s.photos || []).length; });

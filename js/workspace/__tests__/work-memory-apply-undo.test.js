@@ -99,17 +99,22 @@ describe('편집기 소스 계약 — op 한 덩어리·외과적 제거·5초 �
   const flowSrc = fs.readFileSync(path.join(__dirname, '..', 'workspace-v2-flow.js'), 'utf8');
   const cssSrc = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'css', 'screens', 'sub-screens.css'), 'utf8');
 
-  test('[②] 열릴 때 wm 레이어를 wmApply op **1개**로 push (레이어별 add 아님)', () => {
-    expect(edSrc.match(/op:\s*'wmApply'/g)).toHaveLength(1);
-    expect(edSrc).toMatch(/_wmLs\.length\)\s*_pushOp\(\{\s*op:\s*'wmApply',\s*Ls:\s*_wmLs\s*\}\)/);
+  test('[②] 자동 적용·추천 적용 모두 wm 레이어를 op **1개씩** push (레이어별 add 아님)', () => {
+    expect(edSrc.match(/op:\s*'wmApply'/g)).toHaveLength(2);
+    expect(edSrc).toMatch(/_wmLs\.length \|\| S\._wmAdjPack\)\s*_pushOp\(\{\s*op:\s*'wmApply',\s*Ls:\s*_wmLs,\s*adjPack:/);
+    expect(edSrc).toMatch(/_pushOp\(\{\s*op:\s*'wmApply',\s*Ls:\s*added,\s*adjPack:\s*adjPack,\s*wmToken:\s*sug\.token\s*\}\)/);
   });
   test('[②] _applyInverse 가 wmApply/wmRemove 를 그룹으로 처리', () => {
     expect(edSrc).toMatch(/op\.op === 'wmApply' \|\| op\.op === 'wmRemove'/);
   });
-  test('[④⑤⑥] undoWmApply — 토큰 필터 + 남은 대상 0 → 0 반환 + wmRemove op 로 push', () => {
+  test('[④⑤⑥] undoWmApply — 토큰 필터 + 기억 보정까지 함께 원복 + wmRemove op 로 push', () => {
     expect(edSrc).toMatch(/function undoWmApply\(token\)/);
     expect(edSrc).toMatch(/L\._wmTok === token/);
-    expect(edSrc).toMatch(/if \(!Ls\.length\) return 0;/);
+    expect(edSrc).toMatch(/op\.wmToken === token/);
+    expect(edSrc).toMatch(/if \(!Ls\.length && !\(src && src\.adjPack\)\) return 0;/);
+    expect(edSrc).toMatch(/_removeMemoryPreset\(src\.adjPack\)/);
+    expect(edSrc).toMatch(/wmLast\.undone = true/);
+    expect(edSrc).toMatch(/wmLast\.undone = det/);
     expect(edSrc).toMatch(/op:\s*'wmRemove'/);
     expect(edSrc).toMatch(/undoWmApply:\s*undoWmApply/);          // export
   });
@@ -121,7 +126,8 @@ describe('편집기 소스 계약 — op 한 덩어리·외과적 제거·5초 �
     expect(flowSrc).toMatch(/undoWmApply\(tok\)/);
   });
   test('배너는 wm 레이어가 실제 실렸을 때만 + 편집기(z 11200) 위에 뜬다', () => {
-    expect(flowSrc).toMatch(/_finalEs\.layers\.some\(function \(l\) \{ return l && l\._src === 'wm'; \}\)/);
+    expect(flowSrc).toMatch(/_finalEs\.layers && _finalEs\.layers\.some\(function \(l\) \{ return l && l\._src === 'wm'; \}\)/);
+    expect(flowSrc).toMatch(/\|\|\s*_finalEs\.adjustmentPreset/);
     expect(cssSrc).toMatch(/\.wm-cap--editor\s*\{\s*z-index:\s*11500/);
     expect(cssSrc).toMatch(/\.wm-cap__undo/);
   });

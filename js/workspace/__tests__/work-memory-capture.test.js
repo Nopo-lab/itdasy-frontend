@@ -40,7 +40,7 @@ function slot(layers, opts) {
         v: 1,
         layoutIdx: opts.layoutIdx == null ? 0 : opts.layoutIdx,
         ratio: opts.ratio || '4:5',
-        layoutOrder: [], cellCrop: [], adj: [], photoDraw: { a: 1 }, photoBg: {}, pz: { scale: 1 },
+        layoutOrder: [], cellCrop: [], adj: [], presetByPhoto: opts.presetByPhoto || {}, photoDraw: { a: 1 }, photoBg: {}, pz: { scale: 1 },
         photos: ['x'],
         layers,
       },
@@ -105,6 +105,26 @@ describe('작업 기억 붙잡기(captureFromSlot)', () => {
     expect(rec.adj).toBeUndefined();
     expect(rec.ratio).toBe('4:5');
     expect(rec.layers).toHaveLength(1);
+  });
+
+  test('보정은 원본 숫자 대신 프리셋 이름과 강도만 기억한다', () => {
+    const rec = WM.captureFromSlot(slot([T(0.5, 0.2, 0.09, 'center', '네일')], {
+      presetByPhoto: { 0: { presetId: 'nail_color', presetStrength: 0.5 } },
+    }), { service: '네일' });
+    expect(rec.adj).toBeUndefined();
+    expect(rec.adjustmentPreset).toEqual({ presetId: 'nail_color', presetStrength: 0.5 });
+  });
+
+  test('글자·스티커 없이 보정 프리셋만 써도 스타일로 기억한다', () => {
+    const rec = WM.captureFromSlot(slot([], {
+      presetByPhoto: { 0: { presetId: 'natural_bright', presetStrength: 1 } },
+    }), { service: '피부관리' });
+    expect(rec).toBeTruthy();
+    expect(rec.layers).toEqual([]);
+    expect(rec.adjustmentPreset).toEqual({ presetId: 'natural_bright', presetStrength: 1 });
+    expect(WM.toEditState(rec, { photoCount: 1 })).toMatchObject({
+      layers: [], adjustmentPreset: { presetId: 'natural_bright', presetStrength: 1 },
+    });
   });
 
   test('이름 자동생성 — 전후비교 / 한 장 + 글씨 위치·정렬', () => {

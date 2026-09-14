@@ -218,7 +218,9 @@ describe('P3 캡션까지 쓴 글에 "편집이 남았어요" 라고 하지 않�
   });
   test('이어서 카드 문구', () => {
     const H = read('js/workspace/workspace-v2-home.js');
-    expect(H).toMatch(/if \(hasCap\) return '캡션까지 완료 · 발행만 남았어요';\s*\/\/[^\n]*\n\s*if \(!edited\) return '사진 완료 · 편집이 남았어요';/);
+    expect(H).toContain("return '사진을 올렸어요 · 게시글을 써볼까요?'");
+    expect(H).toContain("return '게시 준비가 됐어요 · 사진 꾸미기는 선택'");
+    expect(H).not.toContain("return '사진 완료 · 편집이 남았어요'");
   });
 });
 

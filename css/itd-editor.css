@@ -88,6 +88,10 @@
 .itded__done::after{content:"";position:absolute;inset:-3px 0}
 .itded__done{position:relative;height:38px;padding:0 18px;border-radius:999px;background:#fff;color:#1c1316;font-size:14px;font-weight:800;
   border:0;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.22)}
+.itded__wmchip{position:absolute;top:calc(58px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));left:50%;transform:translateX(-50%);
+  min-height:38px;max-width:calc(100vw - 112px);padding:8px 14px;border:1px solid rgba(255,255,255,.5);border-radius:999px;
+  background:rgba(28,19,22,.82);backdrop-filter:blur(12px);color:#fff;font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 5px 18px rgba(0,0,0,.24)}
+.itded__wmsuggest{background:rgba(188,102,117,.92)}
 
 /* 우측 레일 */
 .itded__rail{position:absolute;right:14px;top:calc(64px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));display:flex;flex-direction:column;gap:11px;z-index:9}
@@ -207,6 +211,9 @@
 .itsgrid button{aspect-ratio:1;border-radius:14px;background:none;border:0;display:grid;place-items:center;
   font-size:34px;cursor:pointer;filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))}
 .itsgrid button:active{transform:scale(.9)}
+.itsgrid--salon{grid-template-columns:repeat(4,1fr);gap:10px}
+.itsgrid--salon button{background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.12);padding:7px}
+.itsgrid--salon button:focus-visible{outline:2px solid #fff;outline-offset:2px}
 
 /* ── 레이아웃 반달 fan ── */
 /* 레이아웃 패널: 하단 투명 드래그면(반달 원은 fixed 라 어디서 잡아도 회전됨) */
@@ -276,6 +283,11 @@
 .itadj__sub{font-size:11px;font-weight:700;color:rgba(255,255,255,.82);margin-bottom:9px;text-shadow:0 1px 4px rgba(0,0,0,.5)}
 .itadj__strip{display:flex;gap:9px;overflow-x:auto;scrollbar-width:none;padding-bottom:12px}
 .itadj__strip::-webkit-scrollbar{display:none}
+.itadj__presets{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding:0 0 10px}
+.itadj__presets::-webkit-scrollbar{display:none}
+.itadj__presets button{flex:0 0 auto;border:1px solid rgba(255,255,255,.34);border-radius:999px;background:rgba(20,12,16,.34);color:#fff;padding:7px 10px;font-size:11px;font-weight:700;white-space:nowrap}
+.itadj__presets button.is-recommended{border-color:#f5cad2;background:rgba(188,102,117,.5);box-shadow:0 0 0 2px rgba(245,202,210,.2)}
+.itadj__presets button.is-selected{border-color:#fff;background:#fff;color:#2c2226;box-shadow:0 0 0 2px rgba(255,255,255,.24)}
 .itadjthumb{flex:none;width:54px;height:66px;border-radius:11px;border:2px solid rgba(255,255,255,.6);background-size:cover;background-position:center;cursor:pointer;padding:0}
 .itadjthumb.on{border-color:var(--accent,#D58A95);box-shadow:0 0 0 3px rgba(213,138,149,.4)}
 .itadj__row{display:flex;align-items:center;gap:10px;margin-bottom:8px}

@@ -55,16 +55,18 @@
     var WM = window.WorkMemory;
     if (!WM) return '<div class="ss-card-sub">기억 기능을 불러오지 못했어요.</div>';
     var mine = WM.list(), defId = WM.getDefaultId();
-    /* [2026-09-13 ZH P3-D] 문구가 실제와 달랐다 — "★ 기본으로 고른 건 다음 사진에 자동으로" 라고 해서
-       ★ 를 해제하면 안 올라갈 줄 알았는데, 자동 선택(autoOn, 기본 ON)은 ★ 와 **무관하게** 기억 중 1등을 얹었다.
-       그리고 그걸 끄는 스위치가 화면 어디에도 없었다(setAutoOn 은 있는데 부르는 곳 0). → 스위치 + 사실대로 문구. */
-    var autoOn = WM.autoOn ? WM.autoOn() : true;
-    var head = '<div class="ss-card-sub">발행하거나 저장할 때마다 원장님이 꾸민 그대로 기억해요.</div>' +
-      '<div class="ss-toggle" style="margin:12px 0"><div><div class="ss-toggle-lbl">다음 사진에 자동으로 올리기</div>' +
-      '<div class="ss-toggle-sub">' + (autoOn
-        ? '켜져 있어요 — 기억 중 <b>같은 시술</b>에 가장 맞는 꾸밈이 새 사진에 자동으로 올라가요. 끄면 <b>★ 기본</b>으로 고른 것만 올라가요.'
-        : '꺼져 있어요 — <b>★ 기본</b>으로 고른 것만 올라가요. ★ 가 없으면 아무것도 안 올라가요.') + '</div></div>' +
-      '<div class="ss-switch' + (autoOn ? ' is-on' : '') + '" data-wm-auto role="switch" aria-checked="' + (autoOn ? 'true' : 'false') + '" aria-label="다음 사진에 자동으로 올리기" tabindex="0"></div></div>';
+    var pol = window.WorkMemoryPolicy;
+    var recommend = WM.recommendOn ? WM.recommendOn() : true;
+    var auto = WM.autoOn && WM.autoOn();
+    var opts = (pol && pol.INDUSTRIES || []).filter(function (x) { return x !== 'unknown'; }).map(function (x) { return '<option value="' + esc(x) + '">' + esc(x) + '</option>'; }).join('');
+    var head = '<div class="ss-card-sub">원장님이 동의한 스타일만 기억하고, 같은 업종·목적에서만 추천해요.</div>' +
+      '<div class="ss-toggle" style="margin:12px 0"><div><div class="ss-toggle-lbl">스타일 추천</div><div class="ss-toggle-sub">' +
+        (recommend ? '같은 업종·목적의 지난 스타일을 편집기에서 골라 적용할 수 있어요.' : '꺼져 있어요 — 지난 스타일을 추천하거나 자동으로 올리지 않아요.') + '</div></div>' +
+        '<div class="ss-switch' + (recommend ? ' is-on' : '') + '" data-wm-recommend role="switch" aria-checked="' + (recommend ? 'true' : 'false') + '" aria-label="스타일 추천" tabindex="0"></div></div>' +
+      '<div class="ss-toggle" style="margin:12px 0"><div><div class="ss-toggle-lbl">자동 적용</div><div class="ss-toggle-sub">' +
+        (auto ? '동의한 스타일만 같은 업종·목적의 새 사진에 자동으로 올려요.' : '꺼져 있어요 — 추천을 눌러야 사진에 적용돼요.') + '</div></div>' +
+        '<div class="ss-switch' + (auto ? ' is-on' : '') + '" data-wm-auto role="switch" aria-checked="' + (auto ? 'true' : 'false') + '" aria-label="자동 적용" tabindex="0"></div></div>' +
+      '<div class="ss-row"><span class="lbl">업종별 기억 초기화</span><select class="ss-input" data-wm-reset-select>' + opts + '</select><button type="button" class="wm-btn wm-btn--del" data-wm-reset>초기화</button></div>';
     if (!mine.length) {
       return head + '<div class="wm-empty"><svg width="15" height="15" aria-hidden="true"><use href="#ic-plus"/></svg><span>아직 기억이 없어요 — 사진을 꾸며서 발행하면 여기 쌓여요</span></div>';
     }
@@ -346,13 +348,23 @@
     // [2026-07-22 보스] 저장 — close() 가 이미 고정멘트(서버)+입력값을 확정 저장하므로
     //   여기선 그걸 부르고 "저장됐다"고 말해준다. 저장 경로가 둘로 갈라지지 않게 일부러 재사용.
     if (e.target.closest('[data-wss-save]')) { close(); toast('저장했어요'); return; }
-    // ── 작업 기억 ★기본 지정(다시 누르면 해제)
-    // [2026-09-13 ZH P3-D] 작업 기억 자동 올리기 끄기/켜기
+    var wk = e.target.closest('[data-wm-recommend]');
+    if (wk) {
+      var keep = !(window.WorkMemory.recommendOn && window.WorkMemory.recommendOn());
+      window.WorkMemory.setRecommendOn(keep); _refreshMem(); toast(keep ? '스타일 추천을 켰어요' : '스타일 추천과 자동 적용을 껐어요'); return;
+    }
     var wa = e.target.closest('[data-wm-auto]');
     if (wa) {
-      try { var nowOn = window.WorkMemory.setAutoOn(!window.WorkMemory.autoOn()); toast(nowOn ? '다음 사진에 자동으로 올릴게요' : '자동으로 올리지 않을게요 — ★ 기본만 올라가요'); } catch (_e) { void _e; }
-      _refreshMem(); return;
+      var next = !(window.WorkMemory.autoOn && window.WorkMemory.autoOn());
+      if (next) { window.WorkMemory.setRecommendOn(true); window.WorkMemory.allowAllAuto(true); }
+      window.WorkMemory.setAutoOn(next); _refreshMem(); toast(next ? '같은 업종·목적에서만 자동 적용할게요' : '자동 적용을 껐어요'); return;
     }
+    var wr = e.target.closest('[data-wm-reset]');
+    if (wr) {
+      var sel = document.querySelector('[data-wm-reset-select]'); var ind = sel && sel.value;
+      var n = window.WorkMemory.resetIndustry(ind); _refreshMem(); toast(n ? ind + ' 스타일을 초기화했어요' : '초기화할 스타일이 없어요'); return;
+    }
+    // ── 작업 기억 ★기본 지정(다시 누르면 해제)
     var st = e.target.closest('[data-wm-star]');
     if (st) {
       var sid = st.getAttribute('data-wm-star');

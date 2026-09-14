@@ -85,6 +85,12 @@ describe('mergeEditState — 콜라주 editState 에 기억 꾸밈 합치기(구
     const out = E.mergeEditState(BASE, { layers: [{ role: 'title', text: '지난 글' }] });
     expect(out).toBe(BASE);
   });
+  test('기억한 자연 보정은 콜라주 상태와 합쳐져도 빠지지 않는다', () => {
+    const mark = { presetId: 'nail_color', presetStrength: 0.5 };
+    const out = E.mergeEditState(BASE, { adjustmentPreset: mark, layers: [{ role: 'title', text: '지난 글' }] });
+    expect(out.adjustmentPreset).toEqual(mark);
+    expect(out.layers).toEqual(BASE.layers);
+  });
 });
 
 describe('decorateLayers — 헤드리스 굽기 경로(구 _autoComposeTemplate 인라인)', () => {

@@ -42,7 +42,9 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   // [STAGE C] 실제 편집안 — 기본 OFF(?editplan=1). 편집기가 소비한다.
   'js/photo/edit-plan.js?v=local-live2',
   'js/workspace/shop-style.js?v=local-260831v5',
+  'js/workspace/work-memory-policy.js?v=local-wm-policy1',
   'js/workspace/work-memory.js?v=local-260831v5',
+  'js/workspace/work-memory-consent-ui.js?v=local-wm-consent1',
   'js/workspace/work-memory-engine.js?v=local-t8hp',
   'js/workspace/work-memory-signals.js?v=local-f1',
   'js/workspace/work-memory-decay.js?v=local-t8f',
@@ -52,6 +54,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/workspace/work-memory-personalize.js?v=local-t8hp',
   'js/workspace/work-memory-learn.js?v=local-t8f',
   'js/itd-editor/data/itd-decos.js?v=local-260831v5',
+  'js/itd-editor/data/itd-beauty-stickers.js?v=local-salon1',
   // [2026-07-23] 아이콘 스티커 세트 — itd-editor.js 보다 **먼저** 실려야 STK_TABS 가 탭을 만든다.
   'js/itd-editor/data/itd-icon-stickers.js?v=local-260831v5',
   'js/itd-editor/safe-zone.js?v=local-260831v5',

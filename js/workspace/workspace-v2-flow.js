@@ -504,11 +504,18 @@
      (실계정 실험 준비 중 발견 — 분류기는 멀쩡한데 입력이 안 가고 있었다).
      캡션 원문이 아니라 **화면에 얹은 문구**만 넘긴다 — 짧고, 성격을 직접 드러내고, PII 가 적다.
      canonicalContext 는 이걸 kind 계산에만 쓰고 결과에는 안 남긴다(화이트리스트). */
+  function _wmAccountId() {
+    try { return localStorage.getItem('last_user_id') || null; }
+    catch (_ownE) { void _ownE; return null; }
+  }
   function _wmSelectCtx(texts) {
     var eps = editablePhotos() || [];
     var hasB = false, hasA = false;
     eps.forEach(function (p) { if (p && p.role === 'before') hasB = true; else if (p && p.role === 'after') hasA = true; });
-    return { photoCount: eps.length, service: (d && d.service) || '', hasBeforeAfter: hasB && hasA,
+    var svc = (d && d.service) || '';
+    return { photoCount: eps.length, service: svc, industry: (d && (d.industry || d.shopIndustry)) || svc,
+      occasion: (d && d.occasion) || (hasB && hasA ? '전후사진' : ''), hasBeforeAfter: hasB && hasA,
+      accountId: _wmAccountId(),
       texts: Array.isArray(texts) ? texts.filter(Boolean).slice(0, 8) : undefined };
   }
   // 편집기에 얹히는 레이어에서 문구만 추려낸다(선택·학습이 **같은 입력**을 보게).
@@ -689,6 +696,9 @@
     var _wmEd = (window.WorkMemoryEngine && window.WorkMemoryEngine.forEditor)
       ? window.WorkMemoryEngine.forEditor(Object.assign({ restore: !!_restore, orch: d._orch, incoming: layers, layersOnly: !!_wsEd }, _wmSelectCtx(_wmTexts(layers))))
       : null;
+    var _wmSuggestion = (!_wmEd && window.WorkMemoryEngine && window.WorkMemoryEngine.recommendForEditor)
+      ? window.WorkMemoryEngine.recommendForEditor(Object.assign({ restore: !!_restore, incoming: layers, layersOnly: !!_wsEd }, _wmSelectCtx(_wmTexts(layers))))
+      : null;
     // [v590] 진입 시 올린 텍스트 역할 기록 — 저장 시 빠진 역할(사용자가 지움)을 스타일에서 비활성화하는 비교 기준.
     // [audit#3] 텍스트 역할 레이어는 type 필드가 없다(roleText 배치) — 'text'로만 필터하면 항상 빈 배열이라 '지운 레이어 기억' 기능이 죽어 있었음.
     d._editorOpenRoles = layers.filter(function (l) { return l.role && (l.type === 'text' || l.type == null); }).map(function (l) { return l.role; });
@@ -779,6 +789,7 @@
       shopName: (built.ss && (built.ss.name || built.ss.shopName)) || (window.WorkspaceAdapter && window.WorkspaceAdapter.shopName && window.WorkspaceAdapter.shopName()) || '',
       layers: layers,
       autoArranged: autoArranged,
+      wmSuggestion: _wmSuggestion,
       // [#17] 이어서 편집 · [ws-hyper] 레이아웃 매칭 시 콜라주 상태 주입(슬롯 재조정) · [T-115 P2] 없으면 ★기본 작업 기억
       // [2026-07-17] 콜라주(레이아웃)엔 기억의 '꾸밈'만 합쳐 얹는다 — 칸 배치는 레이아웃 것 그대로.
       editState: _finalEs,
@@ -907,10 +918,11 @@
         try { if (window.WMLearn) { window.WMLearn.hold({}); window.WMLearn.commitAsync('cancelled'); } } catch (_t8c) { void _t8c; }
       }
     });
-    // [T4] 자동 적용 배너 — 이번 오픈에 wm 레이어가 실제로 실렸을 때만(사진 editState 가 이긴 경우 제외).
+    // [T4] 자동 적용 배너 — 기억 레이어 또는 기억 보정이 실제로 실렸을 때만.
     try {
       if (window.WorkMemoryEngine && window.WorkMemoryEngine._lastApply &&
-          _finalEs && _finalEs.layers && _finalEs.layers.some(function (l) { return l && l._src === 'wm'; })) {
+          _finalEs && ((_finalEs.layers && _finalEs.layers.some(function (l) { return l && l._src === 'wm'; })) ||
+            _finalEs.adjustmentPreset)) {
         _showWmBanner((editablePhotos() || []).length);
       }
     } catch (_be) { void _be; }
@@ -1623,7 +1635,7 @@
       '<div class="confirmline">연결 손님: <b>' + esc(d.customerName) + '</b>' + (d.customerVc ? ' · ' + d.customerVc + '회 방문' : ' · 첫 방문') + '</div>' : '';
     return '' +
 	      // [버그5 2026-07-14] 미연동이면 '학습 완료'라고 거짓말하지 않고, 연동하면 된다고 안내.
-	      (_personaOn() ? '<div class="cap-byline">원장님 인스타 글 학습 완료</div>'
+	      (_personaOn() ? '<div class="cap-byline">원장님 말투 반영</div>'
 	                    : '<div class="cap-byline">인스타를 연동하면 원장님 말투로 써드려요</div>') +
 	      '<label class="cap-field-label">게시글 <span>미리보기에서 바로 고쳐 쓸 수 있어요</span></label>' +
 	      _igPreviewCard(url, true) +   // [v584] 카드 안 캡션 직접 편집(별도 편집칸 제거)
