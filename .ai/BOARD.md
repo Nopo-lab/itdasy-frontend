@@ -1,6 +1,6 @@
 # BOARD — 터미널 상태 대시보드
 
-**LAST UPDATED:** 2026-09-15 by Codex (원장 스타일 학습 다양성 흐름 QA — LIVE PASS)
+**LAST UPDATED:** 2026-09-15 by Codex (외부 공개 인스타 계정 스타일 QA 통로 — 구현/검증 PASS)
 
 bootstrap:OK @ 2026-09-14 13:14
 bootstrap:OK @ 2026-09-15 07:15
@@ -34,6 +34,32 @@ bootstrap:OK @ 2026-06-16 20:24
 bootstrap:OK @ 2026-06-17 15:24
 bootstrap:OK @ 2026-06-18 07:17
 bootstrap:OK @ 2026-06-24 07:53
+
+---
+
+## 2026-09-15 — 외부 공개 인스타 계정 스타일 QA 통로 (Codex, 구현/검증 PASS)
+
+완료:
+- 인스타 브라우저 검색은 무로그인 상태에서 로그인 화면으로 막힘 확인.
+- 공식 Business Discovery 조회 통로를 백엔드에 추가.
+- 프론트에 외부 공개 계정 미리보기 모듈 추가. 기본 저장 없음.
+- `InstagramTextStyle.build(..., { save:false })` 추가로 남의 계정 스타일이 내 원장 스타일에 자동 저장되지 않게 함.
+
+확인:
+- 프론트 관련 테스트 109개 통과.
+- 백엔드 관련 테스트 30개 통과.
+- 자동 검사 에러 0개, 기존 경고 203개.
+- 작업실 흐름 9/9, 뒤로가기 검사 통과.
+
+주의:
+- 백엔드 배포는 운영 영향이라 원영님 YES 필요.
+- 새 파일 git 등록 후 전체 테스트 재검 통과.
+
+산출물:
+- `js/photo/social-style-source.js`
+- `js/photo/__tests__/social-style-source-2026-09-15.test.js`
+- `../itdasy_backend-test/backend/tests/test_instagram_business_discovery_2026_09_15.py`
+- `output/INSTAGRAM_BUSINESS_DISCOVERY_STYLE_QA_2026-09-15.md`
 
 ---
 

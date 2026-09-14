@@ -368,7 +368,7 @@
       prof.cacheHits = cacheHits;
       prof.quotaExhausted = quotaOut;      // 프로필이 빈약한 이유가 '표본 없음'인지 '쿼터'인지 구분된다
       prof.candidates = list.length;
-      _save(prof);
+      if (opts.save !== false) _save(prof);
       return prof;
     }).catch(function () { return null; });
   }

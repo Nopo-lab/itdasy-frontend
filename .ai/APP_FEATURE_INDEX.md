@@ -327,3 +327,10 @@ auth·customer·booking·treatment·services·revenue·inventory·shop·**person
 
 _이 문서 = 앱 기능의 단일 진실원(SSOT). 기능 바꾸면 여기부터 고친다._
 _갱신 이력: 2026-07-10 전수분석 → 2026-07-23 아이콘 스티커 → **2026-08-02 출시감사 라운드 반영**(FE 108커밋 · BE 81커밋)._
+
+
+### 인스타 외부 공개 계정 스타일 QA 입력 (2026-09-15)
+- **백엔드 `GET /instagram/business-discovery`** — 연결된 원장 인스타 토큰으로 다른 공개 Professional 계정 username의 최근 게시물/캡션/이미지/링크를 읽는 공식 Meta Business Discovery 통로. 개인/비공개/권한 부족은 `available:false` 로 반환해 학습 오염을 막는다.
+- **`js/photo/social-style-source.js`** — 프론트 QA 입력 모듈. `fetchPublicBusinessMedia(username)` 로 정규화된 mediaList를 받고, `previewProfile(username)` 으로 현재 스타일 분석기를 저장 없이 실행한다.
+- **`InstagramTextStyle.build(..., { save:false })`** — 외부 계정 QA가 원장 스타일 저장소를 덮지 않게 하는 저장 끄기 옵션.
+- 자동 저장 금지: 외부 계정 경로는 `IgPostAnalysis.collect()` 를 부르지 않는다. 원장이 명시적으로 참고/기억하기를 누르는 UI가 생기기 전까지는 내 스타일에 섞지 않는다.
