@@ -2,7 +2,7 @@
 
 > 새 세션이 시작되면 **이 파일을 먼저 읽고** 현재 단계·대기 결정·마지막 체크포인트를 파악한다.
 
-**LAST UPDATED:** 2026-09-15 · 실제 공개 뷰티 이미지 스타일 학습 QA — 로컬 PASS
+**LAST UPDATED:** 2026-09-15 · 실제 공개 뷰티 이미지 스타일 학습 QA — LIVE PASS
 
 ---
 
@@ -23,7 +23,7 @@
 - 로컬 이미지/시트: `output/real-source-style-learning-qa/images/`, `output/real-source-style-learning-qa/real-source-contact-sheet.jpg`
 
 판정:
-- 실제 공개 사진 기반 로컬 QA PASS. 서버 Vision API 실분석은 QA 로그인 토큰 필요.
+- 실제 공개 사진 기반 QA PASS. LIVE BUILD `20260914-2235-caf6f49` 확인. 서버 Vision API 실분석은 QA 로그인 토큰 필요.
 
 ---
 
