@@ -2,7 +2,28 @@
 
 > 새 세션이 시작되면 **이 파일을 먼저 읽고** 현재 단계·대기 결정·마지막 체크포인트를 파악한다.
 
-**LAST UPDATED:** 2026-09-15 · 원장 스타일 학습 다중 원장 QA — 배포 대기
+**LAST UPDATED:** 2026-09-15 · 실제 공개 뷰티 이미지 스타일 학습 QA — 로컬 PASS
+
+---
+
+## 🟣 2026-09-15 — 실제 공개 뷰티 이미지 스타일 학습 QA
+
+완료:
+- 실제 공개 뷰티 이미지 URL 9개를 수집해 다운로드 시도.
+- 7개 다운로드 성공: 네일 1, 속눈썹 2, 왁싱 1, 헤어 3.
+- Lemon8/TikTok CDN 1건은 403, Rakuten Cloudinary 1건은 404로 실패.
+- 스테이징 서버 `/instagram-style/analyze` 실제 호출 확인: 인증 없음으로 401. 서버 Vision 분석은 로그인 토큰 없이는 막힘.
+- 다운로드한 실제 이미지 픽셀 기준으로 밝기/채도/온도, 글자 후보 위치/색/크기를 분석해 서비스별 프로필 생성.
+- 원본 이미지는 저작권 때문에 커밋하지 않고 로컬 산출물로만 보관.
+
+산출물:
+- 스크립트: `scripts/real-source-style-learning-qa.py`
+- 결과 JSON: `output/real-source-style-learning-qa/real-source-style-learning-qa.json`
+- 보고서: `output/real-source-style-learning-qa/REAL_SOURCE_STYLE_LEARNING_QA.md`
+- 로컬 이미지/시트: `output/real-source-style-learning-qa/images/`, `output/real-source-style-learning-qa/real-source-contact-sheet.jpg`
+
+판정:
+- 실제 공개 사진 기반 로컬 QA PASS. 서버 Vision API 실분석은 QA 로그인 토큰 필요.
 
 ---
 

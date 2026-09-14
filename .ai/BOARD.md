@@ -37,6 +37,25 @@ bootstrap:OK @ 2026-06-24 07:53
 
 ---
 
+## 2026-09-15 — 실제 공개 뷰티 이미지 스타일 학습 QA (Codex, LOCAL PASS)
+
+완료:
+- 실제 공개 뷰티 이미지 URL 9개 다운로드 시도, 7개 성공.
+- 네일/속눈썹/왁싱/헤어 실제 공개 사진으로 로컬 픽셀 분석 실행.
+- 스테이징 서버 Vision API `/instagram-style/analyze` 실제 호출: 인증 없음 401 확인.
+- 서비스별 학습 프로필 생성.
+
+산출물:
+- `scripts/real-source-style-learning-qa.py`
+- `output/real-source-style-learning-qa/real-source-style-learning-qa.json`
+- `output/real-source-style-learning-qa/REAL_SOURCE_STYLE_LEARNING_QA.md`
+
+주의:
+- 원본 이미지는 저작권 때문에 커밋하지 않고 로컬에만 보관.
+- 서버 Vision 실분석은 QA 로그인 토큰 필요.
+
+---
+
 ## 2026-09-15 — 원장 스타일 학습 다중 원장 QA (Codex, PASS / 배포 대기)
 
 완료:
