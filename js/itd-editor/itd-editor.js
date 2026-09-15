@@ -71,7 +71,7 @@
   function _cpOutside(e) { if (_cpState && _cpState.el && !_cpState.el.contains(e.target) && e.target !== _cpState.anchor) _closeColorPicker(); }
   function _openColorPicker(anchor, target) {
     _closeColorPicker();
-    var cur = (target === 'text' ? (activeText() && activeText().color) : target === 'shape' ? S.shapeColor : target === 'draw' ? S.drawColor : target === 'cutbg' ? (S.photoBg && S.photoBg[S.adjSel] && S.photoBg[S.adjSel].color) : S.collageBg) || '#BC6675';
+    var cur = (target === 'textactive' ? (_textColorTarget() === 'textbg' ? ((activeText() && activeText().bgColor) || '#15181D') : (activeText() && activeText().color)) : target === 'text' ? (activeText() && activeText().color) : target === 'textbg' ? ((activeText() && activeText().bgColor) || '#15181D') : target === 'shape' ? S.shapeColor : target === 'draw' ? S.drawColor : target === 'cutbg' ? (S.photoBg && S.photoBg[S.adjSel] && S.photoBg[S.adjSel].color) : S.collageBg) || '#BC6675';
     var hsv = _hexToHsv(cur);
     var box = el('div', 'itcp');
     // [스크린샷 매칭] 사각형: X=색조(무지개) · Y=채도(위=진함, 아래=흰색). 오른쪽 세로바=밝기.
@@ -116,8 +116,17 @@
       document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up);
     });
   }
+  function _textColorTarget() { return (S && S.textColorTarget === 'textbg') ? 'textbg' : 'text'; }
+  function _setTextColorTarget(t) {
+    if (!S) return;
+    S.textColorTarget = (t === 'textbg') ? 'textbg' : 'text';
+    if (refs.colorTarget) refs.colorTarget.querySelectorAll('[data-ctarget]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-ctarget') === S.textColorTarget); });
+  }
+
   function _colorPickApply(t, v) {
+    if (t === 'textactive') { _colorPickApply(_textColorTarget(), v); return; }
     if (t === 'text') { applyColor(v); if (root) root.querySelectorAll('[data-color]').forEach(function (x) { x.classList.remove('on'); }); }
+    else if (t === 'textbg') { applyBgColor(v); if (root) root.querySelectorAll('[data-color]').forEach(function (x) { x.classList.remove('on'); }); }
     else if (t === 'shape') { S.shapeColor = v; if (refs.panels && refs.panels.shape) refs.panels.shape.querySelectorAll('[data-scolor]').forEach(function (x) { x.classList.remove('on'); }); applyShapeStyle(); }
     else if (t === 'draw') { S.drawColor = v; if (root) root.querySelectorAll('[data-dcolor]').forEach(function (x) { x.classList.remove('on'); }); }
     else if (t === 'layout') { S.collageBg = v; S.collageBgImg = null; saveBgPref(); if (refs.panels && refs.panels.layout) refs.panels.layout.querySelectorAll('[data-bg]').forEach(function (x) { x.classList.remove('on'); }); renderCollage(); applyFit(); recutWithBg(); }
@@ -394,9 +403,32 @@
     { k: 's', label: '채도', min: 0, max: 200 }, { k: 'w', label: '온도', min: 0, max: 100 },
     { k: 'sh', label: '선명도', min: 0, max: 100 }
   ];
+  // 뷰티 사진용 보수적 프리셋. 현재 편집기의 실제 다섯 슬라이더만 사용한다.
+  var BEAUTY_PRESETS = [
+    { id: 'natural_bright', name: '자연스럽게 밝게', b: 108, c: 101, s: 101, w: 0, sh: 0 },
+    { id: 'hair_texture', name: '머리결 또렷하게', b: 105, c: 103, s: 100, w: 0, sh: 4 },
+    { id: 'nail_color', name: '네일 컬러 그대로', b: 104, c: 102, s: 100, w: 0, sh: 0 },
+    { id: 'lash_clear', name: '속눈썹 또렷하게', b: 104, c: 103, s: 98, w: 0, sh: 3 },
+    { id: 'skin_natural', name: '피부톤 자연스럽게', b: 104, c: 99, s: 98, w: 1, sh: 0 },
+    { id: 'low_light', name: '저조도 살리기', b: 112, c: 99, s: 97, w: 0, sh: 2 },
+    { id: 'before_after_clear', name: '전후 비교 선명하게', b: 106, c: 104, s: 100, w: 0, sh: 3 },
+    { id: 'salon_warm', name: '따뜻한 살롱톤', b: 104, c: 100, s: 99, w: 4, sh: 0 },
+    { id: 'calm_mood', name: '차분한 무드톤', b: 99, c: 98, s: 92, w: 0, sh: 0 }
+  ];
+  function _beautyPreset(id) {
+    return BEAUTY_PRESETS.filter(function (p) { return p.id === id; })[0] || null;
+  }
+  function _presetAdj(mark) {
+    var p = mark && _beautyPreset(mark.presetId); if (!p) return null;
+    var strength = Math.max(0, Math.min(1, Number(mark.presetStrength == null ? 1 : mark.presetStrength)));
+    var base = defAdj(), out = defAdj();
+    ADJ_CTRLS.forEach(function (c) { out[c.k] = Math.round(base[c.k] + (p[c.k] - base[c.k]) * strength); });
+    return out;
+  }
 
   // [#6] 오리지널 데코 스티커 — 직접 그린 SVG(저작권 안전). img(svg dataURL) 레이어로 올림.
   var DECO = (window.ItdDecos || []);   // [B-분할] 데코 스티커 데이터 → js/itd-editor/data/itd-decos.js
+  var BEAUTY_STICKERS = (window.ItdBeautyStickers || []);
 
   var S = null;   // session state
   var root = null, refs = {};
@@ -428,6 +460,8 @@
           '<button class="itded__ic" data-r="redo" aria-label="다시 실행" disabled>' + svg('<path d="M21 7v6h-6"/><path d="M21 13a9 9 0 1 1-2.6-7.8L21 7"/>', 2.1) + '</button>' +
           '<button class="itded__ic" data-r="peek" aria-label="사진 전체 보기">' + svg('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>', 2) + '</button>' +
         '</div>' +
+        '<button class="itded__wmchip itded__wmsuggest" data-r="wmSuggest" hidden>지난 스타일 적용</button>' +
+        '<button class="itded__wmchip itded__wmremove" data-r="wmRemove" hidden>이번 스타일 빼기</button>' +
         '<button class="itded__done" data-r="done">완료</button>' +
       '</div>' +
       '<div class="itded__rail" data-r="rail">' +
@@ -489,7 +523,10 @@
           '<span class="itsize itsize--tilt">기울기<input type="range" min="-45" max="45" step="1" value="0" data-r="tilt" aria-label="글자 기울기"><b data-r="tiltout">0\u00B0</b></span>' +
         '</div>' +
         '<div class="itfonts" data-r="fonts">' + fonts + '</div>' +
-        '<div class="itcolors" data-r="colors">' + colors + _rbSw('text', 'itsw') + _pipSw('text', 'itsw') + '</div>' +
+        '<div class="ittext__colorbar"><span class="itctarget" data-r="colorTarget">' +
+          '<button type="button" class="on" data-ctarget="text">글자</button>' +
+          '<button type="button" data-ctarget="textbg">배경</button>' +
+        '</span><div class="itcolors" data-r="colors">' + colors + _rbSw('textactive', 'itsw') + _pipSw('textactive', 'itsw') + '</div></div>' +
       '</div>';
   }
   // [보정] 사진별 보정 패널 — 위 사진 스트립에서 사진 고르고 아래 슬라이더로 그 사진만 보정.
@@ -503,6 +540,9 @@
         '<div class="itgrip itgrip--p" data-pgrip></div>' +
               '<div class="itadj__sub">보정할 사진을 고르세요</div>' +
       '<div class="itadj__strip" data-r="adjStrip"></div>' +
+      '<div class="itadj__presets" aria-label="뷰티 사진 프리셋">' + BEAUTY_PRESETS.map(function (p) {
+        return '<button type="button" data-adjpreset="' + p.id + '">' + p.name + '</button>';
+      }).join('') + '</div>' +
       '<div class="itadj__bgrow"><button class="itadj__bg" data-r="adjCut">' + IC.cut + ' 배경 지우기(누끼)</button>' +
         '<button class="itadj__bg itadj__bg--undo" data-r="adjUncut">원본</button></div>' +
       // [#4] 누끼 배경을 바로 옆에서 — 색 탭/사진 업로드. 한 번 누끼하면 색 변경은 0초(매트 캐시 재사용).
@@ -528,7 +568,7 @@
      탭 목록은 itd-icon-stickers.js 가 정본 — 여기 하드코딩하지 않는다(세트가 늘면 그쪽만 고치면 됨).
      데이터가 아직 안 실렸으면(지연 로드) 기존 탭만 보인다 — 편집기는 그대로 동작한다. */
   var _ICS = window.ItdIconStickers || null;
-  var STK_TABS = [['reco', '추천'], ['beauty', '뷰티'], ['cute', '귀여움'], ['mz', '트렌디']]
+  var STK_TABS = [['reco', '추천'], ['salon', '살롱'], ['beauty', '뷰티'], ['cute', '귀여움'], ['mz', '트렌디']]
     .concat((_ICS && _ICS.tabs) ? _ICS.tabs : [])
     .concat([['deco', '도형'], ['my', '내 스티커']]);
   function buildSticker() {
@@ -550,6 +590,30 @@
       return '<button class="itdeco" data-stkcat="' + cat + '" data-stkidx="' + i + '"><img src="' + u + '" alt="" draggable="false"></button>';
     }).join('') + '</div>';
   }
+  function _beautyStickerGrid(arr) {
+    return '<div class="itsgrid itsgrid--salon">' + (arr || []).map(function (s) {
+      return '<button class="itdeco" data-bstk="' + s.id + '" aria-label="' + s.name + '" title="' + s.name + '">' +
+        '<img src="' + s.src + '" alt="" draggable="false"></button>';
+    }).join('') + '</div>';
+  }
+  function _stickerIndustry(raw) {
+    var t = String(raw || '').toLowerCase();
+    if (/(붙임머리|extension)/.test(t)) return '붙임머리';
+    if (/(헤어|미용|hair)/.test(t)) return '헤어';
+    if (/(네일|nail)/.test(t)) return '네일';
+    if (/(속눈썹|lash)/.test(t)) return '속눈썹';
+    if (/(눈썹|brow|반영구)/.test(t)) return '눈썹';
+    if (/(왁싱|wax)/.test(t)) return '왁싱';
+    if (/(피부|에스테틱|skin)/.test(t)) return '피부관리';
+    if (/(메이크업|makeup)/.test(t)) return '메이크업';
+    return '기타';
+  }
+  function _recommendedBeautyStickers() {
+    var industry = _stickerIndustry(localStorage.getItem('shop_type') || '');
+    return BEAUTY_STICKERS.filter(function (s) {
+      return s.industries.indexOf(industry) >= 0 || s.industries.length >= 9;
+    }).slice(0, 10);
+  }
   function _recoChips() {
     // [2026-07-10] 기능 스티커(위치·예약·전화·가격·시간)는 '작업실 설정'으로 이관 — 편집기에서 완전 제거.
     //   입력은 작업실 홈 → 설정에서. 값은 캡션 `_shopCTA()` 가 글 끝에 붙인다.
@@ -562,9 +626,9 @@
     var ST = window.ItdStickers || {};
     var html = '';
     if (key === 'reco') {
-      var st = (localStorage.getItem('shop_type') || '').trim();
-      var em = ST.shopEmojiByType && ST.shopEmojiByType[st];
-      html = _recoChips() + _emGrid(em && em.length ? em.concat(ST.beautyEmoji || []) : (ST.beautyEmoji || EMOJI));
+      html = _recoChips() + _beautyStickerGrid(_recommendedBeautyStickers());
+    } else if (key === 'salon') {
+      html = _beautyStickerGrid(BEAUTY_STICKERS);
     } else if (key === 'beauty') {
       html = _emGrid(ST.beautyEmoji || EMOJI);
     } else if (key === 'cute') {
@@ -669,7 +733,7 @@
 
   function cacheRefs() {
     ['tstyle', 'tilt', 'tiltout',
-      'stage', 'photowrap', 'photo', 'photofx', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkUpload', 'stkTabs', 'stkBody', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut', 'adjCutBg', 'adjBgImg', 'layFit', 'layBgImg', 'undo', 'redo', 'peek', 'drawClear', 'addText'].forEach(function (k) {
+      'stage', 'photowrap', 'photo', 'photofx', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'wmSuggest', 'wmRemove', 'aln', 'size', 'fonts', 'colors', 'colorTarget', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkTabs', 'stkBody', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut', 'adjCutBg', 'adjBgImg', 'layFit', 'layBgImg', 'undo', 'redo', 'peek', 'drawClear', 'addText'].forEach(function (k) {
       refs[k] = root.querySelector('[data-r="' + k + '"]');
     });
     refs.panels = {};
@@ -721,6 +785,11 @@
     fitStageToRatio();
   }
 
+  function _sx(L) { return (L && L.scaleX != null) ? L.scaleX : 1; }
+  function _sy(L) { return (L && L.scaleY != null) ? L.scaleY : 1; }
+  function _xfSnap(L) { return { scale: (L && L.scale) || 1, scaleX: _sx(L), scaleY: _sy(L), rot: (L && L.rot) || 0 }; }
+  function _applyXfSnap(L, v) { if (!L || !v) return; L.scale = v.scale || 1; L.scaleX = v.scaleX || 1; L.scaleY = v.scaleY || 1; L.rot = v.rot || 0; applyXf(L); }
+
   /* ── 레이어 공통(드래그) ── */
   function makeLayer(type) {
     var box = el('div', 'itl');
@@ -728,7 +797,7 @@
       '<button class="itl__dup" aria-label="복제">' + svg('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>', 2.1) + '</button>' +
       '<button class="itl__rot" aria-label="\ud68c\uc804">' + svg('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>', 2.2) + '</button>' +
       '<button class="itl__rs" aria-label="\ud06c\uae30 \uc870\uc808">' + IC.rs + '</button>';
-    var L = { type: type, el: box, x: 0, y: 0, scale: 1, rot: 0 };
+    var L = { type: type, el: box, x: 0, y: 0, scale: 1, scaleX: 1, scaleY: 1, rot: 0 };
     box.addEventListener('pointerdown', function (e) { onLayerDown(e, L); });
     // [#8b] 삭제/복제 핸들은 몸통과 겹쳐 있어, 몸통을 탭하면 그 위의 ×가 눌려 레이어가 사라지곤 했다.
     //   → 핸들에 '직접 pointerdown' 한 경우에만 동작(arm). 몸통 pointerdown(onLayerDown)은 disarm.
@@ -765,7 +834,7 @@
   function _fitTextInStage(L) {
     if (!L || !L.el || !refs.stage) return;
     var R = refs.stage.getBoundingClientRect(); if (!R.width) return;
-    var w = L.el.offsetWidth * (L.scale || 1), h = L.el.offsetHeight * (L.scale || 1);
+    var w = L.el.offsetWidth * (L.scale || 1) * _sx(L), h = L.el.offsetHeight * (L.scale || 1) * _sy(L);
     if (!L._moved) L.x = (R.width - w) / 2;
     // 박스가 스테이지보다 크면 클램프가 의미 없다 — 그때는 가운데로 둔다.
     L.x = (w >= R.width) ? (R.width - w) / 2 : Math.max(0, Math.min(R.width - w, L.x));
@@ -798,6 +867,13 @@
     L.y = r.height / 2 - (h || L.el.offsetHeight) / 2;
     applyXf(L);
   }
+  function placeSafeBottom(L, w, h) {
+    var r = refs.stage.getBoundingClientRect();
+    var ew = w || L.el.offsetWidth || 180, eh = h || L.el.offsetHeight || 44;
+    L.x = Math.max(16, Math.min(r.width - ew - 16, (r.width - ew) / 2));
+    L.y = Math.max(16, Math.min(r.height - eh - 64, r.height * 0.74 - eh / 2));
+    applyXf(L);
+  }
   function applyXf(L) {
     // [#10 2026-07-18] 도형(선/사각/원)은 box 크기(w/h)를 직접 가져 '늘리기'(비균등)를 지원한다.
     //   텍스트·스티커·이미지는 예전대로 균등 scale. w/h 가 있는 도형은 box 를 그 크기로 고정하고
@@ -805,11 +881,11 @@
     if (L.type === 'shape' && L.w != null && L.h != null) {
       L.el.style.width = L.w + 'px'; L.el.style.height = L.h + 'px';
     }
-    L.el.style.transform = 'translate(' + L.x + 'px,' + L.y + 'px) rotate(' + (L.rot || 0) + 'deg) scale(' + L.scale + ')';
+    L.el.style.transform = 'translate(' + L.x + 'px,' + L.y + 'px) rotate(' + (L.rot || 0) + 'deg) scale(' + ((L.scale || 1) * _sx(L)) + ',' + ((L.scale || 1) * _sy(L)) + ')';
     // [#8] 레이어가 커져도 조작 버튼(× 복사 회전 크기)은 화면상 같은 크기 유지 → 역스케일.
     if (L._handles) {
-      var inv = 1 / (L.scale || 1);
-      for (var _i = 0; _i < L._handles.length; _i++) { L._handles[_i].style.transform = 'scale(' + inv + ')'; }
+      var invX = 1 / ((L.scale || 1) * _sx(L)), invY = 1 / ((L.scale || 1) * _sy(L));
+      for (var _i = 0; _i < L._handles.length; _i++) { L._handles[_i].style.transform = 'scale(' + invX + ',' + invY + ')'; }
     }
   }
   // [#2] 직각 자석 — 0·90·180·270 근처(±7°)면 딱 맞춤(수직/수평 느낌으로 중력이 잡아주듯).
@@ -821,7 +897,7 @@
   function onRotDown(e, L) {
     e.preventDefault(); e.stopPropagation(); selectLayer(L);
     var b = L.el.getBoundingClientRect();
-    rotd = { L: L, cx: b.left + b.width / 2, cy: b.top + b.height / 2, start: (L.rot || 0), s0: (L.scale || 1), a0: Math.atan2(e.clientY - (b.top + b.height / 2), e.clientX - (b.left + b.width / 2)) };
+    rotd = { L: L, cx: b.left + b.width / 2, cy: b.top + b.height / 2, start: (L.rot || 0), s0: (L.scale || 1), sx0: _sx(L), sy0: _sy(L), a0: Math.atan2(e.clientY - (b.top + b.height / 2), e.clientX - (b.left + b.width / 2)) };
     try { e.target.setPointerCapture(e.pointerId); } catch (_) { void _; }
   }
   // 크기조절 핸들 — 중심에서의 거리 비율로 scale 조정(모든 레이어 공통).
@@ -831,8 +907,8 @@
     var b = L.el.getBoundingClientRect(); var cx = b.left + b.width / 2, cy = b.top + b.height / 2;
     // [#10] 도형은 '늘리기'(비균등 box 크기), 그 외는 예전대로 균등 scale.
     var isShape = L.type === 'shape' && L.w != null && L.h != null;
-    rsd = { L: L, cx: cx, cy: cy, d0: Math.max(8, Math.hypot(e.clientX - cx, e.clientY - cy)), s0: (L.scale || 1), r0: (L.rot || 0),
-      shape: isShape, sx: e.clientX, sy: e.clientY, w0: L.w, h0: L.h, x0: L.x, y0: L.y, before: isShape ? { w: L.w, h: L.h, x: L.x, y: L.y } : null };
+    rsd = { L: L, cx: cx, cy: cy, d0: Math.max(8, Math.hypot(e.clientX - cx, e.clientY - cy)), s0: (L.scale || 1), sx0: _sx(L), sy0: _sy(L), r0: (L.rot || 0),
+      shape: isShape, sx: e.clientX, sy: e.clientY, w0: L.w || L.el.offsetWidth || b.width, h0: L.h || L.el.offsetHeight || b.height, x0: L.x, y0: L.y, before: isShape ? { w: L.w, h: L.h, x: L.x, y: L.y } : null };
     try { rsd._serSnap = _serLayer(L); } catch (_rs) { void _rs; rsd._serSnap = null; }   // [T8-H+ V2] 정규화 기준
     try { e.target.setPointerCapture(e.pointerId); } catch (_) { void _; }
   }
@@ -1006,7 +1082,8 @@
     st.textShadow = (k === 'shadow' || k === 'outline') ? TS.shadowCss : 'none';
     st.webkitTextStroke = (k === 'outline') ? TS.strokeCss : '';
     if (k === 'bg') {
-      st.background = L.color; st.color = _inkOn(L.color);
+      var bgc = L.bgColor || L.color;
+      st.background = bgc; st.color = L.bgColor ? L.color : _inkOn(L.color);
       st.padding = TS.bgPadY + 'px ' + TS.bgPadX + 'px';
       st.borderRadius = TS.bgRadius + 'px';
       st.boxDecorationBreak = 'clone'; st.webkitBoxDecorationBreak = 'clone';
@@ -1018,7 +1095,7 @@
   function _styleOf(L) {
     if (!L) return null;
     return { font: (L.font && L.font.key) || null, color: L.color, align: L.align,
-      scale: L.scale, fontSize: L.fontSize, tstyle: _tstyleOf(L), rot: L.rot || 0 };
+      scale: L.scale, scaleX: _sx(L), scaleY: _sy(L), fontSize: L.fontSize, tstyle: _tstyleOf(L), bgColor: L.bgColor || null, rot: L.rot || 0 };
   }
   function _applyStyleTo(L, v) {
     if (!L || !v) return;
@@ -1030,6 +1107,9 @@
     if (v.align != null) { L.align = v.align; if (L.tx) L.tx.style.textAlign = v.align; }
     if (v.fontSize != null) { L.fontSize = v.fontSize; if (L.tx) L.tx.style.fontSize = v.fontSize + 'px'; }
     if (v.scale != null) L.scale = v.scale;
+    if (Object.prototype.hasOwnProperty.call(v, 'scaleX')) L.scaleX = v.scaleX || 1;
+    if (Object.prototype.hasOwnProperty.call(v, 'scaleY')) L.scaleY = v.scaleY || 1;
+    if (Object.prototype.hasOwnProperty.call(v, 'bgColor')) L.bgColor = v.bgColor || null;
     applyXf(L);
     try { if (L.type === 'text') syncTextControls(L); } catch (_e) { void _e; }
   }
@@ -1105,7 +1185,7 @@
     if (op.op === 'xf') {
       var xf = undo ? op.before : op.after;
       if (op.L) {
-        op.L.scale = xf.scale; op.L.rot = xf.rot; applyXf(op.L);
+        _applyXfSnap(op.L, xf);
         if (op.L.type === 'text' && refs.size) refs.size.value = op.L.scale;
         selectLayer(op.L);
       }
@@ -1139,6 +1219,11 @@
         if (det) { var wi = S.layers.indexOf(WL); if (wi >= 0) S.layers.splice(wi, 1); if (WL.el) WL.el.remove(); if (S.active === WL) S.active = null; }
         else { if (refs.layers && WL.el) refs.layers.appendChild(WL.el); if (S.layers.indexOf(WL) < 0) S.layers.push(WL); }
       });
+      if (op.adjPack) _restoreMemoryPreset(op.adjPack, det ? 'before' : 'after');
+      try {
+        var wmLast = window.WorkMemoryEngine && window.WorkMemoryEngine._lastApply;
+        if (wmLast && (!op.wmToken || wmLast.token === op.wmToken)) wmLast.undone = det;
+      } catch (_wmHist) { void _wmHist; }
       return;
     }
     /* [2026-09-03 P1] 부호가 뒤집혀 있었다 — 주석("undo: add→제거")과 코드가 반대였다.
@@ -1177,7 +1262,7 @@
     if (!L) L = S.active; if (!L) return;
     var c = makeLayer(L.type);
     // [#3] 도형 굵기(strokeW)는 예전에 빠져 있어(엉뚱한 'thick' 키만 복사) 복제본이 '얇게 하기 전' 굵기로 나왔다.
-    ['font', 'color', 'align', 'fontSize', 'text', 'role', 'stroke', 'shadow', 'badge', 'emoji', 'src', 'shape', 'fill', 'strokeW', 'thick', 'fontSizePx', 'w', 'h', 'radius', 'wrapW'].forEach(function (k) { if (L[k] !== undefined) c[k] = L[k]; });
+    ['font', 'color', 'align', 'fontSize', 'text', 'role', 'stroke', 'shadow', 'badge', 'emoji', 'src', 'shape', 'fill', 'strokeW', 'thick', 'fontSizePx', 'w', 'h', 'radius', 'wrapW', 'scaleX', 'scaleY', 'bgColor'].forEach(function (k) { if (L[k] !== undefined) c[k] = L[k]; });
     if (L.tx) { var node = L.tx.cloneNode(true); node.removeAttribute('contenteditable'); c.el.appendChild(node); c.tx = node; }
     // [#3] 도형은 복제한 DOM을 현재 strokeW/색/채움으로 다시 칠해 원본과 100% 일치시킨다.
     if (c.type === 'shape' && c.tx) { try { styleShape(c.tx, c); } catch (_e) { void _e; } }
@@ -1200,7 +1285,7 @@
     if (ids.length >= 2) {   // [#4] 두 손가락 → 핀치(크기+회전), 단일 드래그 중지
       drag = null;
       var q1 = L._pts[ids[0]], q2 = L._pts[ids[1]];
-      lpinch = { L: L, ids: [ids[0], ids[1]], d0: Math.max(8, Math.hypot(q1.x - q2.x, q1.y - q2.y)), a0: Math.atan2(q2.y - q1.y, q2.x - q1.x), s0: L.scale || 1, r0: L.rot || 0 };
+      lpinch = { L: L, ids: [ids[0], ids[1]], d0: Math.max(8, Math.hypot(q1.x - q2.x, q1.y - q2.y)), a0: Math.atan2(q2.y - q1.y, q2.x - q1.x), s0: L.scale || 1, sx0: _sx(L), sy0: _sy(L), r0: L.rot || 0 };
       try { lpinch._serSnap = _serLayer(L); } catch (_ps) { void _ps; lpinch._serSnap = null; }   // [T8-H+ V2] 정규화 기준 스냅샷
       return;
     }
@@ -1234,9 +1319,12 @@
         rsd.L.x = rsd.x0 - (nw - rsd.w0) / 2; rsd.L.y = rsd.y0 - (nh - rsd.h0) / 2;   // 중심 유지
         rsd.L.w = nw; rsd.L.h = nh; applyXf(rsd.L); return;
       }
-      var d = Math.hypot(e.clientX - rsd.cx, e.clientY - rsd.cy);
-      rsd.L.scale = Math.max(0.2, Math.min(6, rsd.s0 * d / rsd.d0)); applyXf(rsd.L);
-      if (rsd.L.type === 'text' && refs.size) refs.size.value = rsd.L.scale; return;
+      var ndx = e.clientX - rsd.sx, ndy = e.clientY - rsd.sy;
+      var nrad = -(rsd.L.rot || 0) * Math.PI / 180, ncs = Math.cos(nrad), nsn = Math.sin(nrad);
+      var nldx = ndx * ncs - ndy * nsn, nldy = ndx * nsn + ndy * ncs;
+      rsd.L.scaleX = Math.max(0.2, Math.min(6, rsd.sx0 * (1 + nldx / Math.max(24, rsd.w0 / 2))));
+      rsd.L.scaleY = Math.max(0.2, Math.min(6, rsd.sy0 * (1 + nldy / Math.max(24, rsd.h0 / 2))));
+      applyXf(rsd.L); return;
     }
     if (wd) {
       // [2026-07-26 원영] 가로 늘리기 — 이동량을 레이어 로컬 가로축으로 환산(회전 고려), scale 나눠 실제 폭 px 로.
@@ -1276,7 +1364,7 @@
             before: lpinch._serSnap.size, after: _pa.size });
         }
       }
-      if (_pl) _pushXf(_pl, lpinch.s0, lpinch.r0);   // [2026-09-13 ZH] 핀치 확대·회전도 되돌리기(↩)에
+      if (_pl) _pushXf(_pl, { scale: lpinch.s0, scaleX: lpinch.sx0, scaleY: lpinch.sy0, rot: lpinch.r0 });   // [2026-09-13 ZH] 핀치 확대·회전도 되돌리기(↩)에
       lpinch = null;
     }
     if (drag) {
@@ -1318,16 +1406,16 @@
        다시 실행(↷)은 거대한 상태로만 돌아와서 작은 스티커로 돌아갈 길이 없었다.
        실측(2026-09-13, iPhone 시뮬레이터 · 네일 사진): 스티커 ≈12pt → 가운데를 끌었더니 ≈190pt,
        ↩ 1회 → 스티커 없음, ↷ → 190pt.  → 끝났을 때 scale/rot 전후를 한 번 남긴다. */
-    if (rsd && !rsd.shape) _pushXf(rsd.L, rsd.s0, rsd.r0);
-    if (rotd) _pushXf(rotd.L, rotd.s0, rotd.start);
+    if (rsd && !rsd.shape) _pushXf(rsd.L, { scale: rsd.s0, scaleX: rsd.sx0, scaleY: rsd.sy0, rot: rsd.r0 });
+    if (rotd) _pushXf(rotd.L, { scale: rotd.s0, scaleX: rotd.sx0, scaleY: rotd.sy0, rot: rotd.start });
     rotd = null; rsd = null; wd = null;
   }
   // 크기·회전이 실제로 바뀌었을 때만 기록한다(탭만 하면 안 남긴다 — move 와 같은 규칙).
-  function _pushXf(L, s0, r0) {
+  function _pushXf(L, before) {
     if (!L) return;
-    var s1 = L.scale || 1, r1 = L.rot || 0;
-    if (s1 === (s0 || 1) && r1 === (r0 || 0)) return;
-    _pushOp({ op: 'xf', L: L, before: { scale: s0 || 1, rot: r0 || 0 }, after: { scale: s1, rot: r1 } });
+    var after = _xfSnap(L), b = before || { scale: 1, scaleX: 1, scaleY: 1, rot: 0 };
+    if (after.scale === (b.scale || 1) && after.scaleX === (b.scaleX || 1) && after.scaleY === (b.scaleY || 1) && after.rot === (b.rot || 0)) return;
+    _pushOp({ op: 'xf', L: L, before: b, after: after });
   }
 
   /* ── 사진 핀치 확대/이동 (두 손가락, 빈 배경에서) ── */
@@ -1396,7 +1484,7 @@
       }
     }
     var L = makeLayer('text');
-    L.font = FONTS[0]; L.color = COLORS[0]; L.align = 'center'; L.fontSize = 30; L.text = PLACEHOLDER;
+    L.font = FONTS[0]; L.color = COLORS[0]; L.bgColor = 'rgba(20,16,18,.62)'; L.align = 'center'; L.fontSize = 30; L.text = PLACEHOLDER;
     L.tstyle = 'shadow';   // [2026-09-11] 예전엔 CSS 가 전원에게 그림자를 강제했다 — 기본값을 맞춰 보이는 건 그대로.
     // [2026-07-26 원영] white-space:pre — 편집 중 자동 줄바꿈 금지(엔터 친 곳만 줄바꿈).
     //   export 캔버스는 split('\n')으로 엔터만 줄바꿈이라, 편집 화면도 동일해야 WYSIWYG.
@@ -1413,7 +1501,8 @@
       + (_stR.width ? ';max-width:' + Math.round(_stR.width * 0.88) + 'px' : '');
     L.el.appendChild(t); L.tx = t;
     _applyTextStyle(L);
-    placeCenter(L, 180, 50); selectLayer(L);
+    // 새 글자는 사진 중앙을 가리지 않도록 하단 안전영역에서 시작한다.
+    placeSafeBottom(L, 180, 44); selectLayer(L);
     _pushOp({ op: 'add', L: L });   // [P1-3] 추가 되돌리기
     editText(L);   // [2026-09-05] 동기 호출 필수 — setTimeout 으로 미루면 모바일 키보드가 안 올라온다(위 주석 ③)
     /* [2026-08-23] 이 장에 글자가 처음 생겼다 → 그 장 기준으로 자동 초안을 한 번 돌린다.
@@ -1459,10 +1548,35 @@
     if (spec.type === 'sticker' || spec.type === 'emoji') return addShopSticker(spec, R);   // [#5/#6] 이모지 스티커도 복원/합성(compose)에서 렌더
     return _addShopLayerText(spec, R);   // 기본: 텍스트/배지
   }
+  function _tagMemoryLayer(L, spec) {
+    if (L && spec && spec._src === 'wm') {
+      L._src = 'wm'; L._wmTok = spec._wmTok || null;
+    }
+    return L;
+  }
+  function _markSuggestedPreset(suggestion) {
+    var p = suggestion && suggestion.adjustmentPreset;
+    if (!p || !p.presetId || !root) return;
+    var b = root.querySelector('[data-adjpreset="' + p.presetId + '"]');
+    if (b) { b.classList.add('is-recommended'); b.setAttribute('aria-label', b.textContent + ' · 지난 스타일 추천'); }
+  }
+  function _applyWmSuggestion() {
+    var sug = S && S.wmSuggestion;
+    if (!sug || !sug.state || !Array.isArray(sug.state.layers)) return;
+    var before = S.layers.length; renderIncoming(sug.state.layers);
+    var added = S.layers.slice(before).filter(function (L) { return L && L._wmTok === sug.token; });
+    var adjPack = _applyMemoryPreset(sug.adjustmentPreset);
+    if (!added.length && !adjPack) return;
+    if (window.WorkMemoryEngine && window.WorkMemoryEngine.acceptSuggestion) window.WorkMemoryEngine.acceptSuggestion(sug);
+    _pushOp({ op: 'wmApply', Ls: added, adjPack: adjPack, wmToken: sug.token });
+    if (refs.wmSuggest) refs.wmSuggest.hidden = true;
+    if (refs.wmRemove) refs.wmRemove.hidden = false;
+    toastIt('지난 ' + (sug.industry || '샵') + ' 스타일을 적용했어요');
+  }
   // [#5/#6] 이모지 스티커 레이어 재생성 — 재편집 복원 + 헤드리스 compose 양쪽에서 사용.
   function addShopSticker(spec, R) {
     var L = makeLayer('sticker'); L.emoji = spec.emoji; L.fontSize = 64; L.rot = spec.rot || 0;
-    L.scale = spec.size != null ? (spec.size * R.height) / 64 : (spec.scale || 1);
+    L.scale = spec.size != null ? (spec.size * R.height) / 64 : (spec.scale || 1); L.scaleX = spec.scaleX || 1; L.scaleY = spec.scaleY || 1;
     var s = el('div', 'itl-sticker'); s.textContent = spec.emoji; L.el.appendChild(s); L.tx = s;
     /* [2026-09-03] 예전엔 `- 32`(64px 의 절반) 고정이었는데 이모지 글리프 박스는 정확히 64px 가 아니라,
        _serLayer 가 저장하는 **실측 중심**과 어긋나 저장→복원마다 스티커가 밀렸다(실측 4회: cx 0.7996→0.7980).
@@ -1482,6 +1596,7 @@
     L.role = spec.role || '';
     L.font = fontByKey(spec.font) || FONTS[0];
     L.color = spec.color || '#FFFFFF';
+    L.bgColor = spec.bgColor || spec.bg || null;
     L.align = spec.align || 'center';
     L.fontSize = Math.max(12, Math.round((spec.size != null ? spec.size : 0.06) * R.height));
     L.text = spec.text || '';
@@ -1570,7 +1685,7 @@
        도형은 `L.rot = spec.rot` 을 하는데 텍스트 경로에만 없어서, 기울여 놓은 글자가
        저장했다 다시 열면 똑바로 돌아왔다(_serLayer 는 rot 를 실어 보내고 있었다).
        실측으로 잡았다: -12° 로 완료 → 재편집하니 transform 이 matrix(1,0,0,1,…) 이었다. */
-    L.rot = spec.rot || 0;
+    L.rot = spec.rot || 0; L.scale = spec.scale || 1; L.scaleX = spec.scaleX || 1; L.scaleY = spec.scaleY || 1;
     /* [2026-09-11] 저장된 좌표는 원장의 배치다 — 자동 가운데로 덮지 않는다.
        (`moved` 가 없는 옛 초안도 좌표는 저장돼 있으니 존중한다.)
        다만 스테이지 밖으로 나간 상태로 저장됐다면 되돌려 넣는다 — 그대로 두면 발행본에서 잘린다. */
@@ -1622,7 +1737,7 @@
     return L;
   }
   function addShopImage(spec, R) {
-    var L = makeLayer('image'); L.role = spec.role || 'logo'; L.src = spec.src;
+    var L = makeLayer('image'); L.role = spec.role || 'logo'; L.src = spec.src; L.scale = spec.scale || 1; L.scaleX = spec.scaleX || 1; L.scaleY = spec.scaleY || 1; L.rot = spec.rot || 0;
     var im = document.createElement('img'); im.src = spec.src; im.alt = '';
     im.style.cssText = 'display:block;width:' + Math.round((spec.w != null ? spec.w : 0.24) * R.width) + 'px;height:auto;opacity:' + (spec.opacity != null ? spec.opacity : 1) + ';pointer-events:none';
     L.el.appendChild(im); L.tx = im;
@@ -1642,13 +1757,13 @@
     var have = {}; S.layers.forEach(function (L) { if (L.role) have[L.role] = 1; });
     var R = refs.stage.getBoundingClientRect();
     var added = false;
-    list.forEach(function (spec) { if (spec.role && !have[spec.role]) { try { addShopLayer(spec, R); added = true; } catch (_e) { void _e; } } });
+    list.forEach(function (spec) { if (spec.role && !have[spec.role]) { try { _tagMemoryLayer(addShopLayer(spec, R), spec); added = true; } catch (_e) { void _e; } } });
     if (added) { S.active = null; S.layers.forEach(function (x) { x.el.classList.remove('is-active'); }); }
   }
   function renderIncoming(layers) {
     if (!Array.isArray(layers) || !layers.length) return;
     var R = refs.stage.getBoundingClientRect();
-    layers.forEach(function (spec) { try { addShopLayer(spec, R); } catch (_) { void _; } });
+    layers.forEach(function (spec) { try { _tagMemoryLayer(addShopLayer(spec, R), spec); } catch (_) { void _; } });
     _deOverlapIncoming();   // [#2] 텍스트 길이 무관 — 자동배치 글자/선이 서로 안 겹치게 세로로 벌림
     S.active = null; S.layers.forEach(function (x) { x.el.classList.remove('is-active'); });
     _applySafeZone();   // [P2-1] 얼굴/피사체 위 자동 텍스트 비켜놓기(비동기, 폴백 안전)
@@ -2001,7 +2116,10 @@
   }
   function syncTextControls(L) {
     root.querySelectorAll('[data-font]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-font') === L.font.key); });
-    root.querySelectorAll('[data-color]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-color') === L.color); });
+    var _target = _textColorTarget();
+    var _selColor = _target === 'textbg' ? (L.bgColor || '') : L.color;
+    root.querySelectorAll('[data-color]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-color') === _selColor); });
+    _setTextColorTarget(_target);
     refs.aln.querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-aln') === L.align); });
     refs.size.value = L.scale;
     // [2026-09-11] 스타일 칩·기울기도 현재 레이어를 따라간다 — 안 하면 레이어를 바꿔도 옛 선택이 켜져 보인다.
@@ -2038,6 +2156,7 @@
     _fitTextInStage(L);
     _own(L, 'font');  _pushStyle(L, _b); }
   function applyColor(c) { var L = activeText(); if (!L) return; var _b = _styleOf(L); _sig('color_changed', { layerKey: L.role || L.type, before: L.color, after: c }); L.color = c; L.tx.style.color = c; _applyTextStyle(L); _own(L, 'color');  _pushStyle(L, _b); }
+  function applyBgColor(c) { var L = activeText(); if (!L) return; var _b = _styleOf(L); L.bgColor = c; if (_tstyleOf(L) !== 'bg') L.tstyle = 'bg'; _applyTextStyle(L); _fitTextInStage(L); _own(L, 'bgColor'); _own(L, 'tstyle'); _pushStyle(L, _b); syncTextControls(L); }
   function applyAlign(a) { var L = activeText(); if (!L) return; var _b = _styleOf(L); _sig('alignment_changed', { layerKey: L.role || L.type, before: L.align, after: a }); L.align = a; L.tx.style.textAlign = a; _own(L, 'align');  _pushStyle(L, _b); }
   function applyScale(v) { var L = S.active; if (!L) return; L.scale = parseFloat(v); applyXf(L); }
   /* [2026-09-11] 글자 스타일(기본/그림자/외곽선/배경) — 원장이 고른 건 _own 도장을 찍어
@@ -2106,12 +2225,23 @@
     gripEl.addEventListener('pointercancel', function () { gd = null; if (panel) { panel.style.transition = ''; panel.style.transform = ''; } });
   }
   /* ── 이미지 스티커(데코·내 스티커) #6/#7 ── */
-  function addImageSticker(src) {
+  function _placeImageSticker(L, meta, w, h) {
+    if (!meta || !meta.defaultPosition) { placeCenter(L, w, h); return; }
+    var r = refs.stage.getBoundingClientRect(), pad = 24, bottom = 64;
+    var x = (r.width - w) / 2, y = (r.height - h) / 2;
+    if (/left/.test(meta.defaultPosition)) x = pad;
+    if (/right/.test(meta.defaultPosition)) x = r.width - w - pad;
+    if (/top/.test(meta.defaultPosition)) y = pad + 42;
+    if (/bottom/.test(meta.defaultPosition)) y = r.height - h - bottom;
+    L.x = Math.max(pad, x); L.y = Math.max(pad, y); applyXf(L);
+  }
+  function addImageSticker(src, meta) {
     var L = makeLayer('image'); L.role = 'sticker'; L.src = src;
     var im = document.createElement('img'); im.src = src; im.alt = ''; im.setAttribute('draggable', 'false');
-    im.style.cssText = 'display:block;width:120px;height:auto;pointer-events:none';
+    var size = (meta && meta.defaultSize) || 120;
+    im.style.cssText = 'display:block;width:' + size + 'px;height:auto;pointer-events:none';
     L.el.appendChild(im); L.tx = im;
-    var place = function () { placeCenter(L, L.el.offsetWidth || 120, L.el.offsetHeight || 120); };
+    var place = function () { _placeImageSticker(L, meta, L.el.offsetWidth || size, L.el.offsetHeight || size); };
     if (im.complete && im.naturalWidth) place(); else im.onload = place;
     place(); selectLayer(L); _pushOp({ op: 'add', L: L }); closeStickerSheet();
   }
@@ -2454,6 +2584,45 @@
 
   /* ── 사진별 보정(밝기/대비/채도/온도/선명도) ── */
   function adjOf(i) { if (!S.adj[i]) S.adj[i] = defAdj(); return S.adj[i]; }
+  function _adjPackSnapshot() {
+    return { adj: (S.adj || []).map(function (a) { return Object.assign({}, a); }),
+      presets: Object.assign({}, S.presetByPhoto || {}) };
+  }
+  function _restoreMemoryPreset(pack, side) {
+    var snap = pack && pack[side]; if (!snap) return;
+    S.adj = (snap.adj || []).map(function (a) { return Object.assign(defAdj(), a); });
+    S.presetByPhoto = Object.assign({}, snap.presets || {});
+    try { syncAdjSliders(); applyAdjToDisplay(); applyStraighten(); renderAdjust(); } catch (_e) { void _e; }
+  }
+  function _applyMemoryPreset(mark) {
+    var v = _presetAdj(mark); if (!v) return null;
+    var pack = { before: _adjPackSnapshot() };
+    (S.photos || []).forEach(function (_u, i) {
+      S.adj[i] = Object.assign({}, v);
+      S.presetByPhoto[String(i)] = { presetId: mark.presetId, presetStrength: mark.presetStrength == null ? 1 : mark.presetStrength };
+    });
+    pack.after = _adjPackSnapshot();
+    try { syncAdjSliders(); applyAdjToDisplay(); renderAdjust(); } catch (_e) { void _e; }
+    return pack;
+  }
+  function _removeMemoryPreset(pack) {
+    if (!pack || !pack.before || !pack.after) return null;
+    var current = _adjPackSnapshot(), removed = {
+      adj: current.adj.map(function (a) { return Object.assign({}, a); }),
+      presets: Object.assign({}, current.presets || {})
+    }, changed = false;
+    (pack.after.adj || []).forEach(function (a, i) {
+      if (JSON.stringify(current.adj[i]) !== JSON.stringify(a)) return;   // 원장이 적용 뒤 직접 바꾼 보정은 보존
+      removed.adj[i] = Object.assign(defAdj(), (pack.before.adj || [])[i]);
+      var old = pack.before.presets && pack.before.presets[String(i)];
+      if (old) removed.presets[String(i)] = old; else delete removed.presets[String(i)];
+      changed = true;
+    });
+    if (!changed) return null;
+    var removePack = { before: removed, after: current };
+    _restoreMemoryPreset(removePack, 'before');
+    return removePack;
+  }
   function adjReadout(c, v) { return (c.k === 'w' || c.k === 'sh') ? ('' + v) : ((v - 100 >= 0 ? '+' : '') + (v - 100)); }
   var _adjRaf = 0;
   function applyAdjThrottled() { if (_adjRaf) return; var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _adjRaf = raf(function () { _adjRaf = 0; applyAdjToDisplay(); }); }
@@ -2511,6 +2680,12 @@
     });
     if (refs.adjRot) refs.adjRot.value = a.rot || 0;
     if (refs.adjRotOut) refs.adjRotOut.textContent = (a.rot || 0) + '°';
+    var selected = S.presetByPhoto && S.presetByPhoto[String(S.adjSel)];
+    root.querySelectorAll('[data-adjpreset]').forEach(function (b) {
+      var on = !!(selected && selected.presetId === b.getAttribute('data-adjpreset'));
+      b.classList.toggle('is-selected', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
   }
   function renderAdjust() {
     if (!refs.adjStrip) return;
@@ -2966,7 +3141,7 @@
         var cx = b.left - r.left + b.width / 2, cy = b.top - r.top + b.height / 2;
         // 비회전 크기(레이아웃 기준 × scale) — 회전 레이어도 정확히 합성(AABB 왜곡 방지)
         var ow = (L.el.offsetWidth || b.width) * (L.scale || 1), oh = (L.el.offsetHeight || b.height) * (L.scale || 1);
-        c.save(); c.translate(cx, cy); if (L.rot) c.rotate(L.rot * Math.PI / 180);
+        c.save(); c.translate(cx, cy); if (L.rot) c.rotate(L.rot * Math.PI / 180); if (_sx(L) !== 1 || _sy(L) !== 1) c.scale(_sx(L), _sy(L));
         if (L.type === 'shape') {
           drawShape(c, L, ow, oh);
         } else if (L.type === 'image') {
@@ -3005,7 +3180,7 @@
           if (_ts === 'bg') {
             var _bw = ow, _bh = oh;
             var _rd = Math.min(TS.bgRadius * (L.scale || 1), _bh / 2, _bw / 2);
-            c.save(); c.shadowBlur = 0; c.shadowColor = 'transparent'; c.fillStyle = L.color;
+            c.save(); c.shadowBlur = 0; c.shadowColor = 'transparent'; c.fillStyle = L.bgColor || L.color;
             c.beginPath();
             if (c.roundRect) c.roundRect(-_bw / 2, -_bh / 2, _bw, _bh, _rd);
             else {
@@ -3016,7 +3191,7 @@
             }
             c.fill(); c.restore();
             c.font = L.font.weight + ' ' + fs + 'px ' + L.font.family;
-            c.fillStyle = _inkOn(L.color); c.textAlign = _al; c.textBaseline = 'middle';
+            c.fillStyle = L.bgColor ? L.color : _inkOn(L.color); c.textAlign = _al; c.textBaseline = 'middle';
           }
 
           /* 외곽선 — webkit 은 획 중앙 기준이라 lineWidth 를 2배로 잡고 **fill 전에** 그린다
@@ -3081,6 +3256,12 @@
     document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') _draftSnap(true); });
   } catch (_lce) { void _lce; }
   function wire() {
+    if (refs.wmSuggest) refs.wmSuggest.addEventListener('click', _applyWmSuggestion);
+    if (refs.wmRemove) refs.wmRemove.addEventListener('click', function () {
+      var ap = window.WorkMemoryEngine && window.WorkMemoryEngine._lastApply;
+      var n = undoWmApply(ap && ap.token);
+      if (n) { refs.wmRemove.hidden = true; if (refs.wmSuggest && S.wmSuggestion) refs.wmSuggest.hidden = false; }
+    });
     refs.rail.addEventListener('click', function (e) {
       var b = e.target.closest('[data-tool]'); if (!b) return;
       var tool = b.getAttribute('data-tool');
@@ -3103,7 +3284,8 @@
     refs.stage.addEventListener('pointerdown', function (e) { if (e.target === refs.stage || e.target === refs.photo || e.target.classList.contains('itded__scrim')) selectLayer(null); });
     // 텍스트 컨트롤
     refs.fonts.addEventListener('click', function (e) { var b = e.target.closest('[data-font]'); if (!b) return; applyFont(b.getAttribute('data-font')); root.querySelectorAll('[data-font]').forEach(function (x) { x.classList.toggle('on', x === b); }); });
-    refs.colors.addEventListener('click', function (e) { var b = e.target.closest('[data-color]'); if (!b) return; applyColor(b.getAttribute('data-color')); root.querySelectorAll('[data-color]').forEach(function (x) { x.classList.toggle('on', x === b); }); });
+    refs.colors.addEventListener('click', function (e) { var b = e.target.closest('[data-color]'); if (!b) return; (_textColorTarget() === 'textbg' ? applyBgColor : applyColor)(b.getAttribute('data-color')); root.querySelectorAll('[data-color]').forEach(function (x) { x.classList.toggle('on', x === b); }); });
+    if (refs.colorTarget) refs.colorTarget.addEventListener('click', function (e) { var b = e.target.closest('[data-ctarget]'); if (!b) return; _setTextColorTarget(b.getAttribute('data-ctarget')); if (S && S.active && (S.active.type === 'text' || S.active.type === 'badge')) syncTextControls(S.active); });
     if (refs.tstyle) refs.tstyle.addEventListener('click', function (e) { var b = e.target.closest('[data-tstyle]'); if (!b) return; applyTStyle(b.getAttribute('data-tstyle')); });
     /* 기울기: 드래그 중엔 화면만 바꾸고(input), 손 떼면 되돌리기 한 칸(change) — 크기 슬라이더와 같은 계약. */
     if (refs.tilt) {
@@ -3155,6 +3337,12 @@
       var tab = e.target.closest('[data-sttab]'); if (tab) { refs.stkTabs.querySelectorAll('[data-sttab]').forEach(function (x) { x.classList.toggle('on', x === tab); }); _renderStkTab(tab.getAttribute('data-sttab')); return; }
       var del = e.target.closest('[data-minedel]'); if (del) { e.stopPropagation(); delMyStk(+del.getAttribute('data-minedel')); return; }
       var mine = e.target.closest('[data-mine]'); if (mine) { var arr = loadMyStk(); var u = arr[+mine.getAttribute('data-mine')]; if (u) addImageSticker(u); return; }
+      var bs = e.target.closest('[data-bstk]');
+      if (bs) {
+        var bo = BEAUTY_STICKERS.find(function (s) { return s.id === bs.getAttribute('data-bstk'); });
+        if (bo) addImageSticker(bo.src, bo);
+        return;
+      }
       var sc = e.target.closest('[data-stkcat]'); if (sc) { var cat = sc.getAttribute('data-stkcat'); var list = (window.ItdStickers || {})[cat + 'Svg'] || []; var su = list[+sc.getAttribute('data-stkidx')]; if (su) addImageSticker(su); return; }
       var ic = e.target.closest('[data-icstk]');
       if (ic) {
@@ -3201,10 +3389,17 @@
     document.addEventListener('pointerup', onCellUp);
     // 보정 — 사진 선택 + 슬라이더(선택 사진만) + 초기화
     refs.panels.adjust.addEventListener('click', function (e) { var t = e.target.closest('[data-adjthumb]'); if (t) onAdjThumb(+t.getAttribute('data-adjthumb')); });
+    refs.panels.adjust.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-adjpreset]'); if (!b) return;
+      var p = _beautyPreset(b.getAttribute('data-adjpreset')); if (!p) return;
+      var before = Object.assign({}, adjOf(S.adjSel)); ADJ_CTRLS.forEach(function (c) { adjOf(S.adjSel)[c.k] = p[c.k]; });
+      S.presetByPhoto[String(S.adjSel)] = { presetId: p.id, presetStrength: 1 };
+      _pushAdj(S.adjSel, before); syncAdjSliders(); applyAdjToDisplay(); renderAdjust();
+    });
     refs.panels.adjust.addEventListener('input', function (e) {
       var s = e.target.closest('[data-adj]'); if (!s) return; var k = s.getAttribute('data-adj');
       if (!_adjSnap) _adjSnap = { idx: S.adjSel, v: Object.assign({}, adjOf(S.adjSel)) };   // [BUG-03]
-      adjOf(S.adjSel)[k] = +s.value;
+      adjOf(S.adjSel)[k] = +s.value; delete S.presetByPhoto[String(S.adjSel)];
       var c0 = ADJ_CTRLS.filter(function (x) { return x.k === k; })[0]; var out = root.querySelector('[data-adjout="' + k + '"]'); if (out) out.textContent = adjReadout(c0, +s.value);
       applyAdjThrottled(); var th = refs.adjStrip && refs.adjStrip.querySelector('[data-adjthumb="' + S.adjSel + '"]'); if (th) th.style.filter = filterStr(adjOf(S.adjSel));
     });
@@ -3221,7 +3416,7 @@
       root.classList.add('is-leveling'); clearTimeout(S._lvlT); S._lvlT = setTimeout(function () { root.classList.remove('is-leveling'); }, 900);
       applyStraighten();
     });
-    refs.adjReset.addEventListener('click', function () { var _ab = Object.assign({}, adjOf(S.adjSel)); S.adj[S.adjSel] = defAdj(); _pushAdj(S.adjSel, _ab); syncAdjSliders(); applyAdjToDisplay(); applyStraighten(); renderAdjust(); });
+    refs.adjReset.addEventListener('click', function () { var _ab = Object.assign({}, adjOf(S.adjSel)); S.adj[S.adjSel] = defAdj(); delete S.presetByPhoto[String(S.adjSel)]; _pushAdj(S.adjSel, _ab); syncAdjSliders(); applyAdjToDisplay(); applyStraighten(); renderAdjust(); });
     if (refs.adjCut) refs.adjCut.addEventListener('click', function () { doCutout(); });
     if (refs.adjUncut) refs.adjUncut.addEventListener('click', undoCutout);
     // [#4] 누끼 배경 색 — 탭하면 즉시 재합성(매트 캐시 있으면 0초). 누끼 전이면 배경만 기억.
@@ -3331,8 +3526,8 @@
       if (L.type === 'sticker') return { type: 'emoji', emoji: L.emoji, x: cx, y: cy };
       var fs = (L.fontSize || 30) * (L.scale || 1);
       return { type: 'text', role: L.role || '', text: L.text, x: cx, y: cy, w: w,
-        font: L.font && L.font.key, color: L.color, align: L.align,
-        size: fs / R.height, weight: L.font && L.font.weight,
+        font: L.font && L.font.key, color: L.color, bgColor: L.bgColor || null, align: L.align,
+        size: fs / R.height, weight: L.font && L.font.weight, scaleX: _sx(L), scaleY: _sy(L),
         stroke: !!L.stroke, shadow: !!L.shadow };
     }).filter(Boolean);
   }
@@ -3393,9 +3588,9 @@
     var R = refs.stage.getBoundingClientRect(); if (!R.width) return null;
     var b = L.el.getBoundingClientRect();
     var base = { x: (b.left - R.left + b.width / 2) / R.width, y: (b.top - R.top + b.height / 2) / R.height,
-      w: b.width / R.width, rot: L.rot || 0, scale: L.scale || 1, role: L.role || '' };
+      w: b.width / R.width, rot: L.rot || 0, scale: L.scale || 1, scaleX: _sx(L), scaleY: _sy(L), role: L.role || '' };
     if (L.type === 'sticker') { base.type = 'sticker'; base.emoji = L.emoji; base.size = ((L.fontSize || 64) * (L.scale || 1)) / R.height; return base; }
-    if (L.type === 'image') { base.type = 'image'; base.src = L.src; return base; }
+    if (L.type === 'image') { base.type = 'image'; base.src = L.src; base.w = ((L.el.offsetWidth || b.width) * (L.scale || 1)) / R.width; return base; }
     if (L.type === 'shape') {
       base.color = L.color;
       /* [#10 2026-07-18] box 크기(w/h)를 상대값으로 저장 — 늘리기(비균등) 보존. 회전 도형은 bounding rect(AABB)가
@@ -3417,7 +3612,8 @@
     }
     var fs = ((L.fontSize || 30) * (L.scale || 1)) / R.height;
     base.type = (L.type === 'badge') ? 'badge' : 'text';
-    base.text = L.text; base.font = L.font && L.font.key; base.color = L.color; base.align = L.align;
+    base.w = ((L.el.offsetWidth || b.width) * (L.scale || 1)) / R.width;
+    base.text = L.text; base.font = L.font && L.font.key; base.color = L.color; if (L.bgColor) base.bgColor = L.bgColor; base.align = L.align;
     /* [2026-09-03] weight 는 **L.weight 우선**. 예전엔 항상 폰트 기본값을 실어보내서,
        자동배치가 준 얇은 글씨(600)가 재편집 후 800 으로 굵어졌다(복제·undo 는 이미 L.weight 를 쓰고 있었다). */
     base.size = fs; base.weight = L.weight || (L.font && L.font.weight); base.stroke = !!L.stroke; base.shadow = !!L.shadow;
@@ -3515,6 +3711,14 @@
   function _draftSnap(sync) {
     try {
       if (!S || !root || !root.classList.contains('is-open')) return;
+      /* [2026-09-13 AUTH] 🔴 **세션이 만료되는 순간 편집 중이던 초안이 빈 초안으로 덮였다.**
+         만료 처리는 `body.itdasy-locked` 로 앱을 잠그고, 그 클래스가 편집기를 display:none 으로 숨긴다.
+         `_serLayer` 는 스테이지 크기가 0 이면 레이어를 버리므로(좌표를 비율로 못 잰다) 숨겨진 동안의
+         스냅샷은 `layers: []` 가 되고, 2초 틱이 **좋은 초안을 그걸로 덮어썼다.** 재로그인하면 되살릴 게 없다.
+         실측(2026-09-13, Chrome 실엔진 · 갱신 실패 목서버 · 토큰 35초): 'EXPIREKEEP' 초안(touched:true)
+         → 만료 10초 뒤 같은 페이지에서 `layers:[]`(touched:false) 로 교체. 재로드·삭제·외부 open 없음(스토리지 추적).
+         → **잴 수 없으면 쓰지 않는다.** 마지막으로 제대로 잰 초안이 남는다(숨김 원인이 무엇이든). */
+      try { var _sr = refs.stage && refs.stage.getBoundingClientRect(); if (!_sr || !_sr.width) return; } catch (_re) { void _re; return; }
       _flushEditingText();
       var st = _exportState(); if (!st) return;
       var sp = _splitDraft(st);
@@ -3703,6 +3907,7 @@
         cellCrop: (S.cellCrop || []).slice(), collageBg: S.collageBg, collageBgImg: S.collageBgImg || null,
         collageGap: S.collageGap, fitMode: S.fitMode, ratio: S.ratio,
         adj: (S.adj || []).map(function (a) { return Object.assign({}, a); }),
+        presetByPhoto: Object.assign({}, S.presetByPhoto),
         photoDraw: Object.assign({}, S.photoDraw), photoBg: Object.assign({}, S.photoBg),
         pz: Object.assign({ scale: 1, tx: 0, ty: 0 }, S.pz),   // [버그수정 2026-07-06] 사진 핀치줌/이동 구도 재편집 시 유실 방지
         photos: (S.photos || []).slice(), layers: (S.layers || []).map(_serLayer).filter(Boolean) };
@@ -3724,6 +3929,8 @@
        통째로 옮겨지고 크기까지 달라진다 = "저장한 화면과 다시 연 화면이 다르다". */
     if (st.ratio) S.ratio = _safeRatio(st.ratio);
     if (Array.isArray(st.adj) && st.adj.length) S.adj = st.adj.map(function (a) { return Object.assign(defAdj(), a); });
+    if (st.presetByPhoto) S.presetByPhoto = Object.assign({}, st.presetByPhoto);
+    if (st.adjustmentPreset) S._wmAdjPack = _applyMemoryPreset(st.adjustmentPreset);
     if (st.photoDraw) S.photoDraw = Object.assign({}, st.photoDraw);
     if (st.photoBg) S.photoBg = Object.assign({}, st.photoBg);
     if (st.pz) S.pz = Object.assign({ scale: 1, tx: 0, ty: 0 }, st.pz);   // [버그수정 2026-07-06] 재편집 시 사진 구도(핀치줌/이동) 복원
@@ -3748,7 +3955,7 @@
         var L2 = addShopLayer(spec, R); if (L2 && spec.rot) { L2.rot = spec.rot; applyXf(L2); }
         // [T4] 작업 기억 출처 태그 — '이번엔 빼기'(undoWmApply)가 이 레이어만 골라 지운다.
         //   _serLayer 화이트리스트엔 없어 저장/사진전환 직렬화엔 안 실린다(런타임 전용).
-        if (L2 && spec._src === 'wm') { L2._src = 'wm'; L2._wmTok = spec._wmTok || null; }
+        _tagMemoryLayer(L2, spec);
         /* [STAGE C] 복원된 레이어는 **전부 원장 소유**로 본다.
            클릭 기록(`_own`)은 런타임 값이라 저장에 안 실린다. 그렇다고 "표시가 없으니
            기본값이겠지" 라고 보면, 이어서 편집하는 원장의 작업물을 자동 초안이 덮는다.
@@ -3768,7 +3975,8 @@
       brush: 'pen', brushSize: 10, drawColor: COLORS[2],
       shapeColor: COLORS[2], shapeFill: false, shapeThick: 6,
       adj: photos.map(function () { return defAdj(); }), adjSel: 0, collageGap: 3,
-      collageBg: (loadBgPref().color || '#FFFFFF'), collageBgImg: null, cellCrop: [], cellSel: -1, fitMode: 'contain',   // [#5] 배경색만 기억, 배경'이미지'는 매번 초기화(예전 stale 배경이 누끼에 자동적용되던 문제)
+      presetByPhoto: {},
+      collageBg: (loadBgPref().color || '#FFFFFF'), collageBgImg: null, cellCrop: [], cellSel: -1, fitMode: 'contain', textColorTarget: 'text',   // [#5] 배경색만 기억, 배경'이미지'는 매번 초기화(예전 stale 배경이 누끼에 자동적용되던 문제)
       ratio: _safeRatio(opts.ratio), undo: [], redo: [], photoDraw: {}, photoBg: {}, layersByPhoto: {},   // [#5/#6] 사진별 레이어 보관
       matte: {}, fgMask: {},   // [#11 2026-07-18] matte=누끼 PNG(재합성 캐시) · fgMask[i]=합성본 정렬 사람 마스크(배경 보정 제외용). 매트처럼 세션 전용.
       photoUrl: photo, photoCss: _cssUrl(photo), photos: photos,
@@ -3785,6 +3993,8 @@
          → 학습에 쓰는 그 context 를 그대로 들고 있다가 조회에도 쓴다. */
       planCategory: (opts.category || (opts.wmContext && opts.wmContext.service) || null),
       wmContext: opts.wmContext || null };
+    S.wmSuggestion = opts.wmSuggestion || null;
+    _markSuggestedPreset(S.wmSuggestion);
     var _ed = (opts.editState && opts.editState.v) ? opts.editState : null;   // [#4/#8/#11/#16] 재편집 이어가기
     if (_ed) { try { _restoreState(_ed); } catch (_re) { _ed = null; } }   // 복원 실패 시 일반 열기로 폴백(앱 안전)
     /* [2026-09-12 ZH] 캐러셀 재편집 — **장별 레이어와 활성 장**을 되살린다.
@@ -3889,7 +4099,16 @@
       //   (배너를 놓쳐도 ↩ 가 회수 경로). 사진 전환으로 레이어가 직렬화 재생성되면 참조가 끊기지만
       //   op 의 indexOf 가드로 무해 — 기존 add/del op 와 같은 한계.
       var _wmLs = S.layers.filter(function (L) { return L._src === 'wm'; });
-      if (_wmLs.length) _pushOp({ op: 'wmApply', Ls: _wmLs });
+      var _wmApply = window.WorkMemoryEngine && window.WorkMemoryEngine._lastApply;
+      if (_wmLs.length || S._wmAdjPack) _pushOp({ op: 'wmApply', Ls: _wmLs, adjPack: S._wmAdjPack || null,
+        wmToken: _wmApply && _wmApply.token });
+      if (refs.wmRemove) {
+        refs.wmRemove.hidden = !(_wmLs.length || S._wmAdjPack) || !_wmApply || !_wmApply.token;
+      }
+      if (refs.wmSuggest) {
+        refs.wmSuggest.hidden = !!_wmLs.length || !S.wmSuggestion;
+        if (S.wmSuggestion) refs.wmSuggest.textContent = '지난 ' + (S.wmSuggestion.industry || '샵') + ' 스타일 적용';
+      }
       // [#5] 시술내용 텍스트가 이미 올라왔으면 그걸 선택 → setTool('text')이 빈 '내용을 입력하세요'를 덧붙이지 않음.
       var firstText = S.layers.filter(function (L) { return L.type === 'text'; })[0];
       if (firstText) selectLayer(firstText);   // 텍스트 선택 → selectLayer 가 폰트 패널까지 연다(조건부 노출)
@@ -3980,7 +4199,7 @@
     var Wpx = EXPORT_W, Hpx = Math.round(Wpx * rh / rw);
     S = { layers: [], active: null, tool: null, layout: LAYOUTS[0], layoutOrder: [],
       brush: 'pen', brushSize: 10, drawColor: COLORS[2], shapeColor: COLORS[2], shapeFill: false, shapeThick: 6,
-      adj: photos.map(function () { return defAdj(); }), adjSel: 0, collageGap: 3, collageBg: '#FFFFFF', collageBgImg: null, cellCrop: [], cellSel: -1, fitMode: 'contain',
+      adj: photos.map(function () { return defAdj(); }), adjSel: 0, presetByPhoto: {}, collageGap: 3, collageBg: '#FFFFFF', collageBgImg: null, cellCrop: [], cellSel: -1, fitMode: 'contain', textColorTarget: 'text',
       ratio: (opts.ratio || '4:5'),
       photoUrl: photo, photoCss: _cssUrl(photo), photos: photos, shopName: '', pz: { scale: 1, tx: 0, ty: 0 }, incoming: (opts.layers || []) };
     refs.layers.innerHTML = ''; refs.frame.className = 'itded__frame';
@@ -4019,10 +4238,20 @@
   function undoWmApply(token) {
     if (!S || !root || !root.classList.contains('is-open')) return 0;
     var Ls = (S.layers || []).filter(function (L) { return L && L._src === 'wm' && (!token || L._wmTok === token); });
-    if (!Ls.length) return 0;
+    var src = (S.undo || []).slice().reverse().filter(function (op) {
+      if (!op || op.op !== 'wmApply') return false;
+      if (!token) return !!((op.Ls || []).length || op.adjPack);
+      return op.wmToken === token || (op.Ls || []).some(function (L) { return L && L._wmTok === token; });
+    })[0];
+    if (!Ls.length && !(src && src.adjPack)) return 0;
     Ls.forEach(function (L) { var i = S.layers.indexOf(L); if (i >= 0) S.layers.splice(i, 1); if (L.el) L.el.remove(); if (S.active === L) S.active = null; });
-    _pushOp({ op: 'wmRemove', Ls: Ls });
-    return Ls.length;
+    var removePack = src && src.adjPack ? _removeMemoryPreset(src.adjPack) : null;
+    _pushOp({ op: 'wmRemove', Ls: Ls, adjPack: removePack, wmToken: token || (src && src.wmToken) });
+    try {
+      var wmLast = window.WorkMemoryEngine && window.WorkMemoryEngine._lastApply;
+      if (wmLast && (!token || wmLast.token === token)) wmLast.undone = true;
+    } catch (_wmDone) { void _wmDone; }
+    return Ls.length || 1;
   }
   window.ItdEditor = { open: open, close: close, compose: compose, undoWmApply: undoWmApply, isOpen: function () { return !!(root && root.classList.contains('is-open')); } };
 })();

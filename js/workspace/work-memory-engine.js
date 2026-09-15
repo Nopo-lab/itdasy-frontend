@@ -41,8 +41,11 @@
     var have = {};
     (base.layers || []).forEach(function (l) { if (l && l.role) have[l.role] = 1; });
     var add = wm.layers.filter(function (l) { return !(l && l.role && have[l.role]); });
-    if (!add.length) return base;
-    return Object.assign({}, base, { layers: (base.layers || []).concat(add) });
+    if (!add.length && !wm.adjustmentPreset) return base;
+    return Object.assign({}, base, {
+      adjustmentPreset: wm.adjustmentPreset || base.adjustmentPreset || null,
+      layers: add.length ? (base.layers || []).concat(add) : (base.layers || [])
+    });
   }
 
   // 위와 같은 role 규칙을 '레이어 배열'에 적용 — 헤드리스 굽기가 쓰는 모양.
@@ -129,7 +132,7 @@
     try { st = WM.toEditState(rec, opts); } catch (_e) { st = null; void _e; }
     if (!st) return null;
     var ls = sanitizeLayers(st.layers);
-    if (!ls.length) return null;
+    if (!ls.length && !st.adjustmentPreset) return null;
     st.layers = ls;
     return st;
   }
@@ -195,7 +198,10 @@
     var sctx = canonicalContext(ctx);
     // [T8-E 성능] 스냅샷은 select 당 **한 번만** 읽고 후보 전체가 재사용한다.
     var snap = (window.WMPersona && window.WMPersona.snapshot()) || null;
-    var scored = mems.map(function (m) { return { m: m, s: scoreMemory(m, sctx, snap) }; });
+    var policy = window.WorkMemoryPolicy;
+    var eligible = policy && policy.canAutoApply
+      ? mems.filter(function (m) { return policy.canAutoApply(m, ctx); }) : mems;
+    var scored = eligible.map(function (m) { return { m: m, s: scoreMemory(m, sctx, snap) }; });
     scored.sort(function (a, b) {
       if (b.s.total !== a.s.total) return b.s.total - a.s.total;
       var dt = _touch(b.m) - _touch(a.m);
@@ -213,6 +219,25 @@
       reason: win ? { parts: win.s.parts, total: win.s.total, personalization: win.s.persona || null } : { via: 'none' },
       candidates: scored.map(function (x) { return { id: x.m.id, total: x.s.total }; })
     };
+  }
+
+  /* 자동 적용 동의와 별개인 '추천만 보기'. 같은 계정·업종·목적의 동의된 기억만 고른다. */
+  function selectRecommendation(ctx) {
+    ctx = ctx || {};
+    var WM = window.WorkMemory, policy = window.WorkMemoryPolicy;
+    if (!WM || !WM.list || !policy || !policy.canRecommend) return { memory: null, candidates: [] };
+    if (WM.recommendOn && !WM.recommendOn()) return { memory: null, candidates: [] };
+    var sctx = canonicalContext(ctx);
+    var snap = (window.WMPersona && window.WMPersona.snapshot()) || null;
+    var scored = WM.list().filter(function (m) { return policy.canRecommend(m, ctx); })
+      .map(function (m) { return { m: m, s: scoreMemory(m, sctx, snap) }; });
+    scored.sort(function (a, b) {
+      if (b.s.total !== a.s.total) return b.s.total - a.s.total;
+      var dt = _touch(b.m) - _touch(a.m); if (dt) return dt;
+      return a.m.id < b.m.id ? -1 : (a.m.id > b.m.id ? 1 : 0);
+    });
+    return { memory: scored[0] ? scored[0].m : null,
+      candidates: scored.map(function (x) { return { id: x.m.id, total: x.s.total }; }) };
   }
 
   // ── 선택 해석 [T3] — 세 경로 공용 ─────────────────────────────
@@ -277,10 +302,12 @@
     var out = [];
     if (ss) {
       out.push({ via: 'style_exact', want: [ss, sv, pc, kd, ba] });
-      out.push({ via: 'style_service', want: [ss, sv, null, null, null] });
+      // 같은 샵스타일 안에서도 완성샷/이벤트/전후사진은 다르다.
+      // 사진 수만 넓히고, 게시목적(kind)·전후(ba)는 유지한다.
+      out.push({ via: 'style_service', want: [ss, sv, null, kd, ba] });
     }
     out.push({ via: 'exact', want: [null, sv, pc, kd, ba] });
-    out.push({ via: 'service', want: [null, sv, null, null, null] });
+    out.push({ via: 'service', want: [null, sv, null, kd, ba] });
     // 같은 조건이 두 번 나오면(상황이 비어 style_service 와 style_exact 가 같아지는 경우) 하나만
     var seen = {};
     return out.filter(function (r) {
@@ -310,7 +337,10 @@
     var sctx = canonicalContext(ctx);
     // [T8-E 성능] 스냅샷은 select 당 **한 번만** 읽고 후보 전체가 재사용한다.
     var snap = (window.WMPersona && window.WMPersona.snapshot()) || null;
-    var scored = mems.map(function (m) { return { m: m, s: scoreMemory(m, sctx, snap) }; });
+    var policy = window.WorkMemoryPolicy;
+    var eligible = policy && policy.canAutoApply
+      ? mems.filter(function (m) { return policy.canAutoApply(m, ctx); }) : mems;
+    var scored = eligible.map(function (m) { return { m: m, s: scoreMemory(m, sctx, snap) }; });
     scored.sort(function (a, b) {
       if (b.s.total !== a.s.total) return b.s.total - a.s.total;
       var dt = _touch(b.m) - _touch(a.m);
@@ -356,6 +386,31 @@
         원장이 "이건 이 스타일" 이라고 눌러서 알려준 정보라 추측보다 정확하다.
      ⚠️ 칸이 늘면 칸당 표본이 준다 → `resolve` 의 계층 조회(§11)가 반드시 같이 있어야 한다.
         스타일별 증거가 없으면 스타일 무관 증거로 내려간다. */
+  /* [2026-09-13 ZH] 기억의 업종이 지금 시술과 **분명히 다른가.** 첫 시술 하나를 소문자·공백 정리로 비교.
+     모르면 다르다고 하지 않는다(기존 동작 유지 · 추측 금지): 지금 시술 미선택 / 업종을 판별할 수 없는 옛 기억.
+     옛 기억(service 필드 없음)은 자동 이름 형식 `시술명 + ' ' + 구조어`(_makeName)와 **정확히 맞을 때만** 시술명을 읽는다.
+     원장이 이름을 바꾼 기억('내 시그니처')이나 시술명 없이 만든 기억('한 장, …')은 모름으로 둔다. */
+  var _AUTO_NAME_RE = /^(.{1,10}) (한 장|전후비교|콜라주 \d+장)(,|$)/;
+  function _svc(v) { return String(v || '').split(',')[0].replace(/\s+/g, ' ').trim().toLowerCase(); }
+  /* 기억의 시술 — service 필드, 없으면 자동 이름("붙임머리 한 장, …")에서만. 모르면 ''. */
+  function _memService(m) {
+    if (!m) return '';
+    if (m.service) return _svc(m.service);
+    var mm = _AUTO_NAME_RE.exec(String(m.name || '').trim());
+    return mm ? _svc(mm[1]) : '';
+  }
+  /* [2026-09-13 ZH 2차] 지금 시술을 **모르는데** 기억은 시술이 분명하면 자동으로 얹지 않는다.
+     라이브 실측: 잇비에 얼굴 사진 + "글씨 얼굴 안 가리게 아래로 내려줘" → 작업실이 **시술을 고르기 전에** 편집기를 먼저 연다
+     → 1차 규칙("모르면 기존 동작")으로 붙임머리 기억이 통과해 💎 가 손님 **얼굴 위에** 얹혔다.
+     같은 시술인지 확인할 수 없으면 확인된 게 아니다. 둘 다 모르는 옛 기억(이름 바꾼 것)만 기존 동작. */
+  function _serviceMismatch(m, current) {
+    if (!m) return false;
+    var ms = _memService(m);
+    if (!ms) return false;
+    var cur = _svc(current);
+    if (!cur) return true;
+    return m.service ? ms !== cur : ms !== cur.slice(0, 10);
+  }
   function _setLast(info) { try { window.WorkMemoryEngine._lastSelect = info; } catch (_e) { void _e; } }
   /* once('이 스타일로 또') > auto(select) > ★(auto OFF 일 때만).
      consumeOnce: 편집기 경로만 true — 헤드리스(미리보기)가 1회 지정을 소비하면
@@ -368,18 +423,40 @@
       if (!mode.ignoreFlag && !(WM.flagOn && WM.flagOn())) return null;
       var once = mode.consumeOnce ? (WM.takeOnce ? WM.takeOnce() : null) : (WM.peekOnce ? WM.peekOnce() : null);
       if (once) { _setLast({ via: 'once', memoryId: once.id }); return { rec: once }; }
+      if (!mode.ignoreFlag && WM.recommendOn && !WM.recommendOn()) {
+        _setLast({ via: 'recommend-off', memoryId: null }); return null;
+      }
       var auto = WM.autoOn ? WM.autoOn() : true;
       if (auto) {
         var s = select({
           photoCount: o.photoCount, hasBeforeAfter: o.hasBeforeAfter, service: o.service,
-          texts: (o.incoming || []).map(function (l) { return l && l.text; })
+          texts: (o.incoming || []).map(function (l) { return l && l.text; }),
+          industry: o.industry, occasion: o.occasion, kind: o.kind, accountId: o.accountId
         });
+        /* [2026-09-13 ZH] 🔴 **다른 시술 사진에 원장 동의 없이 꾸밈이 얹혔다.**
+           `select` 는 점수 1등을 **무조건** 돌려주고(최소 점수 없음) 점수에 **업종 축이 없다.**
+           그래서 기억이 하나뿐이면 어느 시술이든 그게 이긴다.
+           실측(2026-09-13, 라이브 계정): 붙임머리 글에 ✨💎 스티커 + '첫 방문 이벤트' → 저장(기억 1개 자동 생성)
+           → 다음 글 **젤네일** 사진의 캡션 미리보기(= 발행본)에 💎 가 구워져 나왔다.
+           로그: via auto · kindFit −30 인데도 total 37 로 유일 후보라 채택. 글자는 dynamic 으로 빠졌지만 스티커는 통과.
+           → 기억의 시술이 지금 시술과 **분명히 다르면** 자동으로 얹지 않는다(모르면 기존 동작 — 추측 금지).
+             원장이 직접 고른 once('이 스타일로 또')·잇비 "평소 하던 대로"(ignoreFlag)는 그대로다. */
+        if (s.memory && !mode.ignoreFlag && _serviceMismatch(s.memory, o.service)) {
+          _setLast({ via: 'none', memoryId: null, reason: { blocked: 'service-mismatch', memoryId: s.memory.id }, candidates: s.candidates });
+          return null;
+        }
         _setLast({ via: s.memory ? 'auto' : 'none', memoryId: s.memory ? s.memory.id : null, reason: s.reason, candidates: s.candidates });
         return s.memory ? { rec: s.memory } : null;
       }
-      var fav = WM.getDefault && WM.getDefault();
-      _setLast({ via: fav ? 'favorite' : 'none', memoryId: fav ? fav.id : null });
-      return fav ? { rec: fav } : null;
+      // 정책 파일이 없는 Node 특성화 테스트에서는 예전 ★ 계약을 재현한다.
+      // 실제 앱에서는 추천만 보여주고 자동으로 얹지 않는다.
+      if (!window.WorkMemoryPolicy) {
+        var fav = WM.getDefault && WM.getDefault();
+        _setLast({ via: fav ? 'favorite' : 'none', memoryId: fav ? fav.id : null });
+        return fav ? { rec: fav } : null;
+      }
+      _setLast({ via: 'recommendation-only', memoryId: null });
+      return null;
     } catch (_e) { void _e; return null; }
   }
 
@@ -442,15 +519,46 @@
     // [T4] 얹는 레이어에 출처+적용 토큰 — 배너 '되돌리기'/편집기 undoWmApply 가 이 identity 로만 지운다.
     //   사용자 레이어·우리샵 레이어는 안 건드리는 게 목표(오염 금지 — 합의 조건 3).
     //   토큰은 적용마다 새로 — 오래된 배너가 최신 적용을 못 되돌린다(조건 6).
-    if (wm && wm.layers && wm.layers.length) {
+    if (wm && ((wm.layers && wm.layers.length) || wm.adjustmentPreset)) {
       var tok = 'wm' + (_applySeq++);
-      wm.layers = wm.layers.map(function (l) { return Object.assign({}, l, { _src: 'wm', _wmTok: tok }); });
+      wm.layers = (wm.layers || []).map(function (l) { return Object.assign({}, l, { _src: 'wm', _wmTok: tok }); });
       // [T5] 얹은 role 없는 문구 목록 — 저장 완료 시 '지워진 문구'(dismissed) 판정의 기준선.
       var wmTexts = wm.layers.filter(function (l) { return l && !l.role && (l.type === 'text' || l.type === 'badge') && l.text; })
         .map(function (l) { return normalizeText(l.text); });
       try { window.WorkMemoryEngine._lastApply = { token: tok, memoryId: pick.rec.id, count: wm.layers.length, texts: wmTexts, undone: false }; } catch (_e2) { void _e2; }
     }
     return wm;
+  }
+
+  /* 자동 적용이 꺼진 편집기에 보여줄 한 탭 추천. 이 단계에서는 화면에 아무것도 얹거나
+     사용 횟수를 올리지 않는다. 원장이 눌렀을 때 acceptSuggestion 이 확정한다. */
+  function recommendForEditor(o) {
+    o = o || {};
+    var WM = window.WorkMemory;
+    if (o.restore || !WM || !WM.toEditState) return null;
+    var picked = selectRecommendation(o); if (!picked.memory) return null;
+    var state = _toSafeState(WM, picked.memory, {
+      incoming: o.incoming || [], photoCount: o.photoCount, layersOnly: !!o.layersOnly
+    });
+    if (!state || ((!state.layers || !state.layers.length) && !state.adjustmentPreset)) return null;
+    var tok = 'wmr' + (_applySeq++);
+    state.layers = (state.layers || []).map(function (l) { return Object.assign({}, l, { _src: 'wm', _wmTok: tok }); });
+    return { token: tok, memoryId: picked.memory.id, name: picked.memory.name || '지난 스타일',
+      industry: picked.memory.industry, occasion: picked.memory.occasion,
+      adjustmentPreset: picked.memory.adjustmentPreset || null, state: state };
+  }
+
+  function acceptSuggestion(suggestion) {
+    var WM = window.WorkMemory;
+    if (!suggestion || !/^wmr\d+$/.test(String(suggestion.token || '')) || !WM || !WM.get) return false;
+    if (!WM.get(suggestion.memoryId)) return false;
+    var ls = suggestion.state && suggestion.state.layers || [];
+    var texts = ls.filter(function (l) { return l && !l.role && (l.type === 'text' || l.type === 'badge') && l.text; })
+      .map(function (l) { return normalizeText(l.text); });
+    if (WM.markApplied) WM.markApplied(suggestion.memoryId);
+    try { window.WorkMemoryEngine._lastApply = { token: suggestion.token, memoryId: suggestion.memoryId,
+      count: ls.length, texts: texts, undone: false }; } catch (_e) { void _e; }
+    return true;
   }
 
   window.WorkMemoryEngine = {
@@ -466,8 +574,11 @@
     sanitizeLayers: sanitizeLayers,
     scoreMemory: scoreMemory,
     select: select,
+    selectRecommendation: selectRecommendation,
     decorateLayers: decorateLayers,
     forEditor: forEditor,
+    recommendForEditor: recommendForEditor,
+    acceptSuggestion: acceptSuggestion,
     _lastSelect: null,       // QA·잇비 역추적 — 마지막 선택의 via/후보 점수
     _lastContextKey: null,   // [T8-H] 마지막 select 가 쓴 context key — 학습 key 와의 parity 검증용
     _lastPersonalize: null,  // [T8-H+] 마지막 feature 보정 { layers, applied, skipped, reasons } — QA 역추적

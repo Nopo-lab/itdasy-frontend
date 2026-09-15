@@ -27,7 +27,9 @@ function strip(s) {
 /** app-core 의 401 처리 구간만 잘라낸다. */
 function refreshBlock() {
   const src = strip(CORE);
-  const i = src.indexOf('await _tryRefresh()');
+  // [2026-09-13] 앵커는 **401 핸들러의** 갱신 호출(`newTok = await _tryRefresh()`)이다.
+  //   선제 갱신 헬퍼(_ensureFreshToken)에도 `await _tryRefresh()` 가 있어서 첫 매치를 잡으면 엉뚱한 구간이 된다.
+  const i = src.indexOf('newTok = await _tryRefresh()');
   expect(i).toBeGreaterThan(0);
   const start = src.lastIndexOf('if (!getToken())', i);
   const end = src.indexOf('Retry-After', i);

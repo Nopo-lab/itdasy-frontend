@@ -42,7 +42,7 @@
 
     const titleEsc = String(opts.title || '').replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
     overlay.innerHTML = `
-      <div class="hub-header">
+      <div class="hub-header" style="background:var(--surface,#fff);">
         <button class="hub-back" type="button" aria-label="닫기" data-gs-act="close">
           <svg width="16" height="16" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
         </button>

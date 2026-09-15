@@ -1,6 +1,9 @@
 # BOARD — 터미널 상태 대시보드
 
-**LAST UPDATED:** 2026-06-24 by Codex (v550 ROI 안전 수정 — Android 대기)
+**LAST UPDATED:** 2026-09-15 by Codex (외부 공개 인스타 계정 스타일 QA 통로 — LIVE FE PASS / BE PR OPEN)
+
+bootstrap:OK @ 2026-09-14 13:14
+bootstrap:OK @ 2026-09-15 07:15
 
 bootstrap:OK @ 2026-05-21 02:05
 bootstrap:OK @ 2026-05-21 13:30
@@ -31,6 +34,139 @@ bootstrap:OK @ 2026-06-16 20:24
 bootstrap:OK @ 2026-06-17 15:24
 bootstrap:OK @ 2026-06-18 07:17
 bootstrap:OK @ 2026-06-24 07:53
+
+---
+
+## 2026-09-15 — 외부 공개 인스타 계정 스타일 QA 통로 (Codex, LIVE FE PASS / BE PR OPEN)
+
+완료:
+- 인스타 브라우저 검색은 무로그인 상태에서 로그인 화면으로 막힘 확인.
+- 공식 Business Discovery 조회 통로를 백엔드에 추가.
+- 프론트에 외부 공개 계정 미리보기 모듈 추가. 기본 저장 없음.
+- `InstagramTextStyle.build(..., { save:false })` 추가로 남의 계정 스타일이 내 원장 스타일에 자동 저장되지 않게 함.
+
+확인:
+- 프론트 관련 테스트 109개 통과.
+- 백엔드 관련 테스트 30개 통과.
+- 자동 검사 에러 0개, 기존 경고 203개.
+- 작업실 흐름 9/9, 뒤로가기 검사 통과.
+- 프론트 배포 성공: `20260915-0309-5985b0d`.
+- 백엔드 PR: https://github.com/Nopo-lab/itdasy_backend-test/pull/61
+
+주의:
+- 백엔드 운영 main 머지는 하지 않음. PR에서 검토/승격 필요.
+- 새 파일 git 등록 후 전체 테스트 재검 통과.
+
+산출물:
+- `js/photo/social-style-source.js`
+- `js/photo/__tests__/social-style-source-2026-09-15.test.js`
+- `../itdasy_backend-test/backend/tests/test_instagram_business_discovery_2026_09_15.py`
+- `output/INSTAGRAM_BUSINESS_DISCOVERY_STYLE_QA_2026-09-15.md`
+
+---
+
+## 2026-09-15 — 원장 스타일 학습 다양성 흐름 QA (Codex, LIVE PASS)
+
+완료:
+- 한 원장이 완성샷/이벤트/전후사진/샵스타일 A/B를 섞어 쓰는 상황을 실제 학습 저장소 흐름으로 검증.
+- 전후사진 취향이 일반 완성샷으로 내려올 수 있는 길을 테스트가 발견해 수정.
+- 사진 수만 넓게 참고하고, 게시 목적과 전후 여부는 계속 분리하도록 학습 사다리 보강.
+- 이벤트 스타일은 이벤트 칸 안에서만 배우고, 이벤트 문구 내용은 계속 학습하지 않게 유지.
+
+확인:
+- 새 다양성 QA 3개 통과.
+- 학습 관련 검사 28묶음·557개 통과.
+- 전체 자동검사 195묶음·3,139개 통과.
+- 현재 작업실 흐름 9/9 통과.
+- 앱 파일 연결 검사, 뒤로가기 오버레이 검사 통과.
+- LIVE BUILD `20260914-2251-fa6fcf2` 확인.
+
+산출물:
+- `js/workspace/__tests__/work-memory-diverse-owner-style-flow-2026-09-15.test.js`
+- `output/STYLE_LEARNING_DIVERSE_OWNER_FLOW_QA_2026-09-15.md`
+
+---
+
+## 2026-09-15 — 실제 공개 뷰티 이미지 스타일 학습 QA (Codex, LIVE PASS)
+
+완료:
+- 실제 공개 뷰티 이미지 URL 9개 다운로드 시도, 7개 성공.
+- 네일/속눈썹/왁싱/헤어 실제 공개 사진으로 로컬 픽셀 분석 실행.
+- 스테이징 서버 Vision API `/instagram-style/analyze` 실제 호출: 인증 없음 401 확인.
+- 서비스별 학습 프로필 생성.
+
+산출물:
+- `scripts/real-source-style-learning-qa.py`
+- `output/real-source-style-learning-qa/real-source-style-learning-qa.json`
+- `output/real-source-style-learning-qa/REAL_SOURCE_STYLE_LEARNING_QA.md`
+
+주의:
+- 원본 이미지는 저작권 때문에 커밋하지 않고 로컬에만 보관.
+- 서버 Vision 실분석은 QA 로그인 토큰 필요.
+- LIVE BUILD `20260914-2235-caf6f49` 확인.
+
+---
+
+## 2026-09-15 — 원장 스타일 학습 다중 원장 QA (Codex, PASS / 배포 대기)
+
+완료:
+- 여러 원장 인스타 피드처럼 `instagram_observed` 프로필을 만들어 학습 품질 확인.
+- 네일/속눈썹/헤어/왁싱·피부 스타일이 서로 섞이지 않는지 확인.
+- 글자를 안 쓰는 원장, 반반 갈리는 원장, 직접 편집으로 덮은 원장, 브랜드색 지정 원장을 모두 검사.
+
+확인:
+- 새 QA 6개 통과.
+- 관련 학습 검사 153개 통과.
+- 전체 자동검사 3,136개 통과.
+- 현재 작업실 흐름 9/9 통과.
+- 보고서: `output/STYLE_LEARNING_MULTI_OWNER_QA_2026-09-15.md`.
+
+주의:
+- 임의 인스타 계정 무단 수집은 하지 않음. 연결된 QA 인스타 계정이 있으면 같은 틀로 추가 검증 가능.
+
+---
+
+## 2026-09-15 — 현재 작업실 사진편집 조작감 보강 (Codex, DEPLOY WEB PASS)
+
+완료:
+- 최신 작업실 `ItdEditor` 기준으로 텍스트·스티커 확대 손잡이 조작을 정리.
+- 우하단 손잡이 하나로 좌우=가로 확대, 상하=세로 확대가 되게 함.
+- 글자 크기가 누를 때/뗄 때 다르게 보이는 문제를 막기 위해 화면 표시, 저장, 재편집, 합성 값을 같은 기준으로 맞춤.
+- 색상 UI를 한 줄 색상표 + `글자/배경` 선택으로 단순화.
+- 텍스트 배경색과 글자색을 따로 저장·복원.
+- 원장 스타일 학습 신호 검사를 최신 편집기 기준으로 보강.
+
+확인:
+- 전체 자동 검사 3,130개 통과.
+- 현재 작업실 흐름 9/9 통과.
+- 앱 파일 연결 검사 통과.
+- 뒤로가기 오버레이 검사 통과.
+- 모바일 크기 브라우저에서 합성 네일 사진으로 색상표 1개, 확대 가로·세로 증가 확인.
+- GitHub Pages 배포 완료: `0f25f64`. 라이브 파일에서 새 편집기 코드 확인.
+
+주의:
+- 실제 고객 사진·인스타 공개 발행은 하지 않음.
+- 작업 전부터 있던 요금제 파일 변경은 이번 작업과 별개라 제외.
+
+---
+
+## 2026-09-14 — 최신 작업실 사진편집 업그레이드 (Codex, DEPLOY WEB PASS / ANDROID BLOCKED)
+
+완료:
+- 현재 앱 작업실과 사진편집기 기준으로 스타일 기억 안전화.
+- 자동 적용 기본 꺼짐, 계정·업종·게시 목적 섞임 차단.
+- 동의 화면, 추천/자동 끄기, 업종별 초기화, 스타일 빼기 추가.
+- 뷰티 보정 9개, 살롱 SVG 스티커 29개, 새 글자 하단 배치 추가.
+- 보정만 기억한 스타일도 적용·빼기·재편집 표시까지 확인.
+- 전체 검사 3,124개 통과, 현재 작업실 흐름 9/9 통과, 새 자동 검사 오류 0개.
+- GitHub Pages 배포 완료: `20260914-1357-277e533` / 커밋 `277e533`.
+- 배포 웹에서 저장→재편집→보정 프리셋 유지 PASS.
+- iOS 새 빌드 로그인 화면 로드 PASS.
+- 보고서: `output/WORKSHOP_NORTH_STAR_IMPLEMENTATION_2026-09-14.md`.
+
+대기:
+- Android 설치본은 옛 개발 서버를 보고 있어 제외. 새 Android 빌드는 Java 21 부재로 막힘.
+- QA 계정 네이티브 전체 흐름과 4업종 실사진 비교 전 GREEN 선언 안 함.
 
 ---
 

@@ -14,7 +14,42 @@
   function has(fn) { return typeof fn === 'function'; }
   function authHeader() { return has(window.authHeader) ? (window.authHeader() || {}) : {}; }
   function loggedIn() { var h = authHeader(); return !!(h && h.Authorization); }
-  function ready() { return enabled() && loggedIn() && has(window.apiFetch) && has(window.saveSlotToDB); }
+  /* [2026-09-13 ZH 🔴 계정 격리] **같은 브라우저의 다른 탭에서 다른 계정으로 로그인하면, 이 탭의 작업이 그 계정 서버로 올라갔다.**
+     라이브 실측: 이 탭은 계정 5 로 네일 글을 편집·저장 → 그 사이 같은 프로필의 다른 탭이 계정 4 로 로그인 →
+     24초 뒤 `/workspace/slots/upsert` 가 **계정 4 토큰**으로 나가 계정 4 서버 목록에 계정 5 글(사진·캡션)이 생겼다.
+     원인: 토큰·`last_user_id`·`itdasy_gdb_owner` 가 전부 **탭 공용 localStorage** 라, 다른 탭 로그인이 셋을 함께
+     바꿔 기존 소유자 도장 가드가 통과한다. 탭마다 다른 건 메모리뿐이다.
+     → ① 이 탭 세션의 계정을 메모리에 기억(같은 탭 로그인 `itdasy:session-ready` 때만 바꾼다)
+       ② 토큰의 계정이 그와 다르면 서버 쓰기·삭제·받기를 전부 멈추고 한 번 알린다
+       ③ 저장하는 슬롯에 계정 도장(_owner, 로컬 전용 — payload 는 화이트리스트라 안 나간다)을 찍고,
+          도장이 지금 토큰 계정과 다른 슬롯은 **어느 탭에서도** 올리지 않는다(다른 탭의 pushAll 도 막힘). */
+  var _sessionUser = null, _switchWarned = false;
+  function _tokenSub() {
+    try {
+      var h = authHeader(); var t = h && h.Authorization ? String(h.Authorization).replace(/^Bearer\s+/i, '') : '';
+      if (!t) return null;
+      var p = JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      return p && p.sub != null ? String(p.sub) : null;
+    } catch (_e) { return null; }
+  }
+  function sessionUser() { if (_sessionUser == null) _sessionUser = _tokenSub(); return _sessionUser; }
+  function accountSwitched() {
+    var s = sessionUser(), cur = _tokenSub();
+    var sw = !!(s && cur && s !== cur);
+    if (sw && !_switchWarned) {
+      _switchWarned = true;
+      try { if (window.showToast) window.showToast('다른 탭에서 다른 계정으로 로그인했어요 — 이 탭의 작업은 서버에 올리지 않았어요. 새로고침해 주세요'); } catch (_t) { void _t; }
+      try { window.dispatchEvent(new CustomEvent('itdasy:account-switched', { detail: { session: s, token: cur } })); } catch (_e) { void _e; }
+    }
+    return sw;
+  }
+  function foreignSlot(slot) { var cur = _tokenSub(); return !!(slot && slot._owner && cur && String(slot._owner) !== cur); }
+  // 같은 탭에서 로그인했을 때만 이 탭의 주인을 바꾼다(구독은 아래 session-ready 한 줄 — sync 보다 먼저 부른다).
+  function _adoptSession(e) {
+    _sessionUser = (e && e.detail && e.detail.userId != null) ? String(e.detail.userId) : _tokenSub();
+    _switchWarned = false;
+  }
+  function ready() { return enabled() && loggedIn() && has(window.apiFetch) && has(window.saveSlotToDB) && !accountSwitched(); }
   function log() { if (window.__ITDASY_SYNC_DEBUG__) { try { console.log.apply(console, ['[wssync]'].concat([].slice.call(arguments))); } catch (_e) { void 0; } } }
 
   // 래핑 전에 잡아둔 원본(서버→로컬 반영 시 dirty 재표시 방지에 사용).
@@ -419,18 +454,42 @@
 
   // ── PUSH — dirty slot 업서트 + tombstone 삭제 반영 ───────────
   var _pushing = false;
+  /* [2026-09-13 ZH] 🔴 **서버에 못 올라갔는데 원장은 알 방법이 없었다.**
+     push 가 500·네트워크 끊김·세션 만료로 실패하면 슬롯은 로컬에 dirty 로 남고(데이터는 안전) 다음 트리거에서
+     재시도되지만, 화면엔 편집기의 "사진을 꾸몄어요" 만 뜨고 **`syncState` 를 읽는 UI 가 한 곳도 없었다.**
+     그래서 원장은 다른 기기에서 안 보이는 이유를 모르고, 서버가 회복돼도 앱이 그대로 켜져 있으면 재시도 트리거가 없었다.
+     실측(2026-09-13, 라이브 계정 · upsert 를 500 으로 막음): push 2회 모두 실패·dirty 유지, 안내 0.
+     → push 가 끝날 때마다 남은 개수와 실패 여부를 이벤트로 알리고, 실패→회복 **전이**에서만 한 번씩 말한다.
+       실패로 남아 있으면 화면이 보이는 동안 1분마다 다시 올려 본다. */
+  var _status = { pending: 0, failed: false, at: 0 };
+  var _roundFailed = false, _retryTimer = null;
+  function status() { return { pending: _status.pending, failed: _status.failed, at: _status.at }; }
+  function _publishStatus(slots) {
+    var pending = (slots || []).filter(function (s) { return s && s.syncState !== 'synced'; }).length;
+    var failed = _roundFailed && pending > 0;
+    var wasFailed = _status.failed, hadPending = _status.pending;
+    _status = { pending: pending, failed: failed, at: Date.now() };
+    try {
+      if (failed && !wasFailed && window.showToast) window.showToast('서버에 아직 못 올렸어요 — 작업은 이 기기에 있어요. 연결되면 자동으로 올라가요');
+      else if (!failed && wasFailed && hadPending > 0 && pending < hadPending && window.showToast) window.showToast('이 기기에 있던 작업을 서버에 올렸어요');
+    } catch (_t) { void _t; }
+    try { window.dispatchEvent(new CustomEvent('itdasy:sync-status', { detail: status() })); } catch (_e) { void _e; }
+    if (_retryTimer) { clearTimeout(_retryTimer); _retryTimer = null; }
+    if (failed) _retryTimer = setTimeout(function () { _retryTimer = null; if (!document.hidden) pushAll(); }, 60000);
+  }
   function pushAll() {
     if (!ready() || _pushing) return Promise.resolve();
     _pushing = true;
+    _roundFailed = false;
     return flushTombstones()
       .then(loadAllLocal)
       .then(function (slots) {
-        var dirty = (slots || []).filter(function (s) { return s && s.syncState !== 'synced'; });
+        var dirty = (slots || []).filter(function (s) { return s && s.syncState !== 'synced' && !foreignSlot(s); });
         log('push dirty', dirty.length);
         return dirty.reduce(function (p, slot) { return p.then(function () { return pushSlot(slot); }); }, Promise.resolve());
       })
-      .catch(function (e) { log('pushAll err', e); })
-      .then(function () { _pushing = false; });
+      .catch(function (e) { log('pushAll err', e); _roundFailed = true; })
+      .then(function () { _pushing = false; return loadAllLocal().then(_publishStatus, function () { void 0; }); });
   }
   function pushSlot(slot) {
     var startedAt = slot && slot.updatedAt;   // [버그수정 2026-07-09 TOCTOU] push 시작 스냅샷
@@ -451,7 +510,10 @@
       var _mark = (slot && _origSaveSlot)
         ? Promise.resolve().then(function () { slot._pending = _pendingBase; return _origSaveSlot(slot); }).catch(function () {})
         : Promise.resolve();
-      return _mark.then(function () { return window.apiFetch('/workspace/slots/upsert', {
+      return _mark.then(function () {
+        // 사진 업로드를 기다리는 사이 다른 탭이 계정을 바꿨을 수 있다 — 보내기 직전에 한 번 더.
+        if (accountSwitched() || foreignSlot(slot)) { _roundFailed = true; return null; }
+        return window.apiFetch('/workspace/slots/upsert', {
         method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, authHeader()), body: JSON.stringify(payload),
       }).then(function (r) {
         // [M2·M3] 409 = 내가 본 리비전 이후 다른 기기가 바꿈 → 덮어쓰지 말고 3-way 병합.
@@ -459,6 +521,7 @@
           var remote = b && b.detail && b.detail.slot;
           return remote ? resolveConflict(slot, remote).then(function () { return { _conflict: true }; }) : null;
         });
+        if (!r.ok) _roundFailed = true;   // 서버 오류·권한·세션 만료 — 이번 라운드는 실패로 센다
         return r.ok ? r.json() : null;
       }); }).then(function (j) {
         if (j && j._conflict) return;   // 병합이 처리 — 이번 push 는 여기서 끝(병합본이 dirty 로 남아 다음 push)
@@ -489,6 +552,7 @@
       });
     }).catch(function (e) {
       log('pushSlot err', slot && slot.id, e);
+      _roundFailed = true;
       /* 응답을 못 받았다 = 서버가 커밋했는지 **모른다.** 보낸 내용의 지문을 남겨
          다음 409 에서 '내 것이 늦게 도착한 것' 인지 가릴 수 있게 한다.
          새로고침을 겪어도 살아남아야 하므로 로컬에 영속한다(재-dirty 안 하는 원본 저장). */
@@ -530,14 +594,21 @@
     }
     // 진짜 충돌 — 서버본을 원본 자리에, 내 것은 사본으로 남긴다(둘 다 보존).
     log('conflict needs human', local.id, res.conflicts);
+    /* [2026-09-13 P1] `conflictOf` 를 같이 심는다.
+       왜: 여태 '이건 충돌 사본이다' 를 말해 주는 건 **id 규약과 라벨 문자열뿐**이었다.
+           라벨은 MERGE_FIELDS 라 이후 병합에서 서버 값으로 덮일 수 있고(실측: 사본 라벨에
+           '(다른 기기 수정본)' 이 없었다), id 규약은 화면 쪽에서 알아채기 어렵다.
+           META_SKIP 에 없으므로 meta 로 서버까지 왕복해 기기를 바꿔도 살아남는다. */
     var mine = Object.assign({}, local, {
       id: String(local.id) + '_conflict_' + Date.now(),
       label: (local.label || '작업') + ' (다른 기기 수정본)',
+      conflictOf: String(local.id),
+      conflictAt: Date.now(),
       _rev: null, _base: null, _pending: null, updatedAt: Date.now(), syncState: 'dirty',
     });
     delete mine._pending;
     var srv = Object.assign({}, remote, {
-      id: local.id, _rev: remoteRaw.server_updated_at || null, syncState: 'synced',
+      id: local.id, _rev: remoteRaw.server_updated_at || null, syncState: 'synced', _owner: local._owner,
     });
     srv._base = makeBase(srv);
     return Promise.resolve(_origSaveSlot(srv)).catch(function () {})
@@ -552,6 +623,7 @@
     return allTombstones().then(function (tombs) {
       return (tombs || []).reduce(function (p, t) {
         return p.then(function () {
+          if (accountSwitched()) return null;   // 다른 계정 토큰으로 같은 id 를 지우지 않는다
           return window.apiFetch('/workspace/slots/' + encodeURIComponent(t.slot_id), { method: 'DELETE', headers: authHeader() })
             .then(function (r) { if (r.ok) return delTombstone(t.slot_id); })
             .catch(function (e) { log('tomb del err', e); });
@@ -561,7 +633,7 @@
   }
 
   // ── PULL — delta 병합(LWW) ──────────────────────────────────
-  var _pulling = false;
+  var _pulling = false, _pullUser = null;
   function pull() {
     if (!ready() || _pulling) return Promise.resolve();
     _pulling = true;
@@ -575,6 +647,7 @@
          로컬이 0건이면 커서를 버리고 전량 받는다. 이미 지운 글은 아래 tombstone 가드가 막는다. */
       if (since && (!_cur[1] || _cur[1].length === 0)) { log('pull full — local empty, cursor dropped'); since = null; }
       var url = '/workspace/slots' + (since ? ('?since=' + encodeURIComponent(since)) : '');
+      _pullUser = _tokenSub();   // 받은 슬롯에는 **요청한 토큰의 계정** 도장을 찍는다
       return window.apiFetch(url, { method: 'GET', headers: authHeader() }).then(function (r) { return r.ok ? r.json() : null; });
     }).then(function (resp) {
       if (!resp || !Array.isArray(resp.slots)) return;
@@ -609,7 +682,9 @@
                 log('pull skip — local re-edited during pull', rs.slot_id); return;
               }
               changed = true;
-              return Promise.resolve(_origSaveSlot(remoteToLocal(rs))).catch(function () { applyFailed = true; });
+              if (accountSwitched()) return;   // 받는 사이 계정이 바뀌었으면 옛 계정 글을 이 저장소에 쓰지 않는다
+              var _rl = remoteToLocal(rs); if (_rl && _pullUser) _rl._owner = _pullUser;
+              return Promise.resolve(_origSaveSlot(_rl)).catch(function () { applyFailed = true; });
             });
           });
         }, Promise.resolve()).then(function () {
@@ -691,7 +766,7 @@
     if (has(window.saveSlotToDB) && !window.saveSlotToDB.__wsSyncWrapped) {
       _origSaveSlot = window.saveSlotToDB;
       var wrappedSave = function (slot) {
-        try { if (slot && typeof slot === 'object') { slot.updatedAt = Date.now(); slot.syncState = 'dirty'; } } catch (_e) { void 0; }
+        try { if (slot && typeof slot === 'object') { slot.updatedAt = Date.now(); slot.syncState = 'dirty'; if (!slot._owner && sessionUser()) slot._owner = sessionUser(); } } catch (_e) { void 0; }
         var out = _origSaveSlot.apply(this, arguments);
         // 편집 플로우 열려 있으면(coalesce) 즉시 push 대신 idle 백스톱만 — 정착 때 1회 업로드.
         Promise.resolve(out).then(function () { if (COALESCE() && _flowOpen) _armIdle(); else schedulePush(); }).catch(function () {});
@@ -784,7 +859,7 @@
     try {
       if (localStorage.getItem(PURGE_PENDING_KEY) === '1') clearLocal();
     } catch (_e) { void 0; }
-    window.WorkspaceSync = { enabled: true, sync: sync, pull: pull, push: pushAll, hydratePhotos: hydratePhotos, beginEdit: beginEdit, settleSlot: settleSlot, clearLocal: clearLocal, _debug: { buildPayload: buildPayload, remoteToLocal: remoteToLocal, hydratePhotos: hydratePhotos, merge3: merge3, makeBase: makeBase, photoSig: photoSig } };
+    window.WorkspaceSync = { enabled: true, status: status, sync: sync, pull: pull, push: pushAll, hydratePhotos: hydratePhotos, beginEdit: beginEdit, settleSlot: settleSlot, clearLocal: clearLocal, _debug: { accountSwitched: accountSwitched, foreignSlot: foreignSlot, buildPayload: buildPayload, remoteToLocal: remoteToLocal, hydratePhotos: hydratePhotos, merge3: merge3, makeBase: makeBase, photoSig: photoSig } };
     // 최초 동기화 — 로그인 상태 갖춰지면. 아니면 이후 트리거에서 재시도.
     var tries = 0;
     (function boot() { if (ready()) { sync(); } else if (tries++ < 20) { setTimeout(boot, 800); } })();
@@ -792,7 +867,7 @@
     /* [2026-09-12 BUG-S1] 로그인으로 세션이 생기면 그때 깨어난다.
        부팅 폴링은 16초 만에 포기하고, 같은 탭에서 로그인하면 visibilitychange 도 안 온다.
        그래서 로그인이 늦으면 작업실이 영영 0개로 남았다(서버엔 멀쩡히 있는데도). */
-    window.addEventListener('itdasy:session-ready', function () { sync(); });
+    window.addEventListener('itdasy:session-ready', function (e) { try { _adoptSession(e); } catch (_a) { void _a; } sync(); });
     document.addEventListener('visibilitychange', function () { if (!document.hidden) sync(); });
   }
 

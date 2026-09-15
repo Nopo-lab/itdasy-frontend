@@ -21,30 +21,32 @@ function cleanupBody() {
   return C.slice(i, j > 0 ? j : i + 6000);
 }
 
-describe('되돌리기 — 크기·회전 기록 (2026-09-13)', () => {
-  test('xf 연산을 기록하는 헬퍼가 있고, 실제로 바뀌었을 때만 남긴다', () => {
-    expect(C).toMatch(/function _pushXf\(L, s0, r0\)/);
-    const i = C.indexOf('function _pushXf(L, s0, r0)');
-    const body = C.slice(i, i + 500);
-    // 탭만 하면 안 남긴다 — 변화 없으면 return
-    expect(body).toMatch(/if \(s1 === \(s0 \|\| 1\) && r1 === \(r0 \|\| 0\)\) return;/);
-    expect(body).toMatch(/_pushOp\(\{ op: 'xf', L: L, before: \{ scale: s0 \|\| 1, rot: r0 \|\| 0 \}, after: \{ scale: s1, rot: r1 \} \}\)/);
+describe('되돌리기 — 크기·가로세로 확대·회전 기록 (2026-09-13)', () => {
+  test('xf 연산은 전체배율·가로배율·세로배율·회전을 한 묶음으로 기록한다', () => {
+    expect(C).toMatch(/function _pushXf\(L, before\)/);
+    const i = C.indexOf('function _pushXf(L, before)');
+    const body = C.slice(i, i + 650);
+    // 탭만 하면 안 남긴다 — 네 값이 모두 같으면 return
+    expect(body).toMatch(/after\.scale === \(b\.scale \|\| 1\)/);
+    expect(body).toMatch(/after\.scaleX === \(b\.scaleX \|\| 1\)/);
+    expect(body).toMatch(/after\.scaleY === \(b\.scaleY \|\| 1\)/);
+    expect(body).toMatch(/after\.rot === \(b\.rot \|\| 0\)/);
+    expect(body).toMatch(/_pushOp\(\{ op: 'xf', L: L, before: b, after: after \}\)/);
   });
 
-  test('⤡ 크기 조절(도형 제외)이 끝날 때 기록한다', () => {
-    expect(cleanupBody()).toMatch(/if \(rsd && !rsd\.shape\) _pushXf\(rsd\.L, rsd\.s0, rsd\.r0\);/);
-    // 시작 시점 회전값을 잡아둬야 한다(안 잡으면 before.rot 이 0 으로 틀어진다)
-    expect(C).toMatch(/rsd = \{[^}]*s0: \(L\.scale \|\| 1\), r0: \(L\.rot \|\| 0\),/);
+  test('⤡ 크기 조절(도형 제외)이 끝날 때 가로·세로 시작값까지 기록한다', () => {
+    expect(cleanupBody()).toMatch(/if \(rsd && !rsd\.shape\) _pushXf\(rsd\.L, \{ scale: rsd\.s0, scaleX: rsd\.sx0, scaleY: rsd\.sy0, rot: rsd\.r0 \}\);/);
+    expect(C).toMatch(/rsd = \{[^}]*s0: \(L\.scale \|\| 1\), sx0: _sx\(L\), sy0: _sy\(L\), r0: \(L\.rot \|\| 0\),/);
   });
 
-  test('↺ 회전이 끝날 때 기록한다', () => {
-    expect(cleanupBody()).toMatch(/if \(rotd\) _pushXf\(rotd\.L, rotd\.s0, rotd\.start\);/);
-    expect(C).toMatch(/rotd = \{[^}]*start: \(L\.rot \|\| 0\), s0: \(L\.scale \|\| 1\),/);
+  test('↺ 회전이 끝날 때 가로·세로 시작값을 보존한다', () => {
+    expect(cleanupBody()).toMatch(/if \(rotd\) _pushXf\(rotd\.L, \{ scale: rotd\.s0, scaleX: rotd\.sx0, scaleY: rotd\.sy0, rot: rotd\.start \}\);/);
+    expect(C).toMatch(/rotd = \{[^}]*start: \(L\.rot \|\| 0\), s0: \(L\.scale \|\| 1\), sx0: _sx\(L\), sy0: _sy\(L\),/);
   });
 
   test('두 손가락 핀치가 끝날 때 기록한다(lpinch 를 비우기 **전에**)', () => {
     const body = cleanupBody();
-    const push = body.indexOf('if (_pl) _pushXf(_pl, lpinch.s0, lpinch.r0);');
+    const push = body.indexOf('if (_pl) _pushXf(_pl, { scale: lpinch.s0, scaleX: lpinch.sx0, scaleY: lpinch.sy0, rot: lpinch.r0 });');
     const nul = body.indexOf('lpinch = null;');
     expect(push).toBeGreaterThan(0);
     expect(nul).toBeGreaterThan(push);
@@ -66,7 +68,7 @@ describe('되돌리기 — 크기·회전 기록 (2026-09-13)', () => {
     expect(i).toBeGreaterThan(0);
     const body = C.slice(i, i + 400);
     expect(body).toMatch(/var xf = undo \? op\.before : op\.after;/);
-    expect(body).toMatch(/op\.L\.scale = xf\.scale; op\.L\.rot = xf\.rot; applyXf\(op\.L\);/);
+    expect(body).toMatch(/_applyXfSnap\(op\.L, xf\);/);
     expect(body).toMatch(/if \(op\.L\.type === 'text' && refs\.size\) refs\.size\.value = op\.L\.scale;/);
   });
 

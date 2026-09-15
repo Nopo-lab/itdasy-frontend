@@ -14,12 +14,14 @@
 
   const LABEL_MAX = 20, MAX_ITEMS = 13, ICE_MAX = 4;
   // 고정 항목 설명 + 편집 필드(resp/ack/none) + 토큰 안내
+  // [2026-09-13 카피 정리] 부제(ms) 삭제 — 칩+제목과 같은 말 3번 반복이었다(주저리 금지).
+  //   커스텀 메뉴만 "자동 답장/사장님 직접" 구분이 정보라 _render 폴백으로 유지.
   const FIXED_META = {
-    BOOK_FORM: { mt: '예약 양식 보내기', ms: '탭하면 → 손님에게 양식 바로 발송', edit: 'booking' },
-    HOURS:     { mt: '영업시간 자동 안내', ms: '영업시간을 바로 답장', edit: 'resp', token: '{영업시간}' },
-    LOCATION:  { mt: '위치·주소 자동 안내', ms: '샵 주소를 바로 답장', edit: 'resp', token: '{주소}' },
-    PRICE:     { mt: '가격표 자동 안내', ms: '등록한 가격표를 바로 답장', edit: 'resp', token: '{가격표}' },
-    OTHER:     { mt: '사장님이 직접 답장', ms: '확인 멘트 보낸 뒤 큐에 올림', edit: 'ack' },
+    BOOK_FORM: { mt: '예약 양식 보내기', edit: 'booking' },
+    HOURS:     { mt: '영업시간 자동 안내', edit: 'resp', token: '{영업시간}' },
+    LOCATION:  { mt: '위치·주소 자동 안내', edit: 'resp', token: '{주소}' },
+    PRICE:     { mt: '가격표 자동 안내', edit: 'resp', token: '{가격표}' },
+    OTHER:     { mt: '사장님이 직접 답장', edit: 'ack' },
   };
   const FIXED_ORDER = ['BOOK_FORM', 'HOURS', 'LOCATION', 'PRICE', 'OTHER'];
   const DEFAULT_LABEL = { BOOK_FORM: '예약하기', HOURS: '영업시간', LOCATION: '오시는 길', PRICE: '가격 문의', OTHER: '상세문의' };
@@ -78,6 +80,22 @@
   // ── 미리보기용 실제 저장값 (영업시간/주소/가격표) — 설정 읽기라 사실상 공짜, 무조건 fetch ──
   let _real = null; // { HOURS, LOCATION, PRICE }
   function _won(p) { const n = Number(p); return (p === '' || p == null || isNaN(n)) ? String(p || '') : n.toLocaleString('ko-KR') + '원'; }
+  // [2026-09-13] 영업시간 미리보기 정본 통일 — BE 발송(_dm_hours_lines)은 business_hours_json 만
+  //   읽는데 미리보기는 레거시 d.hours 텍스트를 읽어서, 미리보기와 실제 발송이 달랐다.
+  //   BE 와 같은 포맷("월 10:00–20:00\n일 휴무")으로 JSON 우선, 텍스트는 폴백.
+  const _BH_DAYS = [['mon', '월'], ['tue', '화'], ['wed', '수'], ['thu', '목'], ['fri', '금'], ['sat', '토'], ['sun', '일']];
+  function _bhLines(raw) {
+    let bh = raw;
+    if (typeof bh === 'string') { try { bh = JSON.parse(bh); } catch (_e) { return ''; } }
+    if (!bh || typeof bh !== 'object' || Array.isArray(bh)) return '';
+    const lines = [];
+    _BH_DAYS.forEach(([k, ko]) => {
+      const d = bh[k];
+      if (!d || typeof d !== 'object') return;
+      lines.push(d.off ? `${ko} 휴무` : `${ko} ${d.open || '?'}–${d.close || '?'}`);
+    });
+    return lines.join('\n');
+  }
   async function _fetchReal() {
     const out = { HOURS: '', LOCATION: '', PRICE: '' };
     const auth = window.authHeader ? window.authHeader() : {};
@@ -85,11 +103,11 @@
       const res = await apiFetch(apiUrl('/shop/settings'), { headers: auth });
       if (res.ok) {
         const d = await res.json().catch(() => null) || {};
-        out.HOURS = (d.hours || '').toString().trim();
+        out.HOURS = _bhLines(d.business_hours_json) || (d.hours || '').toString().trim();
         out.LOCATION = (d.address || '').toString().trim();
       }
     } catch (_e) { void _e; }
-    try { if (!out.HOURS) out.HOURS = (localStorage.getItem('itdasy_shop_hours') || '').trim(); } catch (_e) { void _e; }
+    try { if (!out.HOURS) out.HOURS = _bhLines(localStorage.getItem('itdasy_business_hours_json')) || (localStorage.getItem('itdasy_shop_hours') || '').trim(); } catch (_e) { void _e; }
     try { if (!out.LOCATION) out.LOCATION = (localStorage.getItem('itdasy_shop_addr') || '').trim(); } catch (_e) { void _e; }
     try {
       const list = (window.ServiceTemplates && window.ServiceTemplates.list) ? await window.ServiceTemplates.list() : null;
@@ -106,7 +124,8 @@
     const val = (_real && _real[key]) || '';
     const g = (greet || '').replace(/\s+$/, '');
     if (val) return (g ? g + '\n' : '') + val;
-    return (g ? g + '\n' : '') + `(아직 ${_DATA_LABEL[key]}을 설정 안 했어요 — 아래 '${_DATA_LABEL[key]} 수정'에서 추가하면 여기에 보여요)`;
+    // [2026-09-13 카피 정리] 한 줄로 축약 — '수정 →' 버튼은 같은 편집기 안에 있다.
+    return (g ? g + '\n' : '') + `(${_DATA_LABEL[key]} 미설정 — '${_DATA_LABEL[key]} 수정 →'에서 채워주세요)`;
   }
   function _refreshPreviews() {
     document.querySelectorAll(`#${ID} [data-preview]`).forEach(node => {
@@ -273,7 +292,7 @@
     const meta = FIXED_META[it.key] || {};
     const lblCount = (it.label || '').length;
     let fields = `
-      <div class="dmm-fld">버튼 글자 (손님에게 보임)</div>
+      <div class="dmm-fld">버튼 글자</div>
       <input class="dmm-lblin" data-lbl="${_esc(it.key)}" maxlength="${LABEL_MAX}" value="${_esc(it.label || '')}" placeholder="예약하기">
       <div class="dmm-cnt"><span data-cnt="${_esc(it.key)}">${lblCount}</span>/${LABEL_MAX}</div>`;
     let pvBlock = '';  // '이렇게 답장돼요' 미리보기 — 멘트·수정·첨부 다음 맨 마지막에 붙임
@@ -306,7 +325,7 @@
       ? `<span class="dmm-img-full">2장 다 채웠어요</span>`
       : `<label class="dmm-img-add"><input type="file" accept="image/*" data-img-file="${_esc(it.key)}" hidden><span>+ 사진 추가</span></label>`;
     fields += `
-      <div class="dmm-fld">사진 첨부 <span class="sub">(버튼 누르면 손님에게 같이 전송 · 최대 2장)</span></div>
+      <div class="dmm-fld">사진 첨부 <span class="sub">(최대 2장)</span></div>
       <div class="dmm-img">${_thumbs}${_addBtn}</div>`;
     fields += pvBlock;  // '이렇게 답장돼요' 는 항상 맨 마지막(멘트·수정·첨부 본 뒤 결과 확인)
     if (_isCustom(it)) {
@@ -342,7 +361,7 @@
         <div class="dmm-it">
           <div class="dmm-row" data-exp="${_esc(it.key)}">
             <span class="dmm-chip">${_esc(it.label || it.key)}</span>
-            <div class="dmm-tx"><div class="mt">${_esc(meta.mt)}</div><div class="ms">${_esc(meta.ms)}</div></div>
+            <div class="dmm-tx"><div class="mt">${_esc(meta.mt)}</div>${meta.ms ? `<div class="ms">${_esc(meta.ms)}</div>` : ''}</div>
             ${_caret(open)}
             ${_tgHtml(it.enabled, 'item', it.key)}
           </div>
@@ -361,24 +380,23 @@
         <div class="dmm-ghd">
           <div class="tx">
             <div class="dmm-gh">버튼·기본 안내가 바로 나가요</div>
-            <div class="dmm-gs">손님이 버튼을 누르거나 영업시간·위치를 물어보면 · 내가 써둔 답이 손님에게 바로 나가요 · 요금 안 써요</div>
+            <div class="dmm-gs">버튼을 누르거나 영업시간·위치를 물어보면 · 써둔 답이 손님에게 바로 나가요 · 요금 안 써요</div>
           </div>
           ${_tgHtml(!!_menu.enabled, 'master', '')}
         </div>
         <button type="button" class="dmm-pvbtn" data-preview-open>
           <span class="pi" aria-hidden="true"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2.6"/><path d="M11 18.5h2"/></svg></span>
-          <span class="pt"><b>손님 화면으로 미리보기</b><span>저장된 설정 그대로 · 눌러봐도 손님에겐 안 가요</span></span>
+          <span class="pt"><b>손님 화면으로 미리보기</b><span>눌러봐도 손님에겐 안 가요</span></span>
           <span class="pc" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
         </button>
         <div class="dmm-sec">손님이 DM 보내면 이렇게 인사해요</div>
         <div class="dmm-card dmm-greet${dim}"><textarea rows="2" data-greet maxlength="300">${_esc(_menu.greeting || '')}</textarea></div>
-        <div class="dmm-sec">손님이 누를 버튼 <span class="sub">켠 것만 손님에게 보여요 · 탭하면 그 자리에서 편집돼요</span></div>
+        <div class="dmm-sec">손님이 누를 버튼 <span class="sub">켠 것만 손님에게 보여요</span></div>
         <div class="dmm-card${dim}">${rows}</div>
         <button type="button" class="dmm-addbtn${dim}" data-add>+ 메뉴 추가</button>
-        <div class="dmm-sec">손님이 대화창을 처음 열면</div>
-        <div class="dmm-card${dim}">
+        <div class="dmm-card${dim}" style="margin-top:14px;">
           <div class="dmm-master">
-            <div class="t"><b>먼저 버튼 보여주기</b><span>손님이 아직 아무 말 안 해도 켠 버튼을 미리 띄워줘요 (최대 ${ICE_MAX}개)</span></div>
+            <div class="t"><b>먼저 버튼 보여주기</b><span>대화 열자마자 켠 버튼을 미리 띄워요 (최대 ${ICE_MAX}개)</span></div>
             ${_tgHtml(iceOn, 'ice', '')}
           </div>
         </div>
@@ -389,9 +407,9 @@
             <div class="dmm-gh">${autoSendOn
               ? '잇비 답장이 바로 나가요'
               : '잇비 초안이 나한테 먼저 와요'}</div>
-            <div class="dmm-gs">버튼에 없는 걸 글로 물어보면 · 잇비가 ${autoSendOn
+            <div class="dmm-gs">버튼 밖 질문은 잇비가 ${autoSendOn
               ? '답장을 써서 <b>손님에게 바로 보내요</b>'
-              : '초안을 쓰고 내가 확인한 뒤 나가요'} · 요금 써요</div>
+              : '초안만 써요 — 내가 보고 보내요'} · 요금 써요</div>
           </div>
           ${_tgHtml(aiOn, 'draft', '')}
         </div>
@@ -408,7 +426,7 @@
               : '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'}</span>
             <div class="t">${autoSendOn
               ? '<b>환불 · 민원 · 거친 말은 안 나가요</b><span>그런 문의는 사장님 확인 목록으로 넘어와요</span>'
-              : '<b>잇비가 마음대로 안 보내요</b><span>써둔 초안을 내가 보고 \'보내기\'를 눌러야 손님에게 나가요</span>'}</div>
+              : '<b>잇비가 마음대로 안 보내요</b><span>초안을 보고 \'보내기\'를 눌러야 나가요</span>'}</div>
           </div>
           ${_gaugeHtml()}
         </div>
@@ -527,8 +545,8 @@
         if (typeof window.openPricelistUpload === 'function') window.openPricelistUpload();
         else _toast('가격표 설정 화면을 찾을 수 없어요');
       } else {
-        // TODO: 영업시간/주소 전용 섹션 앵커가 생기면 연결. 현재는 샵 설정 화면 진입.
-        if (typeof window.openShopSettings === 'function') window.openShopSettings();
+        // [2026-09-13] 앵커 연결 — 샵 설정을 열고 영업시간/주소 칸으로 바로 스크롤(TODO 해소).
+        if (typeof window.openShopSettings === 'function') window.openShopSettings(_JUMP[k]);
         else _toast('설정 화면을 찾을 수 없어요');
       }
       _haptic(); return;

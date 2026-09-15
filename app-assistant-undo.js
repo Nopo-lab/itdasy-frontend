@@ -94,9 +94,7 @@
     // showToast 가 onClick 받으면 사용, 아니면 일반 토스트만
     if (window.showToast && logId) {
       try {
-        window.showToast(message + ' · 되돌리기 →', {
-          onClick: () => undoAction(logId),
-        });
+        window.showToast(message, { action: { label: '되돌리기', onClick: () => undoAction(logId) } });
         return;
       } catch (_e) { /* fallback */ }
     }

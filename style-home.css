@@ -460,6 +460,13 @@ body.itdasy-locked > :not(#lockOverlay):not(#signupOverlay):not(script):not(styl
   cursor: pointer; transition: opacity 0.2s, transform 0.1s;
 }
 .ob-btn:active { opacity: 0.85; transform: scale(0.98); }
+/* [2026-09-14 P3 첫원장 라이브] 업종 13칸이 411×786 폰에서 한 화면을 넘어 [계속하기] 가 y=858 — 고른 뒤
+   아무 일도 안 일어난 것처럼 보였다. 스크롤 컨테이너(.ob-overlay) 안에서 아래에 붙여 둔다(1·3단계는 짧아 영향 없음). */
+#obBtn.ob-btn {
+  position: sticky; bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  z-index: 2; flex-shrink: 0;
+  box-shadow: 0 8px 22px rgba(213,138,149,0.35), 0 0 0 10px var(--bg);
+}
 
 .ob-btn.secondary {
   background: transparent; color: var(--accent);

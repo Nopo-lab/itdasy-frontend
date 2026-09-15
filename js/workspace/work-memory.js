@@ -5,7 +5,7 @@
  *   작업실 저장/인스타 발행 시점에 붙잡아 두고 다음 사진에 다시 쓰는 것.
  *
  * P1 = 붙잡기 + 이름짓기 + 설정에서 보기.
- * P2 = 다시 쓰기(★기본을 편집기에 주입) — **플래그 기본 ON**(index.html:76). 롤백은 ?wsmem=0.
+ * P2 = 다시 쓰기(★기본을 편집기에 주입). 자동 적용 기본값은 OFF이며 설정에서 켠다.
  *
  * ── 왜 ShopStyle 을 안 쓰나 (2026-07-14)
  *   ShopStyle.list() 는 이미 '내 레이아웃'(_wsMyLayout)과 '우리샵 스타일'(presetKey) 두 용도가 섞여 있어
@@ -69,6 +69,10 @@
       : 'wm_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   }
   function _now() { return Date.now(); }
+  function _ownerId() {
+    try { return String(localStorage.getItem('last_user_id') || '').trim() || null; }
+    catch (_e) { return null; }
+  }
 
   // 용량(quota) 방어 — 실패하면 안 쓰는 기억부터 버리고 최대 3번 재시도. 기본 지정은 안 버림.
   function _persist(arr) {
@@ -124,8 +128,37 @@
   function getDefault() { var id = getDefaultId(); return (id && get(id)) || null; }
   // [T2] auto 게이트 — T3 자동 선택(select)의 ON/OFF. ★(:default, id 문자열)와 키·타입부터 분리.
   var K_AUTO = 'itdasy:work_memory:auto';
-  function autoOn() { return _read(K_AUTO, true) !== false; }   // 기본 ON
+  var K_RECOMMEND = 'itdasy:work_memory:recommend';
+  function recommendOn() { return _read(K_RECOMMEND, true) !== false; }
+  function setRecommendOn(v) {
+    var on = v !== false; _writeRaw(K_RECOMMEND, on);
+    if (!on) _writeRaw(K_AUTO, false);
+    return recommendOn();
+  }
+  function autoOn() {
+    // 실제 앱은 정책 파일이 먼저 로드되어 자동 적용 OFF. 오래된 Node 특성화 테스트는
+    // 정책 파일을 읽지 않으므로 기존 동작을 재현한다.
+    return _read(K_AUTO, window.WorkMemoryPolicy ? false : true) === true;
+  }   // 안전 기본값: 자동 적용 OFF
   function setAutoOn(v) { _writeRaw(K_AUTO, v !== false); return autoOn(); }
+  function allowAuto(id, on) {
+    var arr = list(), owner = _ownerId(), policy = window.WorkMemoryPolicy;
+    for (var i = 0; i < arr.length; i++) {
+      if (arr[i].id !== id) continue;
+      if (policy && (policy.isLegacy(arr[i]) || !owner || String(arr[i].ownerId) !== owner)) return false;
+      arr[i].autoApplyAllowed = on === true; _persist(arr); return true;
+    }
+    return false;
+  }
+  function allowAllAuto(on) {
+    var arr = list(), owner = _ownerId(), policy = window.WorkMemoryPolicy, changed = 0;
+    arr.forEach(function (r) {
+      if (policy && (policy.isLegacy(r) || !owner || String(r.ownerId) !== owner)) return;
+      if (r.autoApplyAllowed !== (on === true)) { r.autoApplyAllowed = on === true; changed++; }
+    });
+    if (changed) _persist(arr);
+    return changed;
+  }
   function setDefault(id) {
     if (!get(id)) return false;
     _writeRaw(K_DEFAULT, id);
@@ -145,6 +178,15 @@
     _persist(arr);
     if (getDefaultId() === id) _writeRaw(K_DEFAULT, null);
     return true;
+  }
+  function resetIndustry(ind) {
+    var key = String(ind || '').trim();
+    if (!key) return 0;
+    var arr = list(), kept = arr.filter(function (r) { return r.industry !== key; });
+    var removed = arr.length - kept.length;
+    if (removed) _persist(kept);
+    if (removed && kept.every(function (r) { return r.id !== getDefaultId(); })) _writeRaw(K_DEFAULT, null);
+    return removed;
   }
 
   // 밀어낼 후보 = 기본 지정 아닌 것 중 가장 오래 안 쓴 것. 전부 기본이면(=1개뿐) null.
@@ -328,6 +370,13 @@
       return E.classifyKind(texts, service);
     } catch (_e) { return 'unknown'; }
   }
+  function _hasBeforeAfter(slot, d, state) {
+    if (state && state.layoutIdx === LAY_BA) return true;
+    var hasB = false, hasA = false;
+    var photos = (slot && slot.photos) || (d && d.photos) || [];
+    photos.forEach(function (p) { if (p && p.role === 'before') hasB = true; if (p && p.role === 'after') hasA = true; });
+    return hasB && hasA;
+  }
   function _shrinkLayer(l) {
     var c = Object.assign({}, l);
     if (c.type !== 'image' || typeof c.src !== 'string') return c;
@@ -344,11 +393,25 @@
     }
     return c;
   }
+  function _presetOf(st) {
+    var all = st && st.presetByPhoto;
+    if (!all || typeof all !== 'object') return null;
+    var keys = Object.keys(all);
+    for (var i = 0; i < keys.length; i++) {
+      var p = all[keys[i]];
+      if (p && /^[a-z0-9_]{1,40}$/.test(String(p.presetId || ''))) {
+        return { presetId: String(p.presetId), presetStrength: Math.max(0, Math.min(1, Number(p.presetStrength) || 0)) };
+      }
+    }
+    return null;
+  }
   // editState 에서 '이 사진 전용' 값 제거 → 재사용 가능한 것만.
   function _distill(st) {
-    if (!st || !Array.isArray(st.layers) || !st.layers.length) return null;
-    var layers = st.layers.map(_shrinkLayer).filter(Boolean);
-    if (!layers.length) return null;
+    if (!st) return null;
+    var layers = Array.isArray(st.layers) ? st.layers.map(_shrinkLayer).filter(Boolean) : [];
+    var adjustmentPreset = _presetOf(st);
+    // 글자·스티커 없이 보정 프리셋만 고른 작업도 원장 스타일이다.
+    if (!layers.length && !adjustmentPreset) return null;
     var li = st.layoutIdx == null ? 0 : st.layoutIdx;
     return {
       ratio: st.ratio || '4:5',
@@ -358,6 +421,7 @@
       collageBg: st.collageBg || null,
       collageGap: st.collageGap == null ? null : st.collageGap,
       fitMode: st.fitMode || null,
+      adjustmentPreset: adjustmentPreset,
       layers: layers
       // 일부러 뺌: photos·photoDraw(구운 붓그림)·photoBg·adj·pz·cellCrop·collageBgImg — 전부 그 사진 전용.
     };
@@ -371,7 +435,8 @@
         Math.round((l.size || 0) * 100), l.align || '',
         l.color || '', l.font || '', (l.weight == null ? '' : l.weight)].join(':');
     }).sort();
-    return state.layoutIdx + '|' + state.ratio + '|' + ls.join(',');
+    var pr = state.adjustmentPreset;
+    return state.layoutIdx + '|' + state.ratio + '|' + (pr ? pr.presetId + ':' + pr.presetStrength : '') + '|' + ls.join(',');
   }
 
   // 슬롯에서 편집 결과를 찾아 기억으로. 이미 같은 작업이 있으면 새로 안 만들고 '또 썼다'고만 기록.
@@ -383,11 +448,24 @@
       var state = _distill(st);
       if (!state) return null;   // 원장이 만든 꾸밈이 없음 → 기억할 게 없음
 
+      // 브라우저 저장 경로는 captureAndNotify가 명시 동의를 받아 다시 호출한다.
+      // 문서가 없는 순수 특성화 테스트의 직접 캡처는 기존 계약을 유지한다.
+      if (!(opts && opts.consent === true) && typeof document !== 'undefined') return null;
       var countPublish = !(opts && opts.publish === false);
       if (countPublish) _noteTexts(state);   // [T5] 게시물 1회 관측(3회 승격 재료) — 발행/저장일 때만
+      var policy = window.WorkMemoryPolicy;
+      var meta = policy && policy.metadata ? policy.metadata({
+        service: (d && d.service) || (slot && slot.service),
+        industry: d && d.industry,
+        occasion: d && d.occasion,
+        hasBeforeAfter: _hasBeforeAfter(slot, d, state),
+        kind: _kindOf(state, (d && d.service) || (slot && slot.service) || ''),
+        accountId: _ownerId(),
+        createdFrom: (d && d.createdFrom) || 'workspace-save'
+      }, true) : { consentVersion: null, industry: 'unknown', occasion: 'unknown', autoApplyAllowed: false, createdFrom: 'workspace-save', ownerId: null };
       var arr = list(), sig = _sig(state);
       for (var i = 0; i < arr.length; i++) {
-        if (arr[i].sig === sig) {   // 같은 작업 재사용 → 발행 카운트만
+        if (arr[i].sig === sig && (!policy || arr[i].ownerId === meta.ownerId)) {   // 같은 계정의 같은 작업만 재사용
           if (countPublish) {
             arr[i].lastPublishedAt = _now(); arr[i].publishCount = (arr[i].publishCount || 1) + 1;
             // 롤백 호환 미러 — 옛 코드(useCount·lastUsedAt 소비)가 SW 캐시로 남은 탭을 위해 같이 올린다.
@@ -403,9 +481,11 @@
         createdAt: _now(), thumb: null,
         shopStyleId: _activeShopStyleId(),
         kind: _kindOf(state, (d && d.service) || (slot && slot.service) || ''),   // [T3] select 의 kindFit 근거
+        // [2026-09-13 ZH] 업종 — 자동 적용을 같은 시술에만 하려고 남긴다(엔진 _serviceMatch). 첫 시술 하나, 소문자·공백 정리.
+        service: String((d && d.service) || (slot && slot.service) || '').split(',')[0].replace(/\s+/g, ' ').trim().toLowerCase(),
         applyCount: 0, lastAppliedAt: 0,
         publishCount: 1, lastPublishedAt: _now()   // 캡처 = 저장/발행된 글에서 왔다 — publish:false 여도 사실
-      }, state);
+      }, meta, state);
 
       arr.push(rec);
       while (arr.length > MAX) {   // 꽉 참 → 가장 오래 안 쓴 것부터(기본 지정은 보호)
@@ -425,7 +505,7 @@
   //   [T3·G3 2026-08-17] 예전엔 '첫 번째로 layers 있는 사진'이라(주석만 "대표 우선") 1번 장을
   //   대충 두고 2번 장을 공들인 경우 그 꾸밈이 통째로 버려졌다. 점수로 고르고 동점이면 앞 순서(기존 동작).
   function _photoScore(p, st) {
-    var L = st.layers, s = 0;
+    var L = st.layers || [], s = _presetOf(st) ? 1 : 0;
     if (L.some(function (l) { return l && (l.type === 'text' || l.type === 'badge'); })) s += 2;
     if (L.some(function (l) { return l && l.type === 'sticker'; })) s += 1;
     if (L.some(function (l) { return l && l.type === 'image'; })) s += 1;
@@ -439,7 +519,8 @@
     var best = null, bestScore = -1;
     for (var i = 0; i < ps.length; i++) {
       var st = ps[i] && ps[i].editState;
-      if (!(st && st.v && Array.isArray(st.layers) && st.layers.length)) continue;
+      if (!(st && st.v)) continue;
+      if (!(Array.isArray(st.layers) && st.layers.length) && !_presetOf(st)) continue;
       var s = _photoScore(ps[i], st);
       if (s > bestScore) { bestScore = s; best = st; }
     }
@@ -506,9 +587,11 @@
 
   // 붙잡기 + 알림 한 번에 — 호출부(flow)가 이 한 줄만 쓰게.
   function captureAndNotify(slot, d) {
-    var rec = captureFromSlot(slot, d);
-    if (rec) showCaptureCard(rec);
-    return rec;
+    try {
+      if (!_distill(_pickState(slot))) return null;
+    } catch (_e) { console.warn('[work-memory] 기억 후보 확인 실패', _e); return null; }
+    if (window.WorkMemoryConsentUI) window.WorkMemoryConsentUI.show(slot, d);
+    return null;
   }
 
   // ── [P2] 다시 쓰기 — ★기본 기억을 편집기에 올리기 ──────────────
@@ -549,13 +632,15 @@
   //                      (예: '전후 2칸' 기억을 사진 1장에 씌우면 빈 칸이 생김).
   function toEditState(rec, opts) {
     _lastAssetMiss = 0;   // [T7] 이번 변환의 자산 미해소 카운트 리셋
-    if (!rec || !Array.isArray(rec.layers) || !rec.layers.length) return null;
+    if (!rec) return null;
+    var recLayers = Array.isArray(rec.layers) ? rec.layers : [];
+    if (!recLayers.length && !rec.adjustmentPreset) return null;
     opts = opts || {};
     var incoming = opts.incoming || [];
     var byRole = {};
     incoming.forEach(function (l) { if (l && l.role && l.text && !byRole[l.role]) byRole[l.role] = l.text; });
 
-    var layers = rec.layers.map(function (l) {
+    var layers = recLayers.map(function (l) {
       // 역할 텍스트(title/sub/시술문구 등)는 자리·스타일만 기억하고 글자는 이번 글로 교체한다.
       //   [v779] 이번 글에 그 역할 텍스트가 없으면 지난 글 문구를 남기지 말고 뺀다 —
       //   안 그러면 새 이미지에 지난 글 시술명("26인치 옴브레")이 남아 캡션과 불일치했다.
@@ -577,9 +662,10 @@
       }
       return Object.assign({}, l);
     }).filter(Boolean);
-    if (!layers.length) return null;
+    if (!layers.length && !rec.adjustmentPreset) return null;
 
-    var st = { v: 1, layers: layers, layoutOrder: (rec.layoutOrder || []).slice(), cellCrop: [] };
+    var st = { v: 1, layers: layers, layoutOrder: (rec.layoutOrder || []).slice(), cellCrop: [],
+      adjustmentPreset: rec.adjustmentPreset || null };
     /* [2026-07-17] opts.layersOnly = 작업실 레이아웃이 이미 칸 배치를 정한 상태.
        이때 기억의 layoutIdx·collageBg·fitMode 까지 씌우면 원장이 방금 고른 레이아웃을 덮어쓴다.
        → 꾸밈(layers)만 넘기고 칸 배치는 레이아웃이 소유한다. */
@@ -628,12 +714,14 @@
 
   window.WorkMemory = {
     SCHEMA: SCHEMA, MAX: MAX,
-    KEYS: { list: K_LIST, def: K_DEFAULT, auto: K_AUTO },
+    KEYS: { list: K_LIST, def: K_DEFAULT, auto: K_AUTO, recommend: K_RECOMMEND },
     list: list, get: get,
     getDefault: getDefault, getDefaultId: getDefaultId, setDefault: setDefault, clearDefault: clearDefault,
-    autoOn: autoOn, setAutoOn: setAutoOn, applyOnce: applyOnce, peekOnce: peekOnce, takeOnce: takeOnce,
+    recommendOn: recommendOn, setRecommendOn: setRecommendOn,
+    autoOn: autoOn, setAutoOn: setAutoOn, allowAuto: allowAuto, allowAllAuto: allowAllAuto,
+    applyOnce: applyOnce, peekOnce: peekOnce, takeOnce: takeOnce,
     textbook: textbook, dismissText: dismissText, assetMissCount: assetMissCount,
-    rename: rename, remove: remove,
+    rename: rename, remove: remove, resetIndustry: resetIndustry,
     describe: describe, formatWhen: formatWhen,
     captureFromSlot: captureFromSlot, captureAndNotify: captureAndNotify, showCaptureCard: showCaptureCard,
     markApplied: markApplied, markPublished: markPublished,

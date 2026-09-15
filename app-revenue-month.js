@@ -70,7 +70,10 @@
     // [2026-05-20] SWR 캐시: 1순위. 신선하면 그대로 반환. stale 이면 백그라운드 갱신.
     const R = _R();
     const cached = (R._swrReadKey && R._swrReadKey(_monthSwrKey(), _MONTH_SWR_TTL)) || null;
-    if (cached && cached.items) {
+    // [2026-09-13 UX·돈] 지난달은 요약 캐시만 있고 **목록 캐시가 없으면** 캐시를 쓰지 않는다.
+    //   예전엔 _viewItems=null 이 되어 호출부가 **이번달 매출 목록**을 지난달 달력에 그렸다.
+    const _ciPeek = (!isCur && R._swrReadKey) ? R._swrReadKey(_monthItemsSwrKey(), _MONTH_SWR_TTL) : null;
+    if (cached && cached.items && (isCur || (_ciPeek && Array.isArray(_ciPeek.items)))) {
       const cachedSummary = cached.items;
       // 과거 월: items 캐시도 있으면 같이 복원
       if (!isCur && R._swrReadKey) {
@@ -103,12 +106,12 @@
           apiUrl('/revenue?period=month&year=' + _viewYear + '&month=' + _viewMonth),
           { headers: { ...auth, 'Content-Type': 'application/json' } }
         );
-        if (r2.ok) {
-          const d = await r2.json();
-          _viewItems = Array.isArray(d.items) ? d.items : [];
-          if (R._swrWriteKey) R._swrWriteKey(_monthItemsSwrKey(), _viewItems);
-        } else { _viewItems = []; }
-      } catch (_e) { _viewItems = []; }
+        /* [2026-09-13 UX·돈] 목록을 못 받으면 **빈 목록(=날짜마다 0원)** 으로 그렸다. 모르면 0 이라고 하지 않는다. */
+        if (!r2.ok) throw new Error('HTTP ' + r2.status);
+        const d = await r2.json();
+        _viewItems = Array.isArray(d.items) ? d.items : [];
+        if (R._swrWriteKey) R._swrWriteKey(_monthItemsSwrKey(), _viewItems);
+      } catch (_e) { _viewItems = null; throw _e; }
     } else {
       _viewItems = null;
     }
@@ -397,8 +400,18 @@
     }
   }
 
+  // [2026-09-13 UX·돈] 매출을 못 불러왔을 때 — 0원을 그리지 않고 사실대로 + 다시 시도.
+  function _failedHTML() {
+    return `<div class="rvm5-mbody"><div class="rvm5-mhero">
+        <span class="l">${_esc(_isCurrentMonth() ? '이번달 매출' : _viewMonth + '월 매출')}</span>
+        <span class="amt" style="font-size:18px;">매출을 불러오지 못했어요</span>
+        <div class="note">기록된 매출은 그대로 있어요. 연결이 돌아오면 다시 불러올게요.</div>
+        <button type="button" data-rvm-act="retry-load" style="margin-top:12px;padding:10px 16px;border-radius:12px;border:1px solid var(--border,#E5E7EB);background:var(--surface,#fff);font:inherit;font-weight:700;cursor:pointer;">다시 불러오기</button>
+      </div></div>`;
+  }
   function renderPC(container, summary, items) {
     _ensureStyles();
+    if (summary && summary._loadFailed) { container.innerHTML = _failedHTML(); _bindEvents(container); return; }
     const R = _R();
     const isCur = _isCurrentMonth();
     const isPast = !!summary.is_past || !isCur;
@@ -470,7 +483,7 @@
     //   예약관리 #bk-toolbar-mount 와 같은 마운트 패턴. PC(renderPC)는 마운트가 없어 무영향.
     //   innerHTML 로 매번 갈아끼우니 _bindEvents 를 다시 걸어도 리스너가 중복되지 않는다.
     const headerMount = document.getElementById('rvHeaderMonth');
-    if (headerMount) {
+    if (headerMount && !(summary && summary._loadFailed)) {
       headerMount.innerHTML = `
         <button type="button" class="ar" data-rvm-act="prev-month" aria-label="이전달">‹</button>
         <span class="ml">${_esc(_monthLabel())}</span>
@@ -479,6 +492,7 @@
       _bindEvents(headerMount);
     }
 
+    if (summary && summary._loadFailed) { container.innerHTML = _failedHTML(); _bindEvents(container); return; }
     // [v4] 지난달 대비 — 서버가 이미 주는 prev_same_period.total 기준. 추가 API 호출 없음.
     //   [주의] summary.total 은 확정 예약금이 더해진 값(booking-revenue-overlay._depositPatch)이고
     //   prev_same_period.total 은 서버 원본이라 예약금이 없다. 지난달 확정 예약은 이미 완료돼
@@ -570,6 +584,10 @@
             else { writeGoal(n); if (window.showToast) window.showToast(`일일 목표 ${formatMoney(n)} 설정됨`); }
             _triggerRerender();
           });
+          return;
+        } else if (act === 'retry-load') {
+          btn.disabled = true; btn.textContent = '불러오는 중…';
+          _triggerRerender();
           return;
         } else if (act === 'prev-month') {
           _goPrevMonth();

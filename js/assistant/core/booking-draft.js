@@ -114,6 +114,19 @@
     return false;
   }
 
+  // [ITBI Closeout 2026-09-13 · P1] **'예약 잡기' 를 누르고 마치지 않으면 이후 모든 질문을 초안이 먹었다.**
+  //   실측(추천칩 그래프 · user 4 · FE a67431d · 두 번째 순회 루트 16개 전부):
+  //     "오늘 빈 시간 알려줘" · "댓글 뭐 달렸어?" · "회원권 잔액 얼마 남았어?" · "첫 번째 손님 누구야?"
+  //     → 전부 "E2E_A_박지우님 오늘 몇 시에, 어떤 시술로 예약할까요?"
+  //     "이번 주에 새로 온 고객 있어?" → "주에님을 못 찾았어요 … 새 고객이면 고객 추가 후 예약해 주세요"
+  //   `_yieldsToOther` 가 취소·매출·사진만 알아봐서 10분 동안 원장님이 "취소" 라고 하기 전엔 잇비가 다른 답을 못 했다.
+  //   시간·시술 말이 없는 **질문**은 슬롯 답이 아니다 — 이번 발화만 양보하고 초안은 살려 둔다(이어서 "3시" 하면 이어짐).
+  function _looksQuestionNotSlot(q) {
+    if (/(\d{1,2}\s*시|\d{1,2}:\d{2}|오전|오후|저녁|아침|점심|반\s*$)/.test(q)) return false;   // 시간 답
+    if (/(시술|메뉴)/.test(q)) return false;                                                 // 시술 되묻기는 초안 몫
+    return /[?？]\s*$|(알려|보여|있어|있나|없어|없나|누구|언제야|언제\s*왔|얼마|어때|뭐야|뭐\s*달|몇\s*(명|개|건|번)|현황|목록|달렸|왔어|됐어)/.test(q);
+  }
+
   // 진행 중 draft 에 텍스트 1건 반영 → 메시지 객체 | { __card } | null(양보).
   async function tryDraft(q) {
     if (!isActive()) return null;
@@ -123,6 +136,7 @@
     if (/^(취소|그만|아니|아니요|관둬|안\s*할래|안할래|됐어|예약\s*안\s*할)/.test(q)) { clear(); return { text: '예약 잡기를 멈췄어요. 다른 것도 도와드릴게요 🙂' }; }
     // 다른 도메인으로 명확히 전환 → 양보(draft 종료)
     if (_yieldsToOther(q)) { clear(); return null; }
+    if (_looksQuestionNotSlot(q)) return null;          // 질문은 양보 · 초안 유지
     var AI = _AI();
     if (!AI || !AI.composeBooking) return null;
 

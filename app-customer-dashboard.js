@@ -132,6 +132,18 @@
     } catch (_e) { return null; }
   }
 
+  /* [2026-09-14 P3 첫원장 라이브] 새 손님 상세가 '총 매출 **0만**' — 원장 말로는 0원이다.
+     4,000원도 Math.round → '0만' 이었고 회원권 잔액 5,000원은 '회원권 0만'.
+     → 0원 · 만원 미만은 원 단위 그대로 · 그 이상은 반올림 만원. 음수(환불)는 앞에 −. */
+  function _wonShortParts(n) {
+    const v = Number(n) || 0;
+    const sign = v < 0 ? '−' : '';
+    const a = Math.abs(v);
+    if (a < 10000) return { v: sign + a.toLocaleString('ko-KR'), u: '원' };
+    return { v: sign + Math.round(a / 10000).toLocaleString('ko-KR'), u: '만원' };
+  }
+  function _wonShort(n) { const p = _wonShortParts(n); return p.v + p.u; }
+
   function _detailModel(d) {
     const c = (d && d.customer) || {};
     const stats = (d && d.stats) || {};
@@ -146,7 +158,7 @@
       stats,
       revenues,
       vc,
-      totalMan: totalRev > 0 ? Math.round(totalRev / 10000) : 0,
+      totalRev,
       avgDays,
       badge: _visitBadgeClass(vc),
       phone: c.phone ? _esc(c.phone) : '',
@@ -164,7 +176,7 @@
       <div class="d-header">
         <div class="d-name-row">
           <div style="display:flex;align-items:center;">
-            <div class="d-name">${_esc(m.c.name || '손님')} 님</div>
+            <div class="d-name">${_esc(window.withHonorific ? window.withHonorific(m.c.name || '손님') : (m.c.name || '손님') + '님')}</div>
             <span class="d-badge-lg c-badge ${m.badge}">${m.vc}회 방문</span>
           </div>
         </div>
@@ -194,7 +206,7 @@
   }
   function _mbBtn(m) {
     const bal = _mbBal(m);
-    const label = bal > 0 ? ('회원권 ' + Math.floor(bal / 10000) + '만') : '회원권';
+    const label = bal > 0 ? ('회원권 ' + _wonShort(bal)) : '회원권';
     return '<button class="d-act ghost" data-cv4-act="membership">' + _esc(label) + '</button>';
   }
 
@@ -202,16 +214,19 @@
     return `
       <div class="d-cards">
         <div class="dc"><div class="dc-v">${m.vc}<small>회</small></div><div class="dc-l">총 방문일</div></div>
-        <div class="dc"><div class="dc-v">${m.totalMan}<small>만</small></div><div class="dc-l">총 매출</div></div>
+        <div class="dc"><div class="dc-v">${_esc(_wonShortParts(m.totalRev).v)}<small>${_wonShortParts(m.totalRev).u}</small></div><div class="dc-l">총 매출</div></div>
         <div class="dc"><div class="dc-v">${m.avgDays || '—'}<small>${m.avgDays ? '일' : ''}</small></div><div class="dc-l">평균 재방문 일</div></div>
       </div>
     `;
   }
 
   function _renderRevenueRow(r, hidden) {
-    const dt = String(r.recorded_at || '').slice(5, 10).replace('-', '/');
+    // [2026-09-13 P2] UTC 문자열을 자르면 KST 00:00~08:59 시술이 전부 **전날**로 보인다
+    //   (실측: 2026-09-12T18:00:00+00:00 = KST 9/13 03:00 인데 09/12 로 찍혔다).
+    //   유틸이 없으면 날짜만 비운다 — 날짜 한 칸 때문에 시술 기록 목록 전체가 죽으면 안 된다.
+    const dt = window.fmtKMonthDay ? window.fmtKMonthDay(r.recorded_at) : '';
     const amt = Number(r.amount) || 0;
-    const man = amt > 0 ? Math.round(amt / 10000) + '만' : '-';
+    const man = amt !== 0 ? _wonShort(amt) : '-';
     const extra = hidden ? ' hidden" data-vr-extra="1' : '';
     return `<div class="vr${extra}"><div class="vr-d">${_esc(dt)}</div><div class="vr-s">${_esc(r.service_name || '시술')}</div><div class="vr-p">${man}</div></div>`;
   }
@@ -225,6 +240,27 @@
       <div class="d-sec"><span>시술 기록</span>${more}</div>
       <div style="font-size:11px;color:var(--text-muted,#999);padding:0 4px 4px;">최근 15~20건의 시술 기록을 저장합니다</div>
       <div class="vr-wrap">${rows}${hidden}</div>
+    `;
+  }
+
+  /* [2026-09-14 첫원장 라이브] 새 손님으로 예약을 잡고 그 손님을 열면 **예약 흔적이 하나도 없었다** —
+     '0회 방문 · 0만' 만 보이고, 서버는 recent_bookings(최근 10건)에 방금 예약을 담아 보내는데 화면이 안 그렸다.
+     새로 만드는 게 아니라 이미 받은 값을 보여준다. 방문 횟수는 건드리지 않는다(완료 전 예약은 방문이 아니다). */
+  const _BK_STATUS = { confirmed: '확정', pending: '대기', completed: '완료', cancelled: '취소', canceled: '취소', no_show: '노쇼', noshow: '노쇼' };
+  function _renderBookingSection(bookings) {
+    const list = Array.isArray(bookings) ? bookings.filter(b => b && b.starts_at) : [];
+    if (!list.length) return '';
+    const now = Date.now();
+    const rows = list.slice(0, 5).map(b => {
+      const when = window.fmtKShortDateTime ? window.fmtKShortDateTime(b.starts_at).replace('-', '/') : '';
+      const future = new Date(b.starts_at).getTime() >= now;
+      const st = _BK_STATUS[String(b.status || '').toLowerCase()] || '';
+      const label = (future && st === '확정') ? '예정' : st;
+      return `<div class="vr"><div class="vr-d">${_esc(when)}</div><div class="vr-s">${_esc(b.service_name || '예약')}</div><div class="vr-p">${_esc(label)}</div></div>`;
+    }).join('');
+    return `
+      <div class="d-sec"><span>예약</span></div>
+      <div class="vr-wrap">${rows}</div>
     `;
   }
 
@@ -302,6 +338,7 @@
         ${_renderDetailCards(m)}
         ${pref}
         ${_renderPhotoSection(m.c.id)}
+        ${_renderBookingSection(d && d.recent_bookings)}
         ${_renderRevenueSection(m.revenues)}
         ${memo}
       </div>
@@ -519,10 +556,10 @@
     try {
       if (isNew) {
         await Customer.create(payload);
-        if (window.showToast) window.showToast(`${payload.name} 추가됨`);
+        if (window.showToast) window.showToast(`${payload.name}님을 손님 목록에 등록했어요`);
       } else {
         await Customer.update(c.id, payload);
-        if (window.showToast) window.showToast('저장 완료');
+        if (window.showToast) window.showToast('손님 정보를 저장했어요');
         _refreshCustomerDetailViews(c.id);
       }
       close();

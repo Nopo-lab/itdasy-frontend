@@ -44,7 +44,7 @@
       mv: 'integrations', st: 'integrations',   dr: 'integrations' },
     // gear 를 쓰면 '앱 설정'으로 읽힌다. 여기는 원장님의 샵 자체를 관리하는 곳이다.
     { group: '내 정보',  key: 'settings',     name: '샵 관리',       icon: 'ic-store',           color: 'teal',
-      meta: '샵 정보 · 데이터 · 백업',
+      meta: '샵 정보 · 시술 메뉴 · 백업',   // [2026-09-14 첫원장] 시술 메뉴 입구가 이 안에 있는데 부제에 안 보여 못 찾음
       mv: 'settings',     st: 'settings-hub',   dr: 'settings_hub' },
     // 왕관은 안 쓴다. VIP 등급이 아니라 '지금 내가 쓰고 있는 플랜'이 요점이다.
     { group: '내 정보',  key: 'plan',         name: '이용 플랜',     icon: 'ic-ticket',          color: 'lavender',

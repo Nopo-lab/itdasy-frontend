@@ -29,6 +29,13 @@
 
   function _trim(s) { return String(s == null ? '' : s).trim(); }
 
+  // [ITBI Closeout 2026-09-13 · CASE-034] 가리키는 말(그분·아까·N번째·맨 위…)은 **대화 맥락**이 있어야 풀린다.
+  //   그 맥락은 서버 세션에만 있다. 앞단 지름길이 여기서 답하면 멈춘 채 틀린 답을 낸다 — 실측 두 겹:
+  //     ① 예약 조회 지름길: "아까 그분 예약 있어?" → "🔍 아까님을 못 찾았어요" ('아까' 를 이름으로 짐작)
+  //     ② 숫자 규칙(bookings_today): 같은 질문 → "📅 오늘 예약 없어요" (그 사람이 아니라 가게 전체)
+  //   지름길은 손을 떼고 서버로 넘긴다.
+  const _PERSON_REF_RE = /(그|이|저)\s*(분|고객|손님|사람)|아까|방금|번째|맨\s*(위|처음)/;
+
   function _bumpStats(type) {
     try {
       const s = window[STATS_KEY];
@@ -410,6 +417,7 @@
     if (_disabled()) return null;
     const q = _trim(text);
     if (!q || q.length > 40) return null;
+    if (_PERSON_REF_RE.test(q)) return null;      // CASE-034 ② — 특정인 지칭은 가게 전체 숫자로 답하지 않는다
     // [2026-06-10 QA] 조언성 질문은 숫자 숏컷이 가로채면 안 됨 — "오늘 매출 조언해줘"가
     //   매출 숫자만 띄우고 끝나던 버그. 조언/분석 의도면 LLM 으로 보낸다.
     if (/조언|추천|어떻게|어떡|어떄|팁|전략|분석|아이디어|뭐부터|뭘 해야|개선/.test(q)) return null;
@@ -854,14 +862,19 @@
 
   async function tryLookupBooking(text) {
     if (_disabled() || !_looksBookingLookup(text)) return null;
+    if (_PERSON_REF_RE.test(_trim(text))) return null;
     const target = _extractLookupTarget(text);
     if (!target.name) return null;
+    //   호칭('님') 근거 없이 낱말에서 고른 이름은 **짐작**이다. 짐작이 고객 목록에 없으면
+    //   "못 찾았어요" 로 단정하지 않고 서버(대화 맥락·사전 대조)에 양보한다.
+    const _honored = new RegExp(target.name + '\\s*님').test(text);
     let customers;
     try { const r = await _fetchJson('/customers?limit=500'); customers = (r && r.items) || []; }
     catch (_e) { void _e; return { matched: true, kind: 'message', text: '⚠️ 고객 정보 조회 실패. 잠시 후 다시.' }; }
     const scored = customers.map((c) => ({ c, score: _nameMatches(target.name, c.name || '') }))
       .filter((x) => x.score > 0).sort((a, b) => b.score - a.score);
     if (!scored.length) {
+      if (!_honored) return null;
       return { matched: true, kind: 'message', text: `🔍 ${target.name}님을 못 찾았어요. 이름을 다시 확인해 주세요.` };
     }
     const picked = _decideCustomer(scored);
@@ -879,7 +892,7 @@
     const filtered = target.dateHint ? bookings.filter((b) => _bookingMatchesDate(b, target.dateHint)) : bookings;
     const textOut = _formatLookupBookings(customer, filtered);
     _bumpStats('lookup_booking');
-    return { matched: true, kind: 'message', type: 'bookings_lookup', text: textOut, booking_cards: filtered.slice(0, 5), data: { items: filtered.slice(0, 5) } };
+    return { matched: true, kind: 'message', type: 'bookings_lookup', customer_name: customer.name, text: textOut, booking_cards: filtered.slice(0, 5), data: { items: filtered.slice(0, 5) } };
   }
 
   // ─── [P0-C] 예약 생성 완성: 시간 해석 + 빈시간 추천 + create_booking 카드 ────────
@@ -1199,6 +1212,10 @@
       const scored = customers.map((c) => ({ c, score: _nameMatches(name, c.name || '') }))
         .filter((x) => x.score > 0).sort((a, b) => b.score - a.score);
       if (!scored.length) {
+        /* [2026-09-13 UX] "손님 전화번호 전부 엑셀로 뽑아서 문자로 보내줘" → "🔍 **전화번호**님을 못 찾았어요"(라이브).
+           CASE-021/034 와 같은 계열 — 호칭 근거(님·씨) 없이 집은 단어가 손님 목록에도 없으면 **이름이 아니었던 것**이다.
+           지어낸 이름으로 답하지 않고 백엔드(할 수 있는 일·못 하는 일을 판단하는 쪽)로 넘긴다. */
+        if (!_NAME_EVIDENCE.test(t)) return null;
         return { kind: 'message', text: `🔍 ${name}님을 못 찾았어요. 이름을 확인해 주시거나 고객 상세를 먼저 열어주세요.` };
       }
       // [A4] 정확 일치(100·단독)만 자동 확정. 유사/동명이인은 조용히 선택 금지 → 확인·후보 안내로 멈춤.

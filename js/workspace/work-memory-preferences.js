@@ -16,7 +16,7 @@
  *   5. confidence 는 sample 만으로 안 오른다(consistency·recency·pos/neg·publish 함께).
  *      상충 행동이 있으면 **떨어진다**.
  *   6. global 승격은 보수적 — 서로 다른 memory **와** context 에서 같은 값이 반복될 때만.
- *   7. 이벤트/프로모션(kind=promotion) 작업은 style preference 로 승격되지 않는다(T5 정책 존중).
+ *   7. 이벤트/프로모션(kind=promotion)도 **그 상황 안에서만** 스타일 축을 학습한다.
  *      텍스트 '내용'은 T5 textbook 소관이라 여기선 text_changed 를 학습하지 않는다.
  */
 (function () {
@@ -206,10 +206,11 @@
   }
 
   /* observation → preference 반영.
-     [계약 7] 이벤트/프로모션 작업은 style 취향으로 학습하지 않는다 — 일회성이라 오염원이다. */
+     [계약 7] 이벤트/프로모션도 글자색·위치·스티커 같은 **형식**은 배운다.
+     대신 contextKey 에 kind=promotion 이 들어가므로 완성샷으로 새지 않는다.
+     문구 내용(text_changed)은 FEATURES 에 없어서 계속 학습하지 않는다. */
   async function learn(o) {
     if (!o || !o.observationId) return false;
-    if (o.context && o.context.kind === 'promotion') return false;
     var d = _distill(o);
     var undone = !!o.undone;
     var tried = 0, wrote = 0;

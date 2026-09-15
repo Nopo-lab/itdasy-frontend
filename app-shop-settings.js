@@ -460,7 +460,7 @@
     }
   }
 
-  function openShopSettings() {
+  function openShopSettings(focus) {
     const el = _ensureMounted();
     _hydrate().catch(() => {});
     requestAnimationFrame(() => el.classList.add('is-open'));
@@ -468,6 +468,16 @@
     // [2026-07-22 보스] 뒤로가기 등록 — 안 하면 안드로이드 back/스와이프에서 이 화면 대신 앱이 그대로 꺼진다.
     if (typeof window._registerSheet === 'function') window._registerSheet('shopSettings', closeShopSettings);
     if (typeof window._markSheetOpen === 'function') window._markSheetOpen('shopSettings');
+    // [2026-09-13] DM 메뉴 '영업시간/주소 수정 →' 점프 앵커 — 해당 칸으로 스크롤(열림 애니 뒤).
+    if (focus === 'hours' || focus === 'address') {
+      const tid = focus === 'hours' ? 'ssShopHoursGrid' : 'ssShopAddr';
+      setTimeout(() => {
+        const t = document.getElementById(tid);
+        if (!t) return;
+        try { t.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_e) { void _e; }
+        if (focus === 'address' && t.focus) { try { t.focus({ preventScroll: true }); } catch (_e) { void _e; } }
+      }, 380);
+    }
     _haptic();
   }
   function closeShopSettings() {

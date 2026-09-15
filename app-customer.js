@@ -959,7 +959,13 @@
          서버를 못 봤으면 그렇다고 말하고 다시 시도할 길을 준다. */
       let _emptyMsg;
       if (_cache && _cache.length) {
-        _emptyMsg = (seg !== 'all' ? '이 조건에 맞는 손님이 아직 없어요' : '검색 결과 없음');
+        /* [2026-09-13 UX] 검색 0건이 "검색 결과 없음" 한 줄이라, 새 손님이면 위로 올라가 [+] 를 찾아야 했다.
+           찾던 이름으로 바로 등록할 수 있게 잇는다(기존 추가 모달 재사용 · 이름만 채워 둠). */
+        const _qTrim = String(q || '').trim();
+        if (seg !== 'all') _emptyMsg = '이 조건에 맞는 손님이 아직 없어요';
+        else if (_qTrim) _emptyMsg = `'${_esc(_qTrim)}' 손님을 찾지 못했어요`
+          + (/^[0-9\-\s]+$/.test(_qTrim) ? '' : `<br><button type="button" class="dt-retry" data-cust-add-q="${_esc(_qTrim.slice(0, 50))}">+ '${_esc(_qTrim.slice(0, 50))}' 새 손님으로 등록</button>`);
+        else _emptyMsg = '검색 결과 없음';
       } else if (_isOffline) {
         _emptyMsg = '손님 목록을 불러오지 못했어요.<br>연결을 확인하고 다시 시도해 주세요.'
           + '<br><button type="button" class="dt-retry" data-cust-retry>다시 시도</button>';
@@ -967,6 +973,11 @@
         _emptyMsg = '+ 버튼을 눌러 첫 고객을 등록해보세요';
       }
       box.innerHTML = _dupBannerHTML() + `<div class="dt-empty">${_emptyMsg}</div>`;
+      const _addQ = box.querySelector('[data-cust-add-q]');
+      if (_addQ) _addQ.addEventListener('click', () => {
+        if (typeof window._openCustomerEditSheet === 'function') window._openCustomerEditSheet({ name: _addQ.getAttribute('data-cust-add-q') });
+        else _openAddForm();
+      });
       _bindDupBanner(box);
       _bindListRetry(box);
       return;
@@ -1344,7 +1355,7 @@
       try {
         await remove(id);
         if (window.hapticLight) window.hapticLight();
-        if (window.showToast) window.showToast('삭제 완료');
+        if (window.showToast) window.showToast('손님을 목록에서 지웠어요 — 매출 기록은 그대로 남아요');
         _rerender();
       } catch (e) {
         console.warn('[customer] delete 실패:', e);
@@ -1636,14 +1647,14 @@
             });
           } else if (trimmed) {
             // 검색어 있는데 결과 0건 → 즉석 신규 추가 UI 노출 + 1탭 버튼
+            /* [2026-09-14 P3 첫원장 라이브] 결과 0건이면 **추가 버튼이 두 개**였다 — 큰 '+ 새 고객으로 X 추가' 와
+               아래 줄의 '+ 추가하고 선택'. 둘 다 같은 onCreate 인데 원장은 뭐가 다른지 몰라 멈춘다.
+               연락처까지 넣을 수 있는 아래 줄 하나만 남기고, 안내가 그 줄을 가리키게 한다. */
             listEl.innerHTML = `
-              <div style="padding:18px 12px 12px;text-align:center;color:#888;font-size:13px;">'${_esc(trimmed)}' 고객을 찾을 수 없어요</div>
-              <button data-pick-quick-add style="display:block;width:100%;padding:14px;margin:0 0 10px;border:none;border-radius:14px;background:linear-gradient(135deg,var(--brand),#E96A7E);color:#fff;font-weight:700;font-size:14px;cursor:pointer;">+ 새 고객으로 '${_esc(trimmed)}' 추가</button>
+              <div style="padding:18px 12px 12px;text-align:center;color:#888;font-size:13px;line-height:1.6;">'${_esc(trimmed)}' 고객이 아직 없어요<br>아래에서 바로 새 고객으로 추가할 수 있어요</div>
             `;
             createRow.style.display = 'block';
             newNameEl.value = trimmed;
-            const quickBtn2 = listEl.querySelector('[data-pick-quick-add]');
-            if (quickBtn2) quickBtn2.addEventListener('click', () => onCreate());
           } else {
             listEl.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-subtle);font-size:13px;">' +
               '등록된 고객이 없어요. 아래에서 바로 추가할 수 있어요.' +

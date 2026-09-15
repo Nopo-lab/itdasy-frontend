@@ -302,12 +302,13 @@
       <div class="cf-sec">
         <div class="cf-label">결제수단</div>
         <div class="cf-pay-grid">${methodsHtml}</div>
+        ${c.method === 'membership' ? _memBalanceHtml(c) : ''}
       </div>
       <div class="cf-opts">
         <div class="cf-opt-row" data-opt="includeRevenue"${c.method === 'membership' ? ' style="opacity:.55;pointer-events:none"' : ''}>
           <div class="cf-opt-text">
             <div class="cf-opt-label">매출에 포함</div>
-            <div class="cf-opt-desc">${c.method === 'membership' ? '회원권 차감은 항상 기록돼요' : (c.includeRevenue ? '이번달 매출에 더해요' : '매출에서 빠져요')}</div>
+            <div class="cf-opt-desc">${c.method === 'membership' ? '매출은 충전할 때 이미 들어갔어요 — 이번엔 잔액에서만 빠져요' : (c.includeRevenue ? '이번달 매출에 더해요' : '매출에서 빠져요')}</div>
           </div>
           <div class="cf-toggle ${(c.method === 'membership' || c.includeRevenue) ? 'on' : ''}"></div>
         </div>
@@ -356,7 +357,7 @@
         </div>
       </div>
       <div class="cf-itby">
-        놓치셨네요. 받으신 <b>예약금</b>만 매출에 잡고 ${_esc(c.customer_name || '')}님 기록엔 <b>미방문</b>으로 남길게요.
+        놓치셨네요. 받으신 <b>예약금</b>만 매출에 잡고 ${_esc(window.withHonorific ? (window.withHonorific(c.customer_name || '') || '손님') : (c.customer_name || '') + '님')} 기록엔 <b>미방문</b>으로 남길게요.
       </div>
       <div class="cf-sec">
         <div class="cf-label">받은 예약금</div>
@@ -390,6 +391,31 @@
       _ctx[key] = Number.isFinite(num) && num > 0 ? num : null;
       e.target.value = _ctx[key] ? _ctx[key].toLocaleString('ko-KR') : '';
     });
+  }
+
+  /* [2026-09-13 UX·돈] 회원권을 고르면 **잔액이 어디에도 안 보였다.** 원장은 얼마 남았는지 모른 채 차감하고,
+     모자라면 저장을 누른 뒤에야 오류를 본다. 서버 잔액을 읽어 '지금 → 차감 후' 를 보여준다(모르면 모른다고). */
+  function _memBalanceHtml(c) {
+    const bal = c._memBal;
+    if (bal === undefined) { _loadMemBalance(c); return '<div class="cf-opt-desc" style="margin-top:8px;">회원권 잔액 확인 중…</div>'; }
+    if (bal === null) return '<div class="cf-opt-desc" style="margin-top:8px;">회원권 잔액을 확인하지 못했어요 — 저장하면 서버가 잔액을 다시 확인해요</div>';
+    const amt = Number(c.amount) || 0;
+    const after = bal - amt;
+    if (after < 0) return `<div class="cf-opt-desc" style="margin-top:8px;color:var(--danger,#D14343);font-weight:700;">남은 잔액 ${_won(bal)} — ${_won(-after)} 모자라요. 결제수단을 바꾸거나 먼저 충전해 주세요</div>`;
+    return `<div class="cf-opt-desc" style="margin-top:8px;">남은 잔액 <b>${_won(bal)}</b> → 차감 후 <b>${_won(after)}</b></div>`;
+  }
+  function _won(n) { return (Number(n) || 0).toLocaleString('ko-KR') + '원'; }
+  function _loadMemBalance(c) {
+    if (!c.customer_id) { c._memBal = null; return; }
+    if (c._memBalLoading) return;
+    c._memBalLoading = true;
+    // 응답이 매달려도 '확인 중' 에 영영 머물지 않게 8초 상한(라이브에서 한 번 멈춘 채 남음).
+    const _timeout = new Promise((res) => setTimeout(() => res(null), 8000));
+    Promise.race([Promise.resolve(window.apiFetch ? window.apiFetch('/customers/' + encodeURIComponent(c.customer_id)) : null), _timeout])
+      .then((r) => (r && r.ok ? r.json() : null))
+      .then((d) => { c._memBal = (d && d.membership_balance != null && Number.isFinite(Number(d.membership_balance))) ? Number(d.membership_balance) : null; })
+      .catch(() => { c._memBal = null; })
+      .then(() => { c._memBalLoading = false; if (_ctx === c) _render(); });
   }
 
   function _render() {
@@ -484,9 +510,19 @@
       if (eff.revenue_created) _emitChange('create_revenue', { booking_id: ctx.booking_id, customer_id: ctx.customer_id, revenue_id: eff.revenue_id });
       if (window.hapticSuccess) window.hapticSuccess();
       if (window.showToast) {
-        if (eff.membership_deducted) window.showToast(`회원권 ${_fmt(eff.membership_deducted)} 차감 완료`);
-        else if (eff.revenue_created) window.showToast(`${_fmt(ctx.amount)} 매출 자동 기록됨`);
-        else window.showToast('예약 완료 (매출 미기록)');
+        // [2026-09-13 UX] 원장 말로 — 무엇이 어디에 들어갔는지까지.
+        if (eff.membership_deducted) {
+          const _left = (typeof ctx._memBal === 'number') ? ctx._memBal - (Number(eff.membership_deducted) || 0) : null;
+          window.showToast(`시술 완료했어요 · 회원권 ${_fmt(eff.membership_deducted)}을 차감했어요` + (_left != null && _left >= 0 ? ` · 남은 잔액 ${_won(_left)}` : ''));
+        }
+        else if (eff.revenue_created) window.showToast(`시술 완료했어요 · ${_fmt(ctx.amount)}을 이번달 매출에 넣었어요`);
+        /* [2026-09-13 여러 탭 실측] 두 탭에서 같은 예약을 동시에 완료하면 서버는 **한 번만** 차감하고
+           늦은 쪽엔 기존 기록 id(revenue_id)만 돌려준다. 그런데 늦은 탭은 "매출에는 넣지 않았어요" 라고 해서
+           원장이 회원권이 안 빠진 줄 알고 다시 차감할 수 있었다(서버 잔액 40,000 — 실제로는 빠짐). */
+        else if (eff.revenue_id) window.showToast(ctx.method === 'membership'
+          ? '이미 완료된 예약이에요 · 회원권 차감은 한 번만 반영돼 있어요 (다시 빠지지 않았어요)'
+          : '이미 완료된 예약이에요 · 매출은 한 번만 기록돼 있어요');
+        else window.showToast(includeRev ? '시술 완료했어요' : '시술 완료했어요 · 매출에는 넣지 않았어요');
       }
       _close();
       _refreshConnectedViews();
@@ -494,7 +530,9 @@
       if (_ctx !== ctx) return;
       _busy = false;
       btn.disabled = false; btn.textContent = '시술 완료';
-      if (window.showToast) window.showToast('실패: ' + (e.message || ''));
+      if (window.showToast) window.showToast('시술 완료를 저장하지 못했어요 — ' + (e.message || '잠시 후 다시 시도해 주세요'));
+      // [2026-09-13 여러 탭] 다른 탭이 먼저 잔액을 쓰면 여기로 온다 — 옛 잔액 줄을 서버 값으로 다시 맞춘다.
+      if (ctx.method === 'membership') { ctx._memBal = undefined; ctx._memBalLoading = false; _render(); }
     }
   }
 
@@ -541,7 +579,8 @@
     const _msg = (typeof window._bookingCancelMsg === 'function')
       ? window._bookingCancelMsg({ status: _ctx.status, amount: _ctx.amount })
       : '이 예약을 취소할까요?';
-    if (window._inlineConfirm) { window._inlineConfirm(_msg, () => _doCancelBooking()); return; }
+    // [2026-09-13 UX] 버튼이 '취소 / 확인' 이라 "예약 취소할까요?" 에서 **'취소' 가 '안 한다'** 였다(누르면 예약이 그대로).
+    if (window._inlineConfirm) { window._inlineConfirm(_msg, () => _doCancelBooking(), function () { /* 아니요 */ }, { okText: '예약 취소', cancelText: '아니요' }); return; }
     if (!window.confirm(_msg)) return;
     return _doCancelBooking();
   }
@@ -558,7 +597,8 @@
       _busy = false;
       _emitChange('update_booking', { booking_id: ctx.booking_id, customer_id: ctx.customer_id });
       _invalidateAllCaches();
-      if (window.showToast) window.showToast('예약이 취소됐어요');
+      if (typeof window._showBookingCancelledToast === 'function') window._showBookingCancelledToast(ctx.booking_id, ctx.status, () => { _invalidateAllCaches(); _refreshConnectedViews(); });
+      else if (window.showToast) window.showToast('예약이 취소됐어요');
       _close();
       _refreshConnectedViews();
     } catch (e) {

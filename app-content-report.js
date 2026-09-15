@@ -72,6 +72,20 @@
     document.querySelector('[data-content-report-submit]')?.addEventListener('click', () => submitContentReport());
   }
 
+  function _topFixedZ(except) {
+    let top = 0;
+    try {
+      document.querySelectorAll('body *').forEach((el) => {
+        if (el === except || (except && except.contains(el))) return;
+        const cs = getComputedStyle(el);
+        if (cs.position !== 'fixed' || cs.display === 'none' || cs.visibility === 'hidden') return;
+        const z = parseInt(cs.zIndex, 10);
+        if (Number.isFinite(z) && z > top && z < 2147483000) top = z;   // 토스트·디버그 배너(최댓값)는 제외
+      });
+    } catch (_e) { void _e; }
+    return top;
+  }
+
   window.openContentReport = function (opts) {
     ensureModal();
     const type = (opts && opts.contentType) || 'other';
@@ -96,7 +110,14 @@
     document.getElementById('aiReportDetail').value = '';
     const err = document.getElementById('aiReportError'); if (err) err.style.display = 'none';
     const btn = document.getElementById('aiReportSubmitBtn'); if (btn) { btn.disabled = false; btn.textContent = '신고 제출'; }
-    document.getElementById('aiContentReportModal').style.display = 'flex';
+    /* [ITBI Closeout 2026-09-13 · P1] **잇비 창에서 신고를 누르면 모달이 잇비 창 뒤에 깔렸다.**
+       실측(전용 프로필 · user 5 · FE dee65ba · 961px): 모달 z 10050 < #assistantSheet z 10500.
+       '신고' 탭 → 화면 변화 0, `elementFromPoint(신고 제출)` = 잇비 말풍선. 잇비 답변 신고 경로가 통째로 죽어 있었다
+       (AI 답변 신고는 스토어 심사가 요구하는 경로이기도 하다). 이 레포에서 z-index 사다리로 여러 번 재발한 모양이라
+       숫자를 하나 더 올리지 않고 **여는 순간 화면에 떠 있는 가장 높은 고정 레이어 위로** 올린다. */
+    const _modal = document.getElementById('aiContentReportModal');
+    _modal.style.zIndex = String(Math.max(10050, _topFixedZ(_modal) + 1));
+    _modal.style.display = 'flex';
     /* [2026-09-09] 뒤로가기 등록 — 전체화면 오버레이는 back 으로 자기가 닫혀야 한다.
        안 하면 back 이 이 창 대신 뒤 화면을 닫아 작성 중이던 내용이 날아간다. */
     try { window._bindSheetBack && window._bindSheetBack('aiContentReport', document.getElementById('aiContentReportModal'), () => { document.getElementById('aiContentReportModal').style.display = 'none'; }); } catch (_bsb) { void _bsb; }

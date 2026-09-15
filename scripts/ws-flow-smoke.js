@@ -71,34 +71,34 @@ async function openWorkspace(page) {
   const base = `http://localhost:${PORT}/index.html`;
 
   try {
-    // ── ws-hyper ON (기본 플로우) ──
+    // ── 현재 작업실 V2 기본 플로우 ──
     await page.goto(base, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => window.WorkspaceFlow && window.WorkspaceLayout && window.ItdEditor, { timeout: 20000 });
     step('modules load (WorkspaceFlow/Layout/Editor)', true);
-    step('ws-hyper default ON', (await page.evaluate(() => window.ITDASY_WS_HYPER)) === true);
 
     await page.waitForTimeout(2000);   // 앱 초기 라우팅/히스토리 부팅 정착(안 그러면 오픈 직후 오버레이가 닫힘)
     await openWorkspace(page);
     await page.waitForTimeout(500);
     const s1 = await page.evaluate(() => window.WorkspaceFlow.getActiveSlot());
-    step('open → HYPER routes to layout', s1 && s1.screen === 'layout', 'screen=' + (s1 && s1.screen));
+    step('사진 추가 → 현재 사진 확인 화면', s1 && s1.screen === 'layout', 'screen=' + (s1 && s1.screen));
 
-    step('layout cards render (≥8)', (await page.evaluate(() => document.querySelectorAll('.wsl-card').length)) >= 8);
+    step('현재 구성 선택지 렌더', (await page.evaluate(() => document.querySelectorAll('[data-fl-comp]').length)) >= 3);
 
-    await page.evaluate(() => { const c = document.querySelector('.wsl-card[data-fl-layoutpick="wsl-ba-lr"]'); if (c) c.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    await page.evaluate(() => { const c = document.querySelector('[data-fl-comp="merge-lr"]'); if (c) c.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
     await page.waitForTimeout(400);
-    step('select layout → stage mounts', await page.evaluate(() => !!document.querySelector('[data-fl-stage]')));
+    step('한 장으로 합치기 → 현재 미리보기 생성', await page.evaluate(() => !!document.querySelector('[data-fl-cardstage], .wsl-stage')));
 
     // 후기/가격 텍스트 합성(A1) — composeLayout이 텍스트 주입 레이아웃도 그려내는지
     const compBA = await page.evaluate(async () => {
       const WL = window.WorkspaceLayout;
       function mk(c) { const cv = document.createElement('canvas'); cv.width = 400; cv.height = 500; const x = cv.getContext('2d'); x.fillStyle = c; x.fillRect(0, 0, 400, 500); return cv.toDataURL('image/jpeg', 0.7); }
       const p = { id: 'p', dataUrl: mk('#c98a7a'), role: 'main' };
-      const rev = WL.getById('wsl-review'); rev.layers.forEach((L) => { if (L.role === 'body') L.text = '테스트 후기'; });
-      const u = await WL.composeLayout(rev, [p], { main: p });
+      const rev = WL.getById('wsl-collage-2');
+      const p2 = { id: 'p2', dataUrl: mk('#7a9ec9'), role: 'main' };
+      const u = await WL.composeLayout(rev, [p, p2], { main: p });
       return !!(u && u.indexOf('data:image') === 0);
     });
-    step('composeLayout(review, 텍스트주입) OK', compBA);
+    step('현재 2장 구성 합성 OK', compBA);
 
     await page.evaluate(() => window.WorkspaceFlow.command({ type: 'goto', screen: 'caption' }));
     await page.waitForTimeout(250);
@@ -117,10 +117,7 @@ async function openWorkspace(page) {
     });
     step('ItdEditor.compose → dataURL', compose);
 
-    // ── ws-hyper OFF (옛 플로우 회귀) ──
-    await page.goto(base + '?wshyper=0', { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => window.WorkspaceFlow, { timeout: 20000 });
-    step('rollback ?wshyper=0 → OFF', (await page.evaluate(() => window.ITDASY_WS_HYPER)) === false);
+    // 옛 ws-hyper/rollback 화면은 2026-07-12 제거됐다. 현재 작업실 하나만 검증한다.
   } catch (e) {
     step('EXCEPTION', false, String(e).split('\n')[0]);
   }

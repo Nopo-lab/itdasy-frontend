@@ -281,7 +281,14 @@ async function loadSlotsFromDB() {
     const tx  = db.transaction(_GDB_STORE, 'readonly');
     const req = tx.objectStore(_GDB_STORE).getAll();
     // [2026-06-11 B7] 오름차순(옛것 위) → 내림차순: 방금 저장한 카드가 작업실 맨 위에 보이게
-    req.onsuccess = () => resolve((req.result || []).sort((a, b) => (b.order || 0) - (a.order || 0)));
+    /* [2026-09-13 ZH 계정 격리] 다른 계정 도장(_owner)이 찍힌 슬롯은 **보여주지도 올리지도 않는다.**
+       같은 브라우저의 다른 탭이 계정을 바꾼 뒤 옛 탭이 늦게 저장하면, 정리(purge)가 끝난 DB 에
+       옛 계정 글이 다시 들어온다(라이브 실측: 계정 4 작업실에 계정 5 네일 글). 지우지 않고 숨긴다 —
+       옛 계정이 아직 못 올린 편집일 수 있어서다. 도장 없는 옛 슬롯은 기존 동작. */
+    const _cur = _gdbCurrentUser();
+    req.onsuccess = () => resolve((req.result || [])
+      .filter((s) => !(s && s._owner && _cur && String(s._owner) !== _cur))
+      .sort((a, b) => (b.order || 0) - (a.order || 0)));
     req.onerror   = () => reject(req.error);
   });
 }

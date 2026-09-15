@@ -210,7 +210,9 @@
         const isUse = it.kind === 'use';
         const sign = isUse ? '−' : '+';
         const color = isUse ? '#0288D1' : 'var(--brand)';
-        const dt = (it.recorded_at || '').replace('T', ' ').slice(5, 16);
+        // [2026-09-13 P2] 같은 이유로 시각이 9시간 빨랐다(실측: 03:36 로 보였는데 실제 12:36).
+        //   같은 이유로 감싼다 — 일시 한 칸 때문에 충전/사용 내역이 통째로 사라지면 안 된다.
+        const dt = window.fmtKShortDateTime ? window.fmtKShortDateTime(it.recorded_at) : '';
         const svc = it.service_name ? ` · ${(it.service_name + '').replace(/[<>&"]/g,'')}` : '';
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid #f3f3f3;">
           <div style="font-size:12px;color:#444;">${dt}${svc}</div>
@@ -309,11 +311,11 @@
         _txnDone(_sig);   // 성공했으니 이 키는 버린다 — 다음 충전은 새 시도다
         // [2026-04-29] 충전 성공 — 큰 confetti
         if (window.Fun && window.Fun.celebrate) {
-          window.Fun.celebrate(`${customerName}님 +${formatMoney(amount)} (잔액 ${formatMoney(r.membership_balance)})`, {
+          window.Fun.celebrate(`${customerName}님 회원권 ${formatMoney(amount)} 충전했어요 · 남은 잔액 ${formatMoney(r.membership_balance)}`, {
             emojis: ['✨', '💖', '🌷'], count: 16,
           });
         } else {
-          _toast(`충전 완료! 잔액 ${formatMoney(r.membership_balance)}`);
+          _toast(`회원권 ${formatMoney(amount)} 충전했어요 · 남은 잔액 ${formatMoney(r.membership_balance)}`);
         }
         sheet.style.display = 'none';
         try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'membership_topup' } })); } catch (_) { void 0; }
@@ -343,6 +345,17 @@
   //    지금 booking_id 가 하는 일은 하나뿐이다: **이 차감이 어느 예약에서 나왔는지
   //    원장에 남겨 나중에 설명할 수 있게 하는 것.**
   //    (백엔드는 이 값이 내 원장·이 손님의 예약일 때만 기록하고, 아니면 조용히 버린다.)
+  async function _refreshUseSheet(sheet, customerId, customerName) {
+    try {
+      const c = await _fetch('GET', '/customers/' + encodeURIComponent(customerId));
+      const bal = c && c.membership_balance != null ? Number(c.membership_balance) : null;
+      if (bal == null || !Number.isFinite(bal)) return;
+      const subEl = sheet.querySelector('#msSub');
+      if (subEl) subEl.textContent = `${customerName || '고객'}님 · 현재 잔액 ${formatMoney(bal)}`;
+      _loadHistory(customerId, sheet.querySelector('#msHistoryWrap'));
+    } catch (_e) { void _e; }
+  }
+
   function openUseSheet(customerId, customerName, currentBalance, bookingId) {
     const balanceTxt = currentBalance != null ? `현재 잔액 ${formatMoney(currentBalance)}` : '';
     const html = `
@@ -395,7 +408,10 @@
         const _m = _moneyError(e, '차감');
         const _txt = _m.certain ? ('차감 실패 — ' + _m.text) : (_slow.fired ? _MONEY_STILL_UNKNOWN : _m.text);
         _toast(_txt, { error: true });
-        // [2026-07-22 fix] 실패 시 재활성화 — 안 하면 버튼 영구 잠김(충전 시트엔 있던 로직)
+        /* [2026-09-13 여러 탭 실측] 다른 탭이 먼저 차감하면 이 탭은 '잔액 부족' 으로 거절되는데
+           시트 머리말은 열 때 읽은 **옛 잔액(50,000원)** 을 그대로 보여 서버(10,000원)와 어긋났다.
+           실패하면 서버 잔액·내역을 다시 읽어 화면을 맞춘다. */
+        _refreshUseSheet(sheet, customerId, customerName);
         _slow.stop();
         _busy(btn, false, '차감 중…', '차감하기');
       }

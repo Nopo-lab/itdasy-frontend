@@ -80,7 +80,7 @@
     if (empty) {
       body.innerHTML = `
         <div style="padding:40px 20px;text-align:center;color:var(--text-subtle);">
-          <div style="font-size:36px;margin-bottom:10px;">🌱</div>
+          <div style="margin-bottom:10px;color:var(--brand-strong,#BC6675);"><svg width="36" height="36" aria-hidden="true"><use href="#ic-sparkles"/></svg></div>
           <div style="font-size:13px;line-height:1.5;">이 달은 아직 기록이 없어요.<br>매출·고객을 쌓으면 자동으로 리포트가 만들어져요.</div>
         </div>
       `;

@@ -17,7 +17,12 @@
   function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
 
   window.emptyState = function (opts) {
-    const icon = opts?.icon || '🌱';
+    // [2026-09-14 P3] 기본 아이콘이 이모지 🌱 였다(OS 마다 다르게 그려짐 · 아이콘 규칙 위반). Lucide 스프라이트로.
+    //   opts.icon 은 'ic-xxx' 스프라이트 id 로 받는다(옛 이모지 문자열도 그대로 넣어준다 — 호출부 호환).
+    const _ic = opts?.icon || 'ic-sparkles';
+    const icon = /^ic-[a-z0-9-]+$/.test(_ic)
+      ? `<svg width="34" height="34" aria-hidden="true" style="color:var(--brand-strong,#BC6675)"><use href="#${_ic}"/></svg>`
+      : _esc(_ic);
     const title = opts?.title || '아직 기록이 없어요';
     const desc = opts?.desc || '첫 기록을 남겨 보세요.';
     const ctaText = opts?.ctaText || '지금 추가';

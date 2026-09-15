@@ -32,7 +32,9 @@ function loadPull(env) {
   const body = SRC.slice(i, end);
   const names = ['ready', '_pulling', '_readOr', 'getMeta', 'loadAllLocal', 'log', 'window',
     'allTombstones', 'has', '_origDeleteSlot', 'tsMs', 'delTombstone', 'loadOneLocal',
-    '_origSaveSlot', 'remoteToLocal', 'setMeta', 'refreshHome', 'authHeader'];
+    '_origSaveSlot', 'remoteToLocal', 'setMeta', 'refreshHome', 'authHeader',
+    // [2026-09-13] 계정 격리 가드가 pull 에 추가한 의존(sync-account-switch-isolation 테스트가 동작을 본다)
+    'accountSwitched', '_tokenSub'];
   // eslint-disable-next-line no-new-func
   const factory = new Function(...names, body + '\n; return pull;');
   return factory(...names.map((n) => env[n]));
@@ -58,6 +60,8 @@ function makeEnv({ localSlots, tombstones = [], serverSlots, cursor }) {
     setMeta: (k, v) => { calls.cursorSaved.push(v); return Promise.resolve(true); },
     refreshHome: () => {},
     authHeader: () => ({}),
+    accountSwitched: () => false,
+    _tokenSub: () => null,
     window: {
       apiFetch: (url) => {
         calls.urls.push(url);

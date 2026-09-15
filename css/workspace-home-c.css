@@ -75,6 +75,8 @@
 
 /* 타일 상태 칩 — 진행 중만 좌하단 흰 칩 하나('작성 중'/'예약'), 발행 완료는 사진만 */
 .wf-chip{ position:absolute; left:6px; bottom:6px; z-index:1; height:22px; padding:0 9px; border-radius:11px; background:rgba(255,255,255,.92); color:var(--c-ink); font-size:10.5px; font-weight:700; letter-spacing:-.01em; display:flex; align-items:center; }
+.wf-chip--local{ background:#FEF3E2; color:#854F0B; }   /* [2026-09-13 ZH] 서버 미동기 — 경고색(오류색 아님: 데이터는 안전) */
+.wf-chip--conflict{ background:#E8F1FE; color:#1B4E9B; }   /* [2026-09-13 P1] 동기화 충돌 보존본 — 데이터는 안전하니 경고색이 아니라 정보색 */
 
 /* 선택 모드 — 체크/아웃라인도 흑백 기조 */
 .wf-tile.is-sel{ outline:3px solid var(--c-ink); outline-offset:-3px; }

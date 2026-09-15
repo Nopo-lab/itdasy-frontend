@@ -1,0 +1,355 @@
+{
+  "generatedAt": 1789425280,
+  "backendProbe": {
+    "url": "https://itdasy-backend-staging-644329093453.asia-northeast3.run.app/instagram-style/analyze",
+    "status": 401,
+    "bodyHead": "{\"detail\":\"Not authenticated\",\"request_id\":\"6c58883ecd8b\"}"
+  },
+  "sources": [
+    {
+      "id": "lemon8_lash_before_after",
+      "service": "속눈썹",
+      "platform": "Lemon8/TikTok CDN",
+      "page": "https://www.lemon8-app.com/%40lasheswithnatt/7571189537997603342?region=us",
+      "image": "https://p19-lemon8-sign-useast5.tiktokcdn-us.com/tos-useast8-i-3931-tx2/ogAKAfekDEApFA013SERktEbECVIcqkAkctcWD~tplv-pyavlv3z7u-text-logo%3AQGxhc2hlc3dpdGhuYXR0%3Aq75.jpeg?lk3s=c7f08e79&source=lemon8_seo&x-expires=1776967200&x-signature=x4OrX51G%2BTcVH6sPVklngejfWcQ%3D",
+      "ok": false,
+      "error": "HTTPError: HTTP Error 403: Forbidden"
+    },
+    {
+      "id": "marketing_hair_story_before_after",
+      "service": "헤어",
+      "platform": "Salon marketing public page",
+      "page": "https://salonmarketingco.ca/story-posts",
+      "image": "https://storage.googleapis.com/msgsndr/DFgZN2wLgp72JHTmvPGP/media/690e4c7d5542aee8c350490f.png",
+      "ok": true,
+      "localPath": "output/real-source-style-learning-qa/images/marketing_hair_story_before_after.png",
+      "analysis": {
+        "width": 825,
+        "height": 1200,
+        "aspect": 0.688,
+        "visual": {
+          "brightness": 0.391,
+          "saturation": 0.232,
+          "warmth": 0.106
+        },
+        "textProxy": {
+          "present": true,
+          "candidatePixels": 15736,
+          "whiteEdgePixels": 9112,
+          "darkEdgePixels": 6624,
+          "alignment": "center",
+          "position": "middle-center",
+          "color": "#FFFFFF",
+          "sizeRatio": 0.099,
+          "center": [
+            0.519,
+            0.38
+          ],
+          "engine": "local_pixel_proxy_v1",
+          "note": "OCR 아님. 실제 픽셀의 고대비 흰/검정 글자 후보로 위치·색만 추정."
+        }
+      }
+    },
+    {
+      "id": "ameba_nail_handcare_before_after",
+      "service": "네일",
+      "platform": "Ameba public blog",
+      "page": "https://ameblo.jp/70017001777/entry-12637503306.html",
+      "image": "https://stat.ameba.jp/user_images/20191028/13/70017001777/91/72/j/o0864108014625716714.jpg",
+      "ok": true,
+      "localPath": "output/real-source-style-learning-qa/images/ameba_nail_handcare_before_after.jpg",
+      "analysis": {
+        "width": 864,
+        "height": 1080,
+        "aspect": 0.8,
+        "visual": {
+          "brightness": 0.741,
+          "saturation": 0.133,
+          "warmth": 0.063
+        },
+        "textProxy": {
+          "present": true,
+          "candidatePixels": 11082,
+          "whiteEdgePixels": 11037,
+          "darkEdgePixels": 45,
+          "alignment": "center",
+          "position": "middle-center",
+          "color": "#FFFFFF",
+          "sizeRatio": 0.077,
+          "center": [
+            0.491,
+            0.502
+          ],
+          "engine": "local_pixel_proxy_v1",
+          "note": "OCR 아님. 실제 픽셀의 고대비 흰/검정 글자 후보로 위치·색만 추정."
+        }
+      }
+    },
+    {
+      "id": "rakuten_lash_lift_before_after",
+      "service": "속눈썹",
+      "platform": "Rakuten Beauty public salon page",
+      "page": "https://beauty.rakuten.co.jp/s8000035120/tk10/",
+      "image": "https://cloudinary-a.akamaihd.net/vivivi/image/upload/t_beauty%2Cf_auto%2Cdpr_2.0%2Cq_auto%3Agood/c_pad%2Cw_370%2Ch_370/v1763452887/tk0035120_010_04.jpg",
+      "ok": false,
+      "error": "HTTPError: HTTP Error 404: Not Found"
+    },
+    {
+      "id": "canva_hair_treatment_instagram_post",
+      "service": "헤어",
+      "platform": "Canva public template image",
+      "page": "https://www.canva.com/templates/",
+      "image": "https://marketplace.canva.com/EAGNOni_vo4/2/0/1600w/canva-brown-and-green-gloral-hair-treatment-befor-after-instagram-post-K0BJw-RprAE.jpg",
+      "ok": true,
+      "localPath": "output/real-source-style-learning-qa/images/canva_hair_treatment_instagram_post.jpg",
+      "analysis": {
+        "width": 1600,
+        "height": 1600,
+        "aspect": 1.0,
+        "visual": {
+          "brightness": 0.996,
+          "saturation": 0.0,
+          "warmth": 0.0
+        },
+        "textProxy": {
+          "present": true,
+          "candidatePixels": 21558,
+          "whiteEdgePixels": 20519,
+          "darkEdgePixels": 1039,
+          "alignment": "center",
+          "position": "middle-center",
+          "color": "#FFFFFF",
+          "sizeRatio": 0.096,
+          "center": [
+            0.482,
+            0.549
+          ],
+          "engine": "local_pixel_proxy_v1",
+          "note": "OCR 아님. 실제 픽셀의 고대비 흰/검정 글자 후보로 위치·색만 추정."
+        }
+      }
+    },
+    {
+      "id": "librelash_sydney_lash_extensions",
+      "service": "속눈썹",
+      "platform": "Libre Lash Sydney public site",
+      "page": "https://www.librelashsydney.com.au/",
+      "image": "https://images.squarespace-cdn.com/content/v1/5dd218b1db0ebb79e9527357/5e866bae-2d7e-4f3f-9a64-1ee4b936c4e0/IMG_20211023_175058%2B-%2BCopy.jpg",
+      "ok": true,
+      "localPath": "output/real-source-style-learning-qa/images/librelash_sydney_lash_extensions.jpg",
+      "analysis": {
+        "width": 1564,
+        "height": 1564,
+        "aspect": 1.0,
+        "visual": {
+          "brightness": 0.554,
+          "saturation": 0.34,
+          "warmth": 0.129
+        },
+        "textProxy": {
+          "present": true,
+          "candidatePixels": 4686,
+          "whiteEdgePixels": 716,
+          "darkEdgePixels": 3970,
+          "alignment": "right",
+          "position": "upper-center",
+          "color": "#15181D",
+          "sizeRatio": 0.045,
+          "center": [
+            0.595,
+            0.175
+          ],
+          "engine": "local_pixel_proxy_v1",
+          "note": "OCR 아님. 실제 픽셀의 고대비 흰/검정 글자 후보로 위치·색만 추정."
+        }
+      }
+    },
+    {
+      "id": "soomgo_forehead_waxing_before_after",
+      "service": "왁싱",
+      "platform": "Soomgo public portfolio image",
+      "page": "https://soomgo.com/a.%EA%B2%BD%EA%B8%B0/%EC%99%81%EC%8B%B1",
+      "image": "https://static.cdn.soomgo.com/upload/portfolio/6e3ae581-635f-4129-b6fb-81635b244382.jpg",
+      "ok": true,
+      "localPath": "output/real-source-style-learning-qa/images/soomgo_forehead_waxing_before_after.jpg",
+      "analysis": {
+        "width": 1080,
+        "height": 1080,
+        "aspect": 1.0,
+        "visual": {
+          "brightness": 0.96,
+          "saturation": 0.02,
+          "warmth": 0.02
+        },
+        "textProxy": {
+          "present": true,
+          "candidatePixels": 22779,
+          "whiteEdgePixels": 9604,
+          "darkEdgePixels": 13175,
+          "alignment": "center",
+          "position": "middle-center",
+          "color": "#15181D",
+          "sizeRatio": 0.099,
+          "center": [
+            0.551,
+            0.363
+          ],
+          "engine": "local_pixel_proxy_v1",
+          "note": "OCR 아님. 실제 픽셀의 고대비 흰/검정 글자 후보로 위치·색만 추정."
+        }
+      }
+    },
+    {
+      "id": "lashinc_sg_4d_lash_extensions",
+      "service": "속눈썹",
+      "platform": "Lash Inc SG public shop image",
+      "page": "https://lashincsg.com/",
+      "image": "https://lashincsg.com/cdn/shop/products/4DVolumeLashExtensionsLashIncSg_80d91727-c931-420e-8e9e-99ccf5054b0c_500x.png?v=1632406117",
+      "ok": true,
+      "localPath": "output/real-source-style-learning-qa/images/lashinc_sg_4d_lash_extensions.png",
+      "analysis": {
+        "width": 500,
+        "height": 500,
+        "aspect": 1.0,
+        "visual": {
+          "brightness": 0.698,
+          "saturation": 0.242,
+          "warmth": 0.078
+        },
+        "textProxy": {
+          "present": true,
+          "candidatePixels": 19134,
+          "whiteEdgePixels": 12228,
+          "darkEdgePixels": 6906,
+          "alignment": "center",
+          "position": "middle-center",
+          "color": "#FFFFFF",
+          "sizeRatio": 0.116,
+          "center": [
+            0.531,
+            0.559
+          ],
+          "engine": "local_pixel_proxy_v1",
+          "note": "OCR 아님. 실제 픽셀의 고대비 흰/검정 글자 후보로 위치·색만 추정."
+        }
+      }
+    },
+    {
+      "id": "canva_hair_story_book_now",
+      "service": "헤어",
+      "platform": "Canva public template image",
+      "page": "https://www.canva.com/templates/s/collage/",
+      "image": "https://marketplace.canva.com/EAGQe2e2eJQ/2/0/450w/canva-black-and-white-photo-collage-hair-salon-before-after-instagram-story-DGhaWTYbOuc.jpg",
+      "ok": true,
+      "localPath": "output/real-source-style-learning-qa/images/canva_hair_story_book_now.jpg",
+      "analysis": {
+        "width": 450,
+        "height": 800,
+        "aspect": 0.562,
+        "visual": {
+          "brightness": 0.141,
+          "saturation": 0.108,
+          "warmth": 0.012
+        },
+        "textProxy": {
+          "present": true,
+          "candidatePixels": 12599,
+          "whiteEdgePixels": 6876,
+          "darkEdgePixels": 5723,
+          "alignment": "center",
+          "position": "middle-center",
+          "color": "#FFFFFF",
+          "sizeRatio": 0.098,
+          "center": [
+            0.56,
+            0.476
+          ],
+          "engine": "local_pixel_proxy_v1",
+          "note": "OCR 아님. 실제 픽셀의 고대비 흰/검정 글자 후보로 위치·색만 추정."
+        }
+      }
+    }
+  ],
+  "serviceProfiles": {
+    "네일": {
+      "sampleCount": 1,
+      "textUsageRate": 1.0,
+      "axes": {
+        "align": "center",
+        "position": "middle-center",
+        "color": "#FFFFFF",
+        "sizeRatioMedian": 0.077,
+        "tone": {
+          "brightness": 0.741,
+          "saturation": 0.133,
+          "warmth": 0.063
+        }
+      },
+      "sourceIds": [
+        "ameba_nail_handcare_before_after"
+      ]
+    },
+    "속눈썹": {
+      "sampleCount": 2,
+      "textUsageRate": 1.0,
+      "axes": {
+        "align": "center",
+        "position": "middle-center",
+        "color": "#15181D",
+        "sizeRatioMedian": 0.081,
+        "tone": {
+          "brightness": 0.626,
+          "saturation": 0.291,
+          "warmth": 0.104
+        }
+      },
+      "sourceIds": [
+        "librelash_sydney_lash_extensions",
+        "lashinc_sg_4d_lash_extensions"
+      ]
+    },
+    "왁싱": {
+      "sampleCount": 1,
+      "textUsageRate": 1.0,
+      "axes": {
+        "align": "center",
+        "position": "middle-center",
+        "color": "#15181D",
+        "sizeRatioMedian": 0.099,
+        "tone": {
+          "brightness": 0.96,
+          "saturation": 0.02,
+          "warmth": 0.02
+        }
+      },
+      "sourceIds": [
+        "soomgo_forehead_waxing_before_after"
+      ]
+    },
+    "헤어": {
+      "sampleCount": 3,
+      "textUsageRate": 1.0,
+      "axes": {
+        "align": "center",
+        "position": "middle-center",
+        "color": "#FFFFFF",
+        "sizeRatioMedian": 0.098,
+        "tone": {
+          "brightness": 0.391,
+          "saturation": 0.108,
+          "warmth": 0.012
+        }
+      },
+      "sourceIds": [
+        "marketing_hair_story_before_after",
+        "canva_hair_treatment_instagram_post",
+        "canva_hair_story_book_now"
+      ]
+    }
+  },
+  "safety": {
+    "privateOrLoggedInBypass": false,
+    "officialApiTokenAvailable": false,
+    "note": "공개 이미지 URL만 다운로드. 비공개/로그인 우회/무단 대량 수집 없음."
+  }
+}

@@ -244,10 +244,12 @@ function _validateToken(t) {
     if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
       localStorage.removeItem(_TOKEN_KEY);
       // [A10] 토큰 만료 안내 + 로그인 화면
-      if (window.showToast) window.showToast('로그인이 만료되었어요. 다시 로그인해주세요');
+      if (window.showToast) window.showToast('로그인이 필요해요. 작업 중이던 내용은 이 기기에 보관했어요');
       setTimeout(() => {
         const lock = document.getElementById('lockOverlay');
         if (lock) lock.classList.remove('hidden');
+        // [2026-09-13 AUTH] 토스트는 스쳐 지나간다 — 로그인 화면 자체에 '작업은 보관했다'를 남긴다(_handle401 과 같은 안내)
+        const _em = document.getElementById('sessionExpiredMsg'); if (_em) _em.style.display = 'block';
         try { _setAuthGateLocked(true); } catch (_) { /* ignore */ }
       }, 1000);
       return null;
@@ -501,8 +503,13 @@ function showToast(msg, opts) {
     }
     // [P2 2026-09-13] 영문 fetch/abort 문구·원시 JSON·라벨 중복도 같은 길목에서 흡수
     safe = window._userSafeToastText(safe);
+    // [2026-09-14 P3] 'QA첫손님님'·'원장님 님' — 이름+님을 조립하는 곳이 60군데가 넘어 한 곳씩은 또 샌다. 보여주는 길목에서 흡수.
+    if (typeof safe === 'string' && window.dedupeNim) safe = window.dedupeNim(safe);
   } catch (_e) { void _e; }
-  _toastQueue.push({ msg: safe, type: o.type || 'info', duration: d });
+  /* [2026-09-13 UX] 되돌리기 같은 **누를 수 있는** 토스트. 예전엔 `onClick` 을 넘겨도 무시돼
+     "· 되돌리기 →" 글자만 붙고 눌러도 아무 일이 없었다(잇비 되돌리기 토스트). action 이 있으면 버튼을 그리고 조금 더 오래 둔다. */
+  const act = (o.action && typeof o.action.onClick === 'function') ? o.action : null;
+  _toastQueue.push({ msg: safe, type: o.type || 'info', duration: act ? Math.max(d, 6000) : d, action: act });
   if (!_toastActive) _nextToast();
 }
 
@@ -520,7 +527,7 @@ function _nextToast() {
 
   if (!_toastQueue.length) { _toastActive = false; return; }
   _toastActive = true;
-  const { msg, type, duration } = _toastQueue.shift();
+  const { msg, type, duration, action } = _toastQueue.shift();
 
   let el;
   try {
@@ -542,6 +549,21 @@ function _nextToast() {
     el.style.background = c.bg;
     el.style.color = c.color;
     el.textContent = msg;
+    if (action) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = action.label || '되돌리기';
+      b.style.cssText = 'margin-left:10px;padding:5px 11px;border:none;border-radius:9px;background:var(--brand,#BC6675);color:#fff;font:inherit;font-size:13px;font-weight:700;cursor:pointer;';
+      b.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        b.disabled = true;
+        try { action.onClick(); } catch (_ae) { void _ae; }
+        if (_toastHideTimer) { clearTimeout(_toastHideTimer); _toastHideTimer = null; }
+        _hideToastEl(el);
+        _toastNextTimer = setTimeout(_nextToast, 320);
+      });
+      el.appendChild(b);
+    }
 
     requestAnimationFrame(() => {
       el.style.opacity = '1';
@@ -993,10 +1015,12 @@ function getToken() {
         if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
           localStorage.removeItem(_TOKEN_KEY);
           // [A10] 토큰 만료 안내 + 로그인 화면
-          if (window.showToast) window.showToast('로그인이 만료되었어요. 다시 로그인해주세요');
+          if (window.showToast) window.showToast('로그인이 필요해요. 작업 중이던 내용은 이 기기에 보관했어요');
           setTimeout(() => {
             const lock = document.getElementById('lockOverlay');
             if (lock) lock.classList.remove('hidden');
+            // [2026-09-13 AUTH] 토스트는 스쳐 지나간다 — 로그인 화면 자체에 '작업은 보관했다'를 남긴다(_handle401 과 같은 안내)
+            const _em = document.getElementById('sessionExpiredMsg'); if (_em) _em.style.display = 'block';
             try { _setAuthGateLocked(true); } catch (_) { /* ignore */ }
           }, 1000);
           return null;
@@ -1557,6 +1581,63 @@ function authHeader() {
     }
   }
 
+  /* [2026-09-13 AUTH] 🔴 **토큰 자동 갱신이 구조상 한 번도 성공할 수 없었다.**
+     BE 액세스 토큰은 24시간이고 `/auth/refresh` 는 `Depends(get_current_user)` — **유효한** 토큰이어야 새 토큰을 준다.
+     그런데 FE 가 `_tryRefresh()` 를 부르는 곳은 401 핸들러 한 곳뿐이었다. 401 이 뜬 시점엔 이미 만료라
+     갱신도 401 → 원장은 **24시간마다 작업 중 강제 로그아웃**됐다(BE 주석의 "만료 임박 시 클라가 호출" 은 구현이 없었다).
+     실측: 2026-09-12·13 두 라운드가 라운드 시작부터 /auth/me 401 로 계정 흐름 검증이 통째로 막혔다.
+     → **만료 전에** 갱신한다. ① 1분마다 ② 화면이 다시 보일 때(폰이 잠들면 타이머가 멈춘다) ③ 부팅 직후
+       ④ 우리 API 요청 직전 — 긴 요청(LLM·업로드)은 그 요청이 끝날 때까지 버틸 만큼 남았는지 본다.
+     갱신이 실패해도 **로그아웃시키지 않는다** — 아직 유효한 토큰이면 그대로 쓰고, 진짜 만료는 기존 401 경로가 처리한다.
+     BE 는 바꾸지 않는다(유효 토큰으로 호출하니 그대로 동작한다). */
+  const REFRESH_AHEAD_SEC = 600;            // 만료 10분 전부터 갱신
+  const REFRESH_FAIL_COOLDOWN_MS = 60000;   // 갱신 실패 후 1분은 다시 안 때린다(서버가 아프면 계속 두드리지 않게)
+  let _lastRefreshFailAt = 0;
+  function _tokenExpSec(t) {
+    try {
+      const seg = String(t || '').split('.')[1];
+      if (!seg) return null;
+      const b64 = seg.replace(/-/g, '+').replace(/_/g, '/');   // JWT 는 base64url
+      const p = JSON.parse(atob(b64 + '==='.slice((b64.length + 3) % 4)));
+      return (p && typeof p.exp === 'number') ? p.exp : null;
+    } catch (_e) { void _e; return null; }
+  }
+  /** 남은 유효시간이 minSec 보다 짧으면 갱신한다. 항상 '지금 쓸 토큰'(갱신됐으면 새 토큰)을 돌려준다. 절대 throw 하지 않는다. */
+  async function _ensureFreshToken(minSec) {
+    const tok = getToken();
+    if (!tok) return null;
+    const exp = _tokenExpSec(tok);
+    if (exp == null) return tok;
+    const left = exp - Math.floor(Date.now() / 1000);
+    if (left > (minSec || REFRESH_AHEAD_SEC)) return tok;
+    if (left <= 0) return tok;                                      // 이미 만료 — 갱신 불가. 기존 만료 경로에 맡긴다
+    if (Date.now() - _lastRefreshFailAt < REFRESH_FAIL_COOLDOWN_MS) return tok;
+    try { return await _tryRefresh(); }
+    catch (_e) { void _e; _lastRefreshFailAt = Date.now(); return tok; }   // 실패 ≠ 로그아웃
+  }
+  /** 요청 헤더의 옛 Bearer 를 새 토큰으로 바꾼다 — 긴 요청이 옛 토큰을 들고 만료를 넘기지 않게. */
+  function _swapBearer(init, oldTok, newTok) {
+    try {
+      if (!init || !init.headers || !oldTok || !newTok || oldTok === newTok) return init;
+      const want = 'Bearer ' + oldTok;
+      const h = init.headers;
+      if (typeof Headers !== 'undefined' && h instanceof Headers) {
+        if (h.get('Authorization') !== want) return init;
+        const nh = new Headers(h); nh.set('Authorization', 'Bearer ' + newTok);
+        return { ...init, headers: nh };
+      }
+      const key = Object.keys(h).find(k => k.toLowerCase() === 'authorization');
+      if (!key || h[key] !== want) return init;
+      return { ...init, headers: { ...h, [key]: 'Bearer ' + newTok } };
+    } catch (_e) { void _e; return init; }
+  }
+  window.__itdasyAuthRefresh = { ensure: _ensureFreshToken, expOf: _tokenExpSec, AHEAD_SEC: REFRESH_AHEAD_SEC };   // 진단·테스트용
+  try {
+    setInterval(function () { _ensureFreshToken(REFRESH_AHEAD_SEC); }, 60000);
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') _ensureFreshToken(REFRESH_AHEAD_SEC); });
+    setTimeout(function () { _ensureFreshToken(REFRESH_AHEAD_SEC); }, 3000);
+  } catch (_e) { void _e; }
+
   function _handle401() {
     setToken(null);
     const msg = document.getElementById('sessionExpiredMsg');
@@ -1612,6 +1693,15 @@ function authHeader() {
     }
     const retryable = _isRetryableMethod(init) && _bodyReusable(init) && !_isNoRetryPath(input) && !_isNonIdempotentCreate(input, init);
     const isLlm = _isLlmCall(input);   // [2026-07-22] 생성형 호출 — 오래 기다리되 타임아웃 재시도는 안 함
+    /* [2026-09-13 AUTH] 보내기 **전에** 토큰이 이 요청이 끝날 때까지 버티는지 본다.
+       LLM(120초)·업로드(90초)는 시작할 땐 유효해도 끝날 땐 만료일 수 있다 → 그만큼 + 2분 여유. */
+    if (_isApiOrigin(input) && !_isAuthFreePath(input)) {
+      const _longMs = (init && init.itdasyTimeoutMs) || (isLlm ? LLM_TIMEOUT_MS : (_isUploadBody(init) ? UPLOAD_TIMEOUT_FIRST_MS : 0));
+      const _needSec = Math.max(REFRESH_AHEAD_SEC, _longMs ? Math.ceil(_longMs / 1000) + 120 : 0);
+      const _beforeTok = getToken();
+      const _freshTok = await _ensureFreshToken(_needSec);
+      if (_freshTok && _beforeTok && _freshTok !== _beforeTok) init = _swapBearer(init, _beforeTok, _freshTok);
+    }
     let attempt = 0;
     // eslint-disable-next-line no-constant-condition
     while (true) {
@@ -2855,11 +2945,15 @@ window.addEventListener('load', async function() {
   _bindLoginSocialButtons();
   applyStoreReviewLoginGuard();
 
-  // Enter 키 로그인 (IME 조합 중 무시)
-  const loginPw = document.getElementById('loginPassword');
-  if (loginPw) loginPw.addEventListener('keydown', e => {
-    if (e.isComposing || e.keyCode === 229) return;
-    if (e.key === 'Enter') login();
+  /* [2026-09-13 P2] 로그인 경로를 **form submit 하나**로 합쳤다.
+     전에는 (1) loginBtn click (2) 비밀번호 Enter keydown 두 경로였고,
+     여기에 form 을 씌우면 submit 까지 셋이 되어 /auth/login 이 두 번 나간다.
+     이제 버튼은 type="submit" 이라 click 도 Enter 도 같은 submit 으로 들어온다.
+     (IME 조합 중 Enter 는 브라우저가 form 제출로 올리지 않는다 — 조합 확정에 쓰인다) */
+  const loginForm = document.getElementById('loginForm');
+  if (loginForm) loginForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (typeof login === 'function') login();
   });
 
   // 비밀번호 보기 토글
@@ -3752,7 +3846,6 @@ Object.assign(window, {
     if (el) el.addEventListener('click', fn);
   }
   const ready = () => {
-    on('loginBtn', () => typeof login === 'function' && login());
     on('forgotPwLink', () => typeof forgotPassword === 'function' && forgotPassword());
     on('logoutBtn', () => {
       if (typeof closeSettings === 'function') closeSettings();
@@ -3990,7 +4083,10 @@ function _inlineConfirm(msg, onYes, onNo, opts) {
   // [Phase3-B #8] opts.okText / opts.cancelText 로 버튼 라벨 커스터마이즈(예: '예약 취소' / '아니요'). 미지정 시 기존 '확인'/'취소'.
   opts = opts || {};
   const okText = opts.okText || '확인';
-  const cancelText = opts.cancelText || '취소';
+  /* [2026-09-13 UX] 기본 '취소' 버튼이 "예약을 취소할까요?"·"환불할까요?" 같은 질문에서 **정반대로 읽혔다**
+     (라이브: 예약 취소 확인창의 [취소] 가 '안 한다' 였다). 질문의 대답이 되게 기본을 '아니요' 로. */
+  const cancelText = opts.cancelText || '아니요';
+  if (typeof msg === 'string' && window.dedupeNim) msg = window.dedupeNim(msg);   // [2026-09-14 P3] 님 중복 흡수(토스트와 같은 길목)
   const el = document.createElement('div');
   el.className = 'bk-confirm-toast';
   el.innerHTML = `
@@ -4053,11 +4149,38 @@ window._bookingCancelMsg = function (booking) {
     if (st === 'completed') {
       const amt = Number(booking && booking.amount) || 0;
       lines.push(amt > 0
-        ? `완료된 예약이에요. 기록된 매출 ${amt.toLocaleString('ko-KR')}원이 환불로 상계돼 합계에서 빠져요.`
-        : '완료된 예약이에요. 기록된 매출이 환불로 상계돼 합계에서 빠져요.');
+        ? `시술 완료된 예약이라, 넣어둔 매출 ${amt.toLocaleString('ko-KR')}원은 취소 기록이 붙어 이번달 합계에서 빠져요.`
+        : '시술 완료된 예약이라, 넣어둔 매출은 취소 기록이 붙어 이번달 합계에서 빠져요.');
     }
   } catch (_e) { void _e; }
+  if (booking) lines.push('손님 기록은 그대로 남고, 방금 취소한 예약은 바로 되돌릴 수 있어요.');
   return lines.join('\n');
+};
+
+/* [2026-09-13 UX] 실수로 누른 예약 취소를 **그 자리에서** 되돌린다.
+   예전엔 취소하면 달력에서 사라지고 복구 길은 잇비에게 "복구해" 라고 말하는 것뿐이었다(원장은 모른다).
+   되돌리면 '확정' 으로 돌아간다. 완료였던 예약도 확정으로 — 매출은 취소 기록이 이미 붙어 합계 0 이고
+   (라이브 실측: +40,000 / -40,000), 다시 '시술 완료' 하면 새로 기록된다. 돈을 여기서 몰래 되살리지 않는다. */
+window._showBookingCancelledToast = function (bookingId, prevStatus, onRestored) {
+  const restoreTo = (prevStatus && prevStatus !== 'completed' && prevStatus !== 'cancelled') ? prevStatus : 'confirmed';
+  showToast('예약을 취소했어요', {
+    action: {
+      label: '되돌리기',
+      onClick: async () => {
+        try {
+          if (window.Booking && typeof window.Booking.update === 'function') await window.Booking.update(bookingId, { status: restoreTo });
+          else throw new Error('booking api missing');
+          try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'update_booking', booking_id: bookingId } })); } catch (_e) { void _e; }
+          showToast(prevStatus === 'completed'
+            ? '예약을 되돌렸어요 — 확정 상태예요. 시술이 끝났으면 다시 \'시술 완료\' 를 눌러 주세요'
+            : '예약을 되돌렸어요', { type: 'success', duration: 4000 });
+          if (typeof onRestored === 'function') { try { await onRestored(); } catch (_r) { void _r; } }
+        } catch (err) {
+          showToast('되돌리지 못했어요 — ' + (window._humanError ? window._humanError(err) : '잠시 후 다시 시도해 주세요'), 'error');
+        }
+      },
+    },
+  });
 };
 
 // 2중 확인 유틸 — 레거시 호환 stub (호출처는 _inlineConfirm 으로 교체 완료)

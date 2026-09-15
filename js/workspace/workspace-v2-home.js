@@ -79,17 +79,26 @@
   var _PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>';
   var _PHIC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
   // [버그6 2026-07-25] 사진+캡션 다 만들어 저장까지 끝낸 슬롯 — 발행만 안 한 상태.
-  //   전부 '작성 중'으로 떠서 "완료했는데 왜 작성 중?" 혼란 → '작성 완료' 칩으로 구분.
+  //   전부 '작성 중'으로 떠서 "완료했는데 왜 작성 중?" 혼란 → '게시 준비' 칩으로 구분.
   function _isReady(slot) {
     return !!(slot && (slot.photos || []).length && slot.caption && String(slot.caption).trim());
   }
   function _feedTile(slot) {
     var img = _thumb(slot), sel = !!_selected[slot.id];
     // [개편 2026-07-15] 타일 뱃지 소음 제거 — 발행된 타일은 사진만. 진행 중만 좌하단 흰 칩 하나.
-    // [버그6] 칩 3단계: 예약 발행 = '예약' / 사진·캡션 완료 = '작성 완료' / 그 외 = '작성 중'.
-    var chip = _isPub(slot) ? ''
+    // [버그6] 칩 3단계: 예약 발행 = '예약' / 사진·캡션 완료 = '게시 준비' / 그 외 = '작성 중'.
+    /* [2026-09-13 ZH] 서버에 못 올라간 슬롯은 칩에 '기기에만' 을 먼저 말한다 — 원장이 다른 기기에서 안 보이는 이유를 알 수 있게.
+       push 가 실제로 실패했을 때만(막 저장해서 올라가는 중인 건 아님). 발행된 타일에도 붙인다(발행 후 수정분이 안 올라간 경우). */
+    var _ss = (window.WorkspaceSync && window.WorkspaceSync.status) ? window.WorkspaceSync.status() : null;
+    var _local = !!(_ss && _ss.failed && slot.syncState && slot.syncState !== 'synced');
+    /* [2026-09-13 P1] 충돌 사본이면 그것부터 말한다 — 같은 사진·같은 제목이 두 장 보이는 이유가
+       이거 하나뿐이라, 표시가 없으면 원장은 '왜 두 개지' 하고 하나를 지운다.
+       판정은 라벨 문자열이 아니라 `conflictOf`(+옛 데이터는 id 규약) 로 한다 — 라벨은 병합에서 덮인다. */
+    var chip = _isConflictCopy(slot) ? '<span class="wf-chip wf-chip--conflict">다른 기기 수정본</span>'
+      : _local ? '<span class="wf-chip wf-chip--local">기기에만 저장</span>'
+      : _isPub(slot) ? ''
       : '<span class="wf-chip">' + ((slot.publish && slot.publish.status === 'scheduled') ? '예약'
-        : (_isReady(slot) ? '작성 완료' : '작성 중')) + '</span>';
+        : (_isReady(slot) ? '게시 준비' : '작성 중')) + '</span>';
     return '<button type="button" class="wf-tile' + (_selectMode ? ' wf-tile--sel' : '') + (sel ? ' is-sel' : '') +
       '" data-wsv2-slot="' + _esc(slot.id) + '" data-haptic="light"' + (img ? ' style="background-image:url(' + _esc(_disp(img)) + ')"' : '') + '>' +
       (_selectMode ? '<span class="wf-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>' : '') +
@@ -113,11 +122,8 @@
   }
   // [개편 2026-07-15] 이어서 카드 — 썸네일 + 제목 + 상태 한 줄 + 검정 '이어서' 버튼(목업 ① 톤).
   function _resumeMsg(slot) {
-    var photos = slot.photos || [];
-    var edited = photos.some(function (p) { return p && (p.editedDataUrl || p.storyEdited || p.cropMeta); });
-    if (!edited) return '사진 완료 · 편집이 남았어요';
-    if (!(slot.caption && String(slot.caption).trim())) return '편집까지 완료 · 캡션이 남았어요';
-    return '캡션까지 완료 · 발행만 남았어요';
+    if (!(slot.caption && String(slot.caption).trim())) return '사진을 올렸어요 · 게시글을 써볼까요?';
+    return '게시 준비가 됐어요 · 사진 꾸미기는 선택';
   }
   function _resumeCardHTML(slots) {
     var cand = slots.filter(function (s) { return !_isPub(s) && (s.photos || []).length; });
@@ -160,12 +166,25 @@
   // [v779 보스] 옛 버그(v663 이전)로 한 콘텐츠가 업로드/레이아웃/캡션 단계마다 별도 초안으로 쌓인 걸
   //   목록에서 합친다. 같은 사진 묶음(사진 id 셋)인 '초안'끼리는 가장 최근(진행 더 된) 것만 남긴다.
   //   발행본은 절대 안 합치고(각각 유지), 사진 없는 초안도 그대로 둔다. 데이터 삭제 아님 — 표시만 정리.
+  /* [2026-09-13 P1] 동기화 충돌로 **일부러** 남긴 사본인가.
+     workspace-sync.js `resolveConflict()` 는 진짜 충돌이면 서버본과 내 것을 둘 다 남긴다 —
+     자동으로 고를 근거가 원리적으로 없으니 사람이 고르라고 남기는 것이다.
+     그런데 충돌 쌍은 **사진이 같아 지문도 같다.** 아래 dedup 이 그걸 중복으로 보고 합쳐 버려서
+     서버본이 화면에서 사라졌다(실측 2026-09-13: 로컬 3 · 서버 3 인데 타일 2).
+     판별은 의미 필드(`conflictOf`) 우선, 그게 없는 옛 데이터는 id 규약으로 받아 준다. */
+  function _isConflictCopy(s) {
+    if (!s) return false;
+    if (s.conflictOf) return true;
+    return /_conflict_\d+$/.test(String(s.id || ''));
+  }
   function _dedupDrafts(slots) {
     var newest = {}, order = [];
     var t = function (x) { return (x && (x.updatedAt || x.completedAt || x.createdAt)) || 0; };
     (slots || []).forEach(function (s) {
       var key;
-      if (_isPub(s)) { key = 'pub:' + (s.id || (order.length + '_' + t(s))); }
+      // 충돌 사본은 자기만의 칸을 쓴다 = 절대 합쳐지지 않는다. 원본은 아래 지문 규칙 그대로 살아남는다.
+      if (_isConflictCopy(s)) { key = 'conflict:' + (s.id || (order.length + '_' + t(s))); }
+      else if (_isPub(s)) { key = 'pub:' + (s.id || (order.length + '_' + t(s))); }
       else {
         var sig = (s.photos || []).map(function (p) { return p && (p.id || String(p.dataUrl || p.editedDataUrl || '').slice(-48)); })
           .filter(Boolean).sort().join('|');
@@ -284,6 +303,8 @@
 	    _scrollToEnteredCard();  // [v547] 카드에서 진입했었다면 복귀 후 그 카드로 정밀 복원
 	  }
 
+	  // [2026-09-13 ZH] 동기화 상태가 바뀌면(실패↔회복) 보이는 홈 칩을 다시 그린다.
+	  try { window.addEventListener('itdasy:sync-status', function () { if (_lastRoot && _lastRoot.isConnected && !document.hidden) refresh(); }); } catch (_se) { void _se; }
 	  function refresh() {
 	    if (typeof initWorkshopTab === 'function') { Promise.resolve(initWorkshopTab()).catch(function () {}); return; }
 	    if (!_lastRoot || typeof loadSlotsFromDB !== 'function') return;
@@ -589,7 +610,8 @@
     var editDone = (slot.photos || []).some(function (p) { return p && (p.editedDataUrl || p.storyEdited || p.cropMeta); });
     var capDone = !!(slot.caption && String(slot.caption).trim());
     var STEPS = [
-      { act: '사진 편집', label: '사진 편집', done: editDone, hint: '다시 편집' },
+      // [2026-09-14 P3] 사진 편집은 선택 — 캡션까지 쓴 글에 '사진 편집 · 남은 단계' 로 되돌려 보내지 않는다.
+      { act: '사진 편집', label: '사진 편집', done: editDone || capDone, hint: editDone ? '다시 편집' : '꾸미기' },
       { act: '게시글 생성', label: '게시글 생성', done: capDone, hint: '수정' },
       { act: '인스타 미리보기', label: '미리보기·게시', done: pub, hint: '보기' },
       { act: '고객 연결', label: '고객 연결', done: !!slot.customer_id, hint: '연결' }

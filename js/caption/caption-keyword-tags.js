@@ -90,7 +90,11 @@ function getShopKeywords() {
   const deleted = _loadDeletedKeywords();
   const registered = _loadRegisteredServices();
   const base = _shopKeywordBase();
-  const merged = base ? [...base, ...registered] : registered;
+  /* [2026-09-14 P3 첫원장 라이브] 등록 시술을 **뒤에** 붙였더니 업종 vocab(붙임머리 13개)에 밀려
+     작업실 칩(앞 8개만 노출)에서 **방금 등록한 시술이 안 보였다**. → 등록 시술을 앞에(최대 4개) 두고
+     업종 칩은 뒤에서 채운다. 07-26 원영 우려(테스트로 등록한 타업종 시술이 칩을 전부 덮음)는
+     앞자리를 4개로 묶어 막는다 — 업종 칩이 최소 4개는 항상 남는다. */
+  const merged = base ? [...registered.slice(0, 4), ...base, ...registered.slice(4)] : registered;
   if (!merged.length) return [...new Set(custom)];   // 업종 미확정 + 등록 시술 없음 → 커스텀만(자동 인치태그 금지)
   const filtered = merged.filter(k => !deleted.includes(k));
   return [...new Set([...filtered, ...custom])];

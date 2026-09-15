@@ -39,7 +39,7 @@ describe('[③] 태깅 경계 — wm 레이어만, 오염 없음', () => {
   test('forEditor 산출 레이어 전부 _src=wm + 같은 토큰, _lastApply 기록', () => {
     const { WM, E } = loadAll();
     seedOne(WM);
-    const st = E.forEditor({ restore: false, incoming: [], photoCount: 1, layersOnly: true });
+    const st = E.forEditor({ restore: false, incoming: [], photoCount: 1, service: '젤네일', layersOnly: true });
     expect(st.layers.length).toBeGreaterThan(0);
     expect(st.layers.every((l) => l._src === 'wm')).toBe(true);
     const toks = new Set(st.layers.map((l) => l._wmTok));
@@ -50,7 +50,7 @@ describe('[③] 태깅 경계 — wm 레이어만, 오염 없음', () => {
   test('base(우리샵/이번 글) 레이어는 병합 후에도 태그가 안 붙는다', () => {
     const { WM, E } = loadAll();
     seedOne(WM);
-    const wm = E.forEditor({ restore: false, incoming: [], photoCount: 1, layersOnly: true });
+    const wm = E.forEditor({ restore: false, incoming: [], photoCount: 1, service: '젤네일', layersOnly: true });
     const base = { layoutIdx: 4, layers: [{ role: 'title', text: '이번 글' }, { type: 'line', x: 0.5, y: 0.5 }] };
     const merged = E.mergeEditState(base, wm);
     merged.layers.forEach((l) => {
@@ -70,9 +70,9 @@ describe('[⑥] 토큰 identity — 적용마다 새 토큰', () => {
   test('두 번 적용 → 서로 다른 토큰 (A 배너가 B 적용을 못 지목)', () => {
     const { WM, E } = loadAll();
     seedOne(WM);
-    const a = E.forEditor({ restore: false, incoming: [], photoCount: 1, layersOnly: true });
+    const a = E.forEditor({ restore: false, incoming: [], photoCount: 1, service: '젤네일', layersOnly: true });
     const tokA = E._lastApply.token;
-    const b = E.forEditor({ restore: false, incoming: [], photoCount: 1, layersOnly: true });
+    const b = E.forEditor({ restore: false, incoming: [], photoCount: 1, service: '젤네일', layersOnly: true });
     const tokB = E._lastApply.token;
     expect(tokA).not.toBe(tokB);
     expect(a.layers[0]._wmTok).toBe(tokA);
@@ -81,15 +81,15 @@ describe('[⑥] 토큰 identity — 적용마다 새 토큰', () => {
   test('이번 오픈에 적용이 없으면 _lastApply 는 null 로 리셋(스테일 배너 방지)', () => {
     const { WM, E } = loadAll();
     seedOne(WM);
-    E.forEditor({ restore: false, incoming: [], photoCount: 1, layersOnly: true });
+    E.forEditor({ restore: false, incoming: [], photoCount: 1, service: '젤네일', layersOnly: true });
     expect(E._lastApply).toBeTruthy();
-    E.forEditor({ restore: true, incoming: [], photoCount: 1 });        // restore = 적용 안 함
+    E.forEditor({ restore: true, incoming: [], photoCount: 1, service: '젤네일' });        // restore = 적용 안 함
     expect(E._lastApply).toBeNull();
   });
   test('헤드리스(decorateLayers)는 _lastApply 를 안 만든다(배너 주체는 편집기뿐)', () => {
     const { WM, E } = loadAll();
     seedOne(WM);
-    E.decorateLayers([], { photoCount: 1 });
+    E.decorateLayers([], { photoCount: 1, service: '젤네일' });
     expect(E._lastApply).toBeNull();
   });
 });
@@ -99,17 +99,22 @@ describe('편집기 소스 계약 — op 한 덩어리·외과적 제거·5초 �
   const flowSrc = fs.readFileSync(path.join(__dirname, '..', 'workspace-v2-flow.js'), 'utf8');
   const cssSrc = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'css', 'screens', 'sub-screens.css'), 'utf8');
 
-  test('[②] 열릴 때 wm 레이어를 wmApply op **1개**로 push (레이어별 add 아님)', () => {
-    expect(edSrc.match(/op:\s*'wmApply'/g)).toHaveLength(1);
-    expect(edSrc).toMatch(/_wmLs\.length\)\s*_pushOp\(\{\s*op:\s*'wmApply',\s*Ls:\s*_wmLs\s*\}\)/);
+  test('[②] 자동 적용·추천 적용 모두 wm 레이어를 op **1개씩** push (레이어별 add 아님)', () => {
+    expect(edSrc.match(/op:\s*'wmApply'/g)).toHaveLength(2);
+    expect(edSrc).toMatch(/_wmLs\.length \|\| S\._wmAdjPack\)\s*_pushOp\(\{\s*op:\s*'wmApply',\s*Ls:\s*_wmLs,\s*adjPack:/);
+    expect(edSrc).toMatch(/_pushOp\(\{\s*op:\s*'wmApply',\s*Ls:\s*added,\s*adjPack:\s*adjPack,\s*wmToken:\s*sug\.token\s*\}\)/);
   });
   test('[②] _applyInverse 가 wmApply/wmRemove 를 그룹으로 처리', () => {
     expect(edSrc).toMatch(/op\.op === 'wmApply' \|\| op\.op === 'wmRemove'/);
   });
-  test('[④⑤⑥] undoWmApply — 토큰 필터 + 남은 대상 0 → 0 반환 + wmRemove op 로 push', () => {
+  test('[④⑤⑥] undoWmApply — 토큰 필터 + 기억 보정까지 함께 원복 + wmRemove op 로 push', () => {
     expect(edSrc).toMatch(/function undoWmApply\(token\)/);
     expect(edSrc).toMatch(/L\._wmTok === token/);
-    expect(edSrc).toMatch(/if \(!Ls\.length\) return 0;/);
+    expect(edSrc).toMatch(/op\.wmToken === token/);
+    expect(edSrc).toMatch(/if \(!Ls\.length && !\(src && src\.adjPack\)\) return 0;/);
+    expect(edSrc).toMatch(/_removeMemoryPreset\(src\.adjPack\)/);
+    expect(edSrc).toMatch(/wmLast\.undone = true/);
+    expect(edSrc).toMatch(/wmLast\.undone = det/);
     expect(edSrc).toMatch(/op:\s*'wmRemove'/);
     expect(edSrc).toMatch(/undoWmApply:\s*undoWmApply/);          // export
   });
@@ -121,7 +126,8 @@ describe('편집기 소스 계약 — op 한 덩어리·외과적 제거·5초 �
     expect(flowSrc).toMatch(/undoWmApply\(tok\)/);
   });
   test('배너는 wm 레이어가 실제 실렸을 때만 + 편집기(z 11200) 위에 뜬다', () => {
-    expect(flowSrc).toMatch(/_finalEs\.layers\.some\(function \(l\) \{ return l && l\._src === 'wm'; \}\)/);
+    expect(flowSrc).toMatch(/_finalEs\.layers && _finalEs\.layers\.some\(function \(l\) \{ return l && l\._src === 'wm'; \}\)/);
+    expect(flowSrc).toMatch(/\|\|\s*_finalEs\.adjustmentPreset/);
     expect(cssSrc).toMatch(/\.wm-cap--editor\s*\{\s*z-index:\s*11500/);
     expect(cssSrc).toMatch(/\.wm-cap__undo/);
   });

@@ -58,7 +58,7 @@ function seedMemory(WM, layers) {
   global.localStorage._m['itdasy:work_memory:default'] = JSON.stringify('seed-m');
 }
 const noRole = (t) => ({ type: 'text', text: t, x: 0.5, y: 0.6, size: 0.05 });
-const apply = (E) => E.forEditor({ restore: false, incoming: [], photoCount: 1, layersOnly: true });
+const apply = (E) => E.forEditor({ restore: false, incoming: [], photoCount: 1, service: '젤네일', layersOnly: true });
 const texts = (st) => (st ? st.layers.filter((l) => l.type === 'text' && !l.role).map((l) => l.text) : []);
 
 describe('정규화 — 계약을 명시적으로 잠근다', () => {
@@ -121,7 +121,7 @@ describe('적용 규칙 — 무응답 = 이번 글만', () => {
     const { WM, E } = loadAll();
     seedMemory(WM, [{ type: 'text', role: 'title', text: '지난 글', x: 0.5, y: 0.2, size: 0.06 },
       { type: 'sticker', emoji: '✨', x: 0.2, y: 0.2, size: 0.1 }]);
-    const st = E.forEditor({ restore: false, incoming: [{ role: 'title', text: '이번 글' }], photoCount: 1, layersOnly: true });
+    const st = E.forEditor({ restore: false, incoming: [{ role: 'title', text: '이번 글' }], photoCount: 1, service: '젤네일', layersOnly: true });
     expect(st.layers.find((l) => l.role === 'title').text).toBe('이번 글');
   });
 });
@@ -236,7 +236,7 @@ describe('veto 범위 — 전역·영구 제품 정책 계약 (T5 최종 확정)
     WM.dismissText(E.normalizeText('예약문의 DM'));
     seedMemory(WM, [{ type: 'sticker', emoji: '✨', x: 0.2, y: 0.2, size: 0.1 }]);
     const base = [{ type: 'text', text: '예약문의 DM', x: 0.5, y: 0.6, size: 0.05 }];   // 원장이 직접 쓴 상당
-    const out = E.decorateLayers(base, { photoCount: 1 });
+    const out = E.decorateLayers(base, { photoCount: 1, service: '젤네일' });
     expect(out.some((l) => l.text === '예약문의 DM')).toBe(true);   // base 는 sanitize 대상 아님
   });
 });
@@ -246,7 +246,7 @@ describe('3경로 동일 + 디버깅 가능성', () => {
     const { WM, E } = loadAll();
     seedMemory(WM, [{ type: 'sticker', emoji: '✨', x: 0.2, y: 0.2, size: 0.1 }, noRole('가을 느낌으로'), noRole('예약문의 DM')]);
     const ed = apply(E);
-    const hl = E.decorateLayers([], { photoCount: 1 });
+    const hl = E.decorateLayers([], { photoCount: 1, service: '젤네일' });
     const pick = (ls) => ls.filter((l) => l.type === 'text' && !l.role).map((l) => l.text).sort();
     expect(pick(ed.layers)).toEqual(pick(hl));
     expect(pick(ed.layers)).toEqual(['예약문의 DM']);

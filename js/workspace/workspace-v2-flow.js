@@ -208,6 +208,37 @@
   function photoUrl(p) { return p ? (p.editedDataUrl || p.dataUrl) : ''; }
   // [P0-1] 표시용 URL 문자열 → blob URL (innerHTML 재파싱·재디코드 제거). 비-dataURL 은 그대로 통과.
   //   ⚠️ dispUrl(p)(아래, photo→dataURL 접근자)과 다른 것 — 이건 URL 문자열 변환기(표시 전용).
+  /* [2026-09-13 ZH] 캡션 화면 대표 미리보기의 실제 크기 기억(원본 URL → {w,h}). 아래 photoThumb 주석 참조.
+     load 는 버블이 안 되므로 capture 로 받는다. 키는 원본 URL(표시용 blob URL 은 바뀔 수 있다). */
+  var _capPreviewDims = {};
+  try {
+    document.addEventListener('load', function (e) {
+      var im = e.target;
+      if (!im || im.tagName !== 'IMG' || !im.closest || !im.closest('.wsl-cap-preview')) return;
+      if (!(im.naturalWidth > 0 && im.naturalHeight > 0) || !d || !d.templateOutput) return;
+      if (im.getAttribute('src') !== _blobDisp(d.templateOutput)) return;   // 그사이 대표가 바뀌었으면 남의 크기를 적지 않는다
+      _capPreviewDims[d.templateOutput] = { w: im.naturalWidth, h: im.naturalHeight };
+    }, true);
+  } catch (_pd) { void _pd; }
+  // [2026-09-13 ZH S20 Run4] 결과 미리보기용 구워진 결과물 실제 크기(원본 URL → {w,h}). _igCarouselHtml 참조.
+  var _outDims = {};
+  function _probeOutDims(u) {
+    if (!u || _outDims[u] === null) return;
+    _outDims[u] = null;   // 읽는 중(중복 요청 방지) — 렌더에선 falsy 라 기존 칸으로 그린다
+    try {
+      var im = new Image();
+      im.onload = function () {
+        if (!(im.naturalWidth > 0 && im.naturalHeight > 0)) { delete _outDims[u]; return; }
+        _outDims[u] = { w: im.naturalWidth, h: im.naturalHeight };
+        var disp = _blobDisp(u);
+        Array.prototype.forEach.call(document.querySelectorAll('.ig-photo[data-fl-igout]'), function (n) {
+          if (String(n.style.backgroundImage || '').indexOf(disp) >= 0) n.style.aspectRatio = im.naturalWidth + ' / ' + im.naturalHeight;
+        });
+      };
+      im.onerror = function () { delete _outDims[u]; };
+      im.src = _blobDisp(u);
+    } catch (_e) { delete _outDims[u]; }
+  }
   function _blobDisp(u) { return (window.WSBlobUrl && window.WSBlobUrl.disp) ? window.WSBlobUrl.disp(u) : u; }
   // [이슈2/11] 게시 대표 이미지 — 전후 템플릿 "적용 결과물"(d.templateOutput)이 있으면 그것을, 없으면 대표 사진.
   //   합성 결과물은 별도 필드로만 관리한다. 편집화면 사진 스트립/썸네일은 절대 이 값을 쓰지 않으므로
@@ -473,11 +504,18 @@
      (실계정 실험 준비 중 발견 — 분류기는 멀쩡한데 입력이 안 가고 있었다).
      캡션 원문이 아니라 **화면에 얹은 문구**만 넘긴다 — 짧고, 성격을 직접 드러내고, PII 가 적다.
      canonicalContext 는 이걸 kind 계산에만 쓰고 결과에는 안 남긴다(화이트리스트). */
+  function _wmAccountId() {
+    try { return localStorage.getItem('last_user_id') || null; }
+    catch (_ownE) { void _ownE; return null; }
+  }
   function _wmSelectCtx(texts) {
     var eps = editablePhotos() || [];
     var hasB = false, hasA = false;
     eps.forEach(function (p) { if (p && p.role === 'before') hasB = true; else if (p && p.role === 'after') hasA = true; });
-    return { photoCount: eps.length, service: (d && d.service) || '', hasBeforeAfter: hasB && hasA,
+    var svc = (d && d.service) || '';
+    return { photoCount: eps.length, service: svc, industry: (d && (d.industry || d.shopIndustry)) || svc,
+      occasion: (d && d.occasion) || (hasB && hasA ? '전후사진' : ''), hasBeforeAfter: hasB && hasA,
+      accountId: _wmAccountId(),
       texts: Array.isArray(texts) ? texts.filter(Boolean).slice(0, 8) : undefined };
   }
   // 편집기에 얹히는 레이어에서 문구만 추려낸다(선택·학습이 **같은 입력**을 보게).
@@ -658,6 +696,9 @@
     var _wmEd = (window.WorkMemoryEngine && window.WorkMemoryEngine.forEditor)
       ? window.WorkMemoryEngine.forEditor(Object.assign({ restore: !!_restore, orch: d._orch, incoming: layers, layersOnly: !!_wsEd }, _wmSelectCtx(_wmTexts(layers))))
       : null;
+    var _wmSuggestion = (!_wmEd && window.WorkMemoryEngine && window.WorkMemoryEngine.recommendForEditor)
+      ? window.WorkMemoryEngine.recommendForEditor(Object.assign({ restore: !!_restore, incoming: layers, layersOnly: !!_wsEd }, _wmSelectCtx(_wmTexts(layers))))
+      : null;
     // [v590] 진입 시 올린 텍스트 역할 기록 — 저장 시 빠진 역할(사용자가 지움)을 스타일에서 비활성화하는 비교 기준.
     // [audit#3] 텍스트 역할 레이어는 type 필드가 없다(roleText 배치) — 'text'로만 필터하면 항상 빈 배열이라 '지운 레이어 기억' 기능이 죽어 있었음.
     d._editorOpenRoles = layers.filter(function (l) { return l.role && (l.type === 'text' || l.type == null); }).map(function (l) { return l.role; });
@@ -748,6 +789,7 @@
       shopName: (built.ss && (built.ss.name || built.ss.shopName)) || (window.WorkspaceAdapter && window.WorkspaceAdapter.shopName && window.WorkspaceAdapter.shopName()) || '',
       layers: layers,
       autoArranged: autoArranged,
+      wmSuggestion: _wmSuggestion,
       // [#17] 이어서 편집 · [ws-hyper] 레이아웃 매칭 시 콜라주 상태 주입(슬롯 재조정) · [T-115 P2] 없으면 ★기본 작업 기억
       // [2026-07-17] 콜라주(레이아웃)엔 기억의 '꾸밈'만 합쳐 얹는다 — 칸 배치는 레이아웃 것 그대로.
       editState: _finalEs,
@@ -876,10 +918,11 @@
         try { if (window.WMLearn) { window.WMLearn.hold({}); window.WMLearn.commitAsync('cancelled'); } } catch (_t8c) { void _t8c; }
       }
     });
-    // [T4] 자동 적용 배너 — 이번 오픈에 wm 레이어가 실제로 실렸을 때만(사진 editState 가 이긴 경우 제외).
+    // [T4] 자동 적용 배너 — 기억 레이어 또는 기억 보정이 실제로 실렸을 때만.
     try {
       if (window.WorkMemoryEngine && window.WorkMemoryEngine._lastApply &&
-          _finalEs && _finalEs.layers && _finalEs.layers.some(function (l) { return l && l._src === 'wm'; })) {
+          _finalEs && ((_finalEs.layers && _finalEs.layers.some(function (l) { return l && l._src === 'wm'; })) ||
+            _finalEs.adjustmentPreset)) {
         _showWmBanner((editablePhotos() || []).length);
       }
     } catch (_be) { void _be; }
@@ -1265,7 +1308,7 @@
        라이브 실측(2026-09-12): disabled=false · 라벨 "게시글 만들기" → 클릭 → 토스트 거절.
        → 같은 방식으로 잠그고 **이유를 버튼에 적는다**(왜 못 가는지 누르기 전에 보이게). */
     if (!String(d.service || '').trim()) {
-      return '<button type="button" class="capwiz__cta capwiz__cta--dis" data-fl-cgenlock="service">아래에서 시술을 골라주세요</button>';
+      return '<button type="button" class="capwiz__cta capwiz__cta--dis" data-fl-cgenlock="service">시술을 골라주세요</button>';
     }
     var hint = (String(d.service || '').trim() || String(d.specialNote || '').trim())
       ? '<p class="capwiz__ready">우리샵 말투로 더 정확하게 써드려요</p>' : '';
@@ -1291,6 +1334,13 @@
     var kws = [];
     try { if (typeof getShopKeywords === 'function') kws = getShopKeywords() || []; } catch (_e) { void _e; }
     kws = _applySvcOrder(kws);   // [관리모드] 저장된 순서 적용
+    // [2026-09-14 P3] 저장된 순서가 있으면 새로 등록한 시술이 '모르는 키워드'로 맨 뒤 → 앞 8개 밖으로 잘렸다.
+    //   순서에 아직 없는 등록 시술(최대 4)은 앞으로 당긴다. 원장이 관리에서 순서를 정한 뒤엔 그 순서를 따른다.
+    try {
+      var _ord = _loadSvcOrder(), _reg = (typeof _loadRegisteredServices === 'function' ? _loadRegisteredServices() : [])
+        .filter(function (k) { return _ord.indexOf(k) < 0 && kws.indexOf(k) >= 0; }).slice(0, 4);
+      if (_ord.length && _reg.length) kws = _reg.concat(kws.filter(function (k) { return _reg.indexOf(k) < 0; }));
+    } catch (_eo) { void _eo; }
     var stype = ''; try { stype = localStorage.getItem('shop_type') || ''; } catch (_e2) { void _e2; }
     // [#2] 업종이 키워드로 해석되면(가입값 hair/헤어샵/네일 등 정규화 성공) 태그 노출. 'beauty'·general 처럼 안 풀리면 업종 고르게.
     var _norm = ''; try { if (window.itdasyNormalizeShopType) _norm = window.itdasyNormalizeShopType(stype).label || ''; } catch (_en) { void _en; }
@@ -1543,9 +1593,14 @@
 	         ⚠️ 한 번 `aspect-ratio: 4/5` 로 칸을 예약해 봤다가 **되돌렸다** —
 	         `d.templateOutput` 이 늘 4:5 합성본인 게 아니라 원본 사진(1920×1280 = 1.5:1)일 때도 있어서,
 	         칸만 4:5 로 잡히고 그 아래 300px 빈 흰칸이 남았다. 비율을 **추측하면 더 나빠진다.**
-	         남은 밀림은 보고서에 P3 로 기록한다(수정하려면 templateOutput 의 실제 비율을 알아야 한다). */
+	         [2026-09-13 ZH] 질문에 답할 때마다 화면을 다시 그리면서 이 <img> 가 새로 만들어져 **매번** 높이 0 에서 시작했다.
+	         실측(라이브 Chrome · 9:16 합성본 1080×1920): 답 클릭 직후 img h 0 · '특이사항' 앵커 y 1691 → 690(−1001px) → 디코드 후 1686.
+	         → 한 번 디코드된 **실제 크기**(naturalWidth/Height)를 기억했다가 다시 그릴 때 width/height 로 넣는다.
+	           브라우저가 그 비율로 칸을 먼저 잡으므로 밀리지 않고, 추측이 아니라 그 이미지의 진짜 비율이다. */
+	      var _pvDim = d.templateOutput ? _capPreviewDims[d.templateOutput] : null;
 	      var photoThumb = d.templateOutput   /* [버그수정 2026-07-06] 재오픈 초안도 합성본 썸네일 */
-	        ? '<div class="wsl-cap-preview"><img src="' + esc(_blobDisp(d.templateOutput)) + '" alt="미리보기"></div>'
+	        ? '<div class="wsl-cap-preview"><img src="' + esc(_blobDisp(d.templateOutput)) + '" alt="미리보기"' +
+	          (_pvDim ? ' width="' + _pvDim.w + '" height="' + _pvDim.h + '"' : '') + '></div>'
 	        : (_capCarouselHtml() || ((!d.textOnly && url) ?
 	        '<div class="cap-photo cap-photo--sm" style="background-image:url(' + esc(_blobDisp(url)) + ')"></div>' : ''));
 	      // [캡션재설계 v2 2026-07-15] 자유 서술 텍스트영역(500자) 제거 — 질문 3카드 + 시술 칩(단일선택) + 특이사항 한 줄.
@@ -1580,7 +1635,7 @@
       '<div class="confirmline">연결 손님: <b>' + esc(d.customerName) + '</b>' + (d.customerVc ? ' · ' + d.customerVc + '회 방문' : ' · 첫 방문') + '</div>' : '';
     return '' +
 	      // [버그5 2026-07-14] 미연동이면 '학습 완료'라고 거짓말하지 않고, 연동하면 된다고 안내.
-	      (_personaOn() ? '<div class="cap-byline">원장님 인스타 글 학습 완료</div>'
+	      (_personaOn() ? '<div class="cap-byline">원장님 말투 반영</div>'
 	                    : '<div class="cap-byline">인스타를 연동하면 원장님 말투로 써드려요</div>') +
 	      '<label class="cap-field-label">게시글 <span>미리보기에서 바로 고쳐 쓸 수 있어요</span></label>' +
 	      _igPreviewCard(url, true) +   // [v584] 카드 안 캡션 직접 편집(별도 편집칸 제거)
@@ -1730,6 +1785,17 @@
 	    var items = _displayItems();
 	    if (items.length <= 1) {
 	      var u = items.length ? items[0].url : fallbackUrl;
+	      /* [2026-09-13 ZH S20 Run4] 🔴 전·후 합치기 결과 미리보기에 'BEFORE' 가 'RE' 로 잘려 보였다.
+	         레이아웃 합성본(전후·2장·4컷)은 **1:1(1080×1080)** 로 구워지고 발행도 그대로 나가는데,
+	         이 칸은 규격(4:5) 고정 + cover 라 좌우 10%씩 잘라 보여줬다 → "실제 게시 모습과 동일" 이 거짓.
+	         구워진 결과물(kind 'output')만 **실제 픽셀 크기**로 칸 비율을 맞춘다(비율 추측 금지 — 모르면 한 번 읽어서).
+	         원본 사진(kind 'photo')은 기존 동작 그대로. */
+	      if (items.length && items[0].kind === 'output' && u) {
+	        var od = _outDims[u] || _capPreviewDims[u];
+	        if (!od) _probeOutDims(u);
+	        return '<div class="ig-photo' + (_wsFormat() === '11' ? ' ig-photo--sq' : '') + '" data-fl-igout="1" style="background-image:url(' + esc(_blobDisp(u)) + ')' +
+	          (od ? ';aspect-ratio:' + od.w + ' / ' + od.h : '') + '"></div>';
+	      }
 	      return '<div class="ig-photo' + (_wsFormat() === '11' ? ' ig-photo--sq' : '') + '" style="background-image:url(' + esc(_blobDisp(u)) + ')"></div>';
 	    }
 	    var active = (d.activeDisplayId && items.some(function (it) { return it.id === d.activeDisplayId; })) ? d.activeDisplayId : items[0].id;
@@ -1884,8 +1950,11 @@
 	      // [스토리/캐러셀] 피드 + 스토리, 사진 2장 이상이면 캐러셀(여러 장) 버튼도.
 	      // [버그수정 2026-07-10] ws-hyper 레이아웃은 여러 장을 '1장 합성본'(d.templateOutput)으로 합침 →
 	      //   캐러셀(여러 장 슬라이드)은 부적절하고 원본 여러 장을 보내 실패했음. 레이아웃이면 단일 피드로만.
-	      var _n = (editablePhotos() || []).length;
 	      var _multi = _publishKind() === 'carousel';
+	      /* [2026-09-13 ZH S20 Run4] 전·후 합치기(1장 합성본 피드)인데 버튼이 '인스타에 바로 올리기 (2장)' 이라고 했다.
+	         실제로 올라가는 장수(발행의 _imgs 규칙)로 센다: 피드=1 · 캐러셀=합성본 2장+ 이면 그 수, 아니면 선택 사진 수. */
+	      var _outN = (d.templateOutputs || []).filter(function (o) { return o && o.outputUrl; }).length;
+	      var _n = !_multi ? 1 : (_outN >= 2 ? _outN : (editablePhotos() || []).length);
 	      // [2026-07-26 원영] 마무리 재구성 — 발행 블록은 '주 행동 1개'(인스타에 올리기)만.
 	      //   계정태그·예약·사진편집은 _finishActions()/_tagsBlockHtml() 로 이동(버튼 5개 위계 없이 쌓이던 것).
 	      return '<div class="cap-pubrow" style="margin-top:10px">' +
@@ -2372,6 +2441,11 @@
           if (label) toast(label);
         }
         d.logId = r.log_id || d.logId || null;
+        /* [2026-09-13 ZH S20 Run4] 🔴 캡션까지 만들어 놓고 새로고침(또는 폰이 백그라운드 앱을 정리)하면 **통째로 사라졌다** —
+           사진·구성·질문 답·생성된 글 전부. 실측(라이브): 전·후 2장 → 합치기 → 답 3개 → 캡션 생성 → 새로고침 →
+           IDB slots 에 새 슬롯 0 · 초안 키 0 · 작업실 목록 그대로. 슬롯은 저장/발행/편집 완료 때만 써졌다.
+           → 글이 만들어진 순간 조용히 슬롯에 적는다(편집 완료와 같은 `_persistEditQuiet` — 토스트·갤러리·학습 없음). */
+        try { _persistEditQuiet(); } catch (_pq) { void _pq; }
       } else { toast(r.toast || '게시글 생성에 실패했어요'); }
       // [보스요청 2026-07-12] 생성 후 인스타 미리보기 자동 점프 제거 — 캡션 결과 화면(사진 편집·캡션 직접 수정)에
       //   머물고, 원장이 하단 '인스타 미리보기로' CTA 를 눌러야 preview 로 이동.
@@ -3717,7 +3791,13 @@
 	    if (opts._openStory) {
 	      var _rs = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
 	      var _tryStory = function (tries) {
-	        if (editablePhotos().length) { _openStoryEditor(); return; }
+	        if (editablePhotos().length) {
+	          /* [2026-09-14 P3] 캡션까지 끝난 글을 작업실 카드 '사진 편집' 으로 다시 열면 흐름은 layout(2/4) 에서
+	             편집기를 띄운다 → [완료] 가 setScreen(cur) 로 **사진 확인(2/4)** 에 떨어졌다. 원장은 방금 보던
+	             게시글(3/4)로 돌아가길 기대한다. 글이 이미 있으면 완료 목적지를 캡션으로(캡션은 그대로 유지). */
+	          if (String(d.caption || '').trim() && !d._editorNext) d._editorNext = 'caption';
+	          _openStoryEditor(); return;
+	        }
 	        if (tries > 0) _rs(function () { _tryStory(tries - 1); });
 	      };
 	      _rs(function () { _tryStory(30); });

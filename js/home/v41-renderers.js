@@ -77,7 +77,7 @@
     const goal = Number(brief.monthly_goal) || 0;
     const hl = won + (p == null ? '' : ` · 전월대비 ${p >= 0 ? '+' : ''}${p}%`);
     const desc = (goal > 0 && goal - total > 0)
-      ? `목표까지 ${Math.round((goal - total) / 10000)}만원 남았어요`
+      ? `목표까지 ${(goal - total) < 10000 ? (goal - total).toLocaleString('ko-KR') + '원' : Math.round((goal - total) / 10000) + '만원'} 남았어요`   // [2026-09-14 P3] 4,000원 남았는데 '0만원' 금지
       : (goal > 0 ? '이번달 목표 달성!' : '요일별 매출 패턴 보기');
     const card = { ...base, dot: (p != null && p < 0) ? 'var(--danger)' : '#3B82F6', hl, desc };
     if (p != null && p < 0) card.alert = true;       // 마이너스일 때만 '확인 필요'에 포함
@@ -309,6 +309,8 @@
 
 
   function _emptyStateMessage(brief) {
+    // 예약을 못 불러왔으면 "여유 있는 하루" 라고 단정하지 않는다.
+    if (brief && brief._briefFailed) return '지금은 오늘 정보를 못 불러왔어요. 잠시 뒤 다시 볼게요.';
     const h = new Date().getHours();
     const todayCount = (brief && (brief.today_bookings_count || (Array.isArray(brief.today_bookings) && brief.today_bookings.length))) || 0;
     if (todayCount === 0) return '오늘은 여유 있는 하루네요. 갤러리 정리 어때요?';
@@ -545,6 +547,9 @@
   //   - 펼침 상태는 .hv5-slots 의 클래스로만 산다 → localStorage 저장 X. 홈이 다시 그려지면
   //     자동으로 접힘(내일 예약 1건인데 펼쳐진 채 남는 사고 방지).
   function renderBooking(brief) {
+    /* [2026-09-13 UX] 🔴 불러오기에 실패했는데 "오늘 예약 없음" 이라고 말했다(라이브: /assistant/brief 503 재현).
+       원장은 예약이 없는 줄 알고 손님을 놓친다. 실패는 실패로 — 다시 시도 + 캘린더에서 직접 확인. */
+    if (brief && brief._briefFailed) return bookingFailedHtml();
     const all = todayBookings(brief);
     const empty = cfg().BOOKING_EMPTY_DISPLAY || 'hide';
     if (!all.length) return empty === 'hide' ? '' : bookingEmptyHtml();
@@ -576,6 +581,16 @@
     const label = btn.querySelector('.hv5-s-more-t');
     if (label) label.textContent = open ? '접기' : `+${btn.dataset.hvMore || ''}건 더 보기`;
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  function bookingFailedHtml() {
+    return `<div class="hv5-card">
+      <div class="hv5-card-h">
+        <div class="hv5-card-title">오늘의 예약</div>
+        <button type="button" class="hv5-card-link" data-hv-act="openCalendar">캘린더 →</button>
+      </div>
+      <button type="button" class="hv5-bk-empty" data-hv-act="retryBrief">오늘 예약을 불러오지 못했어요 · 다시 시도</button>
+    </div>`;
   }
 
   function bookingEmptyHtml() {

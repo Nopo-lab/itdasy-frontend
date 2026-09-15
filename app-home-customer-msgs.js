@@ -21,6 +21,7 @@
   const _AVATAR_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2.2c-4.5 0-8 2.6-8 5.9V21h16v-.9c0-3.3-3.5-5.9-8-5.9Z"/></svg>';
 
   let _cache = null;      // 마지막 /dm-confirm-queue 아이템 배열
+  let _failed = false;    // [2026-09-13] 마지막 불러오기 실패(첫 로드 실패면 스켈레톤 대신 안내)
   let _tokenValid = true; // 인스타 토큰 유효(X-Token-Valid). false면 재연결 배너.
   // [2026-08-15] X-Token-State: 'ok' | 'expired'(연결됐다가 끊김) | 'none'(한 번도 연결 안 함).
   //   'none' 인데 "연결이 끊겼어요" 를 띄우면 거짓말이다 — 끊긴 적이 없다.
@@ -115,6 +116,12 @@
     ).join('');
   }
 
+  function _failedHtml() {
+    return `<button type="button" id="hv5CmsgRetry" style="width:100%;text-align:left;display:flex;align-items:center;gap:10px;background:var(--surface);border:.5px solid var(--border);border-radius:16px;padding:13px;box-shadow:var(--shadow-sm);cursor:pointer;font-family:inherit;">
+      <span style="min-width:0;"><span style="display:block;font-size:13.5px;font-weight:700;color:var(--text);">메시지를 불러오지 못했어요</span><span style="display:block;font-size:12px;color:var(--text-subtle);margin-top:1px;">탭해서 다시 불러오기</span></span>
+    </button>`;
+  }
+
   function _reconnectBannerHtml() {
     return `<button type="button" id="hv5CmsgReconnect" style="width:100%;text-align:left;display:flex;align-items:center;gap:10px;background:var(--surface);border:.5px solid var(--border);border-radius:16px;padding:13px;box-shadow:var(--shadow-sm);cursor:pointer;font-family:inherit;">
       <span style="width:36px;height:36px;border-radius:50%;background:var(--brand-bg);color:var(--brand-strong);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;">⚠</span>
@@ -149,6 +156,13 @@
       .sort((a, b) => new Date(b.received_at || 0) - new Date(a.received_at || 0));
 
     const cnt = document.getElementById('hv5CmsgCount');
+    // 한 번도 못 받았는데 실패 → 스켈레톤(로딩 중) 대신 실패 안내
+    if (_cache === null && _failed) {
+      sec.hidden = false;
+      if (cnt) cnt.textContent = '';
+      row.innerHTML = _failedHtml();
+      return;
+    }
     // [Task 3] 캐시 null = 최초 로드 중 → 스켈레톤 표시
     if (_cache === null) {
       sec.hidden = false;
@@ -183,7 +197,9 @@
     const headers = window.authHeader ? window.authHeader() : {};
     if (!headers || !headers.Authorization) return;
     const res = await apiFetch('/dm-confirm-queue', { headers });
-    if (!res.ok) return;
+    /* [2026-09-13 UX] 실패하면 조용히 return 해서 첫 로드면 **스켈레톤이 영영** 돌았고,
+       새로고침 버튼은 실패해도 "새로 불러왔어요 ✓" 라고 했다. 실패를 기록해 화면·토스트가 사실대로 말하게 한다. */
+    if (!res.ok) { _failed = true; return false; }
     try {
       const tv = res.headers && res.headers.get ? res.headers.get('X-Token-Valid') : null;
       if (tv != null) _tokenValid = (tv !== '0' && tv.toLowerCase() !== 'false');
@@ -193,6 +209,8 @@
     const d = await res.json().catch(() => []);
     _cache = Array.isArray(d) ? d : (Array.isArray(d.items) ? d.items : []);
     _lastFetch = Date.now();
+    _failed = false;
+    return true;
   }
 
   async function refresh() {
@@ -200,9 +218,11 @@
     if (_inFlight) return;
     if (_cache && (Date.now() - _lastFetch) < MIN_FETCH_GAP) return;
     _inFlight = true;
-    try { await _fetchConvos(); _renderFromCache(); }
-    catch (_e) { /* 캐시 유지 */ }
+    let ok = false;
+    try { ok = (await _fetchConvos()) !== false; if (!ok && _cache === null) _failed = true; _renderFromCache(); }
+    catch (_e) { _failed = true; _renderFromCache(); /* 캐시 유지 */ }
     finally { _inFlight = false; }
+    return ok;
   }
 
   // ── 서버 discard (영구) ────────────────────────────────────
@@ -226,11 +246,13 @@
         _lastFetch = 0;
         refreshBtn.classList.add('spin');
         // [2026-08-12] 완료를 말로도 알림 — 아이콘만으론 됐는지 안 됐는지 알 수 없다는 피드백.
-        refresh().then(() => {
-          if (window.showToast) window.showToast('메시지를 새로 불러왔어요 ✓');
+        refresh().then((ok) => {
+          if (window.showToast) window.showToast(ok !== false ? '메시지를 새로 불러왔어요 ✓' : '메시지를 불러오지 못했어요. 잠시 뒤 다시 눌러 주세요');
         }).finally(() => { try { refreshBtn.classList.remove('spin'); } catch (_e2) { void _e2; } });
         return;
       }
+      const retry = e.target.closest('#hv5CmsgRetry');
+      if (retry) { e.preventDefault(); _lastFetch = 0; refresh(); return; }
       // 인스타 재연결 배너
       const reconnect = e.target.closest('#hv5CmsgReconnect');
       if (reconnect) {

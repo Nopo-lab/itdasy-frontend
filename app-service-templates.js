@@ -69,25 +69,30 @@
   const STARTERS = {
     nail: [{ name:'젤네일 기본', p:60000, d:90, r:21 }, { name:'손 케어', p:30000, d:45, r:28 }, { name:'패디 기본', p:70000, d:90, r:28 }],
     hair: [{ name:'디자인컷', p:35000, d:60, r:42 }, { name:'뿌리염색', p:70000, d:90, r:42 }, { name:'다운펌', p:50000, d:60, r:28 }],
+    // [2026-09-14 P3 첫원장] 붙임머리 샵이 hair 로 뭉개져 '디자인컷·뿌리염색·다운펌' 이 떴다 — 붙임머리 주문 단위로.
+    ext: [{ name:'붙임머리 100모', p:200000, d:120, r:28, c:'hair' }, { name:'22인치 붙임머리', p:250000, d:150, r:28, c:'hair' }, { name:'붙임머리 리터치', p:80000, d:90, r:28, c:'hair' }, { name:'붙임머리 제거', p:30000, d:40, r:0, c:'hair' }],
     eye: [{ name:'속눈썹펌', p:55000, d:60, r:35 }, { name:'속눈썹 연장', p:80000, d:90, r:21 }, { name:'리터치', p:45000, d:45, r:21 }],
     skin: [{ name:'피부 기본관리', p:70000, d:60, r:28 }, { name:'진정관리', p:80000, d:70, r:21 }, { name:'윤곽관리', p:90000, d:80, r:14 }],
     wax: [{ name:'브로우 정리', p:35000, d:40, r:28 }, { name:'왁싱 기본', p:60000, d:60, r:35 }, { name:'메이크업', p:100000, d:90, r:0 }],
   };
 
-  function _starterCat() {
+  function _starterCat(fallback) {
     try {
       const raw = localStorage.getItem('shop_type') || '';
       const norm = window.itdasyNormalizeShopType ? window.itdasyNormalizeShopType(raw) : null;
       const cat = (norm && norm.cat) || raw;
+      if (/붙임머리|extension/.test(raw) || /붙임머리/.test((norm && norm.label) || '')) return 'ext';   // hair 판정보다 먼저
       if (/lash|eye|속눈썹/.test(cat)) return 'eye';
       if (/nail|네일/.test(cat)) return 'nail';
       if (/hair|헤어|미용/.test(cat)) return 'hair';
       if (/skin|피부/.test(cat)) return 'skin';
       if (/wax|brow|makeup|왁싱|브로우|메이크업/.test(cat)) return 'wax';
     } catch (_e) { void 0; }
-    return 'nail';
+    return fallback || 'nail';
   }
 
+  // select 에 있는 값으로(ext 는 hair). [2026-09-14 P3] 새 시술 폼 분류 기본값이 늘 '기타' 였다 → 샵 업종을 따른다.
+  function _catForSelect() { const c = _starterCat('etc'); return c === 'ext' ? 'hair' : c; }   // 업종을 모르면 '기타' 그대로
   function _starterList() { return STARTERS[_starterCat()] || STARTERS.nail; }
   function _renderStarterChips() {
     const list = _starterList();
@@ -101,8 +106,9 @@
     return `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;gap:12px;">
         <div style="min-width:0;">
-          <h2 style="font-size:20px;font-weight:700;color:#191F28;margin:0;">시술 프리셋</h2>
-          <p style="font-size:13px;color:#8B95A1;margin:4px 0 0;line-height:1.5;">한 번 설정하면 예약·매출이 자동으로 움직입니다</p>
+          <!-- [2026-09-14 P3] 시트 헤더에 이미 '시술 메뉴' 가 있다. 본문 큰 제목이 스크롤되며 반투명 헤더 밑으로
+               지나가 '시술 메뉴' 가 두 번 겹쳐 보였다 → 본문 제목은 빼고 설명만(헤더는 불투명으로, generic-sheet). -->
+          <p style="font-size:13px;color:#8B95A1;margin:0;line-height:1.5;">시술 이름·가격·걸리는 시간을 적어두면 예약·매출 넣을 때 바로 골라 쓸 수 있어요</p>
         </div>
         <button type="button" class="svc-add-btn" style="padding:10px 18px;border-radius:999px;background:#BC6675;color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;">+ 새 시술 추가</button>
       </div>`;
@@ -147,7 +153,7 @@
 
   function _renderCards() {
     if (!_cache.length) {
-      if (window.emptyState) return window.emptyState({ icon: '', title: '아직 시술이 없어요', desc: '자주 하는 시술을 미리 등록하면 예약·매출 입력이 한 번에 끝나요.', ctaText: '첫 시술 추가' });
+      if (window.emptyState) return window.emptyState({ icon: 'ic-scissors', title: '아직 시술이 없어요', desc: '자주 하는 시술을 미리 등록하면 예약·매출 입력이 한 번에 끝나요.', ctaText: '첫 시술 추가' });
       return '<div style="padding:40px;text-align:center;color:#8B95A1;">등록된 시술 없음</div>';
     }
     return _cache.map(_renderCard).join('');
@@ -155,7 +161,7 @@
 
   // ── 자동 연동 흐름 다이어그램 ───────────────────────────
   function _renderFlowDiagram() {
-    const steps = ['프리셋 설정', '예약 추가', '예약 완료', '매출 기록', '리터치 알림'];
+    const steps = ['시술 메뉴 적기', '예약 추가', '예약 완료', '매출 기록', '리터치 알림'];
     const item = (s, i) => `
       <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
         <div style="width:32px;height:32px;border-radius:50%;background:#F7EFF0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#BC6675;">${i + 1}</div>
@@ -178,7 +184,7 @@
       `<div id="svc-add-panel" style="display:none;margin-bottom:14px;">${_addFormHTML()}</div>` +
       `<div id="svc-list">${_renderCards()}</div>` +
       _renderFlowDiagram();
-    window.openSheet({ title: '시술 프리셋', body: html });
+    window.openSheet({ title: '시술 메뉴', body: html });
     setTimeout(_bindMainHandlers, 50);
   }
 
@@ -188,16 +194,24 @@
       <div style="padding:16px;background:#F7F8FA;border-radius:14px;">
         <div style="font-size:13px;font-weight:700;color:#191F28;margin-bottom:10px;">새 시술 정보</div>
         ${p.id ? '' : _renderStarterChips()}
-        <div style="display:grid;grid-template-columns:2fr 1fr 80px;gap:6px;margin-bottom:6px;">
-          <input id="svc-name" placeholder="시술 이름" value="${_esc(p.name || '')}" style="padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;">
-          <input id="svc-price" type="number" placeholder="기본 금액" value="${_esc(p.default_price || '')}" style="padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;">
-          <input id="svc-dur" type="number" placeholder="분" value="${_esc(p.default_duration_min || 60)}" style="padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;">
+        <!-- [2026-09-14 첫원장] 2fr 1fr 80px 는 input 최소폭 때문에 줄어들지 못해 411px 폰에서 금액칸이 잘리고
+             '분' 칸이 화면 밖(x=536)으로 밀려 걸리는 시간을 아예 못 넣었다 → minmax(0,…) + min-width:0.
+             값이 들어가면 placeholder 가 사라져 '60' 이 뭔지 모르므로 칸 이름을 위에 적는다. -->
+        <div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.3fr) minmax(0,1fr);gap:6px;margin-bottom:3px;font-size:11px;font-weight:600;color:#6B7684;">
+          <span>시술 이름</span><span>금액(원)</span><span>시간(분)</span>
         </div>
-        <input id="svc-material" type="number" placeholder="재료비 (선택, 실마진 계산용)" value="${_esc(p.material_cost || '')}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:6px;background:#fff;">
-        <input id="svc-retouch" type="number" placeholder="리터치 주기 일수 (선택)" value="${_esc(p.retouch_period_days || '')}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:6px;background:#fff;">
+        <div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.3fr) minmax(0,1fr);gap:6px;margin-bottom:6px;">
+          <input id="svc-name" placeholder="시술 이름" value="${_esc(p.name || '')}" style="min-width:0;width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;">
+          <input id="svc-price" type="number" inputmode="numeric" placeholder="기본 금액" value="${_esc(p.default_price || '')}" style="min-width:0;width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;">
+          <input id="svc-dur" type="number" inputmode="numeric" placeholder="분" value="${_esc(p.default_duration_min || 60)}" style="min-width:0;width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;">
+        </div>
+        <div style="font-size:11px;font-weight:600;color:#6B7684;margin:2px 0 3px;">재료비(원) · 선택</div>
+        <input id="svc-material" type="number" inputmode="numeric" placeholder="재료비 (선택, 실마진 계산용)" value="${_esc(p.material_cost || '')}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:6px;background:#fff;">
+        <div style="font-size:11px;font-weight:600;color:#6B7684;margin:2px 0 3px;">리터치 주기(일) · 선택</div>
+        <input id="svc-retouch" type="number" inputmode="numeric" placeholder="리터치 주기 일수 (선택)" value="${_esc(p.retouch_period_days || '')}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:6px;background:#fff;">
         <div style="display:flex;gap:6px;align-items:center;">
           <select id="svc-cat" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;">
-            ${['etc','hair','nail','eye','skin','wax'].map(c => `<option value="${c}" ${(p.category||'etc')===c?'selected':''}>${_catLabel(c)}</option>`).join('')}
+            ${['etc','hair','nail','eye','skin','wax'].map(c => `<option value="${c}" ${(p.category||(p.id ? 'etc' : _catForSelect()))===c?'selected':''}>${_catLabel(c)}</option>`).join('')}
           </select>
           <button id="svc-add" type="button" style="padding:10px 18px;background:#BC6675;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">추가</button>
         </div>
@@ -206,16 +220,24 @@
 
   function _bindMainHandlers() {
     // 추가 패널 토글
-    document.querySelector('.svc-add-btn')?.addEventListener('click', () => {
+    const _toggleAddPanel = (forceOpen) => {
       const panel = document.getElementById('svc-add-panel');
       if (!panel) return;
-      const opening = panel.style.display === 'none';
+      const opening = forceOpen || panel.style.display === 'none';
       panel.style.display = opening ? '' : 'none';
-      if (opening) { setTimeout(() => document.getElementById('svc-name')?.focus(), 30); _bindAddHandlers(); }
-    });
+      if (opening) {
+        panel.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        setTimeout(() => document.getElementById('svc-name')?.focus(), 30); _bindAddHandlers();
+      }
+    };
+    document.querySelector('.svc-add-btn')?.addEventListener('click', () => _toggleAddPanel(false));
     _bindAddHandlers();
     // 카드 "수정" 클릭
     document.getElementById('svc-list')?.addEventListener('click', (e) => {
+      /* [2026-09-14 첫원장] 빈 화면 가운데 [첫 시술 추가] 가 아무 반응이 없었다(라이브) —
+         emptyState 는 버튼만 그리고 바인딩은 호출부 몫인데 여기서 bindEmptyCta 를 안 불렀다.
+         목록이 다시 그려져도(추가 후 삭제로 빈 화면 복귀) 살아 있게 위임으로 받는다. */
+      if (e.target.closest && e.target.closest('[data-empty-cta]')) { e.preventDefault(); _toggleAddPanel(true); return; }
       const editId = e.target.getAttribute('data-svc-edit');
       if (editId) { e.preventDefault(); edit(editId); }
     });
@@ -249,7 +271,10 @@
         if (list) list.innerHTML = _renderCards();
         const panel = document.getElementById('svc-add-panel');
         if (panel) panel.style.display = 'none';
-        if (window.showToast) window.showToast('시술 추가됨');
+        // [2026-09-14 P3] 추가 뒤 폼을 다시 열면 방금 값이 그대로라 [추가] 한 번에 같은 시술이 또 생겼다 → 비운다.
+        ['svc-name', 'svc-price', 'svc-material', 'svc-retouch'].forEach((id) => { const el = document.getElementById(id); if (el) el.value = ''; });
+        { const du = document.getElementById('svc-dur'); if (du) du.value = 60; }
+        if (window.showToast) window.showToast(`'${body.name}' 시술을 메뉴에 넣었어요`);
       } catch (e) {
         if (window.showToast) window.showToast('추가 실패: ' + (window._humanError ? window._humanError(e) : e.message), 'error');
       }
@@ -261,7 +286,7 @@
     if (!s) return;
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
     set('svc-name', s.name); set('svc-price', s.p); set('svc-dur', s.d); set('svc-retouch', s.r || '');
-    set('svc-cat', _starterCat());
+    set('svc-cat', s.c || _catForSelect());
   }
 
   // ── 통합 편집 ──────────────────────────────────────────

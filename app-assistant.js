@@ -315,7 +315,8 @@
   // [EG-2] 채팅 버블은 white-space:pre-wrap 이라 메시지 끝 공백/과도한 개행이 그대로 보임.
   //   줄 끝 공백 제거 · 3줄 이상 개행을 2줄로 · 끝 공백 제거. (내부 의도된 줄바꿈은 보존)
   function _normMsg(t) {
-    return String(t == null ? '' : t).replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '');
+    const s = String(t == null ? '' : t).replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '');
+    return window.dedupeNim ? window.dedupeNim(s) : s;   // [2026-09-14 P3] 'QA첫손님님' 흡수 — 토스트와 같은 규칙
   }
 
   function _ensureSheet() {
@@ -438,6 +439,25 @@
       _send();
     });
     sheet.addEventListener('click', (e) => {
+      const sb = e.target.closest('[data-asst-fa-send]');
+      const db = e.target.closest('[data-asst-fa-del]');
+      if (!sb && !db) return;
+      const idx = parseInt(sb ? sb.dataset.asstFaSend : db.dataset.asstFaDel, 10);
+      const m = _history[idx];
+      if (!m || !m.failed_ask_id) return;
+      const list = _readFailedAsks();
+      const fa = list.find(x => x.id === m.failed_ask_id);
+      // 보내기 전에 **먼저 지운다** — 연타·다른 탭에서 같은 질문이 두 번 나가지 않게.
+      _writeFailedAsks(list.filter(x => x.id !== m.failed_ask_id));
+      _history.splice(idx, 1);
+      _renderHistory();
+      if (sb && fa) {
+        const input = document.getElementById('asstInput');
+        if (input) input.value = fa.q;
+        _send();
+      }
+    });
+    sheet.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-pm-nav]');
       if (!btn) return;
       const cmd = btn.dataset.pmNav === 'back' ? '← 이전'
@@ -555,7 +575,15 @@
     _renderRafId = (window.requestAnimationFrame || window.setTimeout).call(window, () => {
       _renderRafId = 0;
       _lastRenderedSig = _historySig();
-      _renderHistoryImpl();
+      try {
+        _renderHistoryImpl();
+      } catch (err) {
+        // [Closeout 2026-09-13] 그리다가 터지면 원장님 화면엔 **말풍선이 안 뜬다** — 서버에선 흔적 0 이었다.
+        _lastRenderedSig = '';   // 다음 렌더에서 다시 시도하게
+        _reportClientEvent('client_render_error', {
+          error_code: (err && err.name) || 'Error', error_stage: 'render_history' });
+        throw err;               // 기존 동작(전역 에러·Sentry)은 그대로
+      }
     }, 0);
   }
   // assistant 메시지 한 개 → HTML. 캐시 가능하도록 분리.
@@ -582,7 +610,9 @@
       ? `<div style="background:#F2F4F6;border-radius:16px;border-top-left-radius:4px;padding:10px 14px;width:fit-content;max-width:100%;box-sizing:border-box;font-size:14px;line-height:1.55;color:#191F28;font-weight:500;white-space:pre-wrap;letter-spacing:-0.2px;">${_textInner}</div>`
       : `<div style="padding:2px 2px 0;font-size:14px;line-height:1.55;color:#191F28;font-weight:500;white-space:pre-wrap;letter-spacing:-0.2px;">${_textInner}</div>`);
     // [2026-06-10] 타임아웃 메시지에 [다시 시도] 버튼 — 같은 질문 재타이핑 없이 1탭 재시도
-    const retryHtml = m.retry_q ? `<div style="margin-top:8px;"><button type="button" data-asst-retry="${idx}" style="padding:9px 18px;border:1px solid #E5E8EB;border-radius:999px;background:#fff;color:#191F28;font-size:13px;font-weight:600;cursor:pointer;">다시 시도</button></div>` : '';
+    const retryHtml = (m.retry_q ? `<div style="margin-top:8px;"><button type="button" data-asst-retry="${idx}" style="padding:9px 18px;border:1px solid #E5E8EB;border-radius:999px;background:#fff;color:#191F28;font-size:13px;font-weight:600;cursor:pointer;">다시 시도</button></div>` : '')
+      // [Remaining Zero · P3] 세션이 끊겨 못 보낸 질문 — 자동 재전송은 없다. 원장님이 눌러야 한 번 보낸다.
+      + (m.failed_ask_id ? `<div style="margin-top:8px;display:flex;gap:6px;"><button type="button" data-asst-fa-send="${idx}" style="padding:9px 16px;border:1px solid #E5E8EB;border-radius:999px;background:#fff;color:#191F28;font-size:13px;font-weight:600;cursor:pointer;">다시 보내기</button><button type="button" data-asst-fa-del="${idx}" style="padding:9px 16px;border:1px solid #E5E8EB;border-radius:999px;background:#fff;color:#6B7684;font-size:13px;font-weight:600;cursor:pointer;">삭제</button></div>` : '');
     // [잇비 관측 2026-09-11] 신고에 **재현 좌표**를 같이 싣는다(대화·턴·intent·빌드·마스킹된 질문).
     //   이게 없으면 "답이 틀렸어요" 를 받아도 다음 업데이트에 반영할 방법이 없다.
     const _tr = (m && m.trace) || {};
@@ -1377,7 +1407,7 @@
         <span style="font-size:12px;font-weight:700;color:#191F28;letter-spacing:-0.2px;">${kindBadge.label}</span>
       </div>
       ${_safety}
-      <div style="font-size:13.5px;color:#191F28;font-weight:500;margin-bottom:12px;line-height:1.5;padding:11px 12px;background:#F7F8FA;border-radius:10px;">${_esc(action.confirmation_text || '')}</div>
+      <div style="font-size:13.5px;color:#191F28;font-weight:500;margin-bottom:12px;line-height:1.5;padding:11px 12px;background:#F7F8FA;border-radius:10px;">${_esc(_normMsg(action.confirmation_text || ''))}</div>
       <div style="display:flex;gap:6px;">
         <button data-action-edit="${historyIdx}" style="flex:1;padding:11px;border:0.5px solid #E5E8EB;border-radius:10px;background:#FFFFFF;color:#4E5968;font-weight:600;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:5px;">${_svg('ic-edit-3', 14)} 수정</button>
         <button data-action-run="${historyIdx}" style="flex:2;padding:11px;border:none;border-radius:10px;background:#191F28;color:#FFFFFF;font-weight:700;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:5px;letter-spacing:-0.2px;">${_runLabel} ${_svg('ic-check', 14)}</button>
@@ -2761,10 +2791,17 @@
   }
 
   function _handleSuggestionClick(e) {
-    return typeof _assistantSuggestionControls.handleClick === 'function' && _assistantSuggestionControls.handleClick(e, {
+    try {
+      return typeof _assistantSuggestionControls.handleClick === 'function' && _assistantSuggestionControls.handleClick(e, {
         isSending: () => _sendInFlight,
         send: _send,
       });
+    } catch (err) {
+      // [Closeout 2026-09-13] 추천칩을 눌렀는데 아무 일도 안 일어나는 실패 — 경보 recommendation_fail 의 원천.
+      _reportClientEvent('recommendation_click_error', {
+        error_code: (err && err.name) || 'Error', error_stage: 'suggestion_click', via: 'chip' });
+      return false;
+    }
   }
 
   // 캐시 무효화 + data-changed 이벤트 (단일 액션 실행 후 공통 로직)
@@ -3975,15 +4012,37 @@
       // [2026-07-22] 사진 + 편집 브리핑("좌측하단 텍스트·스티커 덕지덕지, 22인치 재시술")이면
       //   카드 대신 오케스트레이터로 — 레이아웃 고른 뒤 텍스트·스티커·캡션 자동.
       var _brief = (question && window.ItdasyPhotoBrief && window.ItdasyPhotoBrief.parse) ? window.ItdasyPhotoBrief.parse(question) : null;
+      /* [2026-09-13 ZH ITBI] 🔴 "글씨 얼굴 안 가리게 아래로 내려줘" · "문구 좀 더 크게" 에 잇비가
+         "알겠어요! 레이아웃만 고르면 시술내용 텍스트·캡션까지 자동으로 입혀드릴게요" 라고 **먼저 약속**하고 작업실을 열었는데,
+         넣을 문구가 문장에 없어서(휴리스틱·LLM 둘 다 text '') 만들어진 글자 레이어가 **0개**였다(라이브 실측).
+         이미 있는 글자를 옮기거나 키우는 명령은 작업실에 없다. → 실제로 만들어질 게 있을 때만 약속·이동하고,
+         없으면 무엇이 빠졌는지 사실대로 말한 뒤 평소 사진 흐름(구성 고르기)으로 간다. 약속 문구는 LLM 보강 **뒤에** 정한다. */
+      var _offerLayoutPicks = null;
       if (_brief && _brief.hasBrief && photoUrls.length && !_isOcrPhotoIntent(question)) {
         _history.push({ role: 'user', text: question, thumb: photoUrls[0], photos: photoUrls, local_only: true });
-        _history.push({ role: 'assistant', local_only: true,
-          text: '알겠어요! 레이아웃만 고르면 ' + (_brief.wantsText ? '시술내용 텍스트' : '') + (_brief.wantsText && _brief.wantsSticker ? '·' : '') + (_brief.wantsSticker ? '스티커' : '') + '·캡션까지 자동으로 입혀드릴게요' + (_brief.service ? ' (' + _brief.service + ')' : '') });
         _renderHistory();
         (async function () {
           // [Phase2b] 백엔드 LLM 으로 브리핑 보강(fail-safe: 실패하면 휴리스틱 _brief 그대로).
           var _finalBrief = _brief;
           try { if (window.ItdasyPhotoBrief && window.ItdasyPhotoBrief.parseSmart) { _finalBrief = (await window.ItdasyPhotoBrief.parseSmart(question)) || _brief; } } catch (_pe) { _finalBrief = _brief; }
+          var _built = [];
+          try { _built = (window.ItdasyPhotoBrief && window.ItdasyPhotoBrief.buildLayers) ? (window.ItdasyPhotoBrief.buildLayers(_finalBrief) || []) : []; } catch (_be) { _built = []; }
+          var _hasText = _built.some(function (l) { return l && l.type === 'text'; });
+          var _hasSticker = _built.some(function (l) { return l && l.type === 'sticker'; });
+          if (!_hasText && !_hasSticker && !(_finalBrief && _finalBrief.useRecentStyle)) {
+            _history.push({ role: 'assistant', local_only: true,
+              text: '넣을 문구를 못 찾았어요. 문구를 따옴표로 알려주시면 말씀하신 위치·크기로 넣어드릴게요 — 예: "첫 방문 이벤트" 아래에 크게.\n' +
+                '이미 넣은 글자를 옮기거나 키우는 건 사진 편집에서 손가락으로 바로 할 수 있어요.' });
+            _renderHistory();
+            // 2장 이상이면 구성 고르기 카드를 이어서 띄운다. 1장은 고를 구성이 없고 그 경로는 채팅을 닫아
+            //   방금 한 안내가 안 보이므로, 채팅에 남아 문구를 기다린다.
+            if (photoUrls.length >= 2 && typeof _offerLayoutPicks === 'function') _offerLayoutPicks(false);
+            return;
+          }
+          _history.push({ role: 'assistant', local_only: true,
+            text: '알겠어요! 레이아웃만 고르면 ' + (_hasText ? '글자' : '') + (_hasText && _hasSticker ? '·' : '') + (_hasSticker ? '스티커' : '') +
+              ((_hasText || _hasSticker) ? '·' : '') + '캡션까지 자동으로 입혀드릴게요' + (_finalBrief && _finalBrief.service ? ' (' + _finalBrief.service + ')' : '') });
+          _renderHistory();
           try { if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) await window.AppLoader.ensure('photo'); } catch (_e) { void _e; }
           try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_e) { void _e; }
           if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
@@ -3992,15 +4051,14 @@
         })();
         if (window.hapticLight) window.hapticLight();
         _sendInFlight = false; _inflightCtrl = null;
-        return;
       }
-      if (photoUrls.length && !_isOcrPhotoIntent(question) && !_isCaptionIntent) {
+      _offerLayoutPicks = function (pushUser) {
         /* [2026-07-22 보스] 사진만 던지면 **잇비 채팅 안에서** 레이아웃을 고르게 한다.
            예전 1: '게시글 만들기/전후 비교/후기 카드/사진 편집' 칩 4개 → 한 단계 군더더기.
            예전 2: 곧장 작업실 레이아웃 화면으로 이동 → 채팅에서 튕겨나가는 느낌.
            지금: 채팅에 구성 카드가 뜨고, 하나 누르면 그 구성으로 게시글 화면까지 직행 = "채팅 안에서 딸깍".
            선택지는 workspace/flow/layout.js 의 _compOptions 가 정본 — 여기서 지어내지 않는다. */
-        _history.push({ role: 'user', text: question || '', thumb: photoUrls[0] || '', photos: photoUrls, local_only: true });
+        if (pushUser !== false) _history.push({ role: 'user', text: question || '', thumb: photoUrls[0] || '', photos: photoUrls, local_only: true });
         _renderHistory();   // 사진은 **즉시** 보여준다 — 구성 목록을 기다리느라 채팅이 비어 보이면 안 된다
         (async function () {
           // 구성 목록을 물으려면 WorkspaceFlow(photo 그룹)가 먼저 로드돼 있어야 한다.
@@ -4027,6 +4085,10 @@
           }
           _renderHistory();
         })();
+      };
+      if (_brief && _brief.hasBrief && photoUrls.length && !_isOcrPhotoIntent(question)) return;   // 위 비동기가 이어서 처리(약속 or 구성 고르기)
+      if (photoUrls.length && !_isOcrPhotoIntent(question) && !_isCaptionIntent) {
+        _offerLayoutPicks(true);
         if (window.hapticLight) window.hapticLight();
         _sendInFlight = false; _inflightCtrl = null;
         return;
@@ -4185,6 +4247,9 @@
       const result = await window.AssistantIntent.tryLookupBooking(q);
       if (!result || !result.matched) return false;
       try { window.ItdasyBookingContext?.rememberList?.({ type: result.type, data: result.data }); } catch (_ctxErr) { void _ctxErr; }
+      if (result.type === 'bookings_lookup' && !Array.isArray(result.related)) {
+        result.related = _feFollowups('bookings_lookup', result.customer_name || '');
+      }
       _pushShortcutResult(input, q, result);
       return true;
     } catch (_e) {
@@ -4483,6 +4548,41 @@
     }
   }
 
+  // [ITBI Closeout 2026-09-13 · P3 막다른 길] 프론트 지름길이 답한 턴엔 **후속 추천칩이 0개**였다.
+  //   실측(최종 회귀 추천칩 그래프 · FE 1c48ce3): 나쁜 막다른 길 20건 중 16건이 여기 —
+  //   "이번 달 매출 얼마야?" → "📊 이번 달 매출 415,000원 (25건)" 뒤에 칩 없음,
+  //   "E2E_A_박지우님 예약 있어?" → "📅 …예정된 예약이 없어요." 뒤에 칩 없음.
+  //   같은 질문이 서버로 가면 `_READONLY_FOLLOWUPS` 칩이 붙는다. 서버 표와 **같은 문장**을 쓴다(경로 따라 동선이 갈리지 않게).
+  //   방금 물은 질문은 다시 권하지 않는다(최근 3개 사용자 발화와 같으면 뺀다).
+  const _FE_FOLLOWUPS = {
+    revenue: ['이번 달 지출 얼마야?', '시술 목록 뭐 있어?', '단골 누구야?'],
+    bookings: ['오늘 빈 시간 알려줘', '내일 예약 있어?', '이번 달 매출 얼마야?'],
+    bookings_lookup: ['{name}님 마지막 방문 언제야?', '{name}님 메모 있어?', '오늘 예약 알려줘'],
+  };
+  //   같은 **뜻**도 거른다 — 실측(칩 그래프 130클릭): "재료비 얼마 썼어?" → "이번 달 매출" → 칩 "이번 달 지출 얼마야?"(재추천 1).
+  //   문장 비교만으로는 재료비=지출을 못 알아본다. 서버 `_dedupe_followups` 의 '최근 3턴 같은 intent' 규칙과 같은 취지.
+  const _FE_CHIP_FAMILY = [
+    [/지출|재료비|나간\s*돈|쓴\s*돈|비용/, /지출/],
+    [/매출/, /매출/],
+    [/빈\s*시간|비는\s*시간|빈자리/, /빈 시간/],
+    [/내일.*(예약|손님|일정)/, /내일 예약/],
+    [/오늘.*(예약|손님|일정)/, /오늘 예약/],
+    [/시술\s*목록|메뉴|서비스\s*목록|시술\s*종류/, /시술 목록/],
+    [/단골|자주\s*오/, /단골/],
+  ];
+  function _feFollowups(kind, name) {
+    const base = _FE_FOLLOWUPS[kind] || [];
+    const norm = (t) => String(t || '').replace(/[\s?!.~]/g, '');
+    const recent = _history.filter(m => m && m.role === 'user').slice(-3).map(m => String(m.text || ''));
+    const asked = recent.map(norm);
+    const sameFamily = (chip) => _FE_CHIP_FAMILY.some(([askedRe, chipRe]) => chipRe.test(chip) && recent.some(q => askedRe.test(q)));
+    return base
+      .filter(t => name || !/\{name\}/.test(t))
+      .map(t => t.replace(/\{name\}/g, name || ''))
+      .filter(t => !asked.includes(norm(t)) && !sameFamily(t))
+      .slice(0, 3);
+  }
+
   async function _runAsyncIntentRule(rule) {
     try {
       const result = await window.AssistantIntent.execAsyncRule(rule);
@@ -4494,11 +4594,12 @@
         ? result.data.items.filter((b) => b && b.status !== 'cancelled') : [];
       if (isBooking && bItems.length) {
         const header = String(result.response || '').split('\n')[0];
-        _history.push({ role: 'assistant', text: header, booking_cards: bItems });
+        _history.push({ role: 'assistant', text: header, booking_cards: bItems, related: _feFollowups('bookings') });
       } else if (isBooking) {
-        _history.push({ role: 'assistant', text: (result.response || '예약이 없어요.') + ' 새 예약을 잡을까요?', related: ['예약 잡기'] });
+        _history.push({ role: 'assistant', text: (result.response || '예약이 없어요.') + ' 새 예약을 잡을까요?', related: ['예약 잡기'].concat(_feFollowups('bookings').slice(0, 2)) });
       } else {
-        _history.push({ role: 'assistant', text: result.response });
+        const _rel = /^revenue_/.test(result.type || '') ? _feFollowups('revenue') : undefined;
+        _history.push({ role: 'assistant', text: result.response, related: _rel });
       }
       _renderHistory();
     } catch (fetchErr) {
@@ -4628,7 +4729,12 @@
     if (/(음성|녹음|받아쓰|마이크|보이스|voice).*(캡션|글|입력|문구)?/.test(q)) {
       if (typeof window.openVoiceCaption === 'function') { _runSheetShortcut(input, () => window.openVoiceCaption()); return true; }
     }
-    if (/(결제|플랜|구독|업그레이드|pro|premium)\s*(변경|선택|보|관리|업)?/.test(q)) return _tryPlanShortcut(input);
+    /* [ITBI Remaining Zero 2026-09-14] **'결제'·'pro' 라는 글자만 있으면 요금제 팝업이 떴다.**
+       실측(기능 질문 30 라이브 · user 5 · FE 043940d): "잇비가 알아서 결제해?" → Pro 결제 팝업(z 11500)이 잇비 창을 덮음.
+       뒤의 동사 묶음이 선택(?)이라 사실상 `/결제|pro/` 였다 — "결제 금액 얼마야?"·"카드 결제 매출"·"profile" 도 해당.
+       요금제·구독을 **가리키는 말**이 있을 때만 연다. 잇비 자신에게 되는지 묻는 말은 기능 안내(서버)로 보낸다. */
+    if (!/잇비(가|는|도)/.test(q)
+        && /(플랜|요금제|구독|업그레이드|멤버십\s*(가입|결제|해지)|\bpro\b|프로\s*(요금|플랜|구독|가입)|premium|결제\s*(수단|정보|관리|카드\s*변경))/i.test(q)) return _tryPlanShortcut(input);
     return false;
   }
 
@@ -4672,7 +4778,7 @@
     const res = await apiFetch('/assistant/ask', {
       method: 'POST',
       headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: q, session_id: _sessionId || undefined, context_hint: _hint || undefined, via: _takeVia() }),
+      body: JSON.stringify({ question: q, session_id: _sessionId || undefined, context_hint: _hint || undefined, via: _takeVia(), client_tab: _ITBI_TAB_ID }),
       signal: ctrl.signal,
     });
     // [2026-07-22 보스] 서버가 사람 말로 이유를 줬으면(429 "AI 비서가 잠시 붐비고 있어요" 등)
@@ -4681,6 +4787,7 @@
     if (!res.ok) {
       let _detail = '';
       try { _detail = ((await res.clone().json()) || {}).detail || ''; } catch (_je) { _detail = ''; }
+      if (res.status === 401) return { answer: _detail || '로그인이 필요해요.', actions: [], _serverNotice: true, _authExpired: true };
       if (_detail && /[가-힣]/.test(_detail)) return { answer: _detail, actions: [], _serverNotice: true };
       throw new Error('HTTP ' + res.status);
     }
@@ -4774,6 +4881,20 @@
       _clearChatPending();
       return;
     }
+    try {
+      const _nc = _networkErrorCode(e);
+      if (_nc) _reportClientEvent('network_error', { error_code: _nc, error_stage: 'ask' });
+    } catch (_e) { void _e; }
+    try {
+      if (/HTTP 401\b/.test(String((e && e.message) || ''))) {
+        const _lu = [..._history].reverse().find(m => m && m.role === 'user');
+        if (_lu && _lu.text) {
+          _saveFailedAsk(_lu.text);
+          _history.push({ role: 'assistant', text: '🔒 로그인이 끊겨서 이 질문을 보내지 못했어요. 다시 로그인하시면 "다시 보내기"로 이어서 보낼 수 있게 이 기기에 남겨 뒀어요.' });
+          _renderHistory(); _clearChatPending(); return;
+        }
+      }
+    } catch (_e2) { void _e2; }
     _history.push({ role: 'assistant', text: _sendErrorText(e) });
     _renderHistory();
     _clearChatPending();
@@ -4958,12 +5079,63 @@
   // [ITBI 2차게이트 2026-09-12 · §8] 추천칩 클릭 표식을 **한 번만** 소비한다.
   //   칩이 입력창을 채우고 send() 를 부르므로, 지우지 않으면 그 다음 직접 입력까지
   //   'chip' 으로 집계돼 추천칩 실패율이 실제보다 좋아 보인다(지표가 스스로를 속인다).
+  // [ITBI Closeout 2026-09-13 · CASE-030] 이 **페이지 로드**를 가리키는 임시 id — 탭 구분용.
+  //   대화 세션 id 는 localStorage 라 같은 계정 두 탭이 **같은 대화**를 쓴다(여러 기기 이어보기 설계).
+  //   그래서 탭 B 에서 목록을 보고 "그 고객" 이라 했는데 탭 A 가 방금 말한 사람으로 풀렸다.
+  //   서버는 이 값으로 "이 탭이 직접 주고받은 턴" 에서 먼저 대명사를 푼다.
+  //   sessionStorage 에 두지 않는다 — '탭 복제' 가 sessionStorage 를 그대로 복사해 같은 id 가 된다.
+  //   새로고침하면 새 id 가 되는데, 그때 화면엔 서버 전체 기록이 다시 뜨므로 전체 기준이 맞다.
+  const _ITBI_TAB_ID = (() => {
+    try {
+      const a = new Uint8Array(8);
+      (window.crypto || {}).getRandomValues ? window.crypto.getRandomValues(a) : a.forEach((_, i) => { a[i] = Math.floor(Math.random() * 256); });
+      return 't' + Array.from(a, (b) => b.toString(16).padStart(2, '0')).join('');
+    } catch (_e) { return 't' + Date.now().toString(36); }
+  })();
+
   function _takeVia() {
     try {
       const v = window.__itbiVia || null;
       window.__itbiVia = null;
       return v || 'typed';
     } catch (_e) { return 'typed'; }
+  }
+
+  // [ITBI Closeout 2026-09-13 · §7] 프론트에서만 보이는 실패를 서버 [ITBI] 로 보낸다.
+  //   서버 허용목록엔 network_error · client_render_error · recommendation_click_error ·
+  //   unsupported_request 가 있었는데 **프론트가 한 번도 보내지 않았다** — 이벤트 이름만 있고 원천이 없었다.
+  //   원문 답변·예외 메시지는 보내지 않는다(메시지에 고객명이 섞일 수 있다). 코드성 값만.
+  function _reportClientEvent(event, fields) {
+    try {
+      if (typeof apiFetch !== 'function') return;
+      if (window.__itdasyAuthDead) return;   // 세션이 죽었으면 보내지 않는다(401 폭주 방지)
+      const f = fields || {};
+      apiFetch('/assistant/client-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(window.authHeader ? window.authHeader() : {}) },
+        body: JSON.stringify({
+          event: event,
+          conversation_id: _sessionId || null,
+          handled_by: f.handled_by || null,
+          fallback_reason: f.fallback_reason || null,
+          error_code: f.error_code ? String(f.error_code).slice(0, 48) : null,
+          error_stage: f.error_stage ? String(f.error_stage).slice(0, 48) : null,
+          via: f.via || null,
+          question: f.question ? String(f.question).slice(0, 500) : null,
+          app_build: (window.__ITDASY_BUILD__ || window.APP_BUILD || ''),
+        }),
+      }).catch(() => {});
+    } catch (_e) { void _e; }
+  }
+
+  // 서버가 **응답을 준** 실패(4xx/5xx)는 서버가 이미 기록한다 — 여기선 응답 자체가 없던 것만 센다.
+  function _networkErrorCode(e) {
+    const msg = String((e && e.message) || '');
+    if (/\b[45]\d\d\b/.test(msg)) return null;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'offline';
+    if (/timeout|timed out|너무 오래/i.test(msg)) return 'client_timeout';
+    if (/failed to fetch|load failed|network/i.test(msg)) return 'fetch_failed';
+    return (e && e.name) ? String(e.name).slice(0, 32) : 'unknown';
   }
 
   function _reportClientTurn(handledBy, q, via) {
@@ -4982,8 +5154,19 @@
           answer: (last && last.role === 'assistant' && typeof last.text === 'string')
             ? last.text.slice(0, 500) : null,
           app_build: (window.__ITDASY_BUILD__ || window.APP_BUILD || ''),
+          client_tab: _ITBI_TAB_ID,
         }),
-      }).catch(() => {});
+      })
+        // [ITBI Closeout 2026-09-13 · CASE-032] 서버가 이 턴을 **대화에 기록**하고 세션 id 를 돌려준다.
+        //   지름길이 첫 턴이면 아직 세션이 없다 — 받은 id 를 써야 다음 질문이 같은 대화로 이어진다.
+        .then((r) => (r && r.ok ? r.json() : null))
+        .then((j) => {
+          if (j && j.session_id && j.session_id !== _sessionId) {
+            _sessionId = j.session_id;
+            try { localStorage.setItem('assistant_session_id', String(_sessionId)); } catch (_e) { void _e; }
+          }
+        })
+        .catch(() => {});
     } catch (_e) { void _e; }
   }
 
@@ -5121,12 +5304,123 @@
     catch (_e) { void _e; }
   }
 
+  /* [ITBI Remaining Zero 2026-09-14 · P3] **로고 디자인 요청이 문구 편집 시트로 갔다.**
+     실측(최종 게이트 §7): "포토샵으로 로고 디자인해줘" → create_intent_fallback → '문구 편집' 시트가 열리고 잇비 창이 가려짐.
+     제품 결정 A(기본값): 로고·심볼·간판 시안 제작은 **현재 지원 범위 밖**. 억지로 편집기·작업실로 보내지 않고
+     못 한다고 말한 뒤, 지금 바로 되는 것(캡션·홍보 문구·가격표)만 칩으로 준다. 기존 로고를 사진에 넣는 말은 제외. */
+  const _DESIGN_OOS_RE = /(로고|심볼|엠블럼|엠블렘|브랜드\s*마크|간판\s*(로고|디자인|시안))/;
+  const _DESIGN_OOS_VERB_RE = /(만들|디자인|그려|그리|제작|시안|추천|뽑아|이미지|생성|짜\s*줘|해\s*줘|줘|어때)/;
+  const _DESIGN_OOS_SKIP_RE = /(넣어|올려|붙여|워터마크|업로드|교체|사진에|위치)/;
+  const _DESIGN_OOS_CHIPS = ['인스타 캡션 만들어줘', '홍보 문구 만들어줘', '가격표 만들어줘', '잇비 뭐 할 수 있어?'];
+  function _looksDesignOutOfScope(q) {
+    const t = String(q || '');
+    return _DESIGN_OOS_RE.test(t) && _DESIGN_OOS_VERB_RE.test(t) && !_DESIGN_OOS_SKIP_RE.test(t);
+  }
+  function _tryDesignOutOfScope(input, q, via) {
+    if (!_looksDesignOutOfScope(q)) return false;
+    _clearAssistantInput(input);
+    _history.push({ role: 'user', text: q });
+    try { _syncQuickSuggestVisibility(); } catch (_e) { void _e; }
+    _history.push({ role: 'assistant',
+      text: '🎨 로고·심볼 같은 디자인 제작은 아직 잇비가 지원하지 않아요.\n대신 샵 홍보에 바로 쓸 수 있는 건 지금 만들어 드릴게요 — 인스타 캡션, 홍보 문구, 가격표 카드.',
+      related: _DESIGN_OOS_CHIPS.slice() });
+    _renderHistory();
+    try { _reportClientEvent('unsupported_request', { handled_by: 'design_out_of_scope', fallback_reason: 'unsupported_capability', question: q, via: via || 'typed' }); } catch (_e) { void _e; }
+    return true;
+  }
+
+  // 서버 capability_help 분류(routers/assistant.py `_CAP_ASK_RE`·`_CAP_ACT_RE`)와 **같은 모양**만 비켜 준다.
+  //   여기서 넓게 잡아도 서버가 기능 질문이 아니라고 보면 평소 경로(조회·LLM)로 답하므로 오답이 되지 않는다.
+  const _CAP_Q_RE = /사용법|쓰는\s*법|사용\s*방법|어떻게\s*(써|쓰|사용)|(뭐|뭘|무엇|어떤\s*(것|거|걸))\s*(할\s*수|해\s*줄\s*수|물어볼\s*수|물어봐도|도와|되|돼)|어디까지\s*(돼|되|할|가능)|이\s*기능|기능\s*(뭐|알려|있|어디|소개|설명|목록)|물어볼\s*수\s*있|물어봐도\s*(돼|되)|(도|는)\s*(돼|되나|되니|가능해)\s*\??$|(보낼|발송할|답할|달|처리할|결제할)\s*수\s*있|추천\s*질문|신고(는|하려면|하는\s*법|\s*어떻게|\s*어디)|(직접|자동으로|알아서|혼자)\s*.{0,8}(보내|발송|달아|답해|답장|처리|결제|송금|바꿔|변경)(해|해요|하나|하니|요)?\s*(\?|나\?|니\?|$)|돈\s*(처리|관리|계산)\s*(도|는)?\s*(해|돼|되|가능)/;
+  const _CAP_Q_NOT_RE = /\d|님|오늘|내일|모레|어제|이번|지난|다음\s*주|줘(?![가-힣])|주세요|해줄래|부탁|써줘|만들어줘|해도\s*(돼|되)/;
+  function _looksCapabilityQuestion(q) {
+    const t = String(q || '').trim();
+    if (!t || !_CAP_Q_RE.test(t)) return false;
+    const aboutItbi = /잇비|사용법|쓰는\s*법|추천\s*질문|신고|기능|어디까지/.test(t);
+    return !(_CAP_Q_NOT_RE.test(t) && !aboutItbi);
+  }
+  async function _askServer(input, q) {
+    _beginTextAsk(input, q);
+    try {
+      const _resp = await _postAssistantAsk(q);
+      if (_resp && _resp._authExpired) {
+        _saveFailedAsk(q);
+        _resp.answer = '🔒 로그인이 끊겨서 이 질문을 보내지 못했어요. 다시 로그인하시면 "다시 보내기"로 이어서 보낼 수 있게 이 기기에 남겨 뒀어요.';
+      }
+      _finishAskResponse(q, _resp);
+    } catch (e) {
+      _handleSendError(e);
+    } finally {
+      _sendInFlight = false;
+      _inflightCtrl = null;
+    }
+  }
+
+  /* [ITBI Remaining Zero 2026-09-14 · P3] **세션이 끊긴 사이 친 잇비 질문이 새로고침에 사라졌다.**
+     실측(최종 게이트 세션 만료): 질문은 말풍선에만 남고 로컬 저장 0 · 로그인 화면의 '작업 보관' 안내는 잇비 질문엔 해당 없음.
+     정책: 조회든 쓰기든 **자동 재전송 금지**. 이 기기에만(서버·로그 전송 0) 계정별로 짧게(6시간·최대 3개) 보관하고,
+     다시 로그인한 뒤 잇비를 열면 [다시 보내기]/[삭제] 를 보여준다. 쓰기 말이면 "확인 카드부터 다시" 라고 알린다 —
+     다시 보내도 확인 카드가 먼저 뜨고, 이미 누른 실행은 서버 멱등키가 막는다. 키는 itdasy_ 접두사라 계정 전환 시 지워진다. */
+  const _FAILED_ASK_PREFIX = 'itdasy_itbi_failed_ask::';
+  const _FAILED_ASK_TTL = 6 * 3600 * 1000;
+  const _FAILED_ASK_WRITE_RE = /(잡아|예약해|취소|변경|바꿔|추가|등록|기록|충전|차감|환불|보내|발송|삭제|지워|메모해|남겨|결제|사용해)/;
+  function _failedAskKey() {
+    try { const u = localStorage.getItem('last_user_id'); return u ? _FAILED_ASK_PREFIX + u : null; } catch (_e) { return null; }
+  }
+  function _readFailedAsks() {
+    const k = _failedAskKey(); if (!k) return [];
+    try {
+      const a = JSON.parse(localStorage.getItem(k) || '[]');
+      const now = Date.now();
+      return (Array.isArray(a) ? a : []).filter(x => x && x.q && x.id && x.expires_at > now).slice(-3);
+    } catch (_e) { return []; }
+  }
+  function _writeFailedAsks(list) {
+    const k = _failedAskKey(); if (!k) return;
+    try {
+      if (list && list.length) localStorage.setItem(k, JSON.stringify(list.slice(-3)));
+      else localStorage.removeItem(k);
+    } catch (_e) { void _e; }
+  }
+  function _saveFailedAsk(q) {
+    const t = String(q || '').trim(); if (!t) return;
+    const list = _readFailedAsks().filter(x => x.q !== t);
+    list.push({ id: 'fa_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), q: t,
+      write: _FAILED_ASK_WRITE_RE.test(t), conversation_id: _sessionId || null,
+      created_at: Date.now(), expires_at: Date.now() + _FAILED_ASK_TTL });
+    _writeFailedAsks(list);
+  }
+  function _offerFailedAsks() {
+    try {
+      if (window.__itdasyAuthDead) return;
+      const tok = (typeof window.getToken === 'function') ? window.getToken() : null;
+      if (!tok) return;
+      const list = _readFailedAsks();
+      if (!list.length) return;
+      let added = false;
+      list.forEach((fa) => {
+        if (_history.some(m => m && m.failed_ask_id === fa.id)) return;
+        const preview = fa.q.length > 40 ? fa.q.slice(0, 40) + '…' : fa.q;
+        _history.push({ role: 'assistant', local_only: true, failed_ask_id: fa.id,
+          text: '📨 로그인이 끊겨서 보내지 못한 잇비 질문이 있어요.\n"' + preview + '"'
+            + (fa.write ? '\n다시 보내면 확인 카드부터 다시 보여드려요. 원장님이 누르기 전엔 아무것도 바뀌지 않아요.' : '') });
+        added = true;
+      });
+      if (added) _renderHistory();
+    } catch (_e) { void _e; }
+  }
+  try { window.addEventListener('itdasy:session-ready', () => setTimeout(() => { if (document.getElementById('assistantSheet')) _offerFailedAsks(); }, 600)); } catch (_e) { void _e; }
+
   // [P1-5] 미지원(세부편집)/평가·재시도/문맥부족 발화를 백엔드로 안 보내고 정직하게 안내(인터넷오류 거짓 수렴 차단).
   function _tryUnsupportedGuide(input, q) {
     const U = window.ItbiUnsupportedIntent;
     if (!U || typeof U.classify !== 'function') return false;
     const c = U.classify(q);
     if (!c) return false;
+    // [Closeout 2026-09-13] "못 해요" 로 끝나는 턴도 서버에 남긴다 — 무엇을 원했는데 못 해줬는지가 로드맵이다.
+    _reportClientEvent('unsupported_request', {
+      handled_by: 'unsupported_guide:' + String(c.kind || ''), fallback_reason: 'unsupported_capability',
+      question: q, via: (window.__itbiVia === 'chip') ? 'chip' : 'typed' });
     _clearAssistantInput(input);
     _history.push({ role: 'user', text: q });
     const AC = window.ItbiActiveCard;
@@ -5371,15 +5665,37 @@
     if (pendingFiles) { _uploadPhotos(pendingFiles); return; }
     const q = input ? input.value.trim() : '';
     if (!q) return;
+    // [ITBI Closeout 2026-09-13 · CASE-033] **아래 앞단 가로채기 ~18개는 보고가 없었다.**
+    //   지난 게이트의 handled_by 보고는 `_trySendShortcuts` 의 15개에만 걸려 있어서, 여기서 답한 턴
+    //   (예약 조회·생성·연락처·메모리·가격표·캡션·사진모드…)은 서버 관측 0 · 대화 기록 0 이었다.
+    //   라이브 재현: "E2E_A_박지우님 예약 있어?"(_tryLookupBookingShortcut) 뒤 "그분" → 김호영(한 칸 앞).
+    //   via 표식은 여기서 먼저 꺼내고, 백엔드로 넘어가기 직전에 되돌린다(_trySendShortcuts 와 같은 규칙).
+    const _via0 = _takeVia();
+    const _fe = async (name, fn) => {
+      const ok = await fn();
+      if (ok) { try { _reportClientTurn(name, q, _via0); } catch (_e) { void _e; } }
+      return ok;
+    };
+    // [Remaining Zero · P3] 로고·심볼 제작은 지원 범위 밖 — 문구 편집 시트·작업실·사진모드로 새기 전에 여기서 정직하게.
+    if (_tryDesignOutOfScope(input, q, _via0)) return;
+    // [Remaining Zero · P3] 기능·사용법 질문은 앞단 지름길을 **전부 건너뛰고** 서버 capability map 으로.
+    //   실측(기능 질문 30 라이브): "예약 관련 뭐 할 수 있어?" → 예약 숫자 규칙("📅 오늘 예약 없어요"),
+    //   "작업실도 돼?" → 저장카드 지름길이 작업실로 이동, "잇비가 알아서 결제해?" → 요금제 팝업.
+    //   지름길마다 막으면 다음 지름길이 또 받는다 — 입구에서 한 번에 비켜 준다(판정의 진실원은 서버).
+    if (_looksCapabilityQuestion(q)) {
+      try { if (_via0 === 'chip') window.__itbiVia = 'chip'; } catch (_e) { void _e; }
+      await _askServer(input, q);
+      return;
+    }
     _photoModeReannounce = '';
     if (_pendingBA) { _pendingBA = null; }   // [P1] 전후 대기 중 다른 텍스트 요청 → pending 정리
     // [BA 동선] 다른 텍스트 요청이 오면 BA 자동연결 대기 해제(전후 재요청이면 _openBeforeAfterCreate 가 다시 세팅).
     if (_pendingBaIntent) { _pendingBaIntent = null; }
     // [QA#7] 메모리 의도("기억해"/"뭐 기억해?"/"기억하지 마") — 백엔드 전 가로채 dedupe.
-    if (await _tryMemoryShortcut(input, q)) return;
+    if (await _fe('memory', () => _tryMemoryShortcut(input, q))) return;
     // [구조 통합 P2] "작업실 열어"/"작업실에서 전후 만들어줘"/"게시글만 써줘" 등 명시 발화 → V2 작업실 cold-open.
     //   명시 발화만 매칭 → 일반 "사진 편집" 류는 아래 photo-mode 가 그대로 처리(가로채기 없음).
-    if (window.ItdasyWorkspaceNL?.tryOpen?.(input, q, { clearInput: _clearAssistantInput })) return;
+    if (await _fe('workspace_nl', async () => !!window.ItdasyWorkspaceNL?.tryOpen?.(input, q, { clearInput: _clearAssistantInput }))) return;
     // [모드 P1] 잇비 사진편집 모드 — 활성이거나 시작 발화면 photo-mode 가 우선 처리(메시지 객체 push).
     {
       // [2026-07-21 Phase2] 텍스트 사진편집 발화("이 사진 보정해줘")도 옛 photo-mode 대신 현재 작업실로.
@@ -5391,7 +5707,7 @@
         _clearAssistantInput(input);
         const _photos = _lastUserPhotos();
         const _ok = await _wsOpenFromChat(null, _photos, _photos.length ? 'edit' : null);
-        if (_ok) { _sendInFlight = false; _inflightCtrl = null; return; }
+        if (_ok) { _sendInFlight = false; _inflightCtrl = null; try { _reportClientTurn('photo_mode_workspace', q, _via0); } catch (_e) { void _e; } return; }
         _history.push({ role: 'user', text: q, local_only: true });
         _history.push({ role: 'assistant', text: '작업실에서 편집할게요. 편집할 사진을 먼저 보내주세요.', local_only: true });
         _renderHistory();
@@ -5401,55 +5717,48 @@
     }
     // [Phase3 §12 최우선] 연락처 자연어(전화번호 패턴 포함) — 가격표/템플릿/사진/백업으로 새지 않게 _send 앞단에서 가로챈다.
     //   phone-intent 는 PHONE_RE 가 있을 때만 매칭 → "그거 수정"(사진 카드) 등은 영향 없음.
-    if (await _tryCustomerPhoneIntent(input, q)) return;
+    if (await _fe('customer_phone_intent', () => _tryCustomerPhoneIntent(input, q))) return;
     // [M3] 자연어 "인스타 미리보기" — 활성/저장카드보다 먼저 미리보기 팝업으로.
-    if (await _tryInstaPreviewIntent(input, q)) return;
+    if (await _fe('insta_preview', () => _tryInstaPreviewIntent(input, q))) return;
     // [v499 4-1] "작업실에 저장" 명령 — 저장 확인 멘트(캡션 재노출 방지).
-    if (await _trySaveWorkshopCommand(input, q)) return;
+    if (await _fe('save_workshop', () => _trySaveWorkshopCommand(input, q))) return;
     // [activeCard P0] "그거 저장/수정/다시 보여줘" — 저장카드보다 '방금 만든/편집 중 카드'(activeCard) 우선. 없으면 false→아래로.
-    if (await _tryActiveCardShortcut(input, q)) return;
+    if (await _fe('active_card', () => _tryActiveCardShortcut(input, q))) return;
     // [QA#6] "저장한 카드 보여줘" — 가격표 '생성'(_tryPriceListDraft)보다 먼저: '보여줘'가 생성으로 새지 않게.
-    if (await _trySavedCardsShortcut(input, q)) return;
+    if (await _fe('saved_cards', () => _trySavedCardsShortcut(input, q))) return;
     // [§1 qa-E] 이벤트 의도 — 작업실/일반 템플릿 메뉴로 새지 않게 가장 먼저 이벤트 카드 선택지로.
-    if (_looksEventIntent(q)) { _clearAssistantInput(input); _history.push({ role: 'user', text: q }); await _pushEventCardChoices(q); return; }
+    if (_looksEventIntent(q)) { _clearAssistantInput(input); _history.push({ role: 'user', text: q }); await _pushEventCardChoices(q); try { _reportClientTurn('event_intent', q, _via0); } catch (_e) { void _e; } return; }
     // [§7] 캡션/문구 의도 — 사진이 있어도 사진편집(_looksPhotoFollowup)·템플릿으로 새지 않게 먼저 가로챈다.
-    if (await _tryCaptionConversation(input, q)) return;
+    if (await _fe('caption_conversation', () => _tryCaptionConversation(input, q))) return;
     // [P0a] pending 사진이 없어도, 직전에 채팅으로 올린 사진(≤5분)이 있고 텍스트가 사진 명령이면
     //   그 사진을 대상으로 기존 사진 shortcut 경로를 재사용("사진+네일 손님이야" 연결). 아니면 기존 흐름.
     // [핫픽스F #5] 진행 중 예약 draft(고객/시간 슬롯필링) + 명시적 예약 생성("…예약해/예약 잡아")은
     //   가격표/OCR/템플릿/사진 인텐트보다 우선 — 가격표가 "붙임머리 시술 예약"을 가로채던 오라우팅 차단.
-    if (await _tryBookingDraftShortcut(input, q)) return;
-    if (await _tryLookupBookingShortcut(input, q)) return;
-    if (await _tryCreateBookingShortcut(input, q)) return;
+    if (await _fe('booking_draft', () => _tryBookingDraftShortcut(input, q))) return;
+    if (await _fe('lookup_booking', () => _tryLookupBookingShortcut(input, q))) return;
+    if (await _fe('create_booking', () => _tryCreateBookingShortcut(input, q))) return;
     // [C1/C2] 홍보컷·홍보물·"가격표 말고/없이" — 가격표 매처/폴백 전에 가로채 홍보 흐름으로(가격표 오라우팅 차단).
-    if (await _tryPromoIntent(input, q)) return;
-    if (await _tryTemplateSampleShortcut(input, q)) return;   // 가격표 샘플은 기존 적용, 후기/전후 샘플은 사진모드로 연결
-    if (_tryPriceListDraft(input, q)) return;
+    if (await _fe('promo_intent', () => _tryPromoIntent(input, q))) return;
+    if (await _fe('template_sample', () => _tryTemplateSampleShortcut(input, q))) return;   // 가격표 샘플은 기존 적용, 후기/전후 샘플은 사진모드로 연결
+    if (await _fe('price_list_draft', async () => _tryPriceListDraft(input, q))) return;
     if (window.ItdasySourceImage && _looksPhotoFollowup(q)) {
       try {
         const src = window.ItdasySourceImage.resolve();
         if (src && src.origin === 'chat' && src.dataUrl) {
           _sendInFlight = true;   // _uploadPhotos 와 동일하게 이중 전송 가드
           try {
-            if (await _tryPhotoShortcut(q, [src.dataUrl])) { _clearAssistantInput(input); return; }
+            if (await _tryPhotoShortcut(q, [src.dataUrl])) { _clearAssistantInput(input); try { _reportClientTurn('photo_followup', q, _via0); } catch (_e) { void _e; } return; }
           } finally { _sendInFlight = false; }
         }
       } catch (_e) { void _e; }
     }
     // [QA퍼징] 업종 없는 bare 생성("가격표 만들어줘")은 매처가 못 잡음 → 백엔드 전 마지막으로 가로채 목적별 템플릿으로.
-    if (await _tryCreateIntentFallback(input, q)) return;
+    if (await _fe('create_intent_fallback', () => _tryCreateIntentFallback(input, q))) return;
+    try { if (_via0 === 'chip') window.__itbiVia = 'chip'; } catch (_e) { void _e; }
     if (await _trySendShortcuts(input, q)) return;
     // [P1-5] 세부편집/평가·재시도/문맥부족 발화는 백엔드로 보내지 말고(=인터넷오류 거짓 수렴 방지) 정직하게 안내.
     if (_tryUnsupportedGuide(input, q)) return;
-    _beginTextAsk(input, q);
-    try {
-      _finishAskResponse(q, await _postAssistantAsk(q));
-    } catch (e) {
-      _handleSendError(e);
-    } finally {
-      _sendInFlight = false;
-      _inflightCtrl = null;
-    }
+    await _askServer(input, q);
     // [모드 P1] 사진편집 모드 중 무관 질문이었으면 응답 뒤 한 줄 재안내.
     if (_photoModeReannounce) {
       try { _history.push({ role: 'assistant', text: '하던 거 이어가요: ' + _photoModeReannounce }); _renderHistory(); } catch (_e) { void _e; }
@@ -5636,6 +5945,7 @@
     // [2026-04-29 F1] 능동 제안 carousel — chat 입력창 위
     // [연준님 2026-08-16] 계정이 바뀌었으면 이전 원장 대화 상태부터 버린다(가장 먼저).
     _resetIfUserChanged();
+    _offerFailedAsks();
     _loadProactiveSuggestions();
     // [연준님 2026-08-15 · A] 계정 상태 기반 초기 추천질문 (LLM 0회, 1분 캐시)
     _loadStarters();
