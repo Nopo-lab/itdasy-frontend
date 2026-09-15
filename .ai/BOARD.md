@@ -1,6 +1,6 @@
 # BOARD — 터미널 상태 대시보드
 
-**LAST UPDATED:** 2026-09-15 by Codex (외부 공개 인스타 계정 스타일 QA 통로 — 구현/검증 PASS)
+**LAST UPDATED:** 2026-09-15 by Codex (외부 공개 인스타 계정 스타일 QA 통로 — LIVE FE PASS / BE PR OPEN)
 
 bootstrap:OK @ 2026-09-14 13:14
 bootstrap:OK @ 2026-09-15 07:15
@@ -37,7 +37,7 @@ bootstrap:OK @ 2026-06-24 07:53
 
 ---
 
-## 2026-09-15 — 외부 공개 인스타 계정 스타일 QA 통로 (Codex, 구현/검증 PASS)
+## 2026-09-15 — 외부 공개 인스타 계정 스타일 QA 통로 (Codex, LIVE FE PASS / BE PR OPEN)
 
 완료:
 - 인스타 브라우저 검색은 무로그인 상태에서 로그인 화면으로 막힘 확인.
@@ -50,9 +50,11 @@ bootstrap:OK @ 2026-06-24 07:53
 - 백엔드 관련 테스트 30개 통과.
 - 자동 검사 에러 0개, 기존 경고 203개.
 - 작업실 흐름 9/9, 뒤로가기 검사 통과.
+- 프론트 배포 성공: `20260915-0309-5985b0d`.
+- 백엔드 PR: https://github.com/Nopo-lab/itdasy_backend-test/pull/61
 
 주의:
-- 백엔드 배포는 운영 영향이라 원영님 YES 필요.
+- 백엔드 운영 main 머지는 하지 않음. PR에서 검토/승격 필요.
 - 새 파일 git 등록 후 전체 테스트 재검 통과.
 
 산출물:
