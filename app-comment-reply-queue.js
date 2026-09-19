@@ -313,8 +313,12 @@
   }
   // [v785] 채널별 발송 토글 — 앱 공통 규칙: 스위치 on=초록(#16B55E)
   function _tgHtml(on, kind, id) {
-    return '<span class="crq-tg" data-kind="' + kind + '" data-id="' + _esc(id) + '" role="switch" aria-checked="' + (on ? 'true' : 'false') + '" style="cursor:pointer;flex-shrink:0;margin-left:auto;display:inline-block;width:32px;height:19px;border-radius:10px;position:relative;transition:background .15s;background:' + (on ? '#16B55E' : '#D1D6DB') + ';">' +
-      '<span style="position:absolute;top:2px;left:' + (on ? '15px' : '2px') + ';width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.15);transition:left .15s;"></span></span>';
+    var label = kind === 'pub' ? '공개 답글 보내기' : '비공개 답장 보내기';
+    return '<span class="crq-tg" data-kind="' + kind + '" data-id="' + _esc(id) +
+      '" role="switch" tabindex="0" aria-label="' + label + '" aria-checked="' + (on ? 'true' : 'false') +
+      '" style="cursor:pointer;flex-shrink:0;margin-left:auto;display:inline-flex;width:44px;height:44px;align-items:center;justify-content:flex-end;">' +
+      '<span aria-hidden="true" style="display:inline-block;width:32px;height:19px;border-radius:10px;position:relative;transition:background .15s;background:' + (on ? '#16B55E' : '#D1D6DB') + ';">' +
+      '<span style="position:absolute;top:2px;left:' + (on ? '15px' : '2px') + ';width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.15);transition:left .15s;"></span></span></span>';
   }
   // 말풍선 공통 스타일 (좌상단 꼬리) — [v787] 본문 15px 통일, DM은 배경만 다름
   var _BUBBLE = 'background:#F2F4F6;color:#191F28;border-radius:13px;border-top-left-radius:4px;padding:11px 13px;font-size:15px;line-height:1.55;white-space:pre-wrap;word-break:break-word;';
@@ -404,9 +408,9 @@
         : pubHtml + dmHtml) +
       // 액션
       '<div style="display:flex;gap:8px;margin-top:13px;align-items:center;">' +
-        '<button class="crq-send" data-id="' + _esc(it.id) + '"' + (sendOff ? ' disabled' : '') + ' style="flex:1;padding:12px;border:none;background:' + (sendOff ? '#E5E8EB' : '#191F28') + ';color:' + (sendOff ? '#8B95A1' : '#fff') + ';font-weight:700;font-size:15px;border-radius:13px;cursor:' + (sendOff ? 'default' : 'pointer') + ';display:flex;align-items:center;justify-content:center;gap:5px;">' + (sendOff ? '' : IC.send) + sendLabel + '</button>' +
+        '<button class="crq-send" data-id="' + _esc(it.id) + '"' + (sendOff ? ' disabled' : '') + ' style="flex:1;min-height:44px;padding:12px;border:none;background:' + (sendOff ? '#E5E8EB' : '#191F28') + ';color:' + (sendOff ? '#8B95A1' : '#fff') + ';font-weight:700;font-size:15px;border-radius:13px;cursor:' + (sendOff ? 'default' : 'pointer') + ';display:flex;align-items:center;justify-content:center;gap:5px;">' + (sendOff ? '' : IC.send) + sendLabel + '</button>' +
         '<button class="crq-edit" data-id="' + _esc(it.id) + '" style="padding:12px 14px;border:1px solid ' + (it._editing ? '#BC6675' : '#E5E8EB') + ';background:#fff;color:' + (it._editing ? '#BC6675' : '#191F28') + ';font-weight:600;font-size:15px;border-radius:13px;cursor:pointer;">' + (it._editing ? '완료' : '수정') + '</button>' +
-        '<button class="crq-discard" data-id="' + _esc(it.id) + '" style="padding:12px 6px;border:none;background:none;color:#8B95A1;font-weight:600;font-size:13px;cursor:pointer;">무시</button>' +
+        '<button class="crq-discard" data-id="' + _esc(it.id) + '" style="min-width:44px;min-height:44px;padding:12px 6px;border:none;background:none;color:#8B95A1;font-weight:600;font-size:13px;cursor:pointer;">무시</button>' +
       '</div>' +
       /* [2026-09-02] 보조 행동 — **고객이 확실히 매칭됐을 때만** 뜬다.
          미매칭 카드에는 안 그린다: 누르면 엉뚱한 고객이 열리거나 아무 일도 안 나는 버튼이 되기 때문.
@@ -539,7 +543,7 @@
       '<span style="font-size:15px;color:#191F28;"><b>대기 ' + count + '건</b>' +
         (urgent ? '<span style="color:#DC2626;font-weight:700;"> · 먼저 볼 것 ' + urgent + '건</span>' : '') +
         (_weekReplied > 0 ? '<span style="color:#8B95A1;font-weight:400;"> · 이번 주 ' + _weekReplied + '건 응대</span>' : '') + '</span>' +
-      '<button class="crq-sort" style="margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;color:#6B7684;padding:4px 2px;">' +
+      '<button class="crq-sort" style="margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;color:#6B7684;padding:4px 8px;min-height:44px;">' +
         IC.sort + (_sort === 'old' ? '오래된순' : '최신순') + '</button></div>';
   }
 
@@ -777,6 +781,7 @@
   function _render() {
     var el = document.getElementById(ID);
     if (!el) return;
+    ITEMS.forEach(function (it) { if (it._editing) _captureEdit(el, it); });
     var body = el.querySelector('.ss-body');
     var title = el.querySelector('.crq-title');
     if (title) title.textContent = _view === 'settings' ? '댓글 문의 응대 설정' : '댓글 문의 응대';
@@ -796,9 +801,9 @@
     el.setAttribute('aria-hidden', 'true');
     el.innerHTML =
       '<header class="ss-topbar">' +
-        '<button type="button" class="ss-back" data-crq-back aria-label="뒤로"><svg class="ic" aria-hidden="true"><use href="#ic-chevron-left"/></svg></button>' +
+        '<button type="button" class="ss-back" data-crq-back aria-label="뒤로" style="min-width:44px;min-height:44px;"><svg class="ic" aria-hidden="true"><use href="#ic-chevron-left"/></svg></button>' +
         '<div class="ss-title crq-title">댓글 문의 응대</div>' +
-        '<button type="button" class="crq-gear" aria-label="설정" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#4E5968;display:inline-flex;align-items:center;padding:4px;">' + IC.gear + '</button>' +
+        '<button type="button" class="crq-gear" aria-label="설정" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#4E5968;display:inline-flex;align-items:center;justify-content:center;padding:4px;min-width:44px;min-height:44px;">' + IC.gear + '</button>' +
         // [2026-07-22 보스] 저장 버튼 — DM 자동응답 설정창(dm-header__action)과 같은 자리·같은 역할.
         //   값은 바꾸는 즉시 로컬에 저장되지만, 원장님은 "저장을 눌러야 저장된 것"으로 느낀다.
         //   이 버튼이 서버 저장(기기 간 동기화)까지 확실히 마무리한다.
@@ -813,7 +818,7 @@
     el.addEventListener('keydown', function (e) {
       if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
       var sw = e.target.closest
-        ? e.target.closest('.crq-master,.crq-intent,.crq-emoji,.crq-quiet') : null;
+        ? e.target.closest('.crq-master,.crq-intent,.crq-emoji,.crq-quiet,.crq-tg') : null;
       if (!sw) return;
       e.preventDefault();
       sw.click();
@@ -1056,13 +1061,13 @@
 
   /* 발송 실패분 되살리기. 낙관적으로 지웠는데 실패하면 원장 화면에서 그냥 사라진다 —
      "보낸 줄 알았는데 안 갔다" 가 제일 나쁘다. 로컬 숨김도 같이 푼다. */
-  function _restoreItem(it) {
+  function _restoreItem(it, silent) {
     if (!it) return;
     delete _hidden[it.id];
     try { localStorage.setItem(_HIDDEN_KEY, JSON.stringify(_hiddenPayload())); } catch (_e) { void _e; }
     if (!ITEMS.some(function (x) { return x.id === it.id; })) ITEMS.push(it);
     _state = ITEMS.length ? 'DATA' : 'EMPTY';
-    _render();
+    if (!silent) _render();
   }
 
   /* [2026-08-15] 발송을 한 군데로 모은다 — 낱개 발송과 묶음 발송이 각자 fetch 를 들고 있으면
@@ -1117,10 +1122,10 @@
         return _postReply(it)
           .then(function (j) {
             if (_delivered(j)) { ok += 1; return; }
-            if (_isInProgress(j)) { pending += 1; _restoreItem(it); return; }
-            fail += 1;
+            if (_isInProgress(j)) { pending += 1; _restoreItem(it, true); return; }
+            fail += 1; _restoreItem(it, true);
           })
-          .catch(function () { fail += 1; });
+          .catch(function () { fail += 1; _restoreItem(it, true); });
       });
     }, Promise.resolve()).then(function () {
       _batchBusy = false;
@@ -1132,8 +1137,43 @@
     });
   }
 
+  // 작성 중인 입력칸은 자동 갱신 전후 모두 보호한다. 완료한 수정본도 다음 조회에 유지한다.
+  var _refreshing = false;
+  function _queueInteracting() {
+    return _batchBusy || ITEMS.some(function (it) { return it._editing; });
+  }
+  function _keepLocalReply(next) {
+    var prev = ITEMS.find(function (it) { return it.id === next.id; });
+    if (prev) {
+      if (prev._override) next._override = prev._override;
+      next._sendPub = prev._sendPub;
+    }
+    return next;
+  }
+
+  function _applyQueueResponse(j, silent) {
+    if (silent && (_queueInteracting() || _view !== 'queue')) return false;
+    _loading = false;
+    _igWaitTries = 0;
+    _weekReplied = (j && j.week_replied) || 0;
+    _realMode = true;
+
+    /* [2026-09-01 CMT-P1-003] 상태를 분리한다. 예전엔 여기서 items.length 만 보고
+       0 건이면 예시로 떨어뜨렸다 — 권한이 없어 못 읽은 것도, 진짜로 문의가 없는 것도
+       똑같이 가짜 손님 3명으로 보였다. */
+    if (j && j.connected === false) { ITEMS = []; _state = 'NOT_CONNECTED'; return true; }
+    if (j && j.disabled) { ITEMS = []; _state = 'DISABLED'; return true; }
+    if (j && j.permission_error) { ITEMS = []; _state = 'PERMISSION'; return true; }
+
+    var arr = (j && j.items) || [];
+    ITEMS = arr.map(_mapReal).map(_keepLocalReply).filter(function (x) { return !_isHidden(x); });
+    _state = ITEMS.length ? 'DATA' : 'EMPTY';
+    return true;
+  }
+
   // 실제 인스타 댓글 로드 — 연동+권한 있으면 문의 댓글로 큐 교체, 아니면 시드 유지.
   function _loadReal(silent) {
+    if (_refreshing || (silent && _queueInteracting())) return;
     var ig = window.WorkspaceAdapter && window.WorkspaceAdapter.instagram ? window.WorkspaceAdapter.instagram() : null;
     var connected = ig ? ig.connected : false;
     /* [2026-08-15 실계정 실측] 인스타 상태가 **아직 안 온** 상태에서 큐를 열면 여기서 시드로 떨어졌다.
@@ -1164,36 +1204,25 @@
     }
     if (_loading) return;                 // 이미 불러오는 중이면 폴링 중복 방지
     if (!silent) { _loading = true; _state = 'LOADING'; _render(); }   // silent(자동갱신)면 스켈레톤 안 띄움
+    _refreshing = true;
+    var applied = false;
     var auth = window.authHeader ? window.authHeader() : {};
     window.apiFetch(window.apiUrl('/instagram/comment-queue'), { headers: auth })
       .then(function (r) {
         if (!r.ok) throw new Error('http ' + r.status);
         return r.json().catch(function () { return {}; });
       })
-      .then(function (j) {
-        _loading = false;
-        _igWaitTries = 0;
-        _weekReplied = (j && j.week_replied) || 0;
-        _realMode = true;
-
-        /* [2026-09-01 CMT-P1-003] 상태를 분리한다. 예전엔 여기서 items.length 만 보고
-           0 건이면 예시로 떨어뜨렸다 — 권한이 없어 못 읽은 것도, 진짜로 문의가 없는 것도
-           똑같이 가짜 손님 3명으로 보였다. */
-        if (j && j.connected === false) { ITEMS = []; _state = 'NOT_CONNECTED'; return; }
-        if (j && j.disabled) { ITEMS = []; _state = 'DISABLED'; return; }
-        if (j && j.permission_error) { ITEMS = []; _state = 'PERMISSION'; return; }
-
-        var arr = (j && j.items) || [];
-        ITEMS = arr.map(_mapReal).filter(function (x) { return !_isHidden(x); });
-        _state = ITEMS.length ? 'DATA' : 'EMPTY';
-      })
+      .then(function (j) { applied = _applyQueueResponse(j, silent); })
       .catch(function () {
         _loading = false;
         /* 자동갱신(silent) 중 한 번 실패했다고 화면을 오류로 갈아엎지 않는다 —
            원장이 답장 쓰는 중에 목록이 사라지면 그게 더 나쁘다. 다음 폴링에서 다시 시도한다. */
-        if (!silent) { ITEMS = []; _state = 'NETWORK'; }
+        if (!silent) { ITEMS = []; _state = 'NETWORK'; applied = true; }
       })
-      .then(function () { if (_view === 'queue') _render(); });
+      .then(function () {
+        _refreshing = false;
+        if (applied && _view === 'queue' && !(silent && _queueInteracting())) _render();
+      });
   }
 
   // [자동갱신] 큐가 열려 있고 목록 화면일 때만 30초마다 조용히 새 댓글을 당겨온다.

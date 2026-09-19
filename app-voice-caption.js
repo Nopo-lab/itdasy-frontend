@@ -35,7 +35,7 @@
   async function _fetchJson(method, path, body) {
     const headers = window.authHeader ? window.authHeader() : {};
     if (body && !(body instanceof FormData)) headers['Content-Type'] = 'application/json';
-    const res = await fetch(_api() + path, {
+    const res = await window.apiFetch(path, {
       method,
       headers,
       body: body ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined,
@@ -458,6 +458,9 @@
       if (window.hapticTap) try { window.hapticTap('success'); } catch (_e) { void _e; }
     } catch (e) {
       const msg = (e && e.message) ? String(e.message) : '오류';
+      if (/consent_missing/i.test(msg) && window.AiConsentHome && typeof window.AiConsentHome.open === 'function') {
+        window.AiConsentHome.open({ force: true });
+      }
       _setProgress('실패: ' + msg.slice(0, 80), 0);
       _toast('AI 글 만들기 실패 — ' + msg.slice(0, 60));
     }
