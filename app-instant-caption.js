@@ -66,7 +66,7 @@
     const url = _api() + path;
     let res;
     try {
-      res = await fetch(url, {
+      res = await window.apiFetch(path, {
         method,
         headers,
         body: body ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined,
@@ -409,6 +409,9 @@
     } catch (e) {
       console.error('[instant-caption] 파이프라인 실패:', e);
       const msg = (e && e.message) ? String(e.message) : '오류';
+      if (/consent_missing/i.test(msg) && window.AiConsentHome && typeof window.AiConsentHome.open === 'function') {
+        window.AiConsentHome.open({ force: true });
+      }
       _setProgress('실패: ' + msg.slice(0, 80), 0);
       _toast('1초 캡션 실패 — ' + msg.slice(0, 60));
     }

@@ -13,6 +13,17 @@
 
 ---
 
+## 2026-09-15 T-901 변경 — 로컬 검증 완료, 미배포
+
+- 댓글 `app-comment-reply-queue.js`: 묶음 실패 문의 복원, 편집 중 갱신 보호, 중복 조회 방지, 정렬 시 작성본 유지.
+- DM `app-dm-confirm-queue.js`: 늦은 조회 응답이 편집을 지우지 않음, 빈 수정문 발송 차단, 일반 답글 채널 이동 복원, 계정 변경 시 이전 응답 차단. 예약 세부 입력 보존은 추가 검증 대상.
+- **[T-902]** DM 예약 카드의 고친 확정 문구·시술 시간·주소도 채널 이동 뒤 복원. 빈 확정 문구 전송 차단.
+- **[T-902]** 예약 답글을 직접 수정해도 조정한 시술 시간이 서버 예약 생성까지 전달되도록 프론트·서버 계약 보강. 서버는 별도 `be/T-902-dm-duration`, 미배포.
+- 잇비 `app-assistant.js`: 명시적인 `ok:false`를 공통 실행 실패로 전달. 완료 기록을 남기지 않고 재시도 번호 유지.
+- 사진편집 `css/itd-editor.css`: 320px 화면의 기울기 글자 줄바꿈 정리.
+- 198묶음·3,164개 검사 통과. 전체 범위·미검증 항목은 [조사 보고서](../output/APP_RELEASE_QUALITY_AUDIT_2026-09-15.md).
+- **[T-902]** 개발 도구의 압축/고유번호 버전 범위를 갱신해 깨끗한 설치 기준 보안 공지 15→0. 전체 3,171개 통과. 실제 iOS/Android 빌드는 남음.
+
 ## 🗺️ 도메인 맵 (어디를 봐야 하나)
 
 | 하고 싶은 것 | 프론트 | 백엔드 |
@@ -150,12 +161,13 @@
 - **app-assistant.js** (5230) — 챗봇 메인 `openAssistant`. **assistant-intent-router.js**(1170) FE intent pre-parser. **app-assistant-actions-marketing.js**(118)·**app-assistant-facts.js**(146)·**app-assistant-undo.js**(265)·**app-chat-auto-edit.js**(277)·**app-ai.js**(311)·**app-persona-survey.js**(381).
 - **js/assistant/core/** — 잇비 두뇌(순수 로직):
   - 라우팅: **action-hub.js**(378, 다음행동 버튼+안전분류), **context-resolver.js**(125), **active-card.js**(58), **create-intent.js**(60), **memory-intent.js**(182), **saved-cards-intent.js**(159), **unsupported-intent.js**(37), **source-image.js**(131).
-  - 예약: **booking-context.js**(365), **booking-draft.js**(189). 고객: **customer-status-card.js**(261), **customer-insight.js**(71), **customer-add-guard.js**(219), **customer-phone-intent.js**(147).
+  - 예약: **booking-context.js**(411), **booking-draft.js**(189). 고객: **customer-context.js**(62, 직전 고객/신규 고객 입력 기억), **customer-status-card.js**(261), **customer-insight.js**(71), **customer-add-guard.js**(282), **customer-phone-intent.js**(217).
+  - **[2026-09-15 잇비 문맥 보강]** “그거/방금 예약/아니 5시로/그럼 취소해/복구해”는 직전 예약을 유지하고, “그 고객 기록 열어줘/전화번호 바꿔줘/번호만 입력”은 직전 고객으로 이어간다. 유사 이름 제안 뒤 “아니 새 고객”은 원래 입력 이름을 유지한다. 잠금 = `__tests__/itbi-context-routing-2026-09-15.test.js`.
   - DM/발송 안전: **marketing-safety-labels.js**(85, send/reply_dm 발송위험 라벨), **marketing-draft-policy.js**(111, 초안 톤·금지어 sanitize).
   - 브리핑: **daily-briefing.js**(322), **briefing-priority.js**(105), **closing-report.js**(116).
   - 템플릿: **template-sample-matcher.js**(291), **template-autoapply.js**(400), **assistant-template-save.js**(124), **assistant-template-restore.js**(74), **template-sample-catalog*.js**(price/review/ba/event 데이터).
   - 사진모드: **photo-mode.js**(982, 잇비 사진편집 상태머신), **photo-mode-support.js**(110), **photo-session.js**(128), **promo-result-builder.js**(67).
-- **js/assistant/** (UI·핸들러): **card-renderers.js**(390), **single-action-controls.js**(173), **group-action-controls.js**(263), **suggestion-controls.js**(154), **kind-core.js**(364, RISKY_ACTION_KINDS), **cache-invalidation.js**(76), **promo-result-card.js**(99), **pending-photos.js**(168), **photo-actions.js**(170), **photo-local-handlers.js**(143), **photo-kind-classifier.js**(54), **photo-workflow-commands.js**(131), **workspace-nl-commands.js**(168, 자연어→작업실 명령), **treatment-link.js**(124), **lightbox.js**(108), **voice-input.js**(160).
+- **js/assistant/** (UI·핸들러): **card-renderers.js**(390), **single-action-controls.js**(173), **group-action-controls.js**(263), **suggestion-controls.js**(154), **kind-core.js**(364, RISKY_ACTION_KINDS), **cache-invalidation.js**(76), **promo-result-card.js**(99), **pending-photos.js**(168), **photo-actions.js**(170), **photo-local-handlers.js**(143), **photo-kind-classifier.js**(54), **photo-workflow-commands.js**(131), **workspace-nl-commands.js**(225, 자연어→작업실 명령), **treatment-link.js**(124), **lightbox.js**(108), **voice-input.js**(160).
 
 ### 캡션·갤러리·포트폴리오·서비스
 - **app-caption.js** (984) — 캡션 생성(슬롯머신·톤·해시태그). **app-caption-prefill.js**(166)·**app-instant-caption.js**(433, 시술후 1초)·**app-voice-caption.js**(600, 음성)·**app-sample-captions.js**(117).
@@ -174,12 +186,13 @@
 - **app-photo-editor*.js** (60) — 편집기 엔진 서브모듈: entry/nav/pro-tab, WebGL(gl-bridge·pipeline·shaders), 마스킹·힐링(face-mask·smart-mask·heal-v2·beauty-ai·relight·cuticle), 배경(bg-compose·bg-blur·bg-cache), 자연어편집(intent-parser·nl-apply·nl-modify·edit-plan), 템플릿·프리셋·B&A슬라이더·콜라주·스티커·내보내기·워커필터. `loader.js` photo 그룹 지연로드.
 
 ### 작업실 (js/workspace/**)
-- **js/workspace/workspace-v2-flow.js** (4732) — **작업실 전체 오케스트레이터.**
+- **js/workspace/workspace-v2-flow.js** (4008) — **작업실 전체 오케스트레이터.**
   - **[#18 2026-07-28 게시 크기 선택]** 업로드 화면 세그먼트로 **4:5(세로로 크게, 기본) / 1:1(정사각)** 선택 → 편집기·템플릿·콜라주·크롭·미리보기까지 관통(`:261~272`, `_wsFormat()`/`_wsRatio()`). 마지막 선택 기억. **비율 우선순위: 사용자 선택 > ShopStyle `frame.ratio`**(전엔 4:5 고정). 콜라주 캔버스 `W=1080, H=(1:1?1080:1350)`(`:3583`).
   - **[2026-07-24]** 작업 기억 꾸밈이 **구워진 실제 비율**로 합성 — 콜라주(3장→1장)가 '1:1'로 구워졌는데 샵 프레임 4:5로 다시 구우면 contain 레터박스되며 꾸밈이 작게 얹혔다(`:431`).
   - **[2026-07-24~25]** 기본 시술내용 텍스트는 **첫 장에만**(나머지는 원장이 직접) · 시술명 없으면 해시태그도 안 올림(사진에 해시태그만 덩그러니) · 사진 확대에서 back 누르면 큐까지 닫히던 것 · 잇비에 사진 11장 던지면 1장이 조용히 사라지던 것(안내 추가). 업로드→레이아웃→편집→게시글(캡션+미리보기 통합)→고객연결. 화면전환/CTA/상태(d)/네비스택, flow/*·ItdEditor·PhotoEditor·adapter 조립 허브. **[2026-07-13] 캡션 결과 화면에 발행+피드 미리보기 흡수(구 preview 스텝은 플러밍만 보존, 진입 없음). 진행바 4단계(upload·layout·caption·connect).** **[2026-07-15] 캡션 = 질문 3개 한 화면(스크롤 없이). '직접' 선택 시 인라인 입력 토글 복구, 시술 칩 단일선택 + 특이사항 분리. 원문 verbatim 강제 로직 삭제(욕설·하소연 원문 복붙 버그 → 사용자 텍스트는 재료로만).**
   - **[2026-07-17 v771 근본원인 4건]** ① `_displayItems()` 가 `d.templateOutput`(=첫 카드 미러)에서 조기 리턴해 **T-116 다중 카드를 통째로 가림** → 캡션·결과 화면이 늘 1장(캐러셀은 `items.length<2` 로 도달 불가였음). 이제 `templateOutputs<2` 일 때만 리턴. ② **`_syncOutputForEdit()` 신설** — 편집기 `onDone` 이 `templateOutput` 미러만 갱신하고 `templateOutputs[]` 엔 편집 전 합성본을 남겨 **꾸미기 전 사진이 발행됨**. ③ **발행 판단 기준 = `d.wsLayout` → `templateOutputs`** — `wsLayout` 은 레이아웃 화면이 세션 중에만 채우고 `open()` 이 복원 안 함 → 재오픈 초안 발행 시 원본 여러 장이 캐러셀로 나가 **레이아웃 소실 + 30초**(서버가 child 마다 2초 순차 폴링). ④ **세션 가드(`_stale`)가 발행 사실까지 삼킴** → 업로드 중 닫으면 인스타엔 올라갔는데 로컬은 영원히 draft. 이제 화면·전역 `d` 는 두고 `myD`/`slot` 에만 기록(P1#1 오염방지 의도는 유지).
   - **[2026-07-17] `_autoComposeTemplate()` 부활** (구 no-op) — 시술명·해시태그·로고가 편집기 안에서만 살아서 "사진편집 눌러야 텍스트가 보임"이었음. **편집기와 같은 렌더러(`ItdEditor.compose`)** 로 같은 레이어·비율로 굽는다(2026-07-12 에 지운 이유였던 '다른 경로 → 미리보기 어긋남'을 피함). **겹쳐 굽기 3중 방어**: `storyEdited` 카드 skip(원장 편집 우선) / `o.autoSig` 같으면 skip(재렌더 무한루프도 차단) / 원판 `o._autoBase` 없으면 skip(재오픈 시 구운 것 위에 또 굽기 금지). ⚠️ **`_autoBase` 는 메모리 전용** — `buildSlot()` 이 떼어냄(저장하면 같은 dataURL 2벌 = sync 100KB 컷). **`storyEdited` 는 저장·복원 추가**(메모리에만 있어 재오픈 시 방어①이 무력화됐음).
+  - **[2026-09-15 잇비 전후 사진 후속명령]** 자연어 작업실 명령이 `targetRole=before/after`를 싣고, 실행기는 해당 전/후 사진으로 `editIdx`를 맞춘 뒤 편집기/보정을 연다. “후 사진만 다시 편집”이 단독 보정 플로우로 새지 않고, “전 사진도 밝게”가 전 사진에만 적용되도록 잠갔다.
 - **[2026-07-17 v774 3차]** **#1** 성과의 '고객·매출 인사이트 보기' 버튼 삭제(AI 인사이트 진입점은 5곳 더 있어 고아 안 됨: `app-dashboard.js:221`·`app-assistant.js:4147`·`app-today-brief.js:215`·`js/home/v41-actions.js:79`·홈 성과버튼 폴백). **#5** 시술 칩 **중복선택**(최대 5) — `d.service` 는 **쉼표 조인 문자열 유지**(소비처 20곳이 이미 쉼표를 다룸: `_svcTitle`='첫시술 외 N개', `_makeName`=첫 조각). `_svcList()/_svcSet()` 로 편집만 다중화, `_saveRecentService` 는 쉼표로 쪼개 **하나씩** 저장(조인문자열이 칩으로 박제되는 것 방지), 다중이면 프롬프트 문구도 '유일한 시술'→'N가지 전부 반영'. **최근 시술 6→5**. **#6** 특이사항 placeholder **업종별**(`_NOTE_EG`, 키=`_SVC_TYPES` 라벨 → `itdasyNormalizeShopType` 폴백 → 무난한 기본). **#14** 성과 = ⋯ 메뉴 → **홈 필터 줄**(`data-wsv2-perf`, `.wf-perf`), ⋯ 에선 제거. **#16** 작업 기억 정렬 `lastUsedAt` → **`createdAt`**(최근 만든 게 위).
 - **workspace-v2-home.js**(634) 홈 렌더러. **[2026-07-15] 헤더 = @인스타핸들 + 샵이름(구 '내 작업실' 대체). 할일/이번달 발행/성과/피드 정렬 카드 제거, 설정·선택은 ⋯ 메뉴로 이동. 발행 타일 무배지(진행 중만 '작성 중' 칩). 이어서 카드 제목 키메라 수정('첫시술 외 N개').** **workspace-adapter.js**(769) 기존기능 연결 어댑터(보정/누끼/캡션/고객/저장/인스타업로드/`recentMedia`). **workspace-sync.js**(425) 기기간 draft slot 동기화. **[2026-07-15 버그수정]** `buildMeta(slot)`→`buildMeta(c)`: 원본 slot 의 `templateOutputs[].outputUrl` 이 구운 dataURL 이라 100KB 컷에 걸려 레이아웃 프리셋 id 가 서버에 안 올라가고 기기 바꾸면 성과 학습이 리셋됐음. **workspace-perf.js**(성과·학습 화면 — 레이아웃/말투/사진장수 축 비교, 미응대 문의). **workspace-crop.js**(239)·**workspace-tpl-edit.js**(239)·**shop-style.js**(188, 브랜드자산)·**workspace-state.js**(78).
 - **workspace-settings.js** (461) — 섹션: ①원장 작업 기억 ②매장 정보(+**샵 정보 반영하기** 토글) ③캡션 고정 멘트 ④**[2026-07-23] 사진 자동삽입 토글**(시술내용·해시태그 — ShopStyle 레이어 `enabled` 토글, `:407`) ⑤**[2026-07-23] 예약한 게시물 목록 + 취소**(`:369`, 되돌릴 수 없는 발행을 막는 유일한 수단이라 확인을 한 번 묻는다) ⑥**[2026-07-24] 자동감지 서명 관리**(`:300`·`:388`) — 인라인 편집 시 서버 저장 → `source=manual` 로 확정돼 **재분석이 못 덮는다**, 끄면 다음 재분석에도 안 살아남. **[#15 2026-07-17]** '내 레이아웃' 섹션 삭제 — **이미 죽어 있었다**(`getMyLayouts()`=photoSlots 있는 ShopStyle 만 거르는데 그걸 만드는 코드가 main 에 없음 → 항상 빈 목록). ⚠️ **ShopStyle 저장소 자체는 삭제 금지** — `_buildShopStyleLayers`(로고·워터마크·role 텍스트)와 `_learnShopStyle` 의 '지운 역할 기억(`enabled:false`)' 이 같은 키를 씀. 샵정보 토글은 '캡션 고정 멘트'→'매장 정보'로 위치만 이동(키 `itdasy:caption_shopinfo` 동일, 읽는 곳은 `_shopCTA()` 하나뿐 = 캡션 꼬리 `📅 예약 →`·`☎`).
@@ -211,7 +224,7 @@
 
 ### 편집기 (js/itd-editor/**)
 - **itd-editor.js** (2176) — 인스타식 편집기 `ItdEditor`(텍스트·스티커·반달레이아웃·그리기, 12폰트, HSV 색상). **safe-zone.js**(81, 얼굴위 텍스트 회피). **data/itd-decos.js**(104, 스티커 51종).
-  - **[2026-07-23 아이콘 스티커]** `data/itd-icon-stickers.js`(~100KB) — 공개 아이콘 세트 96개를 **빌드 시점에 data URL 로 인라인**(런타임 CDN 무·오프라인 OK·CSP 안전). 스티커 탭 3개 추가: **아이콘**(`mingcute`, Apache 2.0, 단색이라 앱 스킨색으로 치환해 구움)·**컬러**(`fluent-emoji-flat`, MIT)·**라인**(`streamline-color`, **CC BY 4.0 → 귀속 표기 의무**). `STK_TABS` 가 `ItdIconStickers.tabs` 를 읽어 탭을 만들고(목록 이중관리 X), 삽입은 도형 데코와 같은 `addImageSticker` 경로. ⚠️ **로드 순서**: `itd-icon-stickers.js` 가 `itd-editor.js` 보다 앞이어야 탭이 생긴다. 🚨 **미완**: CC BY 귀속 표기 화면 없음(`ItdIconStickers.CREDITS` 데이터만 준비) — 심사 전 노출하거나 라인 탭 제거. 세트 추가·교체 절차와 라이선스 판단표는 **`.ai/ICON_SETS.md`**.
+  - **[2026-07-23 아이콘 스티커]** `data/itd-icon-stickers.js`(~100KB) — 공개 아이콘 세트 96개를 **빌드 시점에 data URL 로 인라인**(런타임 CDN 무·오프라인 OK·CSP 안전). 스티커 탭 3개 추가: **아이콘**(`mingcute`, Apache 2.0, 단색이라 앱 스킨색으로 치환해 구움)·**컬러**(`fluent-emoji-flat`, MIT)·**라인**(`streamline-color`, **CC BY 4.0 → 귀속 표기 의무**). `STK_TABS` 가 `ItdIconStickers.tabs` 를 읽어 탭을 만들고(목록 이중관리 X), 삽입은 도형 데코와 같은 `addImageSticker` 경로. ⚠️ **로드 순서**: `itd-icon-stickers.js` 가 `itd-editor.js` 보다 앞이어야 탭이 생긴다. ✅ **[2026-09-15 정정]** `js/workspace/workspace-settings.js`의 `_creditsHtml` 및 설정 화면 연결에 출처 표기 구현이 있음. 실제 설치본의 표시는 출시 전에 확인. 세트 추가·교체 절차와 라이선스 판단표는 **`.ai/ICON_SETS.md`**.
   - **[#9·#10 2026-07-18 v776]** **선·도형 비균등 늘리기** — 도형 레이어에 `L.w`/`L.h`(box px) 추가. `.itl__rs` 핸들이 **도형이면** 포인터 이동량을 회전 역보정해 box w/h 조절(중심 고정, 선은 가로=길이만·두께는 굵기슬라이더), 텍스트·스티커·이미지는 **예전대로 균등 `scale`**(`_fgActive`처럼 `L.type==='shape' && L.w!=null`일 때만 분기 → 회귀 0). `styleShape` inner=`width/height:100%`, `drawShape`/export 는 `offsetWidth`(=box)라 자동 반영, `_serLayer`는 회전 도형 AABB 오류 피하려 **`L.w/L.h` 직접 저장**(bounding rect 아님). **되돌리기(↩) 확장**: `move`(레이어 이동)·`cellcrop`(콜라주 칸 사진 위치)·`resize`(도형 늘리기) op 추가 — 실수로 옮긴 것 ↩로 원위치(예전엔 add/del/photo만). `addShape` 에 빠져 있던 `_pushOp` 도 복구. 검증: 선 180→420(두께 유지)·사각형 가로만 늘리기·↩ 복원·왕복(340×120 상대값 저장/복원)·스티커 균등 scale 회귀X.
   - **[2026-07-17 도형 왕복 버그수정]** `_serLayer` 가 shape 의 **`fill`·`strokeW` 를 안 내보내고** `addShopRect` 가 **`circle`→`round` 로 뭉개고 `fill=true` 를 강제**해서, 원장이 만든 '테두리 원'이 재편집·작업기억 복원 시 **'꽉 채운 둥근 사각형'**이 됐다. 굽기(`drawShape`)는 셋 다 이미 존중했으므로 **결과물은 맞고 왕복만 틀렸던 것**. `addShopLine` 도 `role` 을 무조건 `'rule'` 로 박아 원장이 직접 그린 선까지 자동 재배치(`:800`·`:822` 가 `role==='rule'` shape 를 옮김) 대상이 됐음 → `spec.role` 존중. ⚠️ `addShopRect` 의 `role` 기본값 `'panel'` 은 자동 재배치 대상이 아니라 그대로 둠.
 
@@ -320,7 +333,7 @@ auth·customer·booking·treatment·services·revenue·inventory·shop·**person
 
 - **실기기 미검증**: IAP 실제 구매·복원(StoreKit/Play Billing 영수증 추출 필드가 플랫폼·버전마다 다름) · 자리비움 자동응답 **실발송**(실DM E2E 필요) · 콜라주+누끼+보정 E2E.
 - **심사 대기**: 인스타 `content_publish`(발행) · DM 봇 Advanced. 댓글 답글은 **스테이징만 ON**(`INSTAGRAM_FULL_SCOPE=1`, 운영은 basic).
-- **미완**: 아이콘 스티커 CC BY **귀속 표기 화면 없음**(`ItdIconStickers.CREDITS` 데이터만) — 심사 전 노출하거나 라인 탭 제거.
+- **[2026-09-15 정정]** 아이콘 출처는 `js/workspace/workspace-settings.js`에 구현·연결됨. 실제 설치본 표시 확인은 남음.
 - **스텁 유지**: 네이버 예약 양방향 동기화 · `app-kakao-hub.js` 관리화면.
 
 ---
