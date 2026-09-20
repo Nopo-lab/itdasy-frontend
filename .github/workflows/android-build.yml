@@ -46,9 +46,16 @@ jobs:
           java-version: 21
 
       - name: Setup Android SDK
+        # [2026-09-20] `packages: ''` 가 없으면 액션이 **기본 패키지 세트**를 깔려고 하는데
+        #   거기 레거시 `tools` 가 들어 있다. 구글이 SDK 저장소에서 그걸 내려서
+        #   `Warning: Failed to find package 'tools'` → sdkmanager exit 1 로 잡이 통째로 죽는다
+        #   (2026-09-20 실측 run 35490126737 — 코드 문제가 아니라 액션이 낡은 것).
+        #   바로 아래 "Install Android packages" 가 필요한 것(platform-tools·android-36·
+        #   build-tools 36.0.0)을 이미 직접 깔고 있으므로 기본 설치는 끄는 게 맞다.
         uses: android-actions/setup-android@v3
         with:
           cmdline-tools-version: 11076708
+          packages: ''
 
       - name: Accept Android licenses
         run: yes | sdkmanager --licenses > /dev/null 2>&1 || true
