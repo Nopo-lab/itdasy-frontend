@@ -126,9 +126,9 @@ async function _finishLoginLoad(withGreeting) {
 }
 
 // ===== 백엔드 설정 =====
-// 이 레포(itdasy-frontend-test-yeunjun)는 연준 스테이징 전용 → 스테이징 백엔드 바라봄
-// 운영 레포(itdasy-frontend)는 운영 백엔드(별도 Cloud Run 서비스/커스텀 도메인)를 사용해야 함
-const PROD_API = 'https://itdasy-backend-staging-644329093453.asia-northeast3.run.app';
+// 운영 레포(itdasy-frontend)는 운영 백엔드만 바라본다.
+// 테스트 레포(itdasy-frontend-test-yeunjun)는 별도 테스트 백엔드를 사용한다.
+const PROD_API = 'https://itdasy-backend-prod-644329093453.asia-northeast3.run.app';
 // [dev] 로컬에서 스테이징 백엔드로 붙어 테스트: ?api=staging (또는 localStorage itdasy_api=staging).
 //   localhost 전용 · 명시적 opt-in만 · 운영/배포엔 영향 없음. 로컬 백엔드 안 띄우고 스테이징으로 검증할 때.
 const _API_STAGING_OVERRIDE = (function () {
