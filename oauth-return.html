@@ -39,7 +39,7 @@
     //  ⚠️ API 오리진은 URL 파라미터가 아니라 여기 하드코딩 — 아니면 공격자가 ?api=evil 로
     //     verifier 를 탈취할 수 있다. (레포별 env: 이 레포 = staging 백엔드)
     (function () {
-      var API = 'https://itdasy-backend-staging-644329093453.asia-northeast3.run.app';
+      var API = 'https://itdasy-backend-prod-644329093453.asia-northeast3.run.app';
       var params = new URLSearchParams(window.location.search);
       function el(id) { return document.getElementById(id); }
       function fail(t, m) {
