@@ -17,15 +17,12 @@ Xcode → `ios/App/App/Info.plist` 에 다음 키 추가. 한국어는 UI 표시
 <key>NSMicrophoneUsageDescription</key>
 <string>음성으로 고객·매출·예약을 빠르게 기록하기 위해 마이크를 사용합니다. Use microphone for voice-based quick recording of customers, revenue, and bookings.</string>
 
-<key>NSFaceIDUsageDescription</key>
-<string>비밀번호 대신 Face ID 로 빠르게 로그인하기 위해 사용합니다. Use Face ID for fast login without typing password.</string>
-
 <key>NSContactsUsageDescription</key>
 <string>기존 고객 연락처를 불러와 잇데이 고객 목록으로 이전하기 위해 주소록에 접근합니다(선택). Import existing contacts to migrate to Itdasy customers (optional).</string>
-
-<key>NSUserTrackingUsageDescription</key>
-<string>잇데이는 사용자 추적을 하지 않습니다. 이 항목은 미사용. Itdasy does not track users.</string>
 ```
+
+현재 빌드는 Face ID 인증과 App Tracking Transparency 를 쓰지 않는다.
+`NSFaceIDUsageDescription` / `NSUserTrackingUsageDescription` 는 추가하지 않는다.
 
 ## 네트워크 권한 (App Transport Security)
 

@@ -87,7 +87,7 @@
 | Device ID | ❌ No (AdID/IDFA 미수집) | — | — | — |
 
 **중요:** 본 앱은 App Tracking Transparency를 통한 `IDFA` 접근을 요청하지 않습니다.
-`NSUserTrackingUsageDescription` 은 선언됐으나 실제로 `ATTrackingManager.requestTrackingAuthorization` 호출 코드는 없음.
+`NSUserTrackingUsageDescription` 은 선언하지 않으며 `ATTrackingManager.requestTrackingAuthorization` 호출 코드도 없음.
 
 ### ✅ Purchases
 

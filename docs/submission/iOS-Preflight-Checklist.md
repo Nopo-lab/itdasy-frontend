@@ -55,11 +55,11 @@ npx cap sync ios
 ## 📋 3. Privacy Manifest 적용 (2024+ Apple 필수)
 
 ```bash
-# 이 레포의 docs/submission/PrivacyInfo.xcprivacy 를 Xcode 프로젝트에 추가
-cp docs/submission/PrivacyInfo.xcprivacy ios/App/App/PrivacyInfo.xcprivacy
+# 현재 레포에서는 이미 ios/App/App/PrivacyInfo.xcprivacy 가 Xcode 프로젝트에 포함돼 있다.
+test -f ios/App/App/PrivacyInfo.xcprivacy
 ```
 
-그 다음 Xcode 에서:
+새 iOS 프로젝트를 다시 만들었을 때만 Xcode 에서:
 - **File → Add Files to "App"** → `PrivacyInfo.xcprivacy` 선택 → **Add to targets: App**
 
 - [ ] 파일이 Xcode Project Navigator 에 보임
@@ -75,9 +75,10 @@ cp docs/submission/PrivacyInfo.xcprivacy ios/App/App/PrivacyInfo.xcprivacy
 - [ ] `NSPhotoLibraryUsageDescription`
 - [ ] `NSPhotoLibraryAddUsageDescription`
 - [ ] `NSMicrophoneUsageDescription`
-- [ ] `NSFaceIDUsageDescription`
 - [ ] `NSContactsUsageDescription`
-- [ ] `NSUserTrackingUsageDescription`
+
+현재 빌드는 Face ID 인증과 App Tracking Transparency 를 쓰지 않는다.
+`NSFaceIDUsageDescription` / `NSUserTrackingUsageDescription` 는 선언하지 않는다.
 
 ---
 
@@ -87,6 +88,15 @@ cp docs/submission/PrivacyInfo.xcprivacy ios/App/App/PrivacyInfo.xcprivacy
 
 - [ ] iOS에서 Google/카카오 버튼이 숨겨져 있는지 확인
 - [ ] Google/카카오를 노출하려면 Xcode/App ID 에 Sign in with Apple 추가
+
+---
+
+## 📋 5-1. Xcode Cloud 점검
+
+- [ ] `ci_scripts/ci_post_clone.sh` 가 `npm ci`, `npx cap sync ios`, `pod install --repo-update` 를 실행
+- [ ] `ci_scripts/ci_pre_xcodebuild.sh` 가 `Pods-App.release.xcconfig` 와 `PrivacyInfo.xcprivacy` 를 확인
+- [ ] Xcode Cloud 빌드 대상은 `ios/App/App.xcworkspace` 사용
+- [ ] 로컬/CI에서 `npm run preflight:ios-review` 통과
 
 ---
 

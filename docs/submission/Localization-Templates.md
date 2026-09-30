@@ -18,9 +18,7 @@ Xcode → `File → New → File... → Strings File` 로 생성 후 우측 Insp
 "NSPhotoLibraryUsageDescription" = "시술 전·후 사진을 포트폴리오에 추가하고 인스타그램에 발행하기 위해 사진첩에 접근합니다.";
 "NSPhotoLibraryAddUsageDescription" = "AI 가 생성한 스토리 이미지를 저장하기 위해 사진첩에 접근합니다.";
 "NSMicrophoneUsageDescription" = "음성으로 고객·매출·예약을 빠르게 기록하기 위해 마이크를 사용합니다.";
-"NSFaceIDUsageDescription" = "비밀번호 대신 Face ID 로 빠르게 로그인하기 위해 사용합니다.";
 "NSContactsUsageDescription" = "기존 고객 연락처를 불러와 잇데이 고객 목록으로 이전하기 위해 주소록에 접근합니다 (선택 사항).";
-"NSUserTrackingUsageDescription" = "잇데이는 사용자 추적을 하지 않습니다.";
 ```
 
 ### `ios/App/App/en.lproj/InfoPlist.strings`
@@ -33,9 +31,7 @@ Xcode → `File → New → File... → Strings File` 로 생성 후 우측 Insp
 "NSPhotoLibraryUsageDescription" = "Access your photo library to select treatment photos for portfolio and Instagram posts.";
 "NSPhotoLibraryAddUsageDescription" = "Save AI-generated story images to your photo library.";
 "NSMicrophoneUsageDescription" = "Use microphone for voice-based quick recording of customers, revenue, and bookings.";
-"NSFaceIDUsageDescription" = "Use Face ID for fast login without typing your password.";
 "NSContactsUsageDescription" = "Import existing contacts to migrate into your Itdasy customer list (optional).";
-"NSUserTrackingUsageDescription" = "Itdasy does not track users.";
 ```
 
 ### Project.pbxproj 에서 Localizations 활성화
