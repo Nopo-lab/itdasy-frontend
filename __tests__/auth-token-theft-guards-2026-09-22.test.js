@@ -98,8 +98,8 @@ describe('주소를 통한 로그인 값 유출 차단', () => {
   });
 
   test('웹 로그인 복귀는 다른 환경 로그인 칸에 값을 복제하지 않는다', () => {
-    expect(OAUTH_PAGE).toMatch(/itdasy_token::staging/);
-    expect(OAUTH_PAGE).not.toMatch(/itdasy_token::prod/);
+    expect(OAUTH_PAGE).toMatch(/itdasy_token::prod/);
+    expect(OAUTH_PAGE).not.toMatch(/itdasy_token::staging/);
   });
 
   test('웹 로그인 복귀 주소는 다른 사이트에 전달하지 않는다', () => {
